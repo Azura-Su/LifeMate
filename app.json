@@ -1,0 +1,88 @@
+{
+  "expo": {
+    "name": "LifeMate",
+    "slug": "lifemate",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "scheme": "lifemate",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "vn.mobifone.vnsteel",
+      "googleServicesFile": "./firebase/GoogleService-Info.plist",
+      "entitlements": {
+        "aps-environment": "development"
+      },
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "vn.mobifone.vnsteel",
+      "googleServicesFile": "./firebase/google-services.json",
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#F7F1DF"
+      }
+    },
+    "plugins": [
+      [
+        "@react-native-firebase/app",
+        {
+          "ios": {
+            "disableSPM": true
+          }
+        }
+      ],
+      "@react-native-firebase/auth",
+      "@react-native-firebase/messaging",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static",
+            "forceStaticLinking": [
+              "RNFBApp",
+              "RNFBAuth",
+              "RNFBRemoteConfig",
+              "RNFBMessaging",
+              "RNFBAnalytics"
+            ]
+          }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "lifemate",
+          "color": "#EAAE19",
+          "icon": "./assets/notification-icon.png"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F7F1DF",
+          "image": "./assets/icon.png",
+          "imageWidth": 160
+        }
+      ],
+      "expo-font",
+      [
+        "@react-native-firebase/analytics",
+        {
+          "ios": {
+            "withoutAdIdSupport": true
+          }
+        }
+      ]
+    ]
+  }
+}
