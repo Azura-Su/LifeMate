@@ -73,6 +73,7 @@ export function parseCloudTrack(
   if (!value || typeof value !== 'object') return null;
   const t = value as AudioMetadata;
   if (
+    typeof id !== 'string' ||
     !/^[a-zA-Z0-9_-]{1,128}$/.test(id) ||
     t.id !== id ||
     t.ownerId !== uid ||

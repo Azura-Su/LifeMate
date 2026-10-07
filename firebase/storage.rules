@@ -1,0 +1,14 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /audio/{uid}/{trackId}/{fileName} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && trackId.matches('^[a-zA-Z0-9_-]{1,128}$')
+        && fileName.matches('^' + trackId + '\\.(mp3|m4a|aac|wav|flac|ogg|opus|aif|aiff|caf)$')
+        && request.resource.size > 0 && request.resource.size <= 209715200
+        && request.resource.contentType.matches('^audio/(mpeg|mp4|aac|wav|flac|ogg|aiff|x-caf)$')
+        && request.resource.metadata.ownerId == uid;
+    }
+  }
+}
