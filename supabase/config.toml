@@ -1,0 +1,3 @@
+[functions.audio-access]
+# Firebase JWT is verified in the handler; it is not a Supabase-issued JWT.
+verify_jwt = false

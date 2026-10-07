@@ -14,6 +14,8 @@ module.exports = defineConfig([
       'modules/*/android/.gradle/**',
       'modules/*/android/.cxx/**',
       'server/node_modules/**',
+      'supabase/functions/node_modules/**',
+      'supabase/functions/audio-access/index.ts',
     ],
   },
 ]);
