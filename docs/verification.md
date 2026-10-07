@@ -1,5 +1,16 @@
 # Kiểm chứng LifeMate — 07/10/2026
 
+## Chuyển sang kho âm thanh miễn phí
+
+- Firebase Console: database `(default)` đã chuyển thành Firestore Native (database trống); project vẫn Spark $0. Firestore rules private theo UID đã publish lúc 22:48 ngày 07/10/2026, Console hiển thị phiên bản active mới và không còn unpublished changes. Firebase Storage cũ bị chặn vì yêu cầu nâng gói; không thay đổi billing.
+- App upload mới qua Supabase signed URL, metadata Firestore có provider; legacy backup giữ đường tải Firebase. Chưa có URL Supabase cấu hình nên app dùng thư viện trên máy và hiển thị hướng dẫn đúng trạng thái.
+- **69 Jest tests / 19 suites**, typecheck và lint đạt. Tests mới kiểm tra tắt cloud khi thiếu config, giới hạn 50 MB, đổi tài khoản trong lúc lấy token, chặn URL khác host/path, hủy native upload, tải private file, upload thất bại không ghi metadata và giữ provider khi đọc index.
+- **16 Node server tests** đạt, dùng chữ ký RS256 thật với khóa thử: sai audience/issuer/hết hạn/auth_time/UID/chữ ký bị chặn, path chỉ dựng từ UID xác minh; thử contract signed URL và upstream failure. Dependency server jose audit 0 vulnerabilities khi cài. Cùng code JS dùng trong Edge Function; Deno runtime/deployment chưa được xác minh trên Supabase thật.
+- Firebase emulators: **18 assertions** đạt, gồm quyền chủ tài khoản, từ chối khách/UID khác, provider và giới hạn file miễn phí. Log `.build/free-audio-rules.log`; emulator đã dừng.
+- Hermes bundles Android/iOS export thành công, log `.build/free-audio-bundle.log`. Không thêm native dependency; chưa dựng lại APK release preview cũ.
+- iPhone 17 Pro Max Simulator đang chạy bundle mới: thư viện vẫn giữ bản M4A 0,9 MB của người dùng; trạng thái chỉ trên máy, nút Sao lưu miễn phí disabled cùng lý do chưa kết nối. Làm mới không hiện banner Firebase cũ. Không đổi tên hoặc xóa file của người dùng.
+- Chưa tạo/deploy Supabase project: trang dashboard đang chờ chủ tài khoản đăng nhập/chấp nhận điều khoản. Chưa thử upload/download thực tế hoặc đồng bộ thiết bị thứ hai; không coi tích hợp cloud là đã hoạt động. Các bước còn lại ở [free-audio-storage.md](free-audio-storage.md).
+
 ## Bổ sung đặt tên âm thanh
 
 - TypeScript, ESLint và **58 tests / 18 suites** đều đạt. Tests xác minh tên tự đặt cho audio/video, từ chối tên rỗng/quá dài, đổi tên offline còn sau reload/refresh, chỉ ghi metadata cho audio đã sao lưu, giữ tên khi Firebase lỗi, cách ly tài khoản và dọn bản sao picker khi hủy/rời màn hình.

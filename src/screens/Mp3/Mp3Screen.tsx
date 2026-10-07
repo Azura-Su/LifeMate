@@ -16,6 +16,7 @@ import { AudioPlayer } from './AudioPlayer';
 import { AudioEditor } from './AudioEditor';
 import { AudioJobStatus } from './AudioJobStatus';
 import { styles } from './Mp3Screen.styles';
+import { audioCloudUrl } from '../../config/audioCloud';
 
 export function Mp3Screen() {
   const model = useMp3Screen();
@@ -58,6 +59,13 @@ export function Mp3Screen() {
           />
           <Text style={typography.small}>
             Chọn từ Tệp · tối đa 500 MB / 60 phút
+          </Text>
+        </View>
+        <View style={styles.notice}>
+          <Text style={typography.small}>
+            {audioCloudUrl()
+              ? 'Sao lưu miễn phí · tối đa 50 MB/file. Bản trên máy luôn được giữ để nghe, cắt và ghép.'
+              : 'Đang lưu trên máy. Kho sao lưu miễn phí chưa được kết nối; nghe, đổi tên, cắt và ghép vẫn dùng được.'}
           </Text>
         </View>
         {model.job && !model.editor && (

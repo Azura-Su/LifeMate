@@ -97,7 +97,7 @@ export function useAudioNaming({
           title,
         );
         assertAudioSession(uid, signal);
-        onMessage(result.warning ?? 'Đã lưu và sao lưu âm thanh lên Firebase.');
+        onMessage(result.warning ?? 'Đã lưu và sao lưu âm thanh vào thư viện riêng.');
       } else {
         const result = await renameAudio(
           pending.track,

@@ -1,4 +1,5 @@
 import type { DocumentPickerAsset } from 'expo-document-picker';
+import { audioBackupUnavailable } from '../../config/audioCloud';
 import * as FileSystem from 'expo-file-system/legacy';
 import { randomUUID } from 'expo-crypto';
 import engine from '../../../modules/lifemate-audio';
@@ -74,6 +75,8 @@ async function saveResult(
   );
   onSaved(track);
   assertAudioSession(uid, signal);
+  const unavailable = audioBackupUnavailable(track.sizeBytes);
+  if (unavailable) return { track, warning: `Đã lưu audio trên máy. ${unavailable}` };
   report({ label: 'Đã lưu trên máy · Đang đồng bộ…', progress: 0 });
   try {
     const synced = await uploadAudioTrack(track, signal, (progress) =>

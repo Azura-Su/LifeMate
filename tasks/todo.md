@@ -19,9 +19,16 @@
 - [x] A8. Ordered merge (editor/logic/tests): 2–10 segments, reorder, save output; verify duration/order. Depends A7.
 - [x] A9. Checkpoint: lint/typecheck/Jest/bundle, native builds/runtime, Firebase setup docs, APK preview. Ghi đúng giới hạn cloud thật.
 
-## Chờ quyền cloud
+## Kho âm thanh miễn phí — 07/10/2026
 
-- [ ] Cho phép truy cập trang đăng nhập Google, đối chiếu database/bucket và rules project `baseapp-dd227`, triển khai rules phù hợp, thử upload/download thật bằng tài khoản kiểm thử. Bộ duyệt tự động đã chặn chuyển hướng Firebase Console sang `accounts.google.com`; chưa thực hiện các thay đổi cloud.
+- [x] Đã vào Firebase Console, đối chiếu database và bucket; project Spark ($0).
+- [x] Chuyển database trống sang Firestore Native theo xác nhận của chủ tài khoản; Console xác nhận database sẵn sàng.
+- [x] Chuẩn bị Supabase Edge Function xác minh Firebase JWT, private bucket, giới hạn 50 MB/file; tests bảo vệ UID và token.
+- [x] App chuyển upload mới sang Supabase, download theo provider, metadata Firestore; local fallback không mất file/tên.
+- [x] Typecheck/lint, 69 Jest tests, 16 server tests, 18 emulator assertions, Hermes Android/iOS; UI Simulator hiển thị đúng local-only và giữ bản đã lưu.
+- [x] Firestore rules private theo UID xuất bản thành công lúc 22:48 theo xác nhận của chủ tài khoản.
+- [ ] Chủ tài khoản đăng nhập/tạo Supabase Free; deploy bucket/function, điền URL vào .env, thử upload/download thật và phân quyền hai tài khoản.
+- [ ] Push các thay đổi vào GitHub; các lần push trước bị lỗi server 500.
 
 ## Nền tảng đã hoàn tất
 

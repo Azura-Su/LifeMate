@@ -47,6 +47,25 @@ const { ref, uploadBytes, getBytes } = tool('firebase/storage');
       source: 'audio',
     };
     await assertSucceeds(setDoc(doc(owner.firestore(), path), data));
+    await assertSucceeds(
+      setDoc(doc(owner.firestore(), path), {
+        ...data,
+        storageProvider: 'supabase',
+      }),
+    );
+    await assertFails(
+      setDoc(doc(owner.firestore(), path), {
+        ...data,
+        storageProvider: 'public',
+      }),
+    );
+    await assertFails(
+      setDoc(doc(owner.firestore(), path), {
+        ...data,
+        storageProvider: 'supabase',
+        sizeBytes: 52428801,
+      }),
+    );
     await assertSucceeds(getDoc(doc(owner.firestore(), path)));
     await assertFails(getDoc(doc(other.firestore(), path)));
     await assertFails(getDoc(doc(guest.firestore(), path)));
@@ -88,7 +107,7 @@ const { ref, uploadBytes, getBytes } = tool('firebase/storage');
       uploadBytes(ref(owner.storage(), 'audio/u1/t1/t1.mp4'), bytes, metadata),
     );
     console.log(
-      'PASS: 15 owner-isolation, metadata and audio-only rules assertions',
+      'PASS: 18 owner-isolation, provider, size and audio-only rules assertions',
     );
   } finally {
     await env.cleanup();

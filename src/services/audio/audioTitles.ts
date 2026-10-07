@@ -27,7 +27,7 @@ export async function renameAudio(
     assertAudioSession(track.ownerId, signal);
     return {
       track: saved,
-      warning: `Đã đổi tên trên máy. Tên mới chưa được đồng bộ lên Firebase. ${audioError(error)}`,
+      warning: `Đã đổi tên trên máy. Tên mới chưa được đồng bộ lên đám mây. ${audioError(error)}`,
     };
   }
 }

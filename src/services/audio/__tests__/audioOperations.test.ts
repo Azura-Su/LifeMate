@@ -49,6 +49,8 @@ const track: AudioTrack = {
   synced: true,
 };
 beforeEach(() => {
+  process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://lifematetest.supabase.co';
+  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test';
   useAuthStore
     .getState()
     .setUser({ uid: 'u1', email: null, displayName: null });
@@ -61,6 +63,30 @@ beforeEach(() => {
     .mocked(uploadAudioTrack)
     .mockImplementation(async (t) => ({ ...t, synced: true }));
   jest.mocked(downloadAudioTrack).mockImplementation(async (t) => t);
+});
+afterEach(() => {
+  delete process.env.EXPO_PUBLIC_SUPABASE_URL;
+  delete process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+});
+it('keeps a usable local result without attempting cloud upload when unconfigured', async () => {
+  delete process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const saved = jest.fn();
+  const result = await importAudio(
+    'u1',
+    asset,
+    new AbortController().signal,
+    jest.fn(),
+    saved,
+    'Bản của tôi',
+  );
+  expect(result.track).toMatchObject({
+    local: true,
+    synced: false,
+    title: 'Bản của tôi',
+  });
+  expect(result.warning).toContain('chưa được kết nối');
+  expect(uploadAudioTrack).not.toHaveBeenCalled();
+  expect(saved).toHaveBeenCalledWith(result.track);
 });
 it('preserves MP3 bytes without invoking the converter and saves before reporting a cloud failure', async () => {
   jest.mocked(uploadAudioTrack).mockRejectedValue(new Error('Offline'));

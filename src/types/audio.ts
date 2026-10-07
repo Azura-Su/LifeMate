@@ -9,6 +9,8 @@ export type AudioMetadata = {
   sizeBytes: number;
   createdAt: number;
   source: AudioSource;
+  // Missing on legacy backups stored in Firebase Storage.
+  storageProvider?: 'supabase';
 };
 export type AudioTrack = AudioMetadata & {
   synced: boolean;

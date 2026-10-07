@@ -13,6 +13,7 @@ import {
 import { assertAudioSession } from '../../services/audio/audioSession';
 import { editAudio } from '../../services/audio/audioOperations';
 import { useAudioNaming } from './useAudioNaming';
+import { audioCloudUrl } from '../../config/audioCloud';
 import {
   downloadAudioTrack,
   fetchCloudTracks,
@@ -46,6 +47,13 @@ export function useMp3Screen() {
 
   const refresh = useCallback(async () => {
     if (!uid || activeJob.current) return;
+    if (
+      !audioCloudUrl() &&
+      !useAudioStore.getState().tracks.some((track) => track.synced)
+    ) {
+      setError(null);
+      return;
+    }
     refreshController.current?.abort();
     const controller = new AbortController();
     refreshController.current = controller;
@@ -141,14 +149,15 @@ export function useMp3Screen() {
       report({
         label: track.synced
           ? 'Đang đồng bộ tên…'
-          : 'Đang sao lưu audio lên Firebase…',
+          : 'Đang sao lưu audio lên kho miễn phí…',
         progress: null,
       });
       const saved = await uploadAudioTrack(track, signal, (progress) =>
-        report({ label: 'Đang sao lưu audio lên Firebase…', progress }),
+        report({ label: 'Đang sao lưu audio lên kho miễn phí…', progress }),
       );
       onSaved(saved);
-      if (alive.current) setMessage('Đã đồng bộ audio lên Firebase.');
+      if (alive.current)
+        setMessage('Đã sao lưu âm thanh vào thư viện riêng trên đám mây.');
     });
 
   const play = (track: AudioTrack, startMs = 0, endMs = track.durationMs) =>

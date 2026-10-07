@@ -106,6 +106,7 @@ export function parseCloudTrack(
     !Number.isFinite(t.sizeBytes) ||
     t.sizeBytes <= 0 ||
     t.sizeBytes > MAX_AUDIO_BYTES ||
+    (t.storageProvider !== undefined && t.storageProvider !== 'supabase') ||
     !Number.isFinite(t.createdAt) ||
     t.createdAt < 0 ||
     !['audio', 'video', 'trim', 'merge'].includes(t.source)
@@ -121,6 +122,7 @@ export function parseCloudTrack(
     sizeBytes: t.sizeBytes,
     createdAt: t.createdAt,
     source: t.source,
+    ...(t.storageProvider === 'supabase' ? { storageProvider: 'supabase' } : {}),
   };
 }
 
@@ -133,9 +135,9 @@ export function audioError(error: unknown): string {
   if (/unauth|permission|unauthorized/i.test(code))
     return 'Chưa có quyền truy cập Firebase. Kiểm tra đăng nhập và quy tắc thư viện.';
   if (/bucket|quota|billing|project-not-found/i.test(code))
-    return 'Firebase Storage chưa sẵn sàng. Kiểm tra bucket và gói Blaze; audio vẫn được giữ trên máy.';
+    return 'Kho lưu trữ cũ chưa truy cập được. Các bản audio trên máy vẫn được giữ nguyên.';
   if (/network|unavailable|retry-limit|timeout/i.test(code))
-    return 'Chưa kết nối được Firebase. Bạn vẫn có thể nghe, cắt và ghép audio đã lưu trên máy.';
+    return 'Chưa kết nối được thư viện trên đám mây. Bạn vẫn có thể nghe, cắt và ghép audio đã lưu trên máy.';
   return error instanceof Error
     ? error.message
     : 'Không thể xử lý âm thanh. Vui lòng thử lại.';

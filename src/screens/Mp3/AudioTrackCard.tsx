@@ -5,6 +5,7 @@ import { colors, typography } from '../../theme';
 import type { AudioTrack } from '../../types/audio';
 import { formatAudioTime } from '../../utils/audio';
 import { styles } from './Mp3Screen.styles';
+import { audioBackupUnavailable } from '../../config/audioCloud';
 
 type Props = {
   track: AudioTrack;
@@ -18,6 +19,9 @@ type Props = {
 };
 export function AudioTrackCard(props: Props) {
   const { track, position, busy } = props;
+  const unavailable = track.synced
+    ? null
+    : audioBackupUnavailable(track.sizeBytes);
   const actions = [
     { icon: 'play' as const, title: 'Nghe', onPress: props.onPlay },
     { icon: 'scissors' as const, title: 'Cắt', onPress: props.onTrim },
@@ -56,7 +60,7 @@ export function AudioTrackCard(props: Props) {
           ? '○ Chỉ trên máy'
           : track.pendingTitle
             ? '○ Tên mới chờ đồng bộ'
-            : '✓ Đã sao lưu trên Firebase'}
+            : '✓ Đã sao lưu trên đám mây'}
       </Text>
       <View style={styles.actions}>
         {actions.map((action) => (
@@ -76,17 +80,15 @@ export function AudioTrackCard(props: Props) {
       {(!track.synced || track.pendingTitle) && (
         <>
           <Button
-            title={
-              track.synced ? 'Đồng bộ tên lên Firebase' : 'Sao lưu lên Firebase'
-            }
+            title={track.synced ? 'Đồng bộ tên' : 'Sao lưu miễn phí'}
             variant="secondary"
-            disabled={busy}
+            disabled={busy || !!unavailable}
             onPress={props.onSync}
           />
           {!track.synced && (
             <Text style={typography.small}>
-              Lưu bản sao để tải lại trên thiết bị khác khi đăng nhập cùng tài
-              khoản.
+              {unavailable ??
+                'Lưu bản sao riêng để tải lại trên thiết bị khác khi đăng nhập cùng tài khoản.'}
             </Text>
           )}
         </>

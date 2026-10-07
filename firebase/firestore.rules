@@ -5,7 +5,9 @@ service cloud.firestore {
     match /audioLibraries/{uid}/tracks/{trackId} {
       allow read, delete: if owns(uid);
       allow create, update: if owns(uid)
-        && request.resource.data.keys().hasOnly(['id', 'ownerId', 'title', 'fileName', 'mimeType', 'durationMs', 'sizeBytes', 'createdAt', 'source'])
+        && request.resource.data.keys().hasOnly(['id', 'ownerId', 'title', 'fileName', 'mimeType', 'durationMs', 'sizeBytes', 'createdAt', 'source', 'storageProvider'])
+        && (!('storageProvider' in request.resource.data) || request.resource.data.storageProvider == 'supabase')
+        && (!('storageProvider' in request.resource.data) || request.resource.data.sizeBytes <= 52428800)
         && request.resource.data.id == trackId
         && request.resource.data.ownerId == uid
         && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 120

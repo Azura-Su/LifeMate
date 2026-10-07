@@ -7,7 +7,6 @@ import {
 } from '@react-native-firebase/firestore';
 import {
   getStorage,
-  putFile,
   ref,
   writeToFile,
   type Task,
@@ -16,6 +15,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import type { AudioTrack } from '../../types/audio';
 import { parseCloudTrack, trackStoragePath } from '../../utils/audio';
 import { abortable, assertAudioSession } from '../audio/audioSession';
+import { downloadFreeAudio, uploadFreeAudio } from '../audio/freeAudioStorage';
 import {
   audioExists,
   audioLocalUri,
@@ -78,23 +78,17 @@ export async function uploadAudioTrack(
   onProgress: (progress: number) => void,
 ): Promise<AudioTrack> {
   assertAudioSession(track.ownerId, signal);
-  const metadata = parseCloudTrack(track.id, track, track.ownerId);
+  const candidate: AudioTrack = track.synced
+    ? track
+    : { ...track, storageProvider: 'supabase' };
+  const metadata = parseCloudTrack(track.id, candidate, track.ownerId);
   if (!metadata) throw new Error('Thông tin âm thanh không hợp lệ.');
   // Renaming an existing backup updates metadata without transferring the audio again.
   if (!track.synced) {
     if (!(await audioExists(track)))
       throw new Error('Không tìm thấy bản âm thanh trên máy để đồng bộ.');
     assertAudioSession(track.ownerId, signal);
-    // Firebase SDK transfers are authenticated. Do not create/share download token URLs.
-    const target = ref(getStorage(), trackStoragePath(track));
-    await waitForTransfer(
-      putFile(target, audioLocalUri(track), {
-        contentType: track.mimeType,
-        customMetadata: { ownerId: track.ownerId },
-      }),
-      signal,
-      onProgress,
-    );
+    await uploadFreeAudio(candidate, audioLocalUri(track), signal, onProgress);
   }
   assertAudioSession(track.ownerId, signal);
   await abortable(
@@ -106,7 +100,7 @@ export async function uploadAudioTrack(
     15000,
   );
   assertAudioSession(track.ownerId, signal);
-  const saved = { ...track, synced: true, pendingTitle: false };
+  const saved = { ...candidate, synced: true, pendingTitle: false };
   await updateAudioIndex(saved);
   return saved;
 }
@@ -127,11 +121,16 @@ export async function downloadAudioTrack(
   const partial = `${target}.partial`;
   try {
     assertAudioSession(track.ownerId, signal);
-    await waitForTransfer(
-      writeToFile(ref(getStorage(), trackStoragePath(track)), partial),
-      signal,
-      onProgress,
-    );
+    if (track.storageProvider === 'supabase') {
+      await downloadFreeAudio(track, partial, signal, onProgress);
+    } else {
+      // Read-only compatibility for backups created before the free-storage switch.
+      await waitForTransfer(
+        writeToFile(ref(getStorage(), trackStoragePath(track)), partial),
+        signal,
+        onProgress,
+      );
+    }
     assertAudioSession(track.ownerId, signal);
     const info = await FileSystem.getInfoAsync(partial);
     if (!info.exists || info.isDirectory || info.size !== track.sizeBytes)

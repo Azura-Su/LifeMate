@@ -1,8 +1,8 @@
 # LifeMate
 
-React Native cho Android/iOS, TypeScript, Expo Development Build, Firebase Auth + Remote Config + FCM + Storage/Firestore và Zustand. Tên ứng dụng **LifeMate**, iOS Bundle ID/Android package **`vn.mobifone.vnsteel`**, Firebase project **`baseapp-dd227`**.
+React Native cho Android/iOS, TypeScript, Expo Development Build, Firebase Auth + Remote Config + FCM + Firestore và Supabase Storage Free và Zustand. Tên ứng dụng **LifeMate**, iOS Bundle ID/Android package **`vn.mobifone.vnsteel`**, Firebase project **`baseapp-dd227`**.
 
-Tab MP3 có thư viện riêng theo tài khoản: nhập audio/video, tự tách tiếng của video trên máy, nghe/tua, cắt và nối nhiều đoạn theo thứ tự. Xem [cách dùng và thiết lập Firebase cho audio](docs/audio-library.md). Tích hợp cloud đã có trong mã nguồn; cần hoàn tất cấu hình trên Firebase Console trước khi đồng bộ thật.
+Tab MP3 có thư viện riêng theo tài khoản: nhập audio/video, tự tách tiếng của video trên máy, nghe/tua, cắt và nối nhiều đoạn theo thứ tự. Có thể đặt tên khi nhập và đổi tên file đã lưu. Xem [cách dùng](docs/audio-library.md) và [cấu hình kho miễn phí](docs/free-audio-storage.md). Code và Firestore rules đã tích hợp; sao lưu cloud thật đang chờ tạo project Supabase Free.
 
 ## Chạy ứng dụng
 
@@ -56,8 +56,8 @@ src/
     Mp3/                      màn thư viện, editor/player + các hook xử lý riêng
     Settings/                 SettingsScreen.tsx + useSettingsScreen.ts + styles
   hooks/                      lifecycle chung và profile selector
-  services/firebase/          auth, remote config, push, Storage/Firestore audio
-  services/audio/             lưu file/index local, import/edit, session guards
+  services/firebase/          auth, remote config, push, metadata Firestore
+  services/audio/             file/index local, import/edit, Supabase transfer, session guards
   store/                      auth, config, notification, audio (Zustand)
   utils/                      validate, parse JSON, chuẩn hóa email, resolve tên
   navigation/                 auth gate, tabs và route types
@@ -66,6 +66,7 @@ src/
   theme/                      màu và typography
   types/                      model dữ liệu
 modules/lifemate-audio/        native AVFoundation iOS / Media3 Android
+supabase/                     Edge Function xác thực Firebase, bucket private, tests
 firebase/                     native configs, sample users, audio rules/emulators
 tests/fixtures/audio/         audio/video tổng hợp cho kiểm thử native
 server/                       Firebase Admin push tool độc lập

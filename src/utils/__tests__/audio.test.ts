@@ -73,6 +73,10 @@ it('keeps existing audio formats and rejects unsupported files', () => {
   expect(audioFileType('song.wav')?.mimeType).toBe('audio/wav');
   expect(audioFileType('clip.mp4')).toBeNull();
 });
+it('preserves the free-storage provider through persisted metadata and rejects unknown providers', () => {
+  expect(parseCloudTrack('t1', { ...track, storageProvider: 'supabase' }, 'u1')).toMatchObject({ storageProvider: 'supabase' });
+  expect(parseCloudTrack('t1', { ...track, storageProvider: 'public' }, 'u1')).toBeNull();
+});
 
 it('explains a disabled Firestore API when the SDK provides that cause', () => {
   const error = Object.assign(
