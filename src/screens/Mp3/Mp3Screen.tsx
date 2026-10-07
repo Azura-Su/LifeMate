@@ -9,7 +9,8 @@ import Feather from '@expo/vector-icons/Feather';
 import { Screen } from '../../components/Screen';
 import { Button } from '../../components/Button';
 import { colors, typography } from '../../theme';
-import { formatAudioTime } from '../../utils/audio';
+import { AudioTrackCard } from './AudioTrackCard';
+import { AudioNameDialog } from './AudioNameDialog';
 import { useMp3Screen } from './useMp3Screen';
 import { AudioPlayer } from './AudioPlayer';
 import { AudioEditor } from './AudioEditor';
@@ -62,7 +63,7 @@ export function Mp3Screen() {
         {model.job && !model.editor && (
           <AudioJobStatus job={model.job} onCancel={model.cancel} />
         )}
-        {model.error && !model.editor && (
+        {model.error && !model.editor && !model.naming.draft && (
           <View style={styles.notice}>
             <Text accessibilityRole="alert" style={styles.error}>
               {model.error}
@@ -92,7 +93,7 @@ export function Mp3Screen() {
             accessibilityRole="button"
             accessibilityLabel="Làm mới thư viện"
             onPress={() => void model.refresh()}
-            disabled={model.cloudLoading}
+            disabled={model.cloudLoading || !!model.job}
             style={styles.icon}
           >
             <Feather name="refresh-cw" size={20} color={colors.green} />
@@ -126,78 +127,19 @@ export function Mp3Screen() {
           </View>
         ) : (
           <View style={styles.list}>
-            {model.tracks.map((track) => {
-              const position = model.selected.indexOf(track.id);
-              return (
-                <View
-                  key={track.id}
-                  style={[styles.track, position >= 0 && styles.trackSelected]}
-                >
-                  <View style={styles.row}>
-                    <Pressable
-                      accessibilityRole="checkbox"
-                      accessibilityLabel={`Chọn ${track.title} để ghép`}
-                      accessibilityState={{
-                        checked: position >= 0,
-                        disabled: !!model.job,
-                      }}
-                      onPress={() => model.toggleSelect(track.id)}
-                      disabled={!!model.job}
-                      style={styles.icon}
-                    >
-                      {position >= 0 ? (
-                        <Text style={styles.order}>{position + 1}</Text>
-                      ) : (
-                        <Feather name="square" size={23} color={colors.muted} />
-                      )}
-                    </Pressable>
-                    <View style={styles.flex}>
-                      <Text style={styles.trackTitle} numberOfLines={2}>
-                        {track.title}
-                      </Text>
-                      <Text style={typography.small}>
-                        {formatAudioTime(track.durationMs)} ·{' '}
-                        {track.fileName.split('.').pop()?.toUpperCase()} ·{' '}
-                        {(track.sizeBytes / 1048576).toFixed(1)} MB
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.row}>
-                    <Text style={[styles.sync, styles.flex]}>
-                      {track.synced ? '✓ Đã đồng bộ' : '○ Chỉ trên máy'}
-                    </Text>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Nghe ${track.title}`}
-                      disabled={!!model.job}
-                      onPress={() => void model.play(track)}
-                      style={styles.action}
-                    >
-                      <Feather name="play" size={18} color={colors.green} />
-                      <Text style={styles.actionText}>Nghe</Text>
-                    </Pressable>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Cắt ${track.title}`}
-                      disabled={!!model.job}
-                      onPress={() => model.openEditor([track])}
-                      style={styles.action}
-                    >
-                      <Feather name="scissors" size={18} color={colors.green} />
-                      <Text style={styles.actionText}>Cắt</Text>
-                    </Pressable>
-                  </View>
-                  {!track.synced && (
-                    <Button
-                      title="Đồng bộ lại"
-                      variant="secondary"
-                      disabled={!!model.job}
-                      onPress={() => void model.sync(track)}
-                    />
-                  )}
-                </View>
-              );
-            })}
+            {model.tracks.map((track) => (
+              <AudioTrackCard
+                key={track.id}
+                track={track}
+                position={model.selected.indexOf(track.id)}
+                busy={!!model.job}
+                onSelect={() => model.toggleSelect(track.id)}
+                onPlay={() => void model.play(track)}
+                onTrim={() => model.openEditor([track])}
+                onRename={() => model.rename(track)}
+                onSync={() => void model.sync(track)}
+              />
+            ))}
           </View>
         )}
         <Text style={typography.small}>
@@ -205,6 +147,16 @@ export function Mp3Screen() {
           và giữ nguyên bản gốc.
         </Text>
       </Screen>
+      {model.naming.draft && (
+        <AudioNameDialog
+          initialTitle={model.naming.draft.title}
+          renaming={model.naming.draft.kind === 'rename'}
+          busy={!!model.job}
+          error={model.error}
+          onSave={(title) => void model.naming.save(title)}
+          onClose={model.naming.close}
+        />
+      )}
       {model.editor && (
         <AudioEditor
           initial={model.editor}

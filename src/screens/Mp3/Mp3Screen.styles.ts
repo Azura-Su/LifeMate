@@ -65,6 +65,7 @@ export const styles = StyleSheet.create({
     gap: 6,
     alignItems: 'center',
   },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   actionText: { color: colors.green, fontWeight: '600' },
   sync: { fontSize: 12, color: colors.green },
   selection: {

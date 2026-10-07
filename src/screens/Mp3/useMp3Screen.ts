@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import * as DocumentPicker from 'expo-document-picker';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useAuthStore } from '../../store/authStore';
 import { useAudioStore } from '../../store/audioStore';
@@ -12,7 +11,8 @@ import {
   mergeAudioIndex,
 } from '../../services/audio/audioFiles';
 import { assertAudioSession } from '../../services/audio/audioSession';
-import { editAudio, importAudio } from '../../services/audio/audioOperations';
+import { editAudio } from '../../services/audio/audioOperations';
+import { useAudioNaming } from './useAudioNaming';
 import {
   downloadAudioTrack,
   fetchCloudTracks,
@@ -45,7 +45,7 @@ export function useMp3Screen() {
   const playbackKey = useRef(0);
 
   const refresh = useCallback(async () => {
-    if (!uid) return;
+    if (!uid || activeJob.current) return;
     refreshController.current?.abort();
     const controller = new AbortController();
     refreshController.current = controller;
@@ -107,6 +107,9 @@ export function useMp3Screen() {
     if (!uid || activeJob.current) return;
     const controller = new AbortController();
     activeJob.current = controller;
+    // A response started before a rename must not overwrite its new title.
+    refreshController.current?.abort();
+    setCloudLoading(false);
     setPlayback(null);
     setError(null);
     setMessage(null);
@@ -125,31 +128,24 @@ export function useMp3Screen() {
     }
   }
 
-  const addFile = () =>
-    run(async (signal) => {
-      if (!uid) return;
-      report({ label: 'Chọn file audio hoặc video…', progress: null });
-      const picked = await DocumentPicker.getDocumentAsync({
-        type: ['audio/*', 'video/*'],
-        copyToCacheDirectory: true,
-        multiple: false,
-      });
-      if (picked.canceled) return;
-      const result = await importAudio(
-        uid,
-        picked.assets[0],
-        signal,
-        report,
-        onSaved,
-      );
-      if (alive.current)
-        setMessage(result.warning ?? 'Đã lưu và đồng bộ âm thanh.');
-    });
+  const naming = useAudioNaming({
+    uid,
+    run,
+    report,
+    onSaved,
+    onMessage: setMessage,
+  });
 
   const sync = (track: AudioTrack) =>
     run(async (signal) => {
+      report({
+        label: track.synced
+          ? 'Đang đồng bộ tên…'
+          : 'Đang sao lưu audio lên Firebase…',
+        progress: null,
+      });
       const saved = await uploadAudioTrack(track, signal, (progress) =>
-        report({ label: 'Đang đồng bộ audio…', progress }),
+        report({ label: 'Đang sao lưu audio lên Firebase…', progress }),
       );
       onSaved(saved);
       if (alive.current) setMessage('Đã đồng bộ audio lên Firebase.');
@@ -234,7 +230,14 @@ export function useMp3Screen() {
     selected,
     editor,
     playback,
-    addFile,
+    naming,
+    addFile: naming.chooseFile,
+    rename: (track: AudioTrack) => {
+      if (activeJob.current) return;
+      setError(null);
+      setPlayback(null);
+      naming.rename(track);
+    },
     sync,
     play,
     toggleSelect,

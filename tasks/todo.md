@@ -1,5 +1,12 @@
 # Công việc
 
+## Đặt tên âm thanh — 07/10/2026
+
+- [x] Đặt tên trước khi nhập audio/video; đổi tên audio đã lưu, không thay đổi file gốc.
+- [x] Giữ tên mới khi offline/làm mới thư viện; đổi tên bản đã sao lưu chỉ cập nhật metadata.
+- [x] Làm rõ sao lưu Firebase và kiểm thử nhập, hủy, đổi tên, tải lại dữ liệu.
+- Chẩn đoán từ Xcode: Firestore trả `Cloud Firestore API has not been used in project baseapp-dd227 before or it is disabled`. Cấu hình cloud thật vẫn cần được bật/kiểm chứng riêng.
+
 ## Audio — 07/10/2026
 
 - [x] A1. Types và validation (types/audio, utils/audio, tests): reject bounds, limits, remote paths; verify focused Jest.

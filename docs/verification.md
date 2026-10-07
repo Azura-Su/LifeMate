@@ -1,5 +1,12 @@
 # Kiểm chứng LifeMate — 07/10/2026
 
+## Bổ sung đặt tên âm thanh
+
+- TypeScript, ESLint và **58 tests / 18 suites** đều đạt. Tests xác minh tên tự đặt cho audio/video, từ chối tên rỗng/quá dài, đổi tên offline còn sau reload/refresh, chỉ ghi metadata cho audio đã sao lưu, giữ tên khi Firebase lỗi, cách ly tài khoản và dọn bản sao picker khi hủy/rời màn hình.
+- Hermes export cho Android và iOS thành công, log `.build/audio-names-bundle.log`. Không thay đổi native dependencies; APK preview ở phần kiểm chứng trước chưa được dựng lại cho thay đổi đặt tên này.
+- iPhone 17 Pro Max Simulator: reload bundle mới vẫn còn bản audio cũ; có nút **Đổi tên**, **Sao lưu lên Firebase** và hướng dẫn sao lưu. Đã mở hộp đổi tên, xác nhận tên rỗng bị chặn, trường nhập nhận tiếng Việt; hủy để giữ nguyên tên của người dùng. Chọn video bằng Files mở hộp **Đặt tên âm thanh** trước khi xử lý; hủy không nhập thêm audio. Các thao tác lưu/sync được kiểm thử tự động với I/O cloud mock, chưa thực hiện đồng bộ thật.
+- Chẩn đoán banner bằng log Xcode: Firestore trả `Permission denied: Cloud Firestore API has not been used in project baseapp-dd227 before or it is disabled`. Chưa thay đổi cấu hình cloud. Banner cụ thể được dùng khi SDK trả chi tiết này; `unavailable`/timeout vẫn báo chưa kết nối để không đoán sai nguyên nhân.
+
 ## Bộ phiên bản
 
 Expo 55.0.31, React Native 0.83.10, React 19.2.0, Firebase native modules 26.4.0, Zustand 5. Node 24.12.0; máy hiện tại Xcode 26.3, JDK 17, Android SDK 36.

@@ -4,11 +4,12 @@ Mỗi tài khoản Firebase có thư viện riêng. App lưu audio trên máy tr
 
 ## Cách sử dụng
 
-1. Đăng nhập, mở tab **MP3**, bấm **Chọn file audio hoặc video** và chọn file bằng trình chọn file hệ thống. Audio được giữ nguyên định dạng; video được tách track tiếng đầu tiên thành M4A/AAC ngay trên thiết bị. Chỉ audio được lưu vào thư viện và gửi lên Firebase. Video gốc trong máy của bạn vẫn nguyên vẹn.
+1. Đăng nhập, mở tab **MP3**, bấm **Chọn file audio hoặc video**, chọn file bằng trình chọn file hệ thống, nhập tên và bấm **Lưu âm thanh**. Tên có 1–120 ký tự, không cần nhập đuôi file. Bấm **Hủy** sẽ bỏ bản sao tạm vừa chọn. Audio được giữ nguyên định dạng; video được tách track tiếng đầu tiên thành M4A/AAC ngay trên thiết bị. Chỉ audio được lưu vào thư viện và gửi lên Firebase. Video gốc trong máy của bạn vẫn nguyên vẹn.
 2. Bấm **Nghe** để phát/dừng/tua. Nếu file mới chỉ có trên Firebase, app tải bản riêng về máy trước khi mở.
 3. Bấm **Cắt** trên một file, đặt tên bản mới và nhập điểm bắt đầu/kết thúc. Nhập số giây (ví dụ `12.5`) hoặc `phút:giây` (`1:02.5`). Dùng **Nghe thử đoạn** để nghe thử, rồi lưu.
 4. Đánh dấu các file theo thứ tự muốn nối, bấm **Ghép**. Trong màn chỉnh sửa, dùng mũi tên lên/xuống để đổi thứ tự; mỗi đoạn có khoảng cắt riêng. Đặt tên và lưu kết quả M4A mới. Các file gốc giữ nguyên.
-5. Nếu mất mạng hoặc Firebase chưa được cấu hình, bản đã nhập/xuất vẫn nằm trên máy, hiện **Chỉ trên máy**. Bấm nút đồng bộ lại sau khi có mạng/quyền Firebase. Nút làm mới tải lại danh sách cloud.
+5. Bấm **Đổi tên** trên một bản nghe rồi **Lưu tên**. Tên được lưu trên máy trước; nếu bản audio đã sao lưu, app chỉ cập nhật tên trên Firestore, không upload lại audio. Tên mới chưa đồng bộ vẫn được giữ khi mở lại app hoặc làm mới danh sách. Bấm **Đồng bộ tên lên Firebase** để thử lại nếu cần.
+6. Nếu mất mạng hoặc Firebase chưa được cấu hình, bản đã nhập/xuất vẫn nằm trên máy, hiện **Chỉ trên máy**. Nút **Sao lưu lên Firebase** (trước đây là “Đồng bộ lại”) gửi audio và thông tin lên Firebase để có thể tải lại trên thiết bị khác bằng cùng tài khoản. Nút làm mới chỉ tải lại danh sách cloud; không tự upload các bản còn trên máy.
 
 Giữ app mở khi nhập/xuất/upload; có tiến trình và nút hủy. Hủy đồng bộ sau khi đã lưu không xóa bản local. Chuyển tab dừng phát; đăng xuất hủy tác vụ và bỏ dữ liệu khỏi giao diện. Dữ liệu local vẫn được giữ theo UID để dùng khi đăng nhập lại. Gỡ app sẽ mất các bản chưa đồng bộ.
 
@@ -17,6 +18,8 @@ Giới hạn: input tối đa 500 MiB, audio lưu tối đa 200 MiB, mỗi file/
 ## Firebase thật: phần còn cần cấu hình
 
 Chưa triển khai rules hoặc kiểm thử upload/download vào project thật `baseapp-dd227`. Firebase CLI trên máy chưa đăng nhập. Lần mở Console bị bộ duyệt tự động chặn khi chuyển sang `accounts.google.com`; cần chủ tài khoản cho phép truy cập trang đăng nhập trước khi tiếp tục.
+
+Log Xcode ngày 07/10/2026 xác nhận Firestore trả `Cloud Firestore API has not been used in project baseapp-dd227 before or it is disabled`. Đây là lỗi cấu hình dịch vụ phía Firebase khi đọc danh sách; không phải lỗi file audio đã lưu. Banner kết nối chung có thể xuất hiện vì SDK chỉ trả `unavailable` hoặc request hết thời gian chờ. Nếu SDK trả thông tin API bị tắt, app hiển thị nguyên nhân cụ thể. Chưa xác minh trạng thái bucket Storage.
 
 1. Trong Firebase Console, xác nhận đúng project và bucket mặc định trong hai file Firebase client. Kiểm tra gói thanh toán: Cloud Storage yêu cầu Blaze, vẫn có mức sử dụng miễn phí theo điều kiện của Firebase. Chưa tự đổi gói hay liên kết thanh toán. [Yêu cầu chính thức](https://firebase.google.com/docs/storage/faqs-storage-changes-announced-sept-2024).
 2. Bật Cloud Firestore database `(default)` và Cloud Storage nếu chưa có, chọn vùng phù hợp. Auth Email/Password phải bật và có tài khoản thử nghiệm như hướng dẫn README.
