@@ -47,3 +47,12 @@ firebase/google-services.json
 # generated native folders
 /ios
 /android
+
+# Local Expo module build outputs
+/modules/*/android/build/
+/modules/*/android/.gradle/
+/modules/*/android/.cxx/
+firebase-debug.log
+firestore-debug.log
+storage-debug.log
+ui-debug.log

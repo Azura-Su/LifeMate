@@ -53,7 +53,9 @@
               "RNFBAuth",
               "RNFBRemoteConfig",
               "RNFBMessaging",
-              "RNFBAnalytics"
+              "RNFBAnalytics",
+              "RNFBStorage",
+              "RNFBFirestore"
             ]
           }
         }
@@ -81,6 +83,13 @@
           "ios": {
             "withoutAdIdSupport": true
           }
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false
         }
       ]
     ]

@@ -1,0 +1,21 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+group = 'vn.lifemate.audio'
+version = '1.0.0'
+android {
+  namespace 'vn.lifemate.audio'
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+    testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+  }
+  sourceSets.androidTest.assets.srcDirs += ['../../../tests/fixtures/audio']
+}
+dependencies {
+  // Match expo-audio SDK 55's Media3 version to keep one media runtime.
+  implementation 'androidx.media3:media3-transformer:1.8.0'
+  androidTestImplementation 'androidx.test:runner:1.6.2'
+  androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+}

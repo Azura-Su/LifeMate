@@ -1,0 +1,5 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": { "modules": ["LifeMateAudioModule"] },
+  "android": { "modules": ["vn.lifemate.audio.LifeMateAudioModule"] }
+}
