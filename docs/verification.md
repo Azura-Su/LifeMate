@@ -2,7 +2,7 @@
 
 ## Chuyển sang kho âm thanh miễn phí
 
-- Firebase Console: database `(default)` đã chuyển thành Firestore Native (database trống); project vẫn Spark $0. Firestore rules private theo UID đã publish lúc 22:48 ngày 07/10/2026, Console hiển thị phiên bản active mới và không còn unpublished changes. Firebase Storage cũ bị chặn vì yêu cầu nâng gói; không thay đổi billing.
+- Firebase Console: database `(default)` đã chuyển thành Firestore Native (database trống); project vẫn Spark $0. Firestore rules private theo UID đã publish lúc 22:48 ngày 07/10/2026. Rules Playground xác nhận guest bị từ chối và owner UID được đọc; emulator cũng đạt 18 kiểm tra. Firebase Storage cũ bị chặn vì yêu cầu nâng gói; không thay đổi billing.
 - App upload mới qua Supabase signed URL, metadata Firestore có provider; legacy backup giữ đường tải Firebase. Chưa có URL Supabase cấu hình nên app dùng thư viện trên máy và hiển thị hướng dẫn đúng trạng thái.
 - **69 Jest tests / 19 suites**, typecheck và lint đạt. Tests mới kiểm tra tắt cloud khi thiếu config, giới hạn 50 MB, đổi tài khoản trong lúc lấy token, chặn URL khác host/path, hủy native upload, tải private file, upload thất bại không ghi metadata và giữ provider khi đọc index.
 - **16 Node server tests** đạt, dùng chữ ký RS256 thật với khóa thử: sai audience/issuer/hết hạn/auth_time/UID/chữ ký bị chặn, path chỉ dựng từ UID xác minh; thử contract signed URL và upstream failure. Dependency server jose audit 0 vulnerabilities khi cài. Cùng code JS dùng trong Edge Function; Deno runtime/deployment chưa được xác minh trên Supabase thật.

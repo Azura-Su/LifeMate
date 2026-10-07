@@ -8,7 +8,7 @@ Supabase Free hiện có 1 GB lưu trữ, tối đa 50 MB/file, 5 GB egress; pro
 
 ## Contract
 
-`POST /functions/v1/audio-access`, Authorization: Bearer Firebase ID token. Body `{ action: 'upload' | 'download', id, fileName, mimeType, sizeBytes }`. Trả `{ url }` là signed URL. Function xác minh chữ ký RS256, issuer/audience đúng `baseapp-dd227`, hạn dùng và UID. Đường dẫn được dựng bằng UID đã xác minh; không nhận ownerId/path/bucket/URL từ client.
+`POST /functions/v1/audio-access`, header `apikey` là Supabase publishable key và `Authorization: Bearer` là Firebase ID token. Body `{ action: 'upload' | 'download', id, fileName, mimeType, sizeBytes }`. Trả `{ url }` là signed URL. Function xác minh chữ ký RS256, issuer/audience đúng `baseapp-dd227`, hạn dùng và UID. Đường dẫn được dựng bằng UID đã xác minh; không nhận ownerId/path/bucket/URL từ client.
 
 Bucket không public, không có policy cho anon/authenticated. Chỉ function giữ service-role secret; app không chứa khóa quản trị. Signed upload của Supabase hết hạn sau 2 giờ, signed download sau 5 phút. Không ghi URL/token vào Firestore, local index hay log. Firebase token bị thu hồi có thể còn hiệu lực tới khi hết hạn (tối đa khoảng 1 giờ); kiểm tra revocation cần tích hợp thêm Admin API.
 
