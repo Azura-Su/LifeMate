@@ -1,5 +1,11 @@
 # Kế hoạch LifeMate
 
+## Mở rộng đang thực hiện: audio (07/10/2026)
+
+Theo [SPEC-audio.md](../SPEC-audio.md): thư viện riêng theo UID; nối lần lượt đã được người dùng xác nhận. Thứ tự triển khai: validate/types → native inspect/export → local library và cloud rules → import/sync → player/editor → kiểm chứng và tài liệu. Cắt/ghép tạo file mới; audio gốc giữ nguyên, video chỉ được xử lý local. Lưu local trước upload để tránh mất kết quả khi mạng/billing chưa sẵn sàng. iOS AVFoundation và Android Media3 xuất AAC/M4A; audio nhập sẵn không chuyển mã.
+
+Điểm kiểm chứng chính: native export thật với fixture, test sync lỗi vẫn giữ local, test đổi UID/hủy job, rules owner isolation, UI import → list → cắt/ghép → mở lại. Firebase production còn phụ thuộc quyền truy cập Console và gói Blaze; không tự nâng gói.
+
 ## Mục tiêu
 
 Ứng dụng React Native Android/iOS, tên LifeMate, ảnh người dùng cung cấp làm avatar/icon, bundle ID iOS và Android package `vn.mobifone.vnsteel`. Firebase project lấy từ hai file cấu hình được cung cấp: `baseapp-dd227`.
