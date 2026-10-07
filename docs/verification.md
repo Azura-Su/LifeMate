@@ -58,3 +58,13 @@ Remote Config kéo theo peer Analytics. `firebase.json` tắt auto collection/Ad
 - iOS audio build đã cài và mở trên iPhone 17 Pro Max Simulator (iOS 26.3), hiển thị Login hoàn chỉnh. Screenshot `.build/screenshots/audio-login-ios.png`. Không reset hoặc xóa dữ liệu simulator. Android mở lại trả `Status: ok`.
 
 Firebase CLI chưa có tài khoản đăng nhập. Mở Firebase Console bị bộ duyệt tự động từ chối khi chuyển sang `accounts.google.com`. Chưa thực hiện thiết lập database/bucket, triển khai rules hoặc thay đổi billing trên project thật; chưa xác nhận trạng thái hiện tại của các dịch vụ này. Chưa xác nhận đồng bộ giữa hai thiết bị hoặc import/edit qua UI sau login thật. [Hướng dẫn hoàn tất cloud và chạy lại tests](audio-library.md).
+
+## Khôi phục phiên build Xcode bị kẹt
+
+Ngày 07/10/2026, Xcode GUI báo `unable to initiate PIF transfer session (operation in progress?)` ngay ở bước `ComputePackagePrebuildTargetDependencyGraph`, trong khi bản Release dựng bằng CLI đã thành công. Workspace đang mở đúng `ios/LifeMate.xcworkspace`; dịch vụ `SWBBuildService` của Xcode đã chạy từ trước các lần cập nhật CocoaPods/native modules.
+
+Sau khi xác nhận không có build đang chạy, dừng đúng process `SWBBuildService` thuộc Xcode bằng SIGTERM để Xcode tự tạo dịch vụ mới, rồi **Product → Build (⌘B)**. Lần build tiếp theo đi qua dependency graph và **Build succeeded** lúc 18:07, cấu hình Debug, iPhone 17 Pro Max Simulator, 374,7 giây. Không sửa source ứng dụng, không xóa DerivedData/Pods hoặc cache dùng chung. Bằng chứng phù hợp với một phiên build service bị kẹt; chưa xác định được tác nhân nội bộ gây kẹt trong Xcode.
+
+Tiếp tục **Run (⌘R)**: lần build kế tiếp cũng qua dependency graph, Xcode báo **Running LifeMate on iPhone 17 Pro Max**. Sau khi tải bundle từ Metro, Simulator hiển thị tab **Thư viện MP3** với nút chọn audio/video, danh sách trống và ba tab điều hướng; không còn lỗi thiếu `ExpoDocumentPicker` của binary Debug cũ. Banner chưa kết nối được Firebase vẫn hiện; chưa kiểm chứng upload/download cloud thật.
+
+Nếu gặp lại: kết thúc build đang chạy, đóng/mở lại workspace/Xcode trước khi thử build; nếu cần reset build service, chỉ thực hiện khi không còn build khác. Không chạy prebuild hoặc `pod install` đồng thời với build trong Xcode. Sau khi thêm dependency native, cần build và cài lại app; chỉ reload Metro sẽ không bổ sung module native vào binary cũ.
