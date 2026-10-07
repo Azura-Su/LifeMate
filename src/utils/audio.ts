@@ -23,6 +23,22 @@ export function audioFileType(name: string) {
   return mimeType ? { extension, mimeType } : null;
 }
 
+export function defaultAudioTitle(fileName: string) {
+  return (
+    fileName
+      .replace(/\.[^.]+$/, '')
+      .trim()
+      .slice(0, 120) || 'Âm thanh mới'
+  );
+}
+
+export function normalizeAudioTitle(value: string) {
+  const title = value.trim();
+  if (!title || title.length > 120)
+    throw new Error('Tên bản audio phải có từ 1 đến 120 ký tự.');
+  return title;
+}
+
 export function parseAudioTime(value: string): number | null {
   const text = value.trim().replace(',', '.');
   if (!/^(?:\d+:)?\d+(?:\.\d{1,3})?$/.test(text)) return null;
@@ -110,13 +126,16 @@ export function parseCloudTrack(
 
 export function audioError(error: unknown): string {
   const code = (error as { code?: string })?.code ?? '';
+  const detail = error instanceof Error ? error.message : '';
   if (/cancell?ed/i.test(code)) return 'Đã hủy thao tác.';
+  if (/Cloud Firestore API has not been used|SERVICE_DISABLED/i.test(detail))
+    return 'Cloud Firestore chưa được bật cho dự án Firebase. Cần bật dịch vụ để dùng thư viện trên đám mây.';
   if (/unauth|permission|unauthorized/i.test(code))
     return 'Chưa có quyền truy cập Firebase. Kiểm tra đăng nhập và quy tắc thư viện.';
   if (/bucket|quota|billing|project-not-found/i.test(code))
     return 'Firebase Storage chưa sẵn sàng. Kiểm tra bucket và gói Blaze; audio vẫn được giữ trên máy.';
   if (/network|unavailable|retry-limit|timeout/i.test(code))
-    return 'Chưa kết nối được Firebase. Audio đã lưu trên máy có thể đồng bộ lại sau.';
+    return 'Chưa kết nối được Firebase. Bạn vẫn có thể nghe, cắt và ghép audio đã lưu trên máy.';
   return error instanceof Error
     ? error.message
     : 'Không thể xử lý âm thanh. Vui lòng thử lại.';

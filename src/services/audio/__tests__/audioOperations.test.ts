@@ -114,6 +114,27 @@ it('rejects silent videos before saving or uploading', async () => {
   ).rejects.toThrow('không có âm thanh');
   expect(saveAudioFile).not.toHaveBeenCalled();
 });
+it.each([false, true])(
+  'saves the chosen name for audio/video (video=%s) without changing format detection',
+  async (hasVideo) => {
+    jest.mocked(engine.inspect).mockResolvedValueOnce({ ...info, hasVideo });
+    await importAudio(
+      'u1',
+      asset,
+      new AbortController().signal,
+      jest.fn(),
+      jest.fn(),
+      '  Nhạc thư giãn  ',
+    );
+    expect(saveAudioFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Nhạc thư giãn',
+        fileName: hasVideo ? 'new-id.m4a' : 'new-id.mp3',
+      }),
+      hasVideo ? 'file:///cache/output.m4a' : asset.uri,
+    );
+  },
+);
 it('keeps the chosen segment order and boundaries when merging', async () => {
   const other = { ...track, id: 'b', fileName: 'b.wav', mimeType: 'audio/wav' };
   await editAudio(

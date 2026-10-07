@@ -4,6 +4,7 @@ import {
   validateSegments,
   parseCloudTrack,
   audioFileType,
+  audioError,
 } from '../audio';
 
 const track = {
@@ -71,4 +72,17 @@ it('keeps existing audio formats and rejects unsupported files', () => {
   });
   expect(audioFileType('song.wav')?.mimeType).toBe('audio/wav');
   expect(audioFileType('clip.mp4')).toBeNull();
+});
+
+it('explains a disabled Firestore API when the SDK provides that cause', () => {
+  const error = Object.assign(
+    new Error(
+      'Cloud Firestore API has not been used in project example before or it is disabled.',
+    ),
+    { code: 'firestore/permission-denied' },
+  );
+  expect(audioError(error)).toContain('Cloud Firestore chưa được bật');
+  expect(audioError({ code: 'firestore/unavailable' })).toContain(
+    'audio đã lưu trên máy',
+  );
 });

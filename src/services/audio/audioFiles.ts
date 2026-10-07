@@ -1,7 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import type { AudioTrack } from '../../types/audio';
-import { MAX_AUDIO_BYTES, parseCloudTrack } from '../../utils/audio';
+import {
+  MAX_AUDIO_BYTES,
+  normalizeAudioTitle,
+  parseCloudTrack,
+} from '../../utils/audio';
 
 const queues = new Map<string, Promise<unknown>>();
 const indexKey = (uid: string) => `lifemate:audio:v1:${uid}`;
@@ -33,6 +37,7 @@ export async function readAudioIndex(uid: string): Promise<AudioTrack[]> {
             ...record,
             local: value.local === true,
             synced: value.synced === true,
+            ...(value.pendingTitle === true ? { pendingTitle: true } : {}),
           },
         ]
       : [];
@@ -68,6 +73,20 @@ export function updateAudioIndex(track: AudioTrack): Promise<AudioTrack[]> {
   ]);
 }
 
+export async function renameAudioTitle(uid: string, id: string, value: string) {
+  const title = normalizeAudioTitle(value);
+  const updated = await writeAudioIndex(uid, (tracks) => {
+    if (!tracks.some((track) => track.id === id))
+      throw new Error('Không tìm thấy âm thanh trong thư viện của bạn.');
+    return tracks.map((track) =>
+      track.id === id && track.title !== title
+        ? { ...track, title, pendingTitle: true }
+        : track,
+    );
+  });
+  return updated.find((track) => track.id === id)!;
+}
+
 export function mergeAudioIndex(
   uid: string,
   remote: AudioTrack[],
@@ -75,10 +94,14 @@ export function mergeAudioIndex(
   return writeAudioIndex(uid, (tracks) => {
     const merged = new Map(tracks.map((track) => [track.id, track]));
     for (const track of remote) {
+      const existing = merged.get(track.id);
       if (track.ownerId === uid)
         merged.set(track.id, {
           ...track,
-          local: merged.get(track.id)?.local ?? false,
+          local: existing?.local ?? false,
+          ...(existing?.pendingTitle
+            ? { title: existing.title, pendingTitle: true }
+            : {}),
         });
     }
     return [...merged.values()];

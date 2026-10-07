@@ -3,6 +3,7 @@ import {
   readAudioIndex,
   updateAudioIndex,
   mergeAudioIndex,
+  renameAudioTitle,
 } from '../audioFiles';
 import type { AudioTrack } from '../../../types/audio';
 
@@ -61,4 +62,30 @@ it('merges a cloud listing without losing offline audio or the local availabilit
     synced: false,
     local: true,
   });
+});
+
+it('persists a renamed title across reloads and keeps it over a stale cloud listing', async () => {
+  const cloud = { ...item, synced: true, local: false };
+  await updateAudioIndex(cloud);
+  await renameAudioTitle('u1', item.id, '  Buổi sáng / bình yên  ');
+  const [renamed] = await mergeAudioIndex('u1', [cloud]);
+  expect(renamed).toMatchObject({
+    title: 'Buổi sáng / bình yên',
+    fileName: 'a.mp3',
+    synced: true,
+    local: false,
+    pendingTitle: true,
+  });
+  expect(await readAudioIndex('u1')).toEqual([renamed]);
+  expect(await readAudioIndex('u2')).toEqual([]);
+});
+
+it('rejects invalid titles and missing records without losing the original', async () => {
+  await updateAudioIndex(item);
+  await expect(renameAudioTitle('u1', 'a', '  ')).rejects.toThrow('1 đến 120');
+  await expect(renameAudioTitle('u1', 'a', 'a'.repeat(121))).rejects.toThrow(
+    '1 đến 120',
+  );
+  await expect(renameAudioTitle('u2', 'a', 'New')).rejects.toThrow();
+  expect(await readAudioIndex('u1')).toEqual([item]);
 });

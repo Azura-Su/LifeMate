@@ -79,19 +79,23 @@ export async function uploadAudioTrack(
 ): Promise<AudioTrack> {
   assertAudioSession(track.ownerId, signal);
   const metadata = parseCloudTrack(track.id, track, track.ownerId);
-  if (!metadata || !(await audioExists(track)))
-    throw new Error('Không tìm thấy bản âm thanh trên máy để đồng bộ.');
-  assertAudioSession(track.ownerId, signal);
-  // Firebase SDK transfers are authenticated. Do not create/share download token URLs.
-  const target = ref(getStorage(), trackStoragePath(track));
-  await waitForTransfer(
-    putFile(target, audioLocalUri(track), {
-      contentType: track.mimeType,
-      customMetadata: { ownerId: track.ownerId },
-    }),
-    signal,
-    onProgress,
-  );
+  if (!metadata) throw new Error('Thông tin âm thanh không hợp lệ.');
+  // Renaming an existing backup updates metadata without transferring the audio again.
+  if (!track.synced) {
+    if (!(await audioExists(track)))
+      throw new Error('Không tìm thấy bản âm thanh trên máy để đồng bộ.');
+    assertAudioSession(track.ownerId, signal);
+    // Firebase SDK transfers are authenticated. Do not create/share download token URLs.
+    const target = ref(getStorage(), trackStoragePath(track));
+    await waitForTransfer(
+      putFile(target, audioLocalUri(track), {
+        contentType: track.mimeType,
+        customMetadata: { ownerId: track.ownerId },
+      }),
+      signal,
+      onProgress,
+    );
+  }
   assertAudioSession(track.ownerId, signal);
   await abortable(
     setDoc(
@@ -102,7 +106,7 @@ export async function uploadAudioTrack(
     15000,
   );
   assertAudioSession(track.ownerId, signal);
-  const saved = { ...track, synced: true };
+  const saved = { ...track, synced: true, pendingTitle: false };
   await updateAudioIndex(saved);
   return saved;
 }

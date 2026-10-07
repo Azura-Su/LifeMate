@@ -10,7 +10,12 @@ export type AudioMetadata = {
   createdAt: number;
   source: AudioSource;
 };
-export type AudioTrack = AudioMetadata & { synced: boolean; local: boolean };
+export type AudioTrack = AudioMetadata & {
+  synced: boolean;
+  local: boolean;
+  // A pending title must survive refreshes until Firestore acknowledges it.
+  pendingTitle?: boolean;
+};
 export type MediaInfo = {
   durationMs: number;
   hasAudio: boolean;

@@ -11,6 +11,8 @@ import type {
 import {
   audioError,
   audioFileType,
+  defaultAudioTitle,
+  normalizeAudioTitle,
   MAX_AUDIO_MS,
   MAX_INPUT_BYTES,
   validateSegments,
@@ -91,6 +93,7 @@ export async function importAudio(
   signal: AbortSignal,
   report: Report,
   onSaved: Saved,
+  chosenTitle = defaultAudioTitle(asset.name),
 ) {
   let output: string | undefined;
   const cancel = () => {
@@ -99,6 +102,7 @@ export async function importAudio(
   signal.addEventListener('abort', cancel);
   try {
     assertAudioSession(uid, signal);
+    const title = normalizeAudioTitle(chosenTitle);
     report({ label: 'Đang kiểm tra file…', progress: null });
     const size = await FileSystem.getInfoAsync(asset.uri);
     if (
@@ -117,11 +121,6 @@ export async function importAudio(
       info.durationMs > MAX_AUDIO_MS
     )
       throw new Error('Chọn file có thời lượng từ 0,1 giây đến 60 phút.');
-    const title =
-      asset.name
-        .replace(/\.[^.]+$/, '')
-        .trim()
-        .slice(0, 120) || 'Âm thanh mới';
     if (info.hasVideo) {
       report({ label: 'Đang tách âm thanh từ video…', progress: null });
       output = await engine.exportAudio([
@@ -173,8 +172,7 @@ export async function editAudio(
   validateSegments(
     segments.map((s) => ({ ...s, durationMs: s.track.durationMs })),
   );
-  if (!title.trim() || title.trim().length > 120)
-    throw new Error('Tên bản audio phải có từ 1 đến 120 ký tự.');
+  normalizeAudioTitle(title);
   let output: string | undefined;
   const cancel = () => {
     void engine.cancel().catch(() => undefined);
