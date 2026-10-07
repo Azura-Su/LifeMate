@@ -7,6 +7,19 @@ import { useConfigStore } from '../../store/configStore';
 
 // Native font loading is outside this navigation integration test.
 jest.mock('@expo/vector-icons/Feather', () => 'Feather');
+jest.mock('../../screens/Mp3/AudioPlayer', () => ({ AudioPlayer: () => null }));
+jest.mock('../../../modules/lifemate-audio', () => ({
+  __esModule: true,
+  default: {},
+}));
+jest.mock('expo-crypto', () => ({ randomUUID: () => 'test-id' }));
+jest.mock('../../services/audio/audioFiles', () => ({
+  readAudioIndex: jest.fn().mockResolvedValue([]),
+  mergeAudioIndex: jest.fn().mockResolvedValue([]),
+}));
+jest.mock('../../services/firebase/audioLibraryService', () => ({
+  fetchCloudTracks: jest.fn().mockResolvedValue([]),
+}));
 jest.mock('../../services/firebase/authService', () => ({
   logout: jest.fn().mockResolvedValue(undefined),
   login: jest.fn(),
@@ -20,13 +33,11 @@ jest.mock('../../services/firebase/messagingService', () => ({
 }));
 
 it('shows the configured name, opens all three tabs, and returns to Login on logout', async () => {
-  useAuthStore
-    .getState()
-    .setUser({
-      uid: 'test-user',
-      email: 'su.azura99@gmail.com',
-      displayName: null,
-    });
+  useAuthStore.getState().setUser({
+    uid: 'test-user',
+    email: 'su.azura99@gmail.com',
+    displayName: null,
+  });
   useConfigStore.setState({
     users: [{ mail: 'su.azura99@gmail.com', name: 'Asher' }],
   });
