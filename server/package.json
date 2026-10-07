@@ -1,0 +1,15 @@
+{
+  "name": "lifemate-server-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "send:push": "node send-push.mjs",
+    "check": "node --check send-push.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}
