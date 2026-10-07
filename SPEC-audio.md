@@ -14,8 +14,8 @@ Input tối đa 500 MiB, audio lưu tối đa 200 MiB, thời lượng mỗi fil
 
 - Native Expo local module `modules/lifemate-audio`: AVFoundation iOS, Media3 Transformer Android; `inspect(uri)`, `exportAudio(segments)`, `cancel()`.
 - `src/services/audio`: file persistence và orchestration; `src/services/firebase/audioLibraryService.ts`: Cloud Storage/Firestore.
-- `src/store/audioStore.ts`: UID, danh sách, loading/error; không persist lẫn UID. `src/screens/Mp3/` UI, hook, editor và player riêng.
-- `audioLibraries/{uid}/tracks/{id}` và `audio/{uid}/{id}/{fileName}`; rules chỉ owner đọc/ghi. Lưu title, duration, size, mimeType, fileName, origin, createdAt; không chứa credentials/local URI.
+- `src/store/audioStore.ts`: UID và danh sách; hook quản lý loading/error. Không persist lẫn UID. `src/screens/Mp3/` UI, hook, editor và player riêng.
+- `audioLibraries/{uid}/tracks/{id}` và `audio/{uid}/{id}/{fileName}`; rules chỉ owner đọc/ghi. Lưu title, durationMs, sizeBytes, mimeType, fileName, source, createdAt; không chứa credentials/local URI.
 - expo-document-picker, expo-file-system, expo-audio, AsyncStorage; RN Firebase 26.4.0.
 - Xử lý/upload một job mỗi lần, có trạng thái và hủy; UID/session guard ngăn kết quả async xuất hiện ở tài khoản khác. Đăng xuất dừng player và hủy job.
 

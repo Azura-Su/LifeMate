@@ -10,7 +10,7 @@ SDK 55 được chọn để tương thích Xcode hiện có. Không sửa file 
 
 - TypeScript strict: pass.
 - ESLint: pass, không có cảnh báo trong source.
-- Jest: 27 tests / 9 suites pass. Bao gồm parser Remote Config, fallback offline, normalization, validate/error Auth, chống gửi login lặp, gate khôi phục session, logout, từ chối push và kết quả token đến muộn sau logout. Integration test render màn hình và navigator thật xác nhận tên Asher, ba tab và logout trở về Login; Firebase services và native font được mock.
+- Jest: 43 tests / 14 suites pass. Bao gồm parser Remote Config, fallback offline, normalization, validate/error Auth, chống gửi login lặp, gate khôi phục session, logout, từ chối push và kết quả token đến muộn sau logout; audio validation, persistence theo UID, cloud failure và editor. Integration test render màn hình và navigator thật xác nhận tên Asher, ba tab và logout trở về Login; Firebase services và native I/O được mock.
 - Expo Doctor: 20/20 pass.
 - Prebuild: Android/iOS pass.
 - Hermes bundle: xuất được cho Android/iOS.
@@ -39,8 +39,22 @@ CocoaPods trên máy hiện tại cần bỏ môi trường RVM xung đột: tro
 
 ## Dependency audit
 
-`npm audit` ngày 07/10/2026: 0 critical; 49 high và 12 moderate (số dependency bị ảnh hưởng, không phải số lỗi độc lập). Nguồn gốc còn lại: `braces` (Jest/Metro patterns), `node-forge` (Expo CLI signing), `sprintf-js` (test tooling), `uuid` (Xcode project tooling). Registry hiện trả bản mới nhất lần lượt 3.0.3, 1.4.0, 1.1.3 cho ba package đầu, vẫn nằm trong advisory; không dùng `audit fix --force` vì đề xuất phá bộ SDK/Jest.
+`npm audit` sau bổ sung audio ngày 07/10/2026: 0 critical; 51 high và 12 moderate (63 dependency bị ảnh hưởng, không phải số lỗi độc lập). Nguồn gốc còn lại: `braces` (Jest/Metro patterns), `node-forge` (Expo CLI signing), `sprintf-js` (test tooling), `uuid` (Xcode project tooling). Registry hiện trả bản mới nhất lần lượt 3.0.3, 1.4.0, 1.1.3 cho ba package đầu, vẫn nằm trong advisory; không dùng `audit fix --force` vì đề xuất phá bộ SDK/Jest. Kết quả local: `.build/audio-audit.json`.
 
 `@grpc/grpc-js` gián tiếp đã override sang nhánh vá 1.14.x. Các đường dẫn có high còn lại là tooling local, không xử lý dữ liệu users/push của ứng dụng; vẫn cần cập nhật upstream và audit lại trước phát hành. Không coi bản dựng này là bản đã qua kiểm định phát hành.
 
 Remote Config kéo theo peer Analytics. `firebase.json` tắt auto collection/Ad ID/IDFV; iOS dùng Analytics without Ad ID. Không đưa Admin credentials, password hay token vào source/log. Hai file Firebase client local không được commit.
+
+## Bổ sung thư viện audio
+
+- Native module `LifeMateAudio`: AVFoundation trên iOS, Media3 1.8.0 trên Android. Không đưa binary FFmpeg vào ứng dụng. `ffmpeg-static` chỉ là công cụ local tạo fixture tổng hợp.
+- Android instrumentation: **5/5 tests pass** trên emulator API 36.1. Kiểm tra tách tiếng từ video không giữ track hình, cắt đúng thời lượng, nối WAV/MP3 khác codec/sample rate/kênh, reject khoảng cắt sai và video im lặng. XML kết quả nằm trong `modules/lifemate-audio/android/build/outputs/androidTest-results/connected/debug/`; log `.build/audio-android-tests.log`.
+- AVFoundation: chạy source `AudioEngine.swift` thật bằng `scripts/AudioEngineSmoke.swift` trên macOS. Pass extraction, trim, concat khác định dạng, kiểm tra duration/no-video; giải mã PCM xác nhận tần số 880 → 440 Hz theo thứ tự chọn, reject no-audio/bounds sai. Đây là kiểm thử engine dùng chung, chưa phải thao tác media end-to-end trên điện thoại iOS.
+- Firebase Emulator: **15 assertions pass** bằng `scripts/test-audio-rules.cjs`: owner được đọc/ghi; UID khác và guest bị chặn; metadata thiếu/sai/local URI, MIME video và đuôi `.mp4` bị từ chối. Dùng project demo, không đọc/ghi cloud thật. Log `.build/audio-rules.log`. Emulator đã dừng sau kiểm thử.
+- Jest mới kiểm tra audio được giữ nguyên, video chỉ lưu output audio, kết quả còn local khi upload lỗi, đổi tài khoản trong lúc xử lý, persistence riêng theo UID, merge metadata cloud không mất bản local, khoảng cắt hợp lệ và thứ tự ghép. Editor component test thao tác trường thời gian, đổi thứ tự, tên và nút lưu; native player/I/O được mock trong test UI.
+- Expo Doctor phát hiện peer `expo-asset` tự kéo SDK 57; đã thêm trực tiếp `expo-asset ~55.0.20`, loại dependencies native trùng phiên bản. Doctor cuối đạt **20/20**. CocoaPods cuối: 112 dependencies, 140 pods; prebuild Android/iOS thành công. Typecheck/lint/Jest cuối đều đạt sau sửa dependency.
+- Build cuối: Android release arm64 **BUILD SUCCESSFUL** (942 tasks, 1m45s); iOS Release Simulator arm64 **BUILD SUCCEEDED**. Hermes export Android/iOS thành công. Log `.build/audio-android-release.log`, `.build/audio-ios-build.log`, `.build/audio-bundle.log`.
+- APK audio: `.build/artifacts/LifeMate-audio-preview-arm64.apk`, khoảng 34 MiB, debug signing cho preview. SHA-256: `a6dd2bd1f0222d32fa320cf1204f5667eea2d201329fc75487c9a8fa9f7d7a0b`. Đã cài thành công lên Android emulator API 36.1, hiển thị Login độc lập không cần Metro; logcat không có ReactNativeJS/AndroidRuntime error khi mở. Lần `am start -W` đầu timeout trong lúc build iOS song song; sau đó process vẫn chạy và screenshot xác nhận render hoàn chỉnh: `.build/screenshots/audio-login-android.png`.
+- iOS audio build đã cài và mở trên iPhone 17 Pro Max Simulator (iOS 26.3), hiển thị Login hoàn chỉnh. Screenshot `.build/screenshots/audio-login-ios.png`. Không reset hoặc xóa dữ liệu simulator. Android mở lại trả `Status: ok`.
+
+Firebase CLI chưa có tài khoản đăng nhập. Mở Firebase Console bị bộ duyệt tự động từ chối khi chuyển sang `accounts.google.com`. Chưa thực hiện thiết lập database/bucket, triển khai rules hoặc thay đổi billing trên project thật; chưa xác nhận trạng thái hiện tại của các dịch vụ này. Chưa xác nhận đồng bộ giữa hai thiết bị hoặc import/edit qua UI sau login thật. [Hướng dẫn hoàn tất cloud và chạy lại tests](audio-library.md).

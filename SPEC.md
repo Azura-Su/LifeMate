@@ -10,6 +10,7 @@ Yêu cầu và kiến trúc: [tasks/plan.md](tasks/plan.md). Ranh giới module:
 - Home hiển thị tên lấy từ Remote Config `users` theo email, với defaults và fallback.
 - Tích hợp push permissions, FCM token, token refresh, foreground/background/open.
 - UI tiếng Việt, có trạng thái loading/error/empty; logic nằm ngoài file màn hình.
+- Thư viện audio riêng, nhập video/audio, nghe/cắt/ghép nối tuần tự và đồng bộ: [SPEC-audio.md](SPEC-audio.md).
 
 ## Quy ước
 

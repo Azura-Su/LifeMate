@@ -1,6 +1,8 @@
 # LifeMate
 
-React Native cho Android/iOS, TypeScript, Expo Development Build, Firebase Auth + Remote Config + FCM và Zustand. Tên ứng dụng **LifeMate**, iOS Bundle ID/Android package **`vn.mobifone.vnsteel`**, Firebase project **`baseapp-dd227`**.
+React Native cho Android/iOS, TypeScript, Expo Development Build, Firebase Auth + Remote Config + FCM + Storage/Firestore và Zustand. Tên ứng dụng **LifeMate**, iOS Bundle ID/Android package **`vn.mobifone.vnsteel`**, Firebase project **`baseapp-dd227`**.
+
+Tab MP3 có thư viện riêng theo tài khoản: nhập audio/video, tự tách tiếng của video trên máy, nghe/tua, cắt và nối nhiều đoạn theo thứ tự. Xem [cách dùng và thiết lập Firebase cho audio](docs/audio-library.md). Tích hợp cloud đã có trong mã nguồn; cần hoàn tất cấu hình trên Firebase Console trước khi đồng bộ thật.
 
 ## Chạy ứng dụng
 
@@ -18,10 +20,10 @@ npm run ios
 
 ### APK cài thử trên máy hiện tại
 
-File [LifeMate-preview-arm64.apk](.build/artifacts/LifeMate-preview-arm64.apk) chạy độc lập, không cần Metro, dành cho Android arm64 từ Android 7.0 (API 24). Bản này dùng cấu hình release nhưng ký bằng debug key để kiểm thử; không dùng đưa lên Play Store.
+File [LifeMate-audio-preview-arm64.apk](.build/artifacts/LifeMate-audio-preview-arm64.apk) có đầy đủ tab MP3 mới, chạy độc lập, không cần Metro, dành cho Android arm64 từ Android 7.0 (API 24). Bản này dùng cấu hình release nhưng ký bằng debug key để kiểm thử; không dùng đưa lên Play Store.
 
 ```sh
-adb install -r .build/artifacts/LifeMate-preview-arm64.apk
+adb install -r .build/artifacts/LifeMate-audio-preview-arm64.apk
 ```
 
 Để dựng lại APK sau khi prebuild:
@@ -51,18 +53,21 @@ src/
   screens/
     Login/                    LoginScreen.tsx + useLoginScreen.ts + styles
     Home/                     HomeScreen.tsx + useHomeScreen.ts + styles
-    Mp3/                      Mp3Screen.tsx (empty state, chưa có logic player)
+    Mp3/                      màn thư viện, editor/player + các hook xử lý riêng
     Settings/                 SettingsScreen.tsx + useSettingsScreen.ts + styles
   hooks/                      lifecycle chung và profile selector
-  services/firebase/          authService, remoteConfigService, messagingService
-  store/                      authStore, configStore, notificationStore (Zustand)
+  services/firebase/          auth, remote config, push, Storage/Firestore audio
+  services/audio/             lưu file/index local, import/edit, session guards
+  store/                      auth, config, notification, audio (Zustand)
   utils/                      validate, parse JSON, chuẩn hóa email, resolve tên
   navigation/                 auth gate, tabs và route types
   components/                 button, screen, avatar, notification banner
   config/                     Remote Config defaults
   theme/                      màu và typography
   types/                      model dữ liệu
-firebase/                     native configs + users.sample.json
+modules/lifemate-audio/        native AVFoundation iOS / Media3 Android
+firebase/                     native configs, sample users, audio rules/emulators
+tests/fixtures/audio/         audio/video tổng hợp cho kiểm thử native
 server/                       Firebase Admin push tool độc lập
 tasks/                        plan và checklist
 ```
@@ -103,13 +108,12 @@ npx expo-doctor
 npm run prebuild -- --no-install
 ```
 
-Test tập trung vào dữ liệu users sai, cache khi offline, matching email, validate login, chống double-submit, auth gate/logout, permissions và FCM lifecycle. Bundle command xuất Hermes JS cho cả Android/iOS, không thay cho native build. Xem `docs/verification.md` để biết kết quả native build và các kiểm thử chưa thực hiện.
-
-Màn MP3 hiện là thư viện trống. Chưa thêm nguồn nhạc, player, tải file hoặc background audio.
+Tests bao gồm Auth/Remote Config/FCM, lưu thư viện riêng, audio/video import, lỗi cloud, cắt và thứ tự ghép. Bundle command xuất Hermes JS cho cả Android/iOS, không thay cho native build. Xem [kết quả kiểm chứng](docs/verification.md) và [cách chạy native/rules tests](docs/audio-library.md).
 
 ## Tài liệu quyết định kỹ thuật
 
 - [Kế hoạch](tasks/plan.md), [yêu cầu](SPEC.md), [checklist](tasks/todo.md).
+- [Yêu cầu thư viện âm thanh](SPEC-audio.md), [sử dụng và cấu hình](docs/audio-library.md).
 - [Expo với Firebase](https://docs.expo.dev/guides/using-firebase/).
 - [React Native Firebase setup](https://rnfirebase.io/) và [Remote Config](https://rnfirebase.io/remote-config/usage).
 - [Firebase Messaging](https://rnfirebase.io/messaging/usage), [Expo permission API](https://docs.expo.dev/versions/latest/sdk/notifications/).
