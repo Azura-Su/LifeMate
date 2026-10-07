@@ -5,7 +5,7 @@
 - [x] Đặt tên trước khi nhập audio/video; đổi tên audio đã lưu, không thay đổi file gốc.
 - [x] Giữ tên mới khi offline/làm mới thư viện; đổi tên bản đã sao lưu chỉ cập nhật metadata.
 - [x] Làm rõ sao lưu Firebase và kiểm thử nhập, hủy, đổi tên, tải lại dữ liệu.
-- Chẩn đoán từ Xcode: Firestore trả `Cloud Firestore API has not been used in project baseapp-dd227 before or it is disabled`. Cấu hình cloud thật vẫn cần được bật/kiểm chứng riêng.
+- Lịch sử chẩn đoán Xcode: Firestore từng trả `Cloud Firestore API has not been used in project baseapp-dd227 before or it is disabled`. Hiện database Native và rules riêng theo UID đã được cấu hình; vẫn còn kiểm thử đồng bộ bằng tài khoản thật.
 
 ## Audio — 07/10/2026
 
@@ -27,8 +27,11 @@
 - [x] App chuyển upload mới sang Supabase, download theo provider, metadata Firestore; local fallback không mất file/tên.
 - [x] Typecheck/lint, 69 Jest tests, 16 server tests, 18 emulator assertions, Hermes Android/iOS; UI Simulator hiển thị đúng local-only và giữ bản đã lưu.
 - [x] Firestore rules private theo UID xuất bản thành công lúc 22:48 theo xác nhận của chủ tài khoản.
-- [ ] Chủ tài khoản đăng nhập/tạo Supabase Free; deploy bucket/function, điền URL vào .env, thử upload/download thật và phân quyền hai tài khoản.
-- [ ] Push các thay đổi vào GitHub; các lần push trước bị lỗi server 500.
+- [x] Tạo organization/project Supabase Free ở Singapore; Firebase giữ Spark.
+- [x] Tạo bucket private 50 MB, audio-only; deploy function xác minh Firebase JWT; cấu hình `.env` local bị Git ignore.
+- [x] Smoke test function trên dashboard: token giả nhận 401; Android/iOS bundle build với cấu hình Supabase.
+- [ ] Đăng nhập app bằng tài khoản Firebase thật, thử upload/download fixture tổng hợp và phân quyền hai tài khoản. Chưa upload audio cá nhân.
+- [x] Push triển khai audio lên GitHub trước đó; ghi chú triển khai lần này sẽ được commit/push riêng.
 
 ## Nền tảng đã hoàn tất
 
