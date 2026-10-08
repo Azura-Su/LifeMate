@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppNavigator } from '../AppNavigator';
 import { useAuthStore } from '../../store/authStore';
 import { useConfigStore } from '../../store/configStore';
+import { useFinanceStore } from '../../store/financeStore';
 
 // Native font loading is outside this navigation integration test.
 jest.mock('@expo/vector-icons/Feather', () => 'Feather');
@@ -58,7 +59,7 @@ jest.mock('../../services/firebase/messagingService', () => ({
   registerPush: jest.fn(),
 }));
 
-it('shows the configured name, opens all three tabs, and returns to Login on logout', async () => {
+it('shows the configured name, opens all tabs, and returns to Login on logout', async () => {
   useAuthStore.getState().setUser({
     uid: 'test-user',
     email: 'su.azura99@gmail.com',
@@ -66,6 +67,12 @@ it('shows the configured name, opens all three tabs, and returns to Login on log
   });
   useConfigStore.setState({
     users: [{ mail: 'su.azura99@gmail.com', name: 'Asher' }],
+  });
+  useFinanceStore.setState({
+    uid: null,
+    transactions: [],
+    loading: false,
+    error: null,
   });
   render(
     <SafeAreaProvider
@@ -80,6 +87,8 @@ it('shows the configured name, opens all three tabs, and returns to Login on log
     </SafeAreaProvider>,
   );
   expect(await screen.findByText('Asher')).toBeTruthy();
+  fireEvent.press(screen.getByText('Tài chính'));
+  expect(await screen.findByText('Chưa có giao dịch nào')).toBeTruthy();
   fireEvent.press(screen.getByText('MP3'));
   expect(await screen.findByText('Chưa có bài để nghe')).toBeTruthy();
   fireEvent.press(screen.getByText('Cài đặt'));

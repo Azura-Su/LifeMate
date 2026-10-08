@@ -1,13 +1,19 @@
 import Feather from '@expo/vector-icons/Feather';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { HomeScreen } from '../screens/Home/HomeScreen';
+import { FinanceScreen } from '../screens/Finance/FinanceScreen';
 import { Mp3Screen } from '../screens/Mp3/Mp3Screen';
 import { SettingsScreen } from '../screens/Settings/SettingsScreen';
 import { colors } from '../theme';
 import type { MainTabParams } from './types';
 
 const Tab = createBottomTabNavigator<MainTabParams>();
-const icons = { Home: 'home', MP3: 'headphones', Setting: 'sliders' } as const;
+const icons = {
+  Home: 'home',
+  Finance: 'pie-chart',
+  MP3: 'headphones',
+  Setting: 'sliders',
+} as const;
 
 export function MainTabs() {
   return (
@@ -27,6 +33,11 @@ export function MainTabs() {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen
+        name="Finance"
+        component={FinanceScreen}
+        options={{ tabBarLabel: 'Tài chính' }}
+      />
       <Tab.Screen name="MP3" component={Mp3Screen} />
       <Tab.Screen
         name="Setting"
