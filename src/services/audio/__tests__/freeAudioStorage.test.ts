@@ -2,6 +2,7 @@ import { getAuth, getIdToken } from '@react-native-firebase/auth';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useAuthStore } from '../../../store/authStore';
 import {
+  deleteFreeAudio,
   requestAudioUrl,
   uploadFreeAudio,
   downloadFreeAudio,
@@ -91,12 +92,10 @@ it('requests only the authenticated user file and rejects redirected signed URLs
     signedUrl.replace('/u1/', '/victim/'),
     signedUrl.replace('?token=short-lived', ''),
   ]) {
-    jest
-      .mocked(fetch)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ url }),
-      } as Response);
+    jest.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ url }),
+    } as Response);
     await expect(
       requestAudioUrl(track, 'upload', new AbortController().signal),
     ).rejects.toThrow('không hợp lệ');
@@ -116,12 +115,10 @@ it('does not upload after the account changes', async () => {
 });
 it('rejects a failed binary upload and cancels the native task', async () => {
   const cancelAsync = jest.fn().mockResolvedValue(undefined);
-  jest
-    .mocked(FileSystem.createUploadTask)
-    .mockReturnValue({
-      uploadAsync: async () => ({ status: 413 }),
-      cancelAsync,
-    } as unknown as FileSystem.UploadTask);
+  jest.mocked(FileSystem.createUploadTask).mockReturnValue({
+    uploadAsync: async () => ({ status: 413 }),
+    cancelAsync,
+  } as unknown as FileSystem.UploadTask);
   await expect(
     uploadFreeAudio(
       track,
@@ -149,18 +146,14 @@ it('cancels an in-flight native upload on abort', async () => {
 });
 it('downloads a signed private object to the caller-provided partial file', async () => {
   const url = signedUrl.replace('/upload/sign/', '/sign/');
-  jest
-    .mocked(fetch)
-    .mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ url }),
-    } as Response);
-  jest
-    .mocked(FileSystem.createDownloadResumable)
-    .mockReturnValue({
-      downloadAsync: async () => ({ status: 200 }),
-      cancelAsync: jest.fn(),
-    } as unknown as FileSystem.DownloadResumable);
+  jest.mocked(fetch).mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({ url }),
+  } as Response);
+  jest.mocked(FileSystem.createDownloadResumable).mockReturnValue({
+    downloadAsync: async () => ({ status: 200 }),
+    cancelAsync: jest.fn(),
+  } as unknown as FileSystem.DownloadResumable);
   await downloadFreeAudio(
     track,
     'file:///a.mp3.partial',
@@ -173,4 +166,49 @@ it('downloads a signed private object to the caller-provided partial file', asyn
     expect.anything(),
     expect.any(Function),
   );
+});
+it('requests deletion for only the authenticated audio and requires server confirmation', async () => {
+  jest.mocked(fetch).mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({ deleted: true }),
+  } as Response);
+  await deleteFreeAudio(
+    { ...track, synced: true },
+    new AbortController().signal,
+  );
+  const body = JSON.parse(jest.mocked(fetch).mock.calls[0][1]?.body as string);
+  expect(body).toEqual({
+    action: 'delete',
+    id: track.id,
+    fileName: track.fileName,
+  });
+  jest.mocked(fetch).mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({ deleted: false }),
+  } as Response);
+  await expect(
+    deleteFreeAudio({ ...track, synced: true }, new AbortController().signal),
+  ).rejects.toThrow('chưa xác nhận');
+});
+
+it('deletes an existing backup without upload-only MIME and size constraints', async () => {
+  jest.mocked(fetch).mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({ deleted: true }),
+  } as Response);
+  const legacyTrack = {
+    ...track,
+    synced: true,
+    sizeBytes: 60 * 1024 * 1024,
+  };
+
+  await deleteFreeAudio(legacyTrack, new AbortController().signal);
+
+  expect(
+    JSON.parse(jest.mocked(fetch).mock.calls[0][1]?.body as string),
+  ).toEqual({
+    action: 'delete',
+    id: legacyTrack.id,
+    fileName: legacyTrack.fileName,
+  });
 });

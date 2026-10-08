@@ -84,6 +84,40 @@ test('derives paths from verified UID for both upload and download', async () =>
     ['download', 'audio/owner-1/song-1/song-1.mp3'],
   ]);
 });
+test('deletes only the authenticated user object without returning a URL', async () => {
+  const deleted = [];
+  const handler = createHandler({
+    verifyToken,
+    signObject: async (action, path) => {
+      deleted.push([action, path]);
+      return undefined;
+    },
+  });
+  const response = await handler(await request({ ...body, action: 'delete' }));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { deleted: true });
+  assert.deepEqual(deleted, [['delete', 'audio/owner-1/song-1/song-1.mp3']]);
+});
+test('deletes existing audio without requiring upload MIME or size metadata', async () => {
+  const deleted = [];
+  const handler = createHandler({
+    verifyToken,
+    signObject: async (action, path) => {
+      deleted.push([action, path]);
+    },
+  });
+  const response = await handler(
+    await request({
+      action: 'delete',
+      id: body.id,
+      fileName: body.fileName,
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { deleted: true });
+  assert.deepEqual(deleted, [['delete', 'audio/owner-1/song-1/song-1.mp3']]);
+});
 test('never signs when auth is absent, forged or input tries another owner/path', async () => {
   let calls = 0;
   const handler = createHandler({
@@ -107,7 +141,7 @@ test('never signs when auth is absent, forged or input tries another owner/path'
     { mimeType: 'video/mp4' },
     { sizeBytes: 52428801 },
     { sizeBytes: 0 },
-    { action: 'delete' },
+    { action: 'remove' },
   ]) {
     assert.equal(
       (await handler(await request({ ...body, ...invalid }))).status,

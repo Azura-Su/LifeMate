@@ -29,6 +29,34 @@ for (const action of ['upload', 'download']) {
     assert.equal(await signer(action, path), `${origin}/storage/v1${relative}`);
   });
 }
+test('deletes one authorized object through the Storage API', async () => {
+  const signer = createStorageSigner(
+    origin,
+    'server-secret',
+    async (url, options) => {
+      assert.equal(url, `${origin}/storage/v1/object/lifemate-audio/${path}`);
+      assert.equal(options.method, 'DELETE');
+      assert.equal(options.headers.Authorization, 'Bearer server-secret');
+      return new Response('', { status: 200 });
+    },
+  );
+  assert.equal(await signer('delete', path), undefined);
+});
+test('treats a missing object as already deleted but rejects other failures', async () => {
+  for (const response of [
+    new Response('', { status: 404 }),
+    new Response('Object not found', { status: 400 }),
+  ]) {
+    const signer = createStorageSigner(origin, 'secret', async () => response);
+    assert.equal(await signer('delete', path), undefined);
+  }
+  const failed = createStorageSigner(
+    origin,
+    'secret',
+    async () => new Response('', { status: 500 }),
+  );
+  await assert.rejects(() => failed('delete', path));
+});
 test('rejects upstream failure and any signed URL outside the requested object', async () => {
   for (const response of [
     new Response('', { status: 500 }),

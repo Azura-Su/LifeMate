@@ -3,6 +3,29 @@ export function createStorageSigner(projectUrl, serviceKey, request = fetch) {
   if (!serviceKey || !/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(origin))
     throw new Error('Missing storage configuration');
   return async (action, path) => {
+    if (action === 'delete') {
+      const objectPath = `lifemate-audio/${path.split('/').map(encodeURIComponent).join('/')}`;
+      const response = await request(
+        `${origin}/storage/v1/object/${objectPath}`,
+        {
+          method: 'DELETE',
+          redirect: 'error',
+          signal: AbortSignal.timeout(10000),
+          headers: {
+            Authorization: `Bearer ${serviceKey}`,
+            apikey: serviceKey,
+          },
+        },
+      );
+      if (!response.ok && response.status !== 404) {
+        const details = await response.text().catch(() => '');
+        const alreadyMissing =
+          response.status === 400 &&
+          /object not found|not_found/i.test(details);
+        if (!alreadyMissing) throw new Error('Storage deletion failed');
+      }
+      return undefined;
+    }
     const upload = action === 'upload';
     const endpoint = upload ? 'object/upload/sign' : 'object/sign';
     const objectPath = `lifemate-audio/${path.split('/').map(encodeURIComponent).join('/')}`;

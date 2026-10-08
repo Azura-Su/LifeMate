@@ -1,8 +1,11 @@
-import { setDoc } from '@react-native-firebase/firestore';
-import { putFile } from '@react-native-firebase/storage';
-import { uploadAudioTrack } from '../audioLibraryService';
+import { deleteDoc, doc, setDoc } from '@react-native-firebase/firestore';
+import { deleteObject, putFile, ref } from '@react-native-firebase/storage';
+import {
+  deleteAudioTrackRemote,
+  uploadAudioTrack,
+} from '../audioLibraryService';
 import { updateAudioIndex, audioExists } from '../../audio/audioFiles';
-import { uploadFreeAudio } from '../../audio/freeAudioStorage';
+import { deleteFreeAudio, uploadFreeAudio } from '../../audio/freeAudioStorage';
 import { useAuthStore } from '../../../store/authStore';
 import type { AudioTrack } from '../../../types/audio';
 
@@ -10,15 +13,18 @@ jest.mock('@react-native-firebase/firestore', () => ({
   getFirestore: jest.fn(),
   doc: jest.fn(),
   setDoc: jest.fn(),
+  deleteDoc: jest.fn(),
 }));
 jest.mock('@react-native-firebase/storage', () => ({
   getStorage: jest.fn(),
   ref: jest.fn(),
   putFile: jest.fn(),
+  deleteObject: jest.fn(),
 }));
 jest.mock('expo-file-system/legacy', () => ({}));
 jest.mock('../../audio/freeAudioStorage', () => ({
   uploadFreeAudio: jest.fn(),
+  deleteFreeAudio: jest.fn(),
   downloadFreeAudio: jest.fn(),
 }));
 jest.mock('../../audio/audioFiles', () => ({
@@ -45,7 +51,55 @@ beforeEach(() => {
     .getState()
     .setUser({ uid: 'u1', email: null, displayName: null });
   jest.mocked(setDoc).mockResolvedValue(undefined);
+  jest.mocked(deleteDoc).mockResolvedValue(undefined);
   jest.mocked(uploadFreeAudio).mockResolvedValue(undefined);
+  jest.mocked(deleteFreeAudio).mockResolvedValue(undefined);
+});
+it('removes a Supabase backup before its private Firestore metadata', async () => {
+  const track = { ...renamed, storageProvider: 'supabase' as const };
+  await deleteAudioTrackRemote(track, new AbortController().signal);
+  expect(deleteFreeAudio).toHaveBeenCalledWith(track, expect.anything());
+  expect(doc).toHaveBeenLastCalledWith(
+    undefined,
+    'audioLibraries',
+    'u1',
+    'tracks',
+    'a',
+  );
+  expect(deleteDoc).toHaveBeenCalledWith(undefined);
+  expect(jest.mocked(deleteFreeAudio).mock.invocationCallOrder[0]).toBeLessThan(
+    jest.mocked(deleteDoc).mock.invocationCallOrder[0],
+  );
+});
+it('removes legacy Firebase Storage backups before Firestore metadata', async () => {
+  const track = { ...renamed, storageProvider: undefined };
+  await deleteAudioTrackRemote(track, new AbortController().signal);
+  expect(ref).toHaveBeenCalledWith(undefined, 'audio/u1/a/a.mp3');
+  expect(deleteObject).toHaveBeenCalled();
+  expect(deleteDoc).toHaveBeenCalledWith(undefined);
+  expect(jest.mocked(deleteObject).mock.invocationCallOrder[0]).toBeLessThan(
+    jest.mocked(deleteDoc).mock.invocationCallOrder[0],
+  );
+});
+it('keeps metadata if remote audio deletion fails', async () => {
+  jest.mocked(deleteFreeAudio).mockRejectedValueOnce(new Error('Offline'));
+  await expect(
+    deleteAudioTrackRemote(
+      { ...renamed, storageProvider: 'supabase' },
+      new AbortController().signal,
+    ),
+  ).rejects.toThrow('Offline');
+  expect(deleteDoc).not.toHaveBeenCalled();
+});
+it('cleans up legacy metadata after its already-missing Storage object', async () => {
+  jest
+    .mocked(deleteObject)
+    .mockRejectedValueOnce({ code: 'storage/object-not-found' });
+  await deleteAudioTrackRemote(
+    { ...renamed, storageProvider: undefined },
+    new AbortController().signal,
+  );
+  expect(deleteDoc).toHaveBeenCalled();
 });
 it('uploads new audio to free storage and persists the provider with metadata', async () => {
   jest.mocked(audioExists).mockResolvedValueOnce(true);

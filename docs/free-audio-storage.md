@@ -10,15 +10,15 @@ Project đã tạo trong organization **LifeMate FREE**, region **Singapore** (`
 
 ## Contract
 
-`POST /functions/v1/audio-access`, header `apikey` là Supabase publishable key và `Authorization: Bearer` là Firebase ID token. Body `{ action: 'upload' | 'download', id, fileName, mimeType, sizeBytes }`. Trả `{ url }` là signed URL. Function xác minh chữ ký RS256, issuer/audience đúng `baseapp-dd227`, hạn dùng và UID. Đường dẫn được dựng bằng UID đã xác minh; không nhận ownerId/path/bucket/URL từ client.
+`POST /functions/v1/audio-access`, header `apikey` là Supabase publishable key và `Authorization: Bearer` là Firebase ID token. Body `{ action: 'upload' | 'download' | 'delete', id, fileName, mimeType, sizeBytes }`. Upload/download trả `{ url }` là signed URL; xóa trả `{ deleted: true }` sau khi Storage API xác nhận (hoặc file đã không còn). Function xác minh chữ ký RS256, issuer/audience đúng `baseapp-dd227`, hạn dùng và UID. Đường dẫn được dựng bằng UID đã xác minh; không nhận ownerId/path/bucket/URL từ client. Chỉ function dùng service-role key để xóa object riêng tư.
 
-Bucket đã tạo và truy vấn xác nhận `public=false`, giới hạn `52428800` byte, chỉ nhận các MIME audio bên dưới; không có policy đọc/ghi cho anon/authenticated. Function `audio-access` đã deploy tại `https://xbhelntqytleiduzicuj.supabase.co/functions/v1/audio-access`. Gateway option **Verify JWT with legacy secret** tắt để nhận Firebase token; function tự xác minh Firebase RS256, issuer, audience, thời hạn và UID trước khi ký URL. Tắt tùy chọn gateway này không bỏ xác thực của handler. Chỉ function giữ service-role secret; app không chứa khóa quản trị. Signed upload hết hạn sau 2 giờ, signed download sau 5 phút. Không ghi URL/token vào Firestore, local index hay log. Firebase token bị thu hồi có thể còn hiệu lực tới khi hết hạn (tối đa khoảng 1 giờ); kiểm tra revocation cần tích hợp thêm Admin API.
+Bucket đã tạo và truy vấn xác nhận `public=false`, giới hạn `52428800` byte, chỉ nhận các MIME audio bên dưới; không có policy đọc/ghi cho anon/authenticated. Function `audio-access` đã deploy tại `https://xbhelntqytleiduzicuj.supabase.co/functions/v1/audio-access`. Gateway option **Verify JWT with legacy secret** tắt để nhận Firebase token; function tự xác minh Firebase RS256, issuer, audience, thời hạn và UID trước mọi thao tác. Tắt tùy chọn gateway này không bỏ xác thực của handler. Chỉ function giữ service-role secret; app không chứa khóa quản trị. Signed upload hết hạn sau 2 giờ, signed download sau 5 phút. Không ghi URL/token vào Firestore, local index hay log. Firebase token bị thu hồi có thể còn hiệu lực tới khi hết hạn (tối đa khoảng 1 giờ); kiểm tra revocation cần tích hợp thêm Admin API.
 
-Metadata thêm `storageProvider: 'supabase'`; bản cũ thiếu field tiếp tục dùng Firebase để tải (nếu bucket cũ còn truy cập được). Không tự di chuyển hoặc xóa dữ liệu cũ. Chỉ đánh dấu đã sao lưu sau khi cả upload và ghi metadata thành công. Thử lại ghi cùng đường dẫn của chính tài khoản.
+Metadata thêm `storageProvider: 'supabase'`; bản cũ thiếu field tiếp tục dùng Firebase để tải (nếu bucket cũ còn truy cập được). Không tự động di chuyển hoặc xóa dữ liệu cũ; người dùng có thể chủ động xóa file trong thư viện. Chỉ đánh dấu đã sao lưu sau khi cả upload và ghi metadata thành công. Thử lại ghi cùng đường dẫn của chính tài khoản.
 
 ## Các bước
 
-- [x] Function xác thực + signed URL, SQL bucket private giới hạn MIME/50 MB, test phân quyền.
+- [x] Function xác thực + signed URL/xóa object, SQL bucket private giới hạn MIME/50 MB, test phân quyền.
 - [x] App upload/download có progress/hủy; local fallback, giới hạn và trạng thái rõ ràng.
 - [x] Typecheck/lint/tests/bundle; kiểm tra UI Simulator thực tế.
 - [x] Tạo Supabase Free tại Singapore; tạo bucket private `lifemate-audio`, giới hạn 50 MB và MIME audio.
@@ -31,7 +31,7 @@ Metadata thêm `storageProvider: 'supabase'`; bản cũ thiếu field tiếp t�
 
 1. Project Free đã tồn tại; nếu dựng môi trường mới, chọn organization **Free** và region Singapore, giữ Firebase ở Spark. Không chọn upgrade hoặc add-on.
 2. Bucket hiện tại đã được tạo qua Storage Dashboard và xác minh `public=false`, `52428800` byte, các MIME audio, 0 policy. Khi dựng lại, chạy `supabase/migrations/202610070001_audio_bucket.sql`; không thêm policy đọc/ghi cho anon/authenticated.
-3. Function hiện đã deploy qua Dashboard Editor. Khi triển khai phiên bản mới, dùng Supabase CLI và project ref bên trên:
+3. Function hiện đã deploy qua Dashboard Editor. Khi triển khai phiên bản mới, dùng Supabase CLI và project ref bên trên. Bản code hiện tại thêm action `delete`; cần deploy function thì xóa sao lưu cloud từ app mới hoạt động. App chỉ xóa bản local sau khi function xác nhận thành công:
 
    ```sh
    supabase functions deploy audio-access --project-ref xbhelntqytleiduzicuj

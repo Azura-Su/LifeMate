@@ -40,22 +40,29 @@ async function readInput(request) {
     offset += chunk.length;
   }
   const input = JSON.parse(new TextDecoder().decode(bytes));
+  const extension =
+    typeof input?.fileName === 'string' ? input.fileName.split('.').pop() : '';
+  const validFileIdentity =
+    typeof input?.id === 'string' &&
+    /^[a-zA-Z0-9_-]{1,128}$/.test(input.id) &&
+    typeof input?.fileName === 'string' &&
+    /^[\w-]+\.[a-z0-9]+$/.test(input.fileName) &&
+    input.fileName.startsWith(`${input.id}.`) &&
+    Object.hasOwn(formats, extension);
+  const validMediaMetadata =
+    input?.action === 'delete' ||
+    (formats[extension] === input?.mimeType &&
+      Number.isSafeInteger(input?.sizeBytes) &&
+      input.sizeBytes >= 1 &&
+      input.sizeBytes <= 50 * 1024 * 1024);
   if (
     !input ||
     typeof input !== 'object' ||
     Array.isArray(input) ||
     Object.keys(input).some((key) => !allowedKeys.includes(key)) ||
-    !['upload', 'download'].includes(input.action) ||
-    typeof input.id !== 'string' ||
-    !/^[a-zA-Z0-9_-]{1,128}$/.test(input.id) ||
-    typeof input.fileName !== 'string' ||
-    !/^[\w-]+\.[a-z0-9]+$/.test(input.fileName) ||
-    !input.fileName.startsWith(`${input.id}.`) ||
-    !Object.hasOwn(formats, input.fileName.split('.').pop()) ||
-    formats[input.fileName.split('.').pop()] !== input.mimeType ||
-    !Number.isSafeInteger(input.sizeBytes) ||
-    input.sizeBytes < 1 ||
-    input.sizeBytes > 50 * 1024 * 1024
+    !['upload', 'download', 'delete'].includes(input.action) ||
+    !validFileIdentity ||
+    !validMediaMetadata
   )
     throw new Error('Invalid input');
   return input;
@@ -85,7 +92,10 @@ export function createHandler({ verifyToken, signObject }) {
     }
     try {
       const path = `audio/${uid}/${input.id}/${input.fileName}`;
-      return json(200, { url: await signObject(input.action, path) });
+      const result = await signObject(input.action, path);
+      return input.action === 'delete'
+        ? json(200, { deleted: true })
+        : json(200, { url: result });
     } catch {
       return json(503, { code: 'storage-unavailable' });
     }

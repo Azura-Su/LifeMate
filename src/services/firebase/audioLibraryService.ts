@@ -1,11 +1,13 @@
 import {
   collection,
+  deleteDoc,
   doc,
   getDocsFromServer,
   getFirestore,
   setDoc,
 } from '@react-native-firebase/firestore';
 import {
+  deleteObject,
   getStorage,
   ref,
   writeToFile,
@@ -15,7 +17,11 @@ import * as FileSystem from 'expo-file-system/legacy';
 import type { AudioTrack } from '../../types/audio';
 import { parseCloudTrack, trackStoragePath } from '../../utils/audio';
 import { abortable, assertAudioSession } from '../audio/audioSession';
-import { downloadFreeAudio, uploadFreeAudio } from '../audio/freeAudioStorage';
+import {
+  deleteFreeAudio,
+  downloadFreeAudio,
+  uploadFreeAudio,
+} from '../audio/freeAudioStorage';
 import {
   audioExists,
   audioLocalUri,
@@ -103,6 +109,39 @@ export async function uploadAudioTrack(
   const saved = { ...candidate, synced: true, pendingTitle: false };
   await updateAudioIndex(saved);
   return saved;
+}
+
+export async function deleteAudioTrackRemote(
+  track: AudioTrack,
+  signal: AbortSignal,
+) {
+  assertAudioSession(track.ownerId, signal);
+  if (track.storageProvider === 'supabase') {
+    await deleteFreeAudio(track, signal);
+  } else {
+    try {
+      await abortable(
+        deleteObject(ref(getStorage(), trackStoragePath(track))),
+        signal,
+        15000,
+      );
+    } catch (error) {
+      const code =
+        typeof error === 'object' && error !== null && 'code' in error
+          ? error.code
+          : null;
+      if (code !== 'storage/object-not-found') throw error;
+    }
+  }
+  assertAudioSession(track.ownerId, signal);
+  await abortable(
+    deleteDoc(
+      doc(getFirestore(), 'audioLibraries', track.ownerId, 'tracks', track.id),
+    ),
+    signal,
+    15000,
+  );
+  assertAudioSession(track.ownerId, signal);
 }
 
 export async function downloadAudioTrack(

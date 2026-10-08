@@ -18,6 +18,8 @@ function storageError(status: number): Error {
     return new Error(
       'Kho miễn phí chỉ nhận file tối đa 50 MB. Bản trên máy vẫn được giữ.',
     );
+  if (status === 400)
+    return new Error('Thông tin bản sao lưu không hợp lệ. Hãy thử lại sau.');
   if (status === 404)
     return new Error(
       'Chưa tìm thấy bản sao lưu. Kiểm tra kết nối kho âm thanh.',
@@ -27,17 +29,24 @@ function storageError(status: number): Error {
   );
 }
 
-export async function requestAudioUrl(
+async function requestAudioAccess(
   track: AudioTrack,
-  action: 'upload' | 'download',
+  action: 'upload' | 'download' | 'delete',
   signal: AbortSignal,
-): Promise<string> {
+): Promise<{ url?: unknown; deleted?: unknown }> {
   assertAudioSession(track.ownerId, signal);
-  const unavailable = audioBackupUnavailable(track.sizeBytes);
-  if (unavailable) throw new Error(unavailable);
+  const origin = audioCloudUrl();
+  const apiKey = audioCloudApiKey();
+  if (!origin || !apiKey)
+    throw new Error(
+      'Kho sao lưu miễn phí chưa được kết nối. Bản trên máy vẫn được giữ.',
+    );
+  if (action !== 'delete') {
+    const unavailable = audioBackupUnavailable(track.sizeBytes);
+    if (unavailable) throw new Error(unavailable);
+  }
   if (!parseCloudTrack(track.id, track, track.ownerId))
     throw new Error('Thông tin âm thanh không hợp lệ.');
-  const origin = audioCloudUrl()!;
   const user = getAuth().currentUser;
   if (!user || user.uid !== track.ownerId) throw storageError(401);
   const token = await abortable(getIdToken(user), signal, 15000);
@@ -53,7 +62,7 @@ export async function requestAudioUrl(
           redirect: 'error',
           signal: controller.signal,
           headers: {
-            apikey: audioCloudApiKey()!,
+            apikey: apiKey,
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
@@ -61,39 +70,59 @@ export async function requestAudioUrl(
             action,
             id: track.id,
             fileName: track.fileName,
-            mimeType: track.mimeType,
-            sizeBytes: track.sizeBytes,
+            ...(action === 'delete'
+              ? {}
+              : { mimeType: track.mimeType, sizeBytes: track.sizeBytes }),
           }),
         });
         if (!response.ok) throw storageError(response.status);
-        return response.json() as Promise<{ url?: unknown }>;
+        return response.json() as Promise<{
+          url?: unknown;
+          deleted?: unknown;
+        }>;
       })(),
       signal,
       15000,
     );
     assertAudioSession(track.ownerId, signal);
-    const endpoint = action === 'upload' ? 'object/upload/sign' : 'object/sign';
-    const expectedPath = `/storage/v1/${endpoint}/lifemate-audio/${trackStoragePath(track)}`;
-    let url: URL;
-    try {
-      url = new URL(String(data.url));
-    } catch {
-      throw new Error('Địa chỉ sao lưu không hợp lệ.');
-    }
-    if (
-      url.origin !== origin ||
-      url.pathname !== expectedPath ||
-      !url.searchParams.get('token') ||
-      url.username ||
-      url.password ||
-      url.hash
-    )
-      throw new Error('Địa chỉ sao lưu không hợp lệ.');
-    return url.toString();
+    return data;
   } finally {
     signal.removeEventListener('abort', cancel);
     controller.abort();
   }
+}
+
+export async function requestAudioUrl(
+  track: AudioTrack,
+  action: 'upload' | 'download',
+  signal: AbortSignal,
+): Promise<string> {
+  const data = await requestAudioAccess(track, action, signal);
+  const origin = audioCloudUrl()!;
+  const endpoint = action === 'upload' ? 'object/upload/sign' : 'object/sign';
+  const expectedPath = `/storage/v1/${endpoint}/lifemate-audio/${trackStoragePath(track)}`;
+  let url: URL;
+  try {
+    url = new URL(String(data.url));
+  } catch {
+    throw new Error('Địa chỉ sao lưu không hợp lệ.');
+  }
+  if (
+    url.origin !== origin ||
+    url.pathname !== expectedPath ||
+    !url.searchParams.get('token') ||
+    url.username ||
+    url.password ||
+    url.hash
+  )
+    throw new Error('Địa chỉ sao lưu không hợp lệ.');
+  return url.toString();
+}
+
+export async function deleteFreeAudio(track: AudioTrack, signal: AbortSignal) {
+  const result = await requestAudioAccess(track, 'delete', signal);
+  if (result.deleted !== true)
+    throw new Error('Kho sao lưu chưa xác nhận đã xóa file.');
 }
 
 async function transfer(
