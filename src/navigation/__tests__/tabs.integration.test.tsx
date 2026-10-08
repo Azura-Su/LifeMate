@@ -7,7 +7,33 @@ import { useConfigStore } from '../../store/configStore';
 
 // Native font loading is outside this navigation integration test.
 jest.mock('@expo/vector-icons/Feather', () => 'Feather');
+jest.mock('@react-native-async-storage/async-storage', () =>
+  jest.requireActual(
+    '@react-native-async-storage/async-storage/jest/async-storage-mock',
+  ),
+);
 jest.mock('../../screens/Mp3/AudioPlayer', () => ({ AudioPlayer: () => null }));
+jest.mock('expo-audio', () => ({
+  setAudioModeAsync: jest.fn(() => Promise.resolve()),
+  useAudioPlayer: () => ({
+    isLoaded: false,
+    loop: false,
+    addListener: jest.fn(() => ({ remove: jest.fn() })),
+    replace: jest.fn(),
+    play: jest.fn(),
+    pause: jest.fn(),
+    seekTo: jest.fn(() => Promise.resolve()),
+    setActiveForLockScreen: jest.fn(),
+    updateLockScreenMetadata: jest.fn(),
+    clearLockScreenControls: jest.fn(),
+  }),
+  useAudioPlayerStatus: () => ({
+    playing: false,
+    isLoaded: false,
+    currentTime: 0,
+    duration: 0,
+  }),
+}));
 jest.mock('../../../modules/lifemate-audio', () => ({
   __esModule: true,
   default: {},
@@ -55,8 +81,8 @@ it('shows the configured name, opens all three tabs, and returns to Login on log
   );
   expect(await screen.findByText('Asher')).toBeTruthy();
   fireEvent.press(screen.getByText('MP3'));
-  expect(await screen.findByText('Âm nhạc sẽ ở đây')).toBeTruthy();
-  fireEvent.press(screen.getByText('Setting'));
+  expect(await screen.findByText('Chưa có bài để nghe')).toBeTruthy();
+  fireEvent.press(screen.getByText('Cài đặt'));
   fireEvent.press(await screen.findByText('Đăng xuất'));
   expect(await screen.findByText('Đăng nhập')).toBeTruthy();
   expect(screen.queryByText('Asher')).toBeNull();

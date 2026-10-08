@@ -30,6 +30,20 @@ it('preserves edited boundaries while changing the merge order', () => {
   ]);
   expect(save.mock.calls[0][0][1].startMs).toBe(1500);
 });
+it('previews every selected range in the current merge order', () => {
+  const { result } = renderHook(() => useAudioEditor(input));
+  act(() => result.current.change('a', 'start', '1.5'));
+  act(() => result.current.move(1, -1));
+  const preview = jest.fn();
+
+  act(() => result.current.previewAll(preview));
+
+  expect(
+    preview.mock.calls[0][0].map((segment: EditSegment) => segment.track.id),
+  ).toEqual(['b', 'a']);
+  expect(preview.mock.calls[0][0][1].startMs).toBe(1500);
+  expect(result.current.error).toBeNull();
+});
 it('blocks save and preview when the chosen cut is reversed', () => {
   const { result } = renderHook(() => useAudioEditor(input));
   act(() => result.current.change('a', 'start', '6'));
@@ -48,4 +62,30 @@ it('never rounds the initial end past the source duration', () => {
   const save = jest.fn();
   act(() => result.current.submit(save));
   expect(save.mock.calls[0][0][0].endMs).toBe(5070);
+});
+
+it('keeps the dragged end inside a fractional source duration for preview', () => {
+  const fractionalTrack = { ...track, durationMs: 28536.7 };
+  const { result } = renderHook(() =>
+    useAudioEditor([
+      { track: fractionalTrack, startMs: 0, endMs: fractionalTrack.durationMs },
+    ]),
+  );
+  act(() =>
+    result.current.changeRange(
+      fractionalTrack.id,
+      0,
+      fractionalTrack.durationMs,
+    ),
+  );
+  const preview = jest.fn();
+
+  act(() => result.current.preview(0, preview));
+
+  expect(preview).toHaveBeenCalledWith({
+    track: fractionalTrack,
+    startMs: 0,
+    endMs: 28536,
+  });
+  expect(result.current.error).toBeNull();
 });

@@ -49,10 +49,11 @@ export function parseAudioTime(value: string): number | null {
 }
 
 export function formatAudioTime(ms: number) {
-  const tenths = Math.max(0, Math.round(ms / 100));
-  const seconds = Math.floor(tenths / 10) % 60;
-  const fraction = tenths % 10;
-  return `${Math.floor(tenths / 600)}:${String(seconds).padStart(2, '0')}${fraction ? `.${fraction}` : ''}`;
+  const totalSeconds = Number.isFinite(ms)
+    ? Math.max(0, Math.floor(ms / 1000))
+    : 0;
+  const seconds = totalSeconds % 60;
+  return `${Math.floor(totalSeconds / 60)}:${String(seconds).padStart(2, '0')}`;
 }
 
 export function validateSegments(
@@ -122,7 +123,9 @@ export function parseCloudTrack(
     sizeBytes: t.sizeBytes,
     createdAt: t.createdAt,
     source: t.source,
-    ...(t.storageProvider === 'supabase' ? { storageProvider: 'supabase' } : {}),
+    ...(t.storageProvider === 'supabase'
+      ? { storageProvider: 'supabase' }
+      : {}),
   };
 }
 

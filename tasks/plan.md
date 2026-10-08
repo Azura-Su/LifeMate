@@ -1,5 +1,15 @@
 # Kế hoạch LifeMate
 
+## Hệ màu nâu đất, mây trời và nắng nhạt — 08/10/2026
+
+Rà soát giao diện toàn app theo bảng màu nâu đất nhạt, trắng mây/xanh trời và vàng nắng nhạt. Dùng token ngữ nghĩa thống nhất cho nền, mặt thẻ, chữ, CTA, trạng thái, đường viền, lớp phủ và điều khiển; đặt vàng nắng làm điểm nhấn nhỏ, giữ diện tích nâu/be và xanh cân bằng; thay các màu hardcode còn sót ở component, màn hình và cấu hình splash/adaptive icon/notification. Giữ tương phản chữ và nút đủ dùng, kiểm chứng bằng test tương phản, Jest, typecheck, lint và bundle Android/iOS.
+
+## Mở rộng danh sách nghe — 08/10/2026
+
+Mở rộng danh sách nghe đơn hiện tại thành nhiều playlist riêng theo tài khoản, lưu metadata trên thiết bị và giữ khả năng đọc dữ liệu cũ. Người dùng có thể tạo/chọn/đổi tên/xóa playlist để phát; tên playlist phải duy nhất, kiểm tra không phân biệt chữ hoa/thường và báo rõ khi tên đã có. Từ thư viện, chọn nhiều playlist cho cùng một file. Xóa file âm thanh sẽ gỡ file khỏi mọi playlist; xóa playlist bỏ toàn bộ playlist và tên đó nhưng giữ các file âm thanh trong thư viện. Xóa playlist cuối cùng để lại trạng thái rỗng để người dùng tự tạo danh sách mới.
+
+Các bước: (1) thêm schema và migration từ key playlist cũ, kiểm thử hook với nhiều danh sách và membership độc lập; (2) thêm chọn/tạo playlist trên tab MP3 và kiểm thử điều hướng trạng thái; (3) thêm bộ chọn nhiều playlist trong thư viện, kiểm thử truy cập và membership; (4) chạy typecheck, lint, Jest và kiểm tra diff.
+
 ## Mở rộng đang thực hiện: audio (07/10/2026)
 
 Theo [SPEC-audio.md](../SPEC-audio.md): thư viện riêng theo UID; nối lần lượt đã được người dùng xác nhận. Thứ tự triển khai: validate/types → native inspect/export → local library và cloud rules → import/sync → player/editor → kiểm chứng và tài liệu. Cắt/ghép tạo file mới; audio gốc giữ nguyên, video chỉ được xử lý local. Lưu local trước upload để tránh mất kết quả khi mạng/billing chưa sẵn sàng. iOS AVFoundation và Android Media3 xuất AAC/M4A; audio nhập sẵn không chuyển mã.

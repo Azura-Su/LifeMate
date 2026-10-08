@@ -76,7 +76,8 @@ async function saveResult(
   onSaved(track);
   assertAudioSession(uid, signal);
   const unavailable = audioBackupUnavailable(track.sizeBytes);
-  if (unavailable) return { track, warning: `Đã lưu audio trên máy. ${unavailable}` };
+  if (unavailable)
+    return { track, warning: `Đã lưu audio trên máy. ${unavailable}` };
   report({ label: 'Đã lưu trên máy · Đang đồng bộ…', progress: 0 });
   try {
     const synced = await uploadAudioTrack(track, signal, (progress) =>
@@ -164,6 +165,69 @@ export async function importAudio(
   }
 }
 
+// Aborting the signal also cancels a running native export.
+async function withEngineCancel<T>(
+  signal: AbortSignal,
+  work: () => Promise<T>,
+) {
+  const cancel = () => {
+    void engine.cancel().catch(() => undefined);
+  };
+  signal.addEventListener('abort', cancel);
+  try {
+    return await work();
+  } finally {
+    signal.removeEventListener('abort', cancel);
+  }
+}
+
+// Downloads (if needed) and checks every segment, then exports them in order
+// into one temporary M4A. The caller owns the returned file.
+async function exportSegments(
+  uid: string,
+  segments: EditSegment[],
+  signal: AbortSignal,
+  report: Report,
+  onSaved: Saved,
+  labels: { prepare: (index: number) => string; export: string },
+) {
+  const clips = [];
+  for (const [index, segment] of segments.entries()) {
+    assertAudioSession(uid, signal);
+    if (segment.track.ownerId !== uid)
+      throw new Error('Chỉ được ghép file trong thư viện của bạn.');
+    report({ label: labels.prepare(index), progress: null });
+    const local = await downloadAudioTrack(segment.track, signal, (progress) =>
+      report({ label: `Đang tải đoạn ${index + 1}…`, progress }),
+    );
+    assertAudioSession(uid, signal);
+    onSaved(local);
+    const uri = audioLocalUri(local);
+    const actual = await engine.inspect(uri);
+    if (!actual.hasAudio)
+      throw new Error('Một file được chọn không có âm thanh.');
+    validateSegments([
+      {
+        startMs: segment.startMs,
+        endMs: segment.endMs,
+        durationMs: actual.durationMs + 1,
+      },
+    ]);
+    clips.push({ uri, startMs: segment.startMs, endMs: segment.endMs });
+  }
+  assertAudioSession(uid, signal);
+  report({ label: labels.export, progress: null });
+  return engine.exportAudio(clips);
+}
+
+const validateTrackSegments = (segments: EditSegment[]) =>
+  validateSegments(
+    segments.map((segment) => ({
+      ...segment,
+      durationMs: segment.track.durationMs,
+    })),
+  );
+
 export async function editAudio(
   uid: string,
   segments: EditSegment[],
@@ -172,67 +236,70 @@ export async function editAudio(
   report: Report,
   onSaved: Saved,
 ) {
-  validateSegments(
-    segments.map((s) => ({ ...s, durationMs: s.track.durationMs })),
-  );
+  validateTrackSegments(segments);
   normalizeAudioTitle(title);
   let output: string | undefined;
-  const cancel = () => {
-    void engine.cancel().catch(() => undefined);
-  };
-  signal.addEventListener('abort', cancel);
   try {
-    const clips = [];
-    for (const [index, segment] of segments.entries()) {
-      assertAudioSession(uid, signal);
-      if (segment.track.ownerId !== uid)
-        throw new Error('Chỉ được ghép file trong thư viện của bạn.');
-      report({
-        label: `Đang chuẩn bị đoạn ${index + 1}/${segments.length}…`,
-        progress: null,
+    return await withEngineCancel(signal, async () => {
+      output = await exportSegments(uid, segments, signal, report, onSaved, {
+        prepare: (index) =>
+          `Đang chuẩn bị đoạn ${index + 1}/${segments.length}…`,
+        export:
+          segments.length === 1
+            ? 'Đang cắt âm thanh…'
+            : 'Đang ghép âm thanh theo thứ tự…',
       });
-      const local = await downloadAudioTrack(
-        segment.track,
+      return await saveResult(
+        uid,
+        output,
+        title,
+        'm4a',
+        'audio/mp4',
+        segments.length === 1 ? 'trim' : 'merge',
         signal,
-        (progress) =>
-          report({ label: `Đang tải đoạn ${index + 1}…`, progress }),
+        report,
+        onSaved,
       );
-      onSaved(local);
-      const uri = audioLocalUri(local);
-      const actual = await engine.inspect(uri);
-      if (!actual.hasAudio)
-        throw new Error('Một file được chọn không có âm thanh.');
-      validateSegments([
-        {
-          startMs: segment.startMs,
-          endMs: segment.endMs,
-          durationMs: actual.durationMs + 1,
-        },
-      ]);
-      clips.push({ uri, startMs: segment.startMs, endMs: segment.endMs });
-    }
-    assertAudioSession(uid, signal);
-    report({
-      label:
-        segments.length === 1
-          ? 'Đang cắt âm thanh…'
-          : 'Đang ghép âm thanh theo thứ tự…',
-      progress: null,
     });
-    output = await engine.exportAudio(clips);
-    return await saveResult(
-      uid,
-      output,
-      title,
-      'm4a',
-      'audio/mp4',
-      segments.length === 1 ? 'trim' : 'merge',
-      signal,
-      report,
-      onSaved,
-    );
   } finally {
-    signal.removeEventListener('abort', cancel);
     await removeTemporaryAudio(output);
+  }
+}
+
+// Builds a temporary merged file for listening before saving. The caller must
+// remove the returned uri when playback ends.
+export async function previewAudio(
+  segments: EditSegment[],
+  signal: AbortSignal,
+  report: Report,
+  onSaved: Saved,
+) {
+  if (segments.length < 2)
+    throw new Error('Chọn ít nhất hai đoạn để nghe thử bản ghép.');
+  validateTrackSegments(segments);
+  const uid = segments[0].track.ownerId;
+  let output: string | undefined;
+  try {
+    return await withEngineCancel(signal, async () => {
+      output = await exportSegments(uid, segments, signal, report, onSaved, {
+        prepare: (index) =>
+          `Đang chuẩn bị đoạn ${index + 1}/${segments.length} để nghe thử…`,
+        export: 'Đang ghép các đoạn để nghe thử…',
+      });
+      assertAudioSession(uid, signal);
+      const info = await engine.inspect(output);
+      if (
+        !info.hasAudio ||
+        info.hasVideo ||
+        info.durationMs < 100 ||
+        info.durationMs > MAX_AUDIO_MS
+      )
+        throw new Error('Không tạo được bản nghe thử hợp lệ.');
+      assertAudioSession(uid, signal);
+      return { uri: output, durationMs: info.durationMs };
+    });
+  } catch (error) {
+    await removeTemporaryAudio(output);
+    throw error;
   }
 }

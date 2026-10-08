@@ -1,4 +1,4 @@
-import { importAudio, editAudio } from '../audioOperations';
+import { importAudio, editAudio, previewAudio } from '../audioOperations';
 import engine from '../../../../modules/lifemate-audio';
 import { saveAudioFile, removeTemporaryAudio } from '../audioFiles';
 import {
@@ -178,6 +178,38 @@ it('keeps the chosen segment order and boundaries when merging', async () => {
     { uri: 'file:///saved/b.wav', startMs: 1000, endMs: 3000 },
     { uri: 'file:///saved/a.mp3', startMs: 0, endMs: 2000 },
   ]);
+});
+it('renders an ordered temporary merge preview without saving or uploading it', async () => {
+  const other = { ...track, id: 'b', fileName: 'b.wav', mimeType: 'audio/wav' };
+  jest
+    .mocked(engine.inspect)
+    .mockResolvedValueOnce(info)
+    .mockResolvedValueOnce(info)
+    .mockResolvedValueOnce({ ...info, durationMs: 4000 });
+  const report = jest.fn();
+  const saved = jest.fn();
+  const preview = await previewAudio(
+    [
+      { track: other, startMs: 1000, endMs: 3000 },
+      { track, startMs: 0, endMs: 2000 },
+    ],
+    new AbortController().signal,
+    report,
+    saved,
+  );
+
+  expect(engine.exportAudio).toHaveBeenCalledWith([
+    { uri: 'file:///saved/b.wav', startMs: 1000, endMs: 3000 },
+    { uri: 'file:///saved/a.mp3', startMs: 0, endMs: 2000 },
+  ]);
+  expect(preview).toEqual({
+    uri: 'file:///cache/output.m4a',
+    durationMs: 4000,
+  });
+  expect(saved).toHaveBeenNthCalledWith(1, other);
+  expect(saved).toHaveBeenNthCalledWith(2, track);
+  expect(saveAudioFile).not.toHaveBeenCalled();
+  expect(uploadAudioTrack).not.toHaveBeenCalled();
 });
 it('does not save a result after the account changes during conversion', async () => {
   jest

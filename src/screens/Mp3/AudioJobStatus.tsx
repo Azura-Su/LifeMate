@@ -12,7 +12,7 @@ export function AudioJobStatus({
 }) {
   return (
     <View style={styles.box}>
-      <ActivityIndicator color={colors.green} />
+      <ActivityIndicator color={colors.earth} />
       <Text accessibilityLiveRegion="polite" style={typography.body}>
         {job.label}
         {job.progress !== null ? ` ${Math.round(job.progress * 100)}%` : ''}
@@ -27,6 +27,6 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
     borderRadius: 16,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.sunlightSoft,
   },
 });

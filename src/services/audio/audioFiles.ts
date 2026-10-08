@@ -73,6 +73,13 @@ export function updateAudioIndex(track: AudioTrack): Promise<AudioTrack[]> {
   ]);
 }
 
+export async function deleteLocalAudioTrack(track: AudioTrack) {
+  await FileSystem.deleteAsync(audioLocalUri(track), { idempotent: true });
+  return writeAudioIndex(track.ownerId, (tracks) =>
+    tracks.filter((saved) => saved.id !== track.id),
+  );
+}
+
 export async function renameAudioTitle(uid: string, id: string, value: string) {
   const title = normalizeAudioTitle(value);
   const updated = await writeAudioIndex(uid, (tracks) => {

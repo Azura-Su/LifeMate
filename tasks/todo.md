@@ -1,5 +1,29 @@
 # Công việc
 
+## Hệ màu nâu đất, mây trời và nắng nhạt — 08/10/2026
+
+- [x] Xây bảng màu token nâu đất, trắng mây, xanh trời và vàng nắng nhạt; thêm kiểm tra độ tương phản cho chữ, nút và trạng thái.
+- [x] Áp dụng xuyên suốt nền, chữ, nút, cards, tabs, player, dialogs, trạng thái, splash/adaptive icon/notification; gom màu giao diện về theme.
+- [x] Chạy Jest (35 suites / 120 tests), typecheck, lint, Prettier và bundle iOS/Android.
+
+## Nhiều danh sách nghe — 08/10/2026
+
+- [x] Thêm mô hình playlist theo UID, migration playlist cũ và kiểm thử tạo/chọn/thêm một file vào nhiều playlist.
+- [x] Thêm bộ chọn/tạo danh sách trên tab MP3; playlist đang chọn quyết định queue được phát.
+- [x] Cho phép mở bộ chọn membership ở mỗi file thư viện; xóa file sẽ gỡ khỏi mọi playlist.
+- [x] Chạy kiểm thử liên quan, typecheck, lint và kiểm tra diff: 34 suites / 111 tests, typecheck, lint, Prettier đều pass.
+
+## Xóa danh sách nghe — 08/10/2026
+
+- [x] Đặt thùng rác bên trong chip đang chọn; xác nhận xóa hẳn playlist và tên, giữ file gốc.
+- [x] Cho phép trạng thái không còn playlist, giữ trạng thái đó sau khi mở lại và hiển thị hướng dẫn tạo mới.
+- [x] Kiểm thử xác nhận/migration/xóa danh sách cuối; 34 suites / 116 tests, typecheck, lint, Prettier và bundle Android/iOS đều pass.
+
+## Đổi tên danh sách nghe — 08/10/2026
+
+- [x] Thêm đổi tên playlist đã chọn và kiểm tra tên trùng không phân biệt chữ hoa/thường khi tạo hoặc đổi tên.
+- [x] Báo “Tên này đã có rồi” khi trùng; 34 suites / 119 tests, typecheck, lint, Prettier và bundle Android/iOS đều pass.
+
 ## Đặt tên âm thanh — 07/10/2026
 
 - [x] Đặt tên trước khi nhập audio/video; đổi tên audio đã lưu, không thay đổi file gốc.

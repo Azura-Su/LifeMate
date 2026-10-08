@@ -26,6 +26,18 @@ export function useAudioEditor(initial: EditSegment[]) {
     );
     setError(null);
   }
+  function changeRange(id: string, startMs: number, endMs: number) {
+    const seconds = (value: number) =>
+      String(Number((Math.floor(value) / 1000).toFixed(3)));
+    setDrafts((current) =>
+      current.map((draft) =>
+        draft.track.id === id
+          ? { ...draft, start: seconds(startMs), end: seconds(endMs) }
+          : draft,
+      ),
+    );
+    setError(null);
+  }
   function move(index: number, direction: -1 | 1) {
     setDrafts((current) => {
       const target = index + direction;
@@ -46,12 +58,19 @@ export function useAudioEditor(initial: EditSegment[]) {
     validateSegments([{ startMs, endMs, durationMs: draft.track.durationMs }]);
     return { track: draft.track, startMs, endMs };
   }
+  function selectedSegments() {
+    const segments = drafts.map((_, index) => segmentAt(index));
+    validateSegments(
+      segments.map((segment) => ({
+        ...segment,
+        durationMs: segment.track.durationMs,
+      })),
+    );
+    return segments;
+  }
   function submit(onSave: (segments: EditSegment[], name: string) => void) {
     try {
-      const segments = drafts.map((_, index) => segmentAt(index));
-      validateSegments(
-        segments.map((s) => ({ ...s, durationMs: s.track.durationMs })),
-      );
+      const segments = selectedSegments();
       if (!title.trim()) throw new Error('Đặt tên cho bản âm thanh mới.');
       setError(null);
       onSave(segments, title.trim());
@@ -64,6 +83,17 @@ export function useAudioEditor(initial: EditSegment[]) {
       const segment = segmentAt(index);
       setError(null);
       onPreview(segment);
+    } catch (e) {
+      setError(audioError(e));
+    }
+  }
+  function previewAll(onPreview: (segments: EditSegment[]) => void) {
+    try {
+      const segments = selectedSegments();
+      if (segments.length < 2)
+        throw new Error('Chọn ít nhất hai đoạn để nghe thử bản ghép.');
+      setError(null);
+      onPreview(segments);
     } catch (e) {
       setError(audioError(e));
     }
@@ -83,9 +113,11 @@ export function useAudioEditor(initial: EditSegment[]) {
     setTitle,
     error,
     change,
+    changeRange,
     move,
     submit,
     preview,
+    previewAll,
     totalMs,
   };
 }

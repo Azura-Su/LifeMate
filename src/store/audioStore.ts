@@ -7,6 +7,7 @@ type AudioState = {
   bind: (uid: string | null) => void;
   replace: (uid: string, tracks: AudioTrack[]) => void;
   upsert: (track: AudioTrack) => void;
+  remove: (uid: string, id: string) => void;
 };
 
 export const useAudioStore = create<AudioState>((set) => ({
@@ -24,6 +25,12 @@ export const useAudioStore = create<AudioState>((set) => ({
               ...state.tracks.filter((t) => t.id !== track.id),
             ].sort((a, b) => b.createdAt - a.createdAt),
           }
+        : state,
+    ),
+  remove: (uid, id) =>
+    set((state) =>
+      state.uid === uid
+        ? { tracks: state.tracks.filter((track) => track.id !== id) }
         : state,
     ),
 }));

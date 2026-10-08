@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  deleteLocalAudioTrack,
   readAudioIndex,
   updateAudioIndex,
   mergeAudioIndex,
@@ -15,6 +16,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 jest.mock('expo-file-system/legacy', () => ({
   documentDirectory: 'file:///documents/',
   cacheDirectory: 'file:///cache/',
+  deleteAsync: jest.fn().mockResolvedValue(undefined),
 }));
 const item: AudioTrack = {
   id: 'a',
@@ -46,6 +48,18 @@ it('serializes simultaneous metadata changes without losing a saved track', asyn
     'a',
     'b',
   ]);
+});
+it('deletes a track file and removes only that track from the local index', async () => {
+  await updateAudioIndex(item);
+  await updateAudioIndex({ ...item, id: 'b', fileName: 'b.mp3' });
+  const { deleteAsync } = jest.requireMock('expo-file-system/legacy') as {
+    deleteAsync: jest.Mock;
+  };
+  await deleteLocalAudioTrack(item);
+  expect(deleteAsync).toHaveBeenCalledWith('file:///documents/audio/u1/a.mp3', {
+    idempotent: true,
+  });
+  expect(await readAudioIndex('u1')).toMatchObject([{ id: 'b' }]);
 });
 
 it('merges a cloud listing without losing offline audio or the local availability of a synced file', async () => {

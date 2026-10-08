@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -11,21 +12,33 @@ import { colors, typography } from '../../theme';
 import { formatAudioTime } from '../../utils/audio';
 import { useAudioPlayback } from './useAudioPlayback';
 import type { Playback } from './useMp3Screen';
+import { AudioTrackTitle } from './AudioTrackTitle';
 
 export function AudioPlayer({
   source,
   onClose,
+  onPlaybackChange,
 }: {
   source: Playback;
   onClose: () => void;
+  onPlaybackChange?: (trackId: string, playing: boolean) => void;
 }) {
   const model = useAudioPlayback(source);
+  useEffect(() => {
+    onPlaybackChange?.(source.trackId, model.status.playing);
+  }, [model.status.playing, onPlaybackChange, source.trackId]);
+  useEffect(() => {
+    if (!onPlaybackChange) return;
+    return () => onPlaybackChange(source.trackId, false);
+  }, [onPlaybackChange, source.trackId]);
   return (
     <View style={styles.box}>
       <View style={styles.row}>
-        <Text style={[typography.heading, styles.title]} numberOfLines={2}>
-          {source.title}
-        </Text>
+        <AudioTrackTitle
+          title={source.title}
+          active={model.status.playing}
+          style={styles.title}
+        />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Đóng trình phát"
@@ -52,12 +65,12 @@ export function AudioPlayer({
               style={styles.play}
             >
               {!model.status.isLoaded ? (
-                <ActivityIndicator color={colors.green} />
+                <ActivityIndicator color={colors.earth} />
               ) : (
                 <Feather
                   name={model.status.playing ? 'pause' : 'play'}
                   size={26}
-                  color={colors.green}
+                  color={colors.earth}
                 />
               )}
             </Pressable>
@@ -72,9 +85,9 @@ export function AudioPlayer({
               )}
               disabled={!model.status.isLoaded}
               onSlidingComplete={(value) => void model.seek(value)}
-              minimumTrackTintColor={colors.green}
+              minimumTrackTintColor={colors.sky}
               maximumTrackTintColor={colors.line}
-              thumbTintColor={colors.green}
+              thumbTintColor={colors.sky}
             />
           </View>
           <View style={styles.row}>
@@ -97,7 +110,7 @@ export function AudioPlayer({
 }
 const styles = StyleSheet.create({
   box: {
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.skySoft,
     borderRadius: 20,
     padding: 16,
     gap: 8,
@@ -108,7 +121,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
-  title: { flex: 1, fontSize: 17 },
+  title: { flex: 1 },
   icon: { padding: 12 },
   play: {
     width: 52,

@@ -25,7 +25,9 @@ it('supports time input in seconds or mm:ss without accepting ambiguous values',
   expect(parseAudioTime('1:99')).toBeNull();
   expect(parseAudioTime('-1')).toBeNull();
   expect(parseAudioTime('')).toBeNull();
-  expect(formatAudioTime(62500)).toBe('1:02.5');
+  expect(formatAudioTime(62500)).toBe('1:02');
+  expect(formatAudioTime(999)).toBe('0:00');
+  expect(formatAudioTime(60500)).toBe('1:00');
 });
 it('rejects reversed, out-of-range, tiny or oversized edits', () => {
   expect(() =>
@@ -74,8 +76,12 @@ it('keeps existing audio formats and rejects unsupported files', () => {
   expect(audioFileType('clip.mp4')).toBeNull();
 });
 it('preserves the free-storage provider through persisted metadata and rejects unknown providers', () => {
-  expect(parseCloudTrack('t1', { ...track, storageProvider: 'supabase' }, 'u1')).toMatchObject({ storageProvider: 'supabase' });
-  expect(parseCloudTrack('t1', { ...track, storageProvider: 'public' }, 'u1')).toBeNull();
+  expect(
+    parseCloudTrack('t1', { ...track, storageProvider: 'supabase' }, 'u1'),
+  ).toMatchObject({ storageProvider: 'supabase' });
+  expect(
+    parseCloudTrack('t1', { ...track, storageProvider: 'public' }, 'u1'),
+  ).toBeNull();
 });
 
 it('explains a disabled Firestore API when the SDK provides that cause', () => {

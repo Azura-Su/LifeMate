@@ -7,15 +7,18 @@ import type { AudioJob, AudioTrack, EditSegment } from '../../types/audio';
 import { audioError, MAX_SEGMENTS } from '../../utils/audio';
 import {
   audioLocalUri,
+  deleteLocalAudioTrack,
   readAudioIndex,
   mergeAudioIndex,
+  removeTemporaryAudio,
 } from '../../services/audio/audioFiles';
 import { assertAudioSession } from '../../services/audio/audioSession';
-import { editAudio } from '../../services/audio/audioOperations';
+import { editAudio, previewAudio } from '../../services/audio/audioOperations';
 import { useAudioNaming } from './useAudioNaming';
 import { audioCloudUrl } from '../../config/audioCloud';
 import {
   downloadAudioTrack,
+  deleteAudioTrackRemote,
   fetchCloudTracks,
   uploadAudioTrack,
 } from '../../services/firebase/audioLibraryService';
@@ -26,7 +29,11 @@ export type Playback = {
   startMs: number;
   endMs: number;
   key: number;
+  trackId: string;
 };
+
+const MESSAGE_DURATION_MS = 3000;
+
 export function useMp3Screen() {
   const uid = useAuthStore((s) => s.user?.uid);
   const allTracks = useAudioStore((s) => s.tracks);
@@ -44,6 +51,20 @@ export function useMp3Screen() {
   const refreshController = useRef<AbortController | null>(null);
   const alive = useRef(true);
   const playbackKey = useRef(0);
+  const temporaryPreviewUri = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!message) return;
+    const timeout = setTimeout(() => setMessage(null), MESSAGE_DURATION_MS);
+    return () => clearTimeout(timeout);
+  }, [message]);
+
+  const clearPlayback = useCallback(() => {
+    const uri = temporaryPreviewUri.current;
+    temporaryPreviewUri.current = null;
+    setPlayback(null);
+    if (uri) void removeTemporaryAudio(uri);
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!uid || activeJob.current) return;
@@ -102,7 +123,7 @@ export function useMp3Screen() {
     };
   }, [uid, refresh]);
 
-  useFocusEffect(useCallback(() => () => setPlayback(null), []));
+  useFocusEffect(useCallback(() => () => clearPlayback(), [clearPlayback]));
   const report = (value: AudioJob) => {
     if (alive.current) setJob(value);
   };
@@ -112,13 +133,13 @@ export function useMp3Screen() {
   };
 
   async function run(action: (signal: AbortSignal) => Promise<void>) {
-    if (!uid || activeJob.current) return;
+    if (!uid || activeJob.current) return false;
     const controller = new AbortController();
     activeJob.current = controller;
     // A response started before a rename must not overwrite its new title.
     refreshController.current?.abort();
     setCloudLoading(false);
-    setPlayback(null);
+    clearPlayback();
     setError(null);
     setMessage(null);
     setJob({ label: 'Đang chuẩn bị…', progress: null });
@@ -127,8 +148,10 @@ export function useMp3Screen() {
       await activateKeepAwakeAsync(tag).catch(() => undefined);
       assertAudioSession(uid, controller.signal);
       await action(controller.signal);
+      return true;
     } catch (e) {
       if (alive.current) setError(audioError(e));
+      return false;
     } finally {
       await deactivateKeepAwake(tag).catch(() => undefined);
       if (activeJob.current === controller) activeJob.current = null;
@@ -138,7 +161,9 @@ export function useMp3Screen() {
 
   const naming = useAudioNaming({
     uid,
-    run,
+    run: async (action) => {
+      await run(action);
+    },
     report,
     onSaved,
     onMessage: setMessage,
@@ -160,14 +185,34 @@ export function useMp3Screen() {
         setMessage('Đã sao lưu âm thanh vào thư viện riêng trên đám mây.');
     });
 
+  const deleteTrack = (track: AudioTrack) =>
+    run(async (signal) => {
+      if (track.synced) {
+        report({ label: 'Đang xóa bản sao lưu…', progress: null });
+        await deleteAudioTrackRemote(track, signal);
+      }
+      assertAudioSession(track.ownerId, signal);
+      await deleteLocalAudioTrack(track);
+      assertAudioSession(track.ownerId, signal);
+      useAudioStore.getState().remove(track.ownerId, track.id);
+      setSelected((current) => current.filter((id) => id !== track.id));
+      if (alive.current) setMessage('Đã xóa file thành công.');
+    });
+
+  // Returns the on-device copy, downloading a cloud-only backup first.
+  const openLocal = async (track: AudioTrack, signal: AbortSignal) => {
+    report({ label: 'Đang mở âm thanh…', progress: null });
+    const local = await downloadAudioTrack(track, signal, (progress) =>
+      report({ label: 'Đang tải audio…', progress }),
+    );
+    assertAudioSession(track.ownerId, signal);
+    onSaved(local);
+    return local;
+  };
+
   const play = (track: AudioTrack, startMs = 0, endMs = track.durationMs) =>
     run(async (signal) => {
-      report({ label: 'Đang mở âm thanh…', progress: null });
-      const local = await downloadAudioTrack(track, signal, (progress) =>
-        report({ label: 'Đang tải audio…', progress }),
-      );
-      assertAudioSession(track.ownerId, signal);
-      onSaved(local);
+      const local = await openLocal(track, signal);
       if (alive.current)
         setPlayback({
           uri: audioLocalUri(local),
@@ -175,7 +220,42 @@ export function useMp3Screen() {
           startMs,
           endMs,
           key: ++playbackKey.current,
+          trackId: local.id,
         });
+    });
+
+  // Used by the listening queue, which owns its own long-lived player.
+  const prepare = async (track: AudioTrack) => {
+    let uri: string | null = null;
+    await run(async (signal) => {
+      uri = audioLocalUri(await openLocal(track, signal));
+    });
+    return uri;
+  };
+
+  const previewEdit = (segments: EditSegment[]) =>
+    run(async (signal) => {
+      if (!uid) return;
+      const preview = await previewAudio(segments, signal, report, onSaved);
+      try {
+        assertAudioSession(uid, signal);
+        if (!alive.current) {
+          await removeTemporaryAudio(preview.uri);
+          return;
+        }
+        temporaryPreviewUri.current = preview.uri;
+        setPlayback({
+          uri: preview.uri,
+          title: 'Nghe thử bản ghép',
+          startMs: 0,
+          endMs: preview.durationMs,
+          key: ++playbackKey.current,
+          trackId: 'merge-preview',
+        });
+      } catch (error) {
+        await removeTemporaryAudio(preview.uri);
+        throw error;
+      }
     });
 
   function toggleSelect(id: string) {
@@ -187,8 +267,11 @@ export function useMp3Screen() {
           : current,
     );
   }
+  function clearSelection() {
+    setSelected([]);
+  }
   function openEditor(items: AudioTrack[]) {
-    setPlayback(null);
+    clearPlayback();
     setError(null);
     setMessage(null);
     setEditor(
@@ -225,7 +308,8 @@ export function useMp3Screen() {
   const closeEditor = () => {
     if (!activeJob.current) {
       setEditor(null);
-      setPlayback(null);
+      clearSelection();
+      clearPlayback();
     }
   };
 
@@ -244,18 +328,22 @@ export function useMp3Screen() {
     rename: (track: AudioTrack) => {
       if (activeJob.current) return;
       setError(null);
-      setPlayback(null);
+      clearPlayback();
       naming.rename(track);
     },
     sync,
+    deleteTrack,
     play,
+    prepare,
     toggleSelect,
+    clearSelection,
     mergeSelected,
     openEditor,
     saveEdit,
+    previewEdit,
     closeEditor,
     refresh,
     cancel: () => activeJob.current?.abort(),
-    stop: () => setPlayback(null),
+    stop: clearPlayback,
   };
 }
