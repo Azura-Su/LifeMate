@@ -15,21 +15,17 @@
         "aps-environment": "development"
       },
       "infoPlist": {
-        "UIBackgroundModes": [
-          "remote-notification"
-        ],
+        "UIBackgroundModes": ["remote-notification", "audio"],
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "vn.mobifone.vnsteel",
       "googleServicesFile": "./firebase/google-services.json",
-      "permissions": [
-        "android.permission.POST_NOTIFICATIONS"
-      ],
+      "permissions": ["android.permission.POST_NOTIFICATIONS"],
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#F7F1DF"
+        "backgroundColor": "#F7FAFC"
       }
     },
     "plugins": [
@@ -64,14 +60,14 @@
         "expo-notifications",
         {
           "defaultChannel": "lifemate",
-          "color": "#EAAE19",
+          "color": "#9C701D",
           "icon": "./assets/notification-icon.png"
         }
       ],
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#F7F1DF",
+          "backgroundColor": "#F7FAFC",
           "image": "./assets/icon.png",
           "imageWidth": 160
         }
@@ -89,7 +85,8 @@
         "expo-audio",
         {
           "microphonePermission": false,
-          "recordAudioAndroid": false
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": true
         }
       ],
       "expo-asset"

@@ -6,6 +6,7 @@ type Props = {
   onPress: () => void;
   loading?: boolean;
   disabled?: boolean;
+  compact?: boolean;
   variant?: 'primary' | 'secondary' | 'danger';
 };
 
@@ -14,6 +15,7 @@ export function Button({
   onPress,
   loading,
   disabled,
+  compact = false,
   variant = 'primary',
 }: Props) {
   return (
@@ -26,13 +28,29 @@ export function Button({
       style={({ pressed }) => [
         styles.base,
         styles[variant],
+        compact && styles.compact,
         (pressed || disabled || loading) && styles.dim,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={colors.ink} />
+        <ActivityIndicator
+          color={
+            variant === 'primary'
+              ? colors.onPrimary
+              : variant === 'danger'
+                ? colors.danger
+                : colors.earth
+          }
+        />
       ) : (
-        <Text style={[styles.text, variant === 'danger' && styles.dangerText]}>
+        <Text
+          style={[
+            styles.text,
+            compact && styles.compactText,
+            variant === 'primary' && styles.primaryText,
+            variant === 'danger' && styles.dangerText,
+          ]}
+        >
           {title}
         </Text>
       )}
@@ -48,14 +66,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  primary: { backgroundColor: colors.primary },
+  primary: {
+    backgroundColor: colors.sunlightAction,
+    borderWidth: 1,
+    borderColor: colors.sunlightBorder,
+  },
   secondary: {
-    backgroundColor: colors.cream,
+    backgroundColor: colors.sunlightSoft,
     borderWidth: 1,
     borderColor: colors.line,
   },
-  danger: { backgroundColor: '#FCECEC' },
+  danger: { backgroundColor: colors.dangerSoft },
+  compact: {
+    minHeight: 44,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
   text: { fontSize: 16, fontWeight: '700', color: colors.ink },
+  compactText: { fontSize: 14 },
+  primaryText: { color: colors.onPrimary },
   dangerText: { color: colors.danger },
   dim: { opacity: 0.6 },
 });

@@ -1,4 +1,3 @@
-import { styles } from './SettingsScreen.styles';
 import Feather from '@expo/vector-icons/Feather';
 import { Text, View } from 'react-native';
 import { BrandAvatar } from '../../components/BrandAvatar';
@@ -6,57 +5,67 @@ import { Button } from '../../components/Button';
 import { Screen } from '../../components/Screen';
 import { colors, typography } from '../../theme';
 import { useSettingsScreen } from './useSettingsScreen';
+import { styles } from './SettingsScreen.styles';
 
 export function SettingsScreen() {
   const model = useSettingsScreen();
   const pushReady = model.permission === 'granted' && !!model.token;
+  const notificationDescription = pushReady
+    ? 'Đang bật trên thiết bị này.'
+    : model.permission === 'denied'
+      ? 'Đang tắt. Mở cài đặt để bật.'
+      : 'Bật để nhận cập nhật từ LifeMate.';
+
   return (
-    <Screen>
-      <View style={styles.section}>
-        <Text style={typography.eyebrow}>THEO CÁCH CỦA BẠN</Text>
+    <Screen
+      fixedHeader={
         <Text accessibilityRole="header" style={typography.title}>
-          Setting
+          Cài đặt
         </Text>
-      </View>
-      <View style={styles.profile}>
-        <BrandAvatar size={64} />
+      }
+      fixedHeaderStyle={styles.fixedHeader}
+      contentStyle={styles.content}
+    >
+      <View style={styles.profileCard}>
+        <BrandAvatar size={48} />
         <View style={styles.profileText}>
-          <Text style={typography.heading}>{model.name}</Text>
+          <Text style={styles.profileName}>{model.name}</Text>
           <Text selectable style={typography.small}>
             {model.user?.email}
           </Text>
         </View>
       </View>
-      <View style={styles.section}>
-        <View style={styles.row}>
-          <Feather name="bell" size={22} color={colors.green} />
-          <Text style={typography.heading}>Thông báo</Text>
+
+      <View style={styles.card}>
+        <View style={styles.notificationRow}>
+          <View style={[styles.iconBadge, styles.notificationIcon]}>
+            <Feather name="bell" size={18} color={colors.sky} />
+          </View>
+          <View style={styles.notificationText}>
+            <Text style={styles.cardTitle}>Thông báo</Text>
+            <Text numberOfLines={2} style={typography.small}>
+              {notificationDescription}
+            </Text>
+          </View>
+          {!pushReady && (
+            <Button
+              compact
+              title={model.permission === 'denied' ? 'Mở cài đặt' : 'Bật'}
+              onPress={model.enablePush}
+              loading={model.busy === 'push'}
+              disabled={model.busy === 'logout'}
+              variant="secondary"
+            />
+          )}
         </View>
-        <Text style={typography.body}>
-          {pushReady
-            ? 'Thông báo đã sẵn sàng trên thiết bị này.'
-            : model.permission === 'denied'
-              ? 'Thông báo đang tắt. Bạn có thể bật lại trong cài đặt thiết bị.'
-              : 'Nhận những thông báo mới từ LifeMate khi bạn muốn.'}
-        </Text>
         {model.pushError && (
-          <Text style={typography.small}>{model.pushError}</Text>
-        )}
-        {!pushReady && (
-          <Button
-            title={
-              model.permission === 'denied'
-                ? 'Mở cài đặt thiết bị'
-                : 'Bật thông báo'
-            }
-            onPress={model.enablePush}
-            loading={model.busy === 'push'}
-            disabled={model.busy === 'logout'}
-            variant="secondary"
-          />
+          <Text accessibilityRole="alert" style={styles.error}>
+            {model.pushError}
+          </Text>
         )}
         {__DEV__ && model.token && (
           <Button
+            compact
             title={
               model.copied
                 ? 'Đã sao chép FCM token'
@@ -67,26 +76,31 @@ export function SettingsScreen() {
           />
         )}
       </View>
-      <View style={styles.divider} />
-      <View style={styles.section}>
-        <Text style={typography.heading}>Tài khoản</Text>
-        <Text style={typography.body}>Hẹn gặp lại bạn, bất cứ khi nào.</Text>
+
+      <View style={styles.accountCard}>
+        <View style={[styles.iconBadge, styles.accountIcon]}>
+          <Feather name="log-out" size={18} color={colors.danger} />
+        </View>
+        <View style={styles.accountText}>
+          <Text style={styles.cardTitle}>Tài khoản</Text>
+          <Text style={typography.small}>Đăng xuất khỏi thiết bị này.</Text>
+        </View>
         <Button
+          compact
           title="Đăng xuất"
           onPress={model.signOut}
           loading={model.busy === 'logout'}
           disabled={model.busy === 'push'}
           variant="danger"
         />
-        {model.error && (
-          <Text accessibilityRole="alert" style={styles.error}>
-            {model.error}
-          </Text>
-        )}
       </View>
-      <Text style={styles.footer}>
-        LifeMate · 1.0.0{'\n'}Người bạn đồng hành mỗi ngày.
-      </Text>
+
+      {model.error && (
+        <Text accessibilityRole="alert" style={styles.error}>
+          {model.error}
+        </Text>
+      )}
+      <Text style={styles.footer}>LifeMate · 1.0.0</Text>
     </Screen>
   );
 }

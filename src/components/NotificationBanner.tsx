@@ -13,7 +13,7 @@ export function NotificationBanner() {
       accessibilityLiveRegion="polite"
       style={[styles.banner, { top: insets.top + 8 }]}
     >
-      <Feather name="bell" size={22} color={colors.green} />
+      <Feather name="bell" size={22} color={colors.sky} />
       <View style={styles.content}>
         <Text style={typography.heading}>{message.title}</Text>
         <Text style={typography.small}>{message.body}</Text>
@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     elevation: 8,
-    boxShadow: '0 4px 20px #00000018',
+    boxShadow: `0 4px 20px ${colors.shadow}`,
   },
   content: { flex: 1 },
   close: {

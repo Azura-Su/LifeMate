@@ -14,7 +14,7 @@ export function MainTabs() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: colors.green,
+        tabBarActiveTintColor: colors.earth,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
           backgroundColor: colors.background,
@@ -28,7 +28,11 @@ export function MainTabs() {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="MP3" component={Mp3Screen} />
-      <Tab.Screen name="Setting" component={SettingsScreen} />
+      <Tab.Screen
+        name="Setting"
+        component={SettingsScreen}
+        options={{ tabBarLabel: 'Cài đặt' }}
+      />
     </Tab.Navigator>
   );
 }

@@ -13,7 +13,7 @@ const theme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    primary: colors.green,
+    primary: colors.primary,
     background: colors.background,
     card: colors.background,
     text: colors.ink,

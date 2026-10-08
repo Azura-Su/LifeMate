@@ -1,16 +1,32 @@
 import { StyleSheet } from 'react-native';
 
 export const colors = {
-  background: '#FAF7EE',
+  // Light earth, cloud-white sky, and a soft sunlight highlight.
+  background: '#F7FAFC',
   surface: '#FFFFFF',
-  cream: '#F7F1DF',
-  primary: '#EDB324',
-  primarySoft: '#FFF0C2',
-  ink: '#28291F',
-  muted: '#696A5D',
-  line: '#E4E1D6',
-  green: '#315743',
-  danger: '#AC3030',
+  primary: '#E8D9C9',
+  primaryBorder: '#D2B9A4',
+  primarySoft: '#F3EAE0',
+  earth: '#7C5C45',
+  earthLight: '#E8D9C9',
+  sky: '#4D7088',
+  skySoft: '#E9F0F3',
+  sunlight: '#9C701D',
+  sunlightSoft: '#FBF4DD',
+  sunlightAction: '#EAD89D',
+  sunlightBorder: '#D2B875',
+  ink: '#352D28',
+  muted: '#6A625B',
+  line: '#DEE5E9',
+  success: '#506F5F',
+  danger: '#A84646',
+  dangerSoft: '#F8ECEB',
+  onPrimary: '#352D28',
+  scrim: 'rgba(53, 45, 40, 0.48)',
+  shadow: '#352D2826',
+  onAccentDivider: '#D2B9A4',
+  record: '#342D29',
+  recordGroove: '#8D796A',
 };
 
 export const typography = StyleSheet.create({

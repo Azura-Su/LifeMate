@@ -14,27 +14,33 @@ export function HomeScreen({
   const model = useHomeScreen();
   return (
     <Screen
+      fixedHeader={
+        <View style={styles.header}>
+          <View style={styles.greeting}>
+            <Text style={typography.small}>Chào bạn,</Text>
+            <Text
+              accessibilityRole="header"
+              numberOfLines={1}
+              style={typography.title}
+            >
+              {model.name}
+            </Text>
+          </View>
+          <BrandAvatar />
+        </View>
+      }
       refreshControl={
         <RefreshControl
           refreshing={model.loading}
           onRefresh={model.refresh}
-          tintColor={colors.green}
+          tintColor={colors.earth}
         />
       }
     >
-      <View style={styles.header}>
-        <View style={styles.greeting}>
-          <Text style={typography.small}>Chào bạn,</Text>
-          <Text accessibilityRole="header" style={typography.title}>
-            {model.name}
-          </Text>
-        </View>
-        <BrandAvatar />
-      </View>
       <Text style={typography.small}>{model.date}</Text>
       <View style={styles.hero}>
         <View style={styles.heroTop}>
-          <Feather name="sun" size={28} color={colors.ink} />
+          <Feather name="sun" size={28} color={colors.sunlight} />
           <Text style={styles.tag}>LIFEMATE / MỖI NGÀY</Text>
         </View>
         <Text style={styles.heroTitle}>
@@ -56,13 +62,13 @@ export function HomeScreen({
         style={styles.music}
       >
         <View style={styles.musicIcon}>
-          <Feather name="headphones" size={26} color={colors.green} />
+          <Feather name="headphones" size={26} color={colors.sky} />
         </View>
         <View style={styles.rowText}>
           <Text style={typography.heading}>Một chút âm nhạc</Text>
           <Text style={typography.small}>Đến thư viện MP3 của bạn</Text>
         </View>
-        <Feather name="arrow-up-right" size={22} color={colors.green} />
+        <Feather name="arrow-up-right" size={22} color={colors.sky} />
       </Pressable>
       {model.warning && (
         <Text accessibilityLiveRegion="polite" style={typography.small}>

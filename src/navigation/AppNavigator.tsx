@@ -15,7 +15,7 @@ export function AppNavigator() {
         <Text style={typography.heading}>LifeMate</Text>
         <ActivityIndicator
           accessibilityLabel="Đang khôi phục phiên đăng nhập"
-          color={colors.green}
+          color={colors.earth}
         />
       </View>
     );

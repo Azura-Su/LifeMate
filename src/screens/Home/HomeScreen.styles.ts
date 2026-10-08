@@ -10,7 +10,7 @@ export const styles = StyleSheet.create({
   },
   greeting: { flex: 1 },
   hero: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.earthLight,
     borderRadius: 24,
     padding: 24,
     gap: 24,
@@ -49,12 +49,12 @@ export const styles = StyleSheet.create({
   musicIcon: {
     width: 56,
     height: 64,
-    backgroundColor: '#E4EDDF',
+    backgroundColor: colors.skySoft,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   rowText: { flex: 1, gap: 4 },
   note: { marginTop: 'auto', gap: 16, paddingTop: 16 },
-  noteLine: { width: 32, height: 2, backgroundColor: colors.green },
+  noteLine: { width: 32, height: 2, backgroundColor: colors.earth },
 });

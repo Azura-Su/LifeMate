@@ -1,4 +1,5 @@
 import { Image, StyleSheet } from 'react-native';
+import { colors } from '../theme';
 
 export function BrandAvatar({ size = 56 }: { size?: number }) {
   return (
@@ -13,4 +14,6 @@ export function BrandAvatar({ size = 56 }: { size?: number }) {
   );
 }
 
-const styles = StyleSheet.create({ image: { backgroundColor: '#F7F1DF' } });
+const styles = StyleSheet.create({
+  image: { backgroundColor: colors.background },
+});
