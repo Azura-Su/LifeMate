@@ -348,7 +348,6 @@ export function FinanceScreen() {
               <View style={styles.balance}>
                 <Text style={styles.balanceLabel}>Còn lại trong kỳ</Text>
                 <Text
-                  adjustsFontSizeToFit
                   numberOfLines={1}
                   style={styles.balanceAmount}
                 >
