@@ -99,7 +99,15 @@ export function mergeAudioIndex(
   remote: AudioTrack[],
 ): Promise<AudioTrack[]> {
   return writeAudioIndex(uid, (tracks) => {
-    const merged = new Map(tracks.map((track) => [track.id, track]));
+    const remoteIds = new Set(remote.map((track) => track.id));
+    // A cloud-synced entry missing from an authoritative server listing was
+    // deleted on another device. A pending local rename must not recreate its
+    // metadata document; un-synced local-only tracks are still retained.
+    const merged = new Map(
+      tracks
+        .filter((track) => !track.synced || remoteIds.has(track.id))
+        .map((track) => [track.id, track]),
+    );
     for (const track of remote) {
       const existing = merged.get(track.id);
       if (track.ownerId === uid)

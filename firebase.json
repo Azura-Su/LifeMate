@@ -1,4 +1,10 @@
 {
+  "firestore": {
+    "rules": "firebase/firestore.rules"
+  },
+  "storage": {
+    "rules": "firebase/storage.rules"
+  },
   "react-native": {
     "analytics_auto_collection_enabled": false,
     "google_analytics_adid_collection_enabled": false,

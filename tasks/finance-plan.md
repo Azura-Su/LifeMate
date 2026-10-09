@@ -2,14 +2,15 @@
 
 ## Overview
 
-Thêm tab Tài chính theo tài khoản Firebase hiện tại. Ghi nhận thu nhập (bao gồm lương) và chi tiêu, xem tổng thu/chi/chênh lệch theo tháng hiện tại và quản lý danh sách giao dịch. Dữ liệu lưu cục bộ tách theo UID qua AsyncStorage và Zustand; không đưa dữ liệu lên cloud.
+Thêm tab Tài chính theo tài khoản Firebase hiện tại. Ghi nhận thu nhập (bao gồm lương) và chi tiêu, xem báo cáo năm trong khoảng tháng tùy chọn, nhóm giao dịch và tổng hợp theo tháng. Firestore giữ dữ liệu bền theo UID; Zustand dùng cho state và AsyncStorage làm cache/offline fallback.
 
 ## Architecture Decisions
 
-- Mỗi UID có một AsyncStorage key riêng (`lifemate:finance:v1:<uid>`), tương tự thư viện audio.
+- Mỗi UID có Firestore path riêng (`financeAccounts/<uid>/transactions/<id>`), bảo vệ bằng Firestore rules; AsyncStorage cache dùng key riêng (`lifemate:finance:v1:<uid>`).
+- Dữ liệu thu chi cũ trên máy được migrate lên Firestore một lần; bản ghi mới cập nhật cloud trước khi báo đã đồng bộ.
 - `financeStore` chỉ nhận kết quả nạp/ghi khớp UID đang bind để ngăn dữ liệu cũ lọt qua lúc đổi tài khoản.
 - Giao dịch là một bản ghi chung với `type` income/expense, category, amount, note và timestamp; giao diện chọn loại bằng hai trạng thái rõ ràng.
-- Không thêm dependency mới; form ngày lấy thời điểm hiện tại trong MVP.
+- Không thêm dependency mới; nhập ngày phát sinh theo dạng `DD/MM/YYYY`, mặc định là ngày hiện tại.
 
 ## Task List
 
@@ -43,14 +44,54 @@ Thêm tab Tài chính theo tài khoản Firebase hiện tại. Ghi nhận thu nh
 - [x] Mọi acceptance criteria của SPEC-finance.md đạt.
 - [x] Jest (41 suites / 160 tests), lint, typecheck và bundle Android/iOS thành công.
 
+## Mở rộng: Báo cáo theo năm và khoảng tháng
+
+- [x] Task 4: Thêm hàm báo cáo năm/khoảng tháng, tổng theo tháng và xác thực ngày giao dịch.
+  - Acceptance: lọc đúng năm và tháng đầu/cuối bao gồm; tháng ngoài kỳ bị loại; ngày giao dịch hợp lệ được chuẩn hóa an toàn.
+  - Verify: unit tests cho date parser, tổng kỳ, chia nhóm tháng và khoảng không hợp lệ pass.
+  - Dependencies: Task 1.
+- [x] Task 5: Cho chọn năm/tháng trên màn hình, hiển thị giao dịch theo nhóm tháng và subtotal; cho chọn ngày khi thêm giao dịch.
+  - Acceptance: đổi năm/khoảng tháng cập nhật nhóm và tổng; nhập được giao dịch ngày trước đó; tổng tháng và tổng kỳ khớp từng dòng.
+  - Verify: 3 component tests cho nhập ngày, lọc tháng, đổi năm pass; UI đã xem trên iOS Simulator.
+  - Dependencies: Task 4.
+- [x] Task 6: Chạy lại Jest, typecheck, lint và bundle Android/iOS.
+  - Acceptance: không hồi quy báo cáo và cách ly UID.
+  - Verify: Jest (41 suites / 164 tests), typecheck, lint và bundle Android/iOS đều pass.
+  - Dependencies: Task 5.
+
+### Checkpoint: Báo cáo năm hoàn tất
+
+- [x] Acceptance criteria của báo cáo năm và kỳ tùy chọn đạt.
+
+## Mở rộng: Lưu bền theo tài khoản
+
+- [x] Task 7: Lưu giao dịch trong Firestore theo UID, giữ cache AsyncStorage riêng từng UID và migrate dữ liệu local cũ khi kết nối.
+  - Acceptance: đăng nhập lại cùng UID có thể tải giao dịch cloud; khi offline vẫn xem cache và trạng thái chưa đồng bộ được báo rõ.
+  - Verify: cloud storage tests cho khôi phục sau khi cache mất, tách UID, migrate một lần, offline fallback và lỗi xóa.
+  - Dependencies: Task 1.
+- [x] Task 8: Thêm Firestore rules giới hạn đường dẫn giao dịch theo UID và kiểm tra bằng emulator.
+  - Acceptance: chủ UID đọc/ghi/xóa đúng giao dịch; khách hoặc UID khác bị từ chối; dữ liệu sai schema bị từ chối.
+  - Verify: 29 assertions Firestore/Storage rules pass trên emulator.
+  - Dependencies: Task 7.
+- [x] Task 9: Chạy toàn bộ kiểm tra sau khi thêm cloud sync.
+  - Acceptance: không hồi quy UI, state, báo cáo năm hay audio.
+  - Verify: 42 Jest suites / 172 tests, typecheck, lint và bundle Android/iOS pass.
+  - Dependencies: Task 8.
+- [x] Task 10: Publish rules đã kiểm thử lên Firebase project `baseapp-dd227`.
+  - Verify: rules được publish ngày 08/10/2026; nhập và xác minh 172 giao dịch lịch sử thu nhập trên Firestore theo tài khoản hiện tại.
+  - Dependencies: Task 8.
+
+- [x] Nhập dữ liệu lương và khoản thu lịch sử từ 2023 đến 2026 vào tài khoản hiện tại; chỉ nhập từng dòng giao dịch, bỏ qua tổng phụ tháng.
+
 ## Risks and Mitigations
 
-| Risk                                     | Impact                            | Mitigation                                                 |
-| ---------------------------------------- | --------------------------------- | ---------------------------------------------------------- |
-| Tài khoản đổi trong khi storage đang tải | Có thể hiện dữ liệu sai người     | Guard UID ở store và bỏ kết quả cũ                         |
-| JSON cục bộ lỗi                          | Có thể mất khả năng xem giao dịch | Báo lỗi có thể hiểu được, giữ dữ liệu gốc, không tự ghi đè |
-| Giao dịch có timestamp không hợp lệ      | Sai tổng tháng/thứ tự             | Validate trước khi ghi và khi parse                        |
+| Risk                                     | Impact                            | Mitigation                                                   |
+| ---------------------------------------- | --------------------------------- | ------------------------------------------------------------ |
+| Tài khoản đổi trong khi storage đang tải | Có thể hiện dữ liệu sai người     | Guard UID ở store và bỏ kết quả cũ                           |
+| JSON cục bộ lỗi                          | Có thể mất khả năng xem giao dịch | Báo lỗi có thể hiểu được, giữ dữ liệu gốc, không tự ghi đè   |
+| Giao dịch có timestamp không hợp lệ      | Sai tổng tháng/thứ tự             | Validate trước khi ghi và khi parse                          |
+| Cloud chưa kết nối                       | Mất sao lưu mới khi gỡ app        | Giữ cache cục bộ, báo trạng thái chưa đồng bộ và cho thử lại |
 
 ## Open Questions
 
-- Cloud sync và giao dịch định kỳ nằm ngoài phạm vi bản đầu.
+- Giao dịch định kỳ nằm ngoài phạm vi.

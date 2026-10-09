@@ -7,7 +7,7 @@ import {
 import type { Playback } from './useMp3Screen';
 
 export function useAudioPlayback(source: Playback) {
-  const player = useAudioPlayer({ uri: source.uri }, { updateInterval: 100 });
+  const player = useAudioPlayer({ uri: source.uri }, { updateInterval: 200 });
   const status = useAudioPlayerStatus(player);
   const started = useRef(false);
   const [error, setError] = useState<string | null>(null);

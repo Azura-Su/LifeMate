@@ -60,7 +60,7 @@ async function readInput(request) {
     typeof input !== 'object' ||
     Array.isArray(input) ||
     Object.keys(input).some((key) => !allowedKeys.includes(key)) ||
-    !['upload', 'download', 'delete'].includes(input.action) ||
+    !['upload', 'download', 'delete', 'confirm'].includes(input.action) ||
     !validFileIdentity ||
     !validMediaMetadata
   )
@@ -68,7 +68,19 @@ async function readInput(request) {
   return input;
 }
 
-export function createHandler({ verifyToken, signObject }) {
+export function createHandler({
+  verifyToken,
+  signObject,
+  reserveUpload,
+  confirmUpload,
+  releaseUpload,
+}) {
+  if (
+    typeof reserveUpload !== 'function' ||
+    typeof confirmUpload !== 'function' ||
+    typeof releaseUpload !== 'function'
+  )
+    throw new Error('Audio quota configuration is required');
   return async (request) => {
     if (request.method !== 'POST')
       return json(405, { code: 'method-not-allowed' });
@@ -92,11 +104,25 @@ export function createHandler({ verifyToken, signObject }) {
     }
     try {
       const path = `audio/${uid}/${input.id}/${input.fileName}`;
+      if (input.action === 'confirm')
+        return (await confirmUpload(uid, path))
+          ? json(200, { confirmed: true })
+          : json(409, { code: 'audio-upload-not-found' });
+      if (
+        input.action === 'upload' &&
+        !(await reserveUpload(uid, path, input.sizeBytes))
+      )
+        return json(429, { code: 'audio-quota-exceeded' });
       const result = await signObject(input.action, path);
+      if (input.action === 'delete') await releaseUpload(uid, path);
       return input.action === 'delete'
         ? json(200, { deleted: true })
         : json(200, { url: result });
     } catch {
+      if (input.action === 'upload') {
+        const path = `audio/${uid}/${input.id}/${input.fileName}`;
+        await releaseUpload(uid, path).catch(() => undefined);
+      }
       return json(503, { code: 'storage-unavailable' });
     }
   };

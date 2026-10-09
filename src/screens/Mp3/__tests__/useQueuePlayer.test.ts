@@ -2,8 +2,17 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { useQueuePlayer } from '../useQueuePlayer';
 import { useQueuePlaybackStore } from '../../../store/queuePlaybackStore';
 import type { AudioTrack } from '../../../types/audio';
+import { readAudioLearningPreferences } from '../../../services/audio/audioLearningPreferences';
+
+jest.mock('@react-native-async-storage/async-storage', () =>
+  jest.requireActual(
+    '@react-native-async-storage/async-storage/jest/async-storage-mock',
+  ),
+);
 
 type Status = {
+  currentTime?: number;
+  duration?: number;
   didJustFinish: boolean;
   isLoaded: boolean;
   playing: boolean;
@@ -25,6 +34,7 @@ const mockPlayer = {
   play: jest.fn(),
   pause: jest.fn(),
   seekTo: jest.fn(() => Promise.resolve()),
+  setPlaybackRate: jest.fn(),
   setActiveForLockScreen: jest.fn(),
   updateLockScreenMetadata: jest.fn(),
   clearLockScreenControls: jest.fn(),
@@ -182,4 +192,40 @@ it('restarts from the first track when the whole queue finishes', async () => {
 
   act(() => emitStatus({ isLoaded: true }));
   expect(mockPlayer.play).toHaveBeenCalledTimes(2);
+});
+
+it('forgets the resume point of a track that played to the end', async () => {
+  const { result } = renderHook(() =>
+    useQueuePlayer({
+      uid: 'u1',
+      items,
+      repeatId: null,
+      repeatAll: false,
+      prepare,
+    }),
+  );
+  act(() => result.current.start(items[0]));
+  await waitFor(() => expect(result.current.currentId).toBe('a'));
+  act(() => emitStatus({ isLoaded: true, playing: true }));
+
+  act(() => emitStatus({ playing: true, currentTime: 40, duration: 45 }));
+  await waitFor(async () =>
+    expect((await readAudioLearningPreferences('u1')).resumePositions.a).toBe(
+      40,
+    ),
+  );
+
+  act(() =>
+    emitStatus({
+      playing: false,
+      currentTime: 45,
+      duration: 45,
+      didJustFinish: true,
+    }),
+  );
+  await waitFor(async () =>
+    expect(
+      (await readAudioLearningPreferences('u1')).resumePositions.a,
+    ).toBeUndefined(),
+  );
 });

@@ -1,5 +1,6 @@
 import { styles } from './LoginScreen.styles';
 import Feather from '@expo/vector-icons/Feather';
+import { useRef } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -16,6 +17,7 @@ import { useLoginScreen } from './useLoginScreen';
 
 export function LoginScreen() {
   const model = useLoginScreen();
+  const passwordInput = useRef<TextInput>(null);
   return (
     <KeyboardAvoidingView
       style={styles.root}
@@ -29,10 +31,10 @@ export function LoginScreen() {
         <View style={styles.intro}>
           <Text style={typography.eyebrow}>MỖI NGÀY, CÙNG BẠN</Text>
           <Text accessibilityRole="header" style={styles.title}>
-            Một khoảng riêng.{'\n'}Một ngày nhẹ nhàng.
+            Chào mừng trở lại.
           </Text>
           <Text style={typography.body}>
-            Đăng nhập để trở về không gian của bạn.
+            Mở sổ thu chi và thư viện âm thanh của bạn.
           </Text>
         </View>
         <View style={styles.form}>
@@ -48,12 +50,15 @@ export function LoginScreen() {
             autoCorrect={false}
             autoComplete="email"
             textContentType="username"
+            returnKeyType="next"
+            onSubmitEditing={() => passwordInput.current?.focus()}
             editable={!model.loading}
             style={styles.input}
           />
           <Text style={styles.label}>Mật khẩu</Text>
           <View style={styles.password}>
             <TextInput
+              ref={passwordInput}
               accessibilityLabel="Mật khẩu"
               placeholder="Nhập mật khẩu"
               placeholderTextColor={colors.muted}
@@ -75,6 +80,7 @@ export function LoginScreen() {
                 model.visible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'
               }
               onPress={model.toggleVisible}
+              disabled={model.loading}
               style={styles.eye}
             >
               <Feather

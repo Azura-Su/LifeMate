@@ -6,11 +6,15 @@ import {
   readFinanceTransactions,
 } from '../financeStorage';
 import type { FinanceTransaction } from '../../../types/finance';
+import { resetFirestoreMock } from '../../../testing/firestoreMock';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
   jest.requireActual(
     '@react-native-async-storage/async-storage/jest/async-storage-mock',
   ),
+);
+jest.mock('@react-native-firebase/firestore', () =>
+  jest.requireActual('../../../testing/firestoreMock'),
 );
 
 const row: FinanceTransaction = {
@@ -23,7 +27,10 @@ const row: FinanceTransaction = {
   createdAt: 1791432000000,
 };
 
-beforeEach(async () => AsyncStorage.clear());
+beforeEach(async () => {
+  await AsyncStorage.clear();
+  resetFirestoreMock();
+});
 
 it('persists transactions under an account-specific key', async () => {
   await addFinanceTransaction('u1', row);
@@ -67,5 +74,8 @@ it('serializes simultaneous writes and deletes only the chosen transaction', asy
 it('preserves invalid storage instead of silently overwriting it', async () => {
   await AsyncStorage.setItem(financeStorageKey('u1'), '{broken');
   await expect(readFinanceTransactions('u1')).rejects.toThrow('đọc được');
-  expect(await AsyncStorage.getItem(financeStorageKey('u1'))).toBe('{broken');
+  const stored = await AsyncStorage.getItem(financeStorageKey('u1'));
+  expect(stored).toMatch(/^lifemate:aes-gcm:v1:/);
+  await expect(readFinanceTransactions('u1')).rejects.toThrow('đọc được');
+  expect(await AsyncStorage.getItem(financeStorageKey('u1'))).toBe(stored);
 });

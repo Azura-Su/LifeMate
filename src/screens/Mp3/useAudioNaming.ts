@@ -1,14 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
+import { Alert, Platform } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import type { AudioJob, AudioTrack } from '../../types/audio';
 import { defaultAudioTitle, normalizeAudioTitle } from '../../utils/audio';
 import { removeTemporaryAudio } from '../../services/audio/audioFiles';
 import { assertAudioSession } from '../../services/audio/audioSession';
-import { importAudio } from '../../services/audio/audioOperations';
+import {
+  importAudio,
+  type AudioImportAsset,
+} from '../../services/audio/audioOperations';
 import { renameAudio } from '../../services/audio/audioTitles';
 
 type Draft = { uid: string; title: string } & (
-  | { kind: 'import'; asset: DocumentPicker.DocumentPickerAsset }
+  | { kind: 'import'; asset: AudioImportAsset }
   | { kind: 'rename'; track: AudioTrack }
 );
 type Options = {
@@ -74,6 +79,45 @@ export function useAudioNaming({
         throw error;
       }
     });
+  const chooseFromAlbum = () =>
+    run(async (signal) => {
+      if (!uid) return;
+      report({ label: 'Chọn video trong album…', progress: null });
+      if (Platform.OS === 'ios') {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert(
+            'Chưa có quyền truy cập album',
+            'Hãy cho phép LifeMate truy cập album để chọn video và tách âm thanh.',
+          );
+          return;
+        }
+      }
+      const picked = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['videos'],
+        allowsEditing: false,
+        shouldDownloadFromNetwork: true,
+        ...(Platform.OS === 'android' ? { defaultTab: 'albums' } : {}),
+      });
+      if (picked.canceled || !picked.assets[0]) return;
+      const selected = picked.assets[0];
+      const asset: AudioImportAsset = {
+        uri: selected.uri,
+        name: selected.fileName || `video-${Date.now()}.mp4`,
+      };
+      try {
+        assertAudioSession(uid, signal);
+        open({
+          kind: 'import',
+          uid,
+          asset,
+          title: defaultAudioTitle(asset.name),
+        });
+      } catch (error) {
+        await removeTemporaryAudio(asset.uri);
+        throw error;
+      }
+    });
   const rename = (track: AudioTrack) => {
     if (!uid || track.ownerId !== uid) return;
     open({ kind: 'rename', uid, track, title: track.title });
@@ -116,6 +160,7 @@ export function useAudioNaming({
   return {
     draft: draft?.uid === uid ? draft : null,
     chooseFile,
+    chooseFromAlbum,
     rename,
     save,
     close,

@@ -19,7 +19,7 @@ describe('logout', () => {
   beforeEach(() => {
     useAuthStore
       .getState()
-      .setUser({ uid: '1', email: 'su.azura99@gmail.com', displayName: null });
+      .setUser({ uid: '1', email: 'asher@example.com', displayName: null });
     useNotificationStore.setState({
       token: 'old',
       lastMessage: { title: 'Old', body: 'Private' },

@@ -4,6 +4,7 @@ import {
   Pressable,
   RefreshControl,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
@@ -28,6 +29,15 @@ type Props = {
   onClose: () => void;
 };
 
+const normalizeSearch = (value: string) =>
+  value
+    .trim()
+    .toLocaleLowerCase('vi-VN')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/\s+/g, ' ');
+
 // Library management: import, trim, merge, rename, back up, and pick which
 // tracks go to the listening list on the main MP3 tab.
 export function Mp3Library({ model, playlist, onClose }: Props) {
@@ -35,6 +45,11 @@ export function Mp3Library({ model, playlist, onClose }: Props) {
   const [activeTitleId, setActiveTitleId] = useState<string | null>(null);
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
   const [playlistTrackId, setPlaylistTrackId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const query = normalizeSearch(search);
+  const visibleTracks = model.tracks.filter((track) =>
+    normalizeSearch(track.title).includes(query),
+  );
   const handlePlaybackChange = useCallback(
     (trackId: string, playing: boolean) => {
       setPlayingTrackId((current) =>
@@ -89,8 +104,15 @@ export function Mp3Library({ model, playlist, onClose }: Props) {
             disabled={!!model.job || model.loading}
             compact
           />
+          <Button
+            title="Chọn video từ album"
+            onPress={() => void model.naming.chooseFromAlbum()}
+            disabled={!!model.job || model.loading}
+            variant="secondary"
+            compact
+          />
           <Text style={styles.importFootnote}>
-            Chọn từ Tệp · tối đa 500 MB · 60 phút
+            Tệp: audio/video · Album: video · tối đa 500 MB · 60 phút
           </Text>
         </View>
         <View style={styles.backupNotice}>
@@ -146,7 +168,9 @@ export function Mp3Library({ model, playlist, onClose }: Props) {
       )}
       <View style={styles.row}>
         <Text style={[typography.heading, styles.flex]}>
-          Đã lưu · {model.tracks.length}
+          {query
+            ? `Kết quả · ${visibleTracks.length}/${model.tracks.length}`
+            : `Đã lưu · ${model.tracks.length}`}
         </Text>
         <Pressable
           accessibilityRole="button"
@@ -158,13 +182,50 @@ export function Mp3Library({ model, playlist, onClose }: Props) {
           <Feather name="refresh-cw" size={20} color={colors.earth} />
         </Pressable>
       </View>
+      {model.tracks.length > 0 && (
+        <View style={styles.searchBox}>
+          <Feather name="search" size={18} color={colors.muted} />
+          <TextInput
+            accessibilityLabel="Tìm âm thanh"
+            placeholder="Tìm tên file…"
+            placeholderTextColor={colors.muted}
+            value={search}
+            onChangeText={setSearch}
+            autoCorrect={false}
+            returnKeyType="search"
+            style={styles.searchInput}
+          />
+          {search.length > 0 && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Xóa tìm kiếm âm thanh"
+              onPress={() => setSearch('')}
+              style={styles.searchClear}
+            >
+              <Feather name="x" size={18} color={colors.muted} />
+            </Pressable>
+          )}
+        </View>
+      )}
       {model.selected.length > 0 && (
         <View style={styles.selection}>
-          <Text style={typography.body}>
-            Đã chọn {model.selected.length}/10 file theo thứ tự bạn bấm.
-          </Text>
+          <View style={styles.row}>
+            <Text style={[typography.small, styles.flex]}>
+              Đã chọn {model.selected.length}/10 file · ghép theo thứ tự chọn
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Bỏ chọn tất cả file ghép"
+              onPress={model.clearSelection}
+              disabled={!!model.job}
+              style={styles.icon}
+            >
+              <Feather name="x" size={20} color={colors.earth} />
+            </Pressable>
+          </View>
           <Button
             title={`Ghép ${model.selected.length} file`}
+            compact
             disabled={model.selected.length < 2 || !!model.job}
             onPress={model.mergeSelected}
           />
@@ -184,9 +245,17 @@ export function Mp3Library({ model, playlist, onClose }: Props) {
             cho tài khoản của bạn.
           </Text>
         </View>
+      ) : visibleTracks.length === 0 ? (
+        <View style={styles.empty}>
+          <Feather name="search" size={28} color={colors.earth} />
+          <Text style={typography.heading}>Không tìm thấy âm thanh</Text>
+          <Text style={styles.description}>
+            Thử tên khác hoặc xóa tìm kiếm để xem tất cả file.
+          </Text>
+        </View>
       ) : (
         <View style={styles.list}>
-          {model.tracks.map((track) => (
+          {visibleTracks.map((track) => (
             <AudioTrackCard
               key={track.id}
               track={track}
@@ -213,7 +282,8 @@ export function Mp3Library({ model, playlist, onClose }: Props) {
       )}
       <Text style={typography.small}>
         Chọn từ 2 file để ghép nối tiếp. Bản cắt/ghép được lưu thành file mới và
-        giữ nguyên bản gốc. Bấm “Thêm vào DS nghe” để đưa bài ra màn hình chính.
+        giữ nguyên bản gốc. Bấm nút danh sách trên từng file để chọn danh sách
+        nghe.
       </Text>
       {/* Nested inside this Modal so iOS can present them on top of it. */}
       {model.naming.draft && (

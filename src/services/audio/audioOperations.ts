@@ -31,6 +31,7 @@ import {
 
 type Report = (job: AudioJob) => void;
 type Saved = (track: AudioTrack) => void;
+export type AudioImportAsset = Pick<DocumentPickerAsset, 'uri' | 'name'>;
 
 async function saveResult(
   uid: string,
@@ -93,7 +94,7 @@ async function saveResult(
 
 export async function importAudio(
   uid: string,
-  asset: DocumentPickerAsset,
+  asset: AudioImportAsset,
   signal: AbortSignal,
   report: Report,
   onSaved: Saved,

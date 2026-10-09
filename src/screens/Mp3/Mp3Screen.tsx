@@ -6,6 +6,8 @@ import { Button } from '../../components/Button';
 import { colors, typography } from '../../theme';
 import type { AudioTrack } from '../../types/audio';
 import { useAuthStore } from '../../store/authStore';
+import { useQueuePlaybackStore } from '../../store/queuePlaybackStore';
+import { useScreenActive } from '../../hooks/useScreenActive';
 import { useMp3Screen } from './useMp3Screen';
 import { usePlaylist } from './usePlaylist';
 import { useQueuePlayer } from './useQueuePlayer';
@@ -26,8 +28,14 @@ export function Mp3Screen() {
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [repeatId, setRepeatId] = useState<string | null>(null);
   const [repeatAll, setRepeatAll] = useState(false);
+  const live = useScreenActive();
+  useEffect(() => {
+    useQueuePlaybackStore.getState().setVisible(live);
+  }, [live]);
   const queue = useQueuePlayer({
+    uid: uid ?? null,
     items: playlist.items,
+    libraryTrackIds: model.libraryTrackIds,
     repeatId,
     repeatAll,
     prepare: model.prepare,
@@ -158,6 +166,7 @@ export function Mp3Screen() {
             )}
             {current && position >= 0 && (
               <QueuePlayerBar
+                live={live}
                 queue={queue}
                 title={playlist.items[position].title}
                 repeatAll={repeatAll}

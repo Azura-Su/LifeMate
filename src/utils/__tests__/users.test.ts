@@ -3,8 +3,8 @@ import { parseUsers, resolveUserName } from '../users';
 describe('Remote Config users', () => {
   it('normalizes email and trims names from the supplied format', () => {
     expect(
-      parseUsers('[{"mail":" Su.Azura99@Gmail.com ","name":" Asher "}]'),
-    ).toEqual([{ mail: 'su.azura99@gmail.com', name: 'Asher' }]);
+      parseUsers('[{"mail":" Asher@Example.com ","name":" Asher "}]'),
+    ).toEqual([{ mail: 'asher@example.com', name: 'Asher' }]);
   });
 
   it.each([
@@ -29,12 +29,9 @@ describe('Remote Config users', () => {
   });
 
   it('resolves the current account without accidentally showing another account name', () => {
-    const users = [{ mail: 'su.azura99@gmail.com', name: 'Asher' }];
+    const users = [{ mail: 'asher@example.com', name: 'Asher' }];
     expect(
-      resolveUserName(
-        { email: 'SU.AZURA99@gmail.com', displayName: null },
-        users,
-      ),
+      resolveUserName({ email: 'asher@example.com', displayName: null }, users),
     ).toBe('Asher');
     expect(
       resolveUserName({ email: 'other@b.co', displayName: 'Other' }, users),

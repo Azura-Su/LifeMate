@@ -86,8 +86,10 @@ const QueueTrackRow = memo(function QueueTrackRow({
   const current = useQueuePlaybackStore(
     (state) => state.currentId === track.id,
   );
+  // Spin only while visible: the native loop otherwise keeps running on a
+  // hidden tab.
   const playing = useQueuePlaybackStore(
-    (state) => state.currentId === track.id && state.playing,
+    (state) => state.currentId === track.id && state.playing && state.visible,
   );
   const finishDrag = useCallback(() => {
     Animated.parallel([

@@ -44,6 +44,14 @@ async function request(data = body, jwt) {
     body: JSON.stringify(data),
   });
 }
+function createTestHandler(options) {
+  return createHandler({
+    reserveUpload: async () => true,
+    confirmUpload: async () => true,
+    releaseUpload: async () => {},
+    ...options,
+  });
+}
 test('accepts a signed Firebase token from the configured project', async () => {
   assert.equal(await verifyToken(await token()), 'owner-1');
 });
@@ -67,7 +75,7 @@ test('rejects a valid-looking token signed by someone else', async () => {
 });
 test('derives paths from verified UID for both upload and download', async () => {
   const signed = [];
-  const handler = createHandler({
+  const handler = createTestHandler({
     verifyToken,
     signObject: async (action, path) => {
       signed.push([action, path]);
@@ -86,7 +94,7 @@ test('derives paths from verified UID for both upload and download', async () =>
 });
 test('deletes only the authenticated user object without returning a URL', async () => {
   const deleted = [];
-  const handler = createHandler({
+  const handler = createTestHandler({
     verifyToken,
     signObject: async (action, path) => {
       deleted.push([action, path]);
@@ -100,7 +108,7 @@ test('deletes only the authenticated user object without returning a URL', async
 });
 test('deletes existing audio without requiring upload MIME or size metadata', async () => {
   const deleted = [];
-  const handler = createHandler({
+  const handler = createTestHandler({
     verifyToken,
     signObject: async (action, path) => {
       deleted.push([action, path]);
@@ -120,7 +128,7 @@ test('deletes existing audio without requiring upload MIME or size metadata', as
 });
 test('never signs when auth is absent, forged or input tries another owner/path', async () => {
   let calls = 0;
-  const handler = createHandler({
+  const handler = createTestHandler({
     verifyToken,
     signObject: () => {
       calls++;
@@ -151,7 +159,7 @@ test('never signs when auth is absent, forged or input tries another owner/path'
   assert.equal(calls, 0);
 });
 test('does not expose upstream errors or credentials', async () => {
-  const handler = createHandler({
+  const handler = createTestHandler({
     verifyToken,
     signObject: () => {
       throw Error('secret_key');

@@ -1,4 +1,4 @@
-import { deleteDoc, doc, setDoc } from '@react-native-firebase/firestore';
+import { deleteDoc, doc, setDoc, updateDoc } from '@react-native-firebase/firestore';
 import { deleteObject, putFile, ref } from '@react-native-firebase/storage';
 import {
   deleteAudioTrackRemote,
@@ -13,6 +13,7 @@ jest.mock('@react-native-firebase/firestore', () => ({
   getFirestore: jest.fn(),
   doc: jest.fn(),
   setDoc: jest.fn(),
+  updateDoc: jest.fn(),
   deleteDoc: jest.fn(),
 }));
 jest.mock('@react-native-firebase/storage', () => ({
@@ -51,6 +52,7 @@ beforeEach(() => {
     .getState()
     .setUser({ uid: 'u1', email: null, displayName: null });
   jest.mocked(setDoc).mockResolvedValue(undefined);
+  jest.mocked(updateDoc).mockResolvedValue(undefined);
   jest.mocked(deleteDoc).mockResolvedValue(undefined);
   jest.mocked(uploadFreeAudio).mockResolvedValue(undefined);
   jest.mocked(deleteFreeAudio).mockResolvedValue(undefined);
@@ -145,11 +147,12 @@ it('syncs a new title using metadata only, even if the saved cloud audio is not 
     jest.fn(),
   );
   expect(putFile).not.toHaveBeenCalled();
-  expect(setDoc).toHaveBeenCalledWith(
+  expect(setDoc).not.toHaveBeenCalled();
+  expect(updateDoc).toHaveBeenCalledWith(
     undefined,
     expect.objectContaining({ title: 'Tên mới', fileName: 'a.mp3' }),
   );
-  expect(jest.mocked(setDoc).mock.calls[0][1]).not.toHaveProperty(
+  expect(jest.mocked(updateDoc).mock.calls[0][1]).not.toHaveProperty(
     'pendingTitle',
   );
   expect(saved).toMatchObject({
@@ -160,7 +163,7 @@ it('syncs a new title using metadata only, even if the saved cloud audio is not 
   expect(updateAudioIndex).toHaveBeenCalledWith(saved);
 });
 it('keeps a pending title when cloud sync fails', async () => {
-  jest.mocked(setDoc).mockRejectedValue(new Error('Offline'));
+  jest.mocked(updateDoc).mockRejectedValueOnce(new Error('Offline'));
   await expect(
     uploadAudioTrack(renamed, new AbortController().signal, jest.fn()),
   ).rejects.toThrow('Offline');
@@ -174,4 +177,5 @@ it('rejects a title sync after switching accounts', async () => {
     uploadAudioTrack(renamed, new AbortController().signal, jest.fn()),
   ).rejects.toThrow('hủy');
   expect(setDoc).not.toHaveBeenCalled();
+  expect(updateDoc).not.toHaveBeenCalled();
 });

@@ -41,6 +41,7 @@ export function useMp3Screen() {
   const tracks = storeUid === uid ? allTracks : [];
   const [loading, setLoading] = useState(true);
   const [cloudLoading, setCloudLoading] = useState(false);
+  const [localTracksUid, setLocalTracksUid] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [job, setJob] = useState<AudioJob | null>(null);
@@ -95,6 +96,8 @@ export function useMp3Screen() {
 
   useEffect(() => {
     alive.current = true;
+    setLocalTracksUid(null);
+    setLoading(true);
     useAudioStore.getState().bind(uid ?? null);
     const controller = new AbortController();
     const load = async () => {
@@ -103,6 +106,7 @@ export function useMp3Screen() {
         const saved = await readAudioIndex(uid);
         assertAudioSession(uid, controller.signal);
         useAudioStore.getState().replace(uid, saved);
+        setLocalTracksUid(uid);
         setLoading(false);
         void refresh();
       } catch (e) {
@@ -226,10 +230,14 @@ export function useMp3Screen() {
 
   // Used by the listening queue, which owns its own long-lived player.
   const prepare = async (track: AudioTrack) => {
+    if (activeJob.current)
+      throw new Error('Đang xử lý file khác. Hãy đợi xong rồi thử lại.');
     let uri: string | null = null;
-    await run(async (signal) => {
+    const completed = await run(async (signal) => {
       uri = audioLocalUri(await openLocal(track, signal));
     });
+    if (!completed || !uri)
+      throw new Error('Chưa chuẩn bị được bài nghe. Hãy thử lại.');
     return uri;
   };
 
@@ -315,6 +323,10 @@ export function useMp3Screen() {
 
   return {
     tracks,
+    libraryTrackIds:
+      localTracksUid === uid && storeUid === uid
+        ? tracks.map((track) => track.id)
+        : null,
     loading,
     cloudLoading,
     error,

@@ -16,7 +16,11 @@
       },
       "infoPlist": {
         "UIBackgroundModes": ["remote-notification", "audio"],
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCalendarsUsageDescription": "LifeMate dùng lịch khi bạn chọn thêm công việc vào lịch thiết bị.",
+        "NSCalendarsFullAccessUsageDescription": "LifeMate dùng lịch khi bạn chọn thêm công việc vào lịch thiết bị.",
+        "NSRemindersUsageDescription": "LifeMate dùng lời nhắc khi bạn chọn quản lý lời nhắc trong lịch thiết bị.",
+        "NSRemindersFullAccessUsageDescription": "LifeMate dùng lời nhắc khi bạn chọn quản lý lời nhắc trong lịch thiết bị."
       }
     },
     "android": {
@@ -44,6 +48,7 @@
         {
           "ios": {
             "useFrameworks": "static",
+            "buildReactNativeFromSource": true,
             "forceStaticLinking": [
               "RNFBApp",
               "RNFBAuth",
@@ -89,7 +94,27 @@
           "enableBackgroundPlayback": true
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "LifeMate cần truy cập album để bạn chọn video và tách âm thanh.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": "LifeMate dùng Face ID để bảo vệ sổ thu chi của bạn."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "LifeMate dùng Face ID để bảo vệ sổ thu chi của bạn."
+        }
+      ]
     ]
   }
 }

@@ -18,8 +18,16 @@ function storageError(status: number): Error {
     return new Error(
       'Kho miễn phí chỉ nhận file tối đa 50 MB. Bản trên máy vẫn được giữ.',
     );
+  if (status === 429)
+    return new Error(
+      'Kho audio miễn phí đã đạt giới hạn 1 GB hoặc 200 bài. Hãy xóa bớt bản sao lưu rồi thử lại.',
+    );
   if (status === 400)
     return new Error('Thông tin bản sao lưu không hợp lệ. Hãy thử lại sau.');
+  if (status === 409)
+    return new Error(
+      'Kho chưa xác nhận file audio vừa tải lên. Hãy thử đồng bộ lại.',
+    );
   if (status === 404)
     return new Error(
       'Chưa tìm thấy bản sao lưu. Kiểm tra kết nối kho âm thanh.',
@@ -31,9 +39,9 @@ function storageError(status: number): Error {
 
 async function requestAudioAccess(
   track: AudioTrack,
-  action: 'upload' | 'download' | 'delete',
+  action: 'upload' | 'download' | 'delete' | 'confirm',
   signal: AbortSignal,
-): Promise<{ url?: unknown; deleted?: unknown }> {
+): Promise<{ url?: unknown; deleted?: unknown; confirmed?: unknown }> {
   assertAudioSession(track.ownerId, signal);
   const origin = audioCloudUrl();
   const apiKey = audioCloudApiKey();
@@ -79,6 +87,7 @@ async function requestAudioAccess(
         return response.json() as Promise<{
           url?: unknown;
           deleted?: unknown;
+          confirmed?: unknown;
         }>;
       })(),
       signal,
@@ -123,6 +132,12 @@ export async function deleteFreeAudio(track: AudioTrack, signal: AbortSignal) {
   const result = await requestAudioAccess(track, 'delete', signal);
   if (result.deleted !== true)
     throw new Error('Kho sao lưu chưa xác nhận đã xóa file.');
+}
+
+async function confirmFreeAudioUpload(track: AudioTrack, signal: AbortSignal) {
+  const result = await requestAudioAccess(track, 'confirm', signal);
+  if (result.confirmed !== true)
+    throw new Error('Kho chưa xác nhận file audio vừa tải lên.');
 }
 
 async function transfer(
@@ -178,6 +193,7 @@ export async function uploadFreeAudio(
   );
   await transfer(task, () => task.uploadAsync(), signal);
   assertAudioSession(track.ownerId, signal);
+  await confirmFreeAudioUpload(track, signal);
 }
 
 export async function downloadFreeAudio(

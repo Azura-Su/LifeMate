@@ -1,11 +1,19 @@
 import { act, renderHook } from '@testing-library/react-native';
 import { getDocumentAsync } from 'expo-document-picker';
+import {
+  launchImageLibraryAsync,
+  requestMediaLibraryPermissionsAsync,
+} from 'expo-image-picker';
 import { useAudioNaming } from '../useAudioNaming';
 import { importAudio } from '../../../services/audio/audioOperations';
 import { removeTemporaryAudio } from '../../../services/audio/audioFiles';
 import { useAuthStore } from '../../../store/authStore';
 
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: jest.fn() }));
+jest.mock('expo-image-picker', () => ({
+  launchImageLibraryAsync: jest.fn(),
+  requestMediaLibraryPermissionsAsync: jest.fn(),
+}));
 jest.mock('../../../services/audio/audioOperations', () => ({
   importAudio: jest.fn(),
 }));
@@ -44,6 +52,20 @@ beforeEach(() => {
     .mocked(getDocumentAsync)
     .mockResolvedValue({ canceled: false, assets: [asset] });
   jest
+    .mocked(requestMediaLibraryPermissionsAsync)
+    .mockResolvedValue({ granted: true } as never);
+  jest.mocked(launchImageLibraryAsync).mockResolvedValue({
+    canceled: false,
+    assets: [
+      {
+        uri: 'file:///cache/VID_1234.MOV',
+        fileName: 'VID_1234.MOV',
+        mimeType: 'video/quicktime',
+        type: 'video',
+      },
+    ],
+  } as never);
+  jest
     .mocked(importAudio)
     .mockResolvedValue({ track: {} as never, warning: null });
 });
@@ -66,6 +88,42 @@ it('waits for a name before importing and passes that title to the audio operati
   );
   expect(result.current.draft).toBeNull();
   expect(removeTemporaryAudio).not.toHaveBeenCalled(); // importer now owns cleanup
+});
+it('lets the user select a video from the device album and imports its local copy', async () => {
+  const { result } = setup();
+  await act(() => result.current.chooseFromAlbum());
+  expect(requestMediaLibraryPermissionsAsync).toHaveBeenCalledTimes(1);
+  expect(launchImageLibraryAsync).toHaveBeenCalledWith({
+    mediaTypes: ['videos'],
+    allowsEditing: false,
+    shouldDownloadFromNetwork: true,
+  });
+  expect(result.current.draft).toMatchObject({
+    kind: 'import',
+    title: 'VID_1234',
+    asset: {
+      name: 'VID_1234.MOV',
+      uri: 'file:///cache/VID_1234.MOV',
+    },
+  });
+  await act(() => result.current.save('Bài giảng'));
+  expect(importAudio).toHaveBeenCalledWith(
+    'u1',
+    { name: 'VID_1234.MOV', uri: 'file:///cache/VID_1234.MOV' },
+    controller.signal,
+    report,
+    onSaved,
+    'Bài giảng',
+  );
+});
+it('does not open the album picker when photo access is denied', async () => {
+  jest
+    .mocked(requestMediaLibraryPermissionsAsync)
+    .mockResolvedValueOnce({ granted: false } as never);
+  const { result } = setup();
+  await act(() => result.current.chooseFromAlbum());
+  expect(launchImageLibraryAsync).not.toHaveBeenCalled();
+  expect(result.current.draft).toBeNull();
 });
 it('cleans only the picker copy when naming is cancelled or the screen closes', async () => {
   const { result, unmount } = setup();

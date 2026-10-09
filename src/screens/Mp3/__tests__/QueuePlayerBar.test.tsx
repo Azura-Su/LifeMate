@@ -29,6 +29,14 @@ function queue(playing: boolean, isLoaded = true, isSwitchingTrack = false) {
     previous: jest.fn(),
     next: jest.fn(),
     hasNext: () => true,
+    playbackRate: 1,
+    sleepMinutes: null,
+    bookmarks: [],
+    setPlaybackRate: jest.fn(),
+    setSleepTimer: jest.fn(),
+    addBookmark: jest.fn(),
+    removeBookmark: jest.fn(),
+    seekBookmark: jest.fn(),
   } as unknown as ReturnType<typeof useQueuePlayer>;
 }
 
@@ -140,4 +148,33 @@ it('hides single-track repeat while whole-list repeat is active', () => {
   expect(view.getByTestId('player-transport-controls').props.style).toEqual(
     expect.arrayContaining([expect.objectContaining({ paddingRight: 0 })]),
   );
+});
+
+it('opens playback settings in a bottom sheet and applies its actions', () => {
+  const player = queue(true);
+  const view = render(
+    <QueuePlayerBar
+      queue={player}
+      title={title}
+      subtitle="Bài 1/2"
+      repeatAll={false}
+      repeatCurrent={false}
+      onToggleRepeatCurrent={jest.fn()}
+    />,
+  );
+
+  expect(view.queryByText('Tiện ích nghe')).toBeNull();
+  fireEvent.press(view.getByLabelText('Cài đặt phát'));
+
+  expect(view.getByText('Tiện ích nghe')).toBeTruthy();
+  fireEvent.press(view.getByLabelText('Tốc độ 1.5 lần'));
+  fireEvent.press(view.getByLabelText('Tạm dừng sau 30 phút'));
+  fireEvent.press(view.getByLabelText('Đánh dấu vị trí đang nghe'));
+
+  expect(player.setPlaybackRate).toHaveBeenCalledWith(1.5);
+  expect(player.setSleepTimer).toHaveBeenCalledWith(30);
+  expect(player.addBookmark).toHaveBeenCalledTimes(1);
+
+  fireEvent.press(view.getByLabelText('Đóng tiện ích nghe'));
+  expect(view.queryByText('Tiện ích nghe')).toBeNull();
 });

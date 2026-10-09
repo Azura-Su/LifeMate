@@ -1,17 +1,34 @@
 import { styles } from './HomeScreen.styles';
-import Feather from '@expo/vector-icons/Feather';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { Pressable, RefreshControl, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
 import { BrandAvatar } from '../../components/BrandAvatar';
+import { AppDrawer } from '../../components/AppDrawer';
 import { Screen } from '../../components/Screen';
 import type { MainTabParams } from '../../navigation/types';
 import { colors, typography } from '../../theme';
 import { useHomeScreen } from './useHomeScreen';
+import { HomeFinanceCard } from './HomeFinanceCard';
+import { HomeAgendaCard } from './HomeAgendaCard';
 
 export function HomeScreen({
   navigation,
 }: BottomTabScreenProps<MainTabParams, 'Home'>) {
   const model = useHomeScreen();
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshInFlight = useRef(false);
+  async function refresh() {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    setRefreshing(true);
+    try {
+      await model.refresh();
+    } finally {
+      refreshInFlight.current = false;
+      setRefreshing(false);
+    }
+  }
   return (
     <Screen
       fixedHeader={
@@ -21,66 +38,49 @@ export function HomeScreen({
             <Text
               accessibilityRole="header"
               numberOfLines={1}
-              style={typography.title}
+              style={[typography.title, styles.headerName]}
             >
               {model.name}
             </Text>
+            <Text style={typography.small}>{model.date}</Text>
           </View>
-          <BrandAvatar />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Mở menu"
+            onPress={() => setDrawerVisible(true)}
+            style={styles.menuButton}
+          >
+            <BrandAvatar size={36} />
+          </Pressable>
         </View>
       }
+      fixedHeaderStyle={styles.fixedHeader}
+      contentStyle={styles.content}
       refreshControl={
         <RefreshControl
-          refreshing={model.loading}
-          onRefresh={model.refresh}
+          refreshing={refreshing}
+          onRefresh={() => void refresh()}
           tintColor={colors.earth}
         />
       }
     >
-      <Text style={typography.small}>{model.date}</Text>
-      <View style={styles.hero}>
-        <View style={styles.heroTop}>
-          <Feather name="sun" size={28} color={colors.sunlight} />
-          <Text style={styles.tag}>LIFEMATE / MỖI NGÀY</Text>
-        </View>
-        <Text style={styles.heroTitle}>
-          Dành một chút{'\n'}thời gian cho mình.
-        </Text>
-        <Text style={styles.heroBody}>
-          Một nhịp thở sâu. Một giai điệu quen.{'\n'}Những điều nhỏ làm nên một
-          ngày đẹp.
-        </Text>
-      </View>
-      <View style={styles.section}>
-        <Text style={typography.heading}>Không gian của bạn</Text>
-        <Text style={typography.body}>Bắt đầu từ điều bạn muốn hôm nay.</Text>
-      </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Mở thư viện MP3"
-        onPress={() => navigation.navigate('MP3')}
-        style={styles.music}
-      >
-        <View style={styles.musicIcon}>
-          <Feather name="headphones" size={26} color={colors.sky} />
-        </View>
-        <View style={styles.rowText}>
-          <Text style={typography.heading}>Một chút âm nhạc</Text>
-          <Text style={typography.small}>Đến thư viện MP3 của bạn</Text>
-        </View>
-        <Feather name="arrow-up-right" size={22} color={colors.sky} />
-      </Pressable>
+      <HomeFinanceCard
+        key={model.finance.uid}
+        model={model}
+        onOpen={() => navigation.navigate('Finance')}
+      />
+      <HomeAgendaCard onOpenAgenda={() => navigation.navigate('Agenda')} />
       {model.warning && (
         <Text accessibilityLiveRegion="polite" style={typography.small}>
           {model.warning} Kéo xuống để thử lại.
         </Text>
       )}
-      <View style={styles.note}>
-        <View style={styles.noteLine} />
-        <Text style={typography.small}>
-          Không cần vội. Hôm nay, cứ theo nhịp của bạn.
-        </Text>
-      </View>
+      <AppDrawer
+        visible={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
+        onOpenNotes={() => navigation.navigate('Notes')}
+        privacy={model.privacy}
+      />
     </Screen>
   );
 }

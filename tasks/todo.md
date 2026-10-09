@@ -1,5 +1,26 @@
 # Công việc
 
+## Khóa Tài chính bằng Face ID — 08/10/2026
+
+- [x] Review xác định lỗi khóa khi Finance blur và Home eye bị reset khi iOS prompt chuyển inactive.
+- [x] Store phiên Tài chính dùng chung, hết hạn tại background hoặc account change; chặn kết quả xác thực cũ.
+- [x] Coordinator gọi Face ID một lần tại startup/resume; hủy prompt cho phép thử lại thủ công.
+- [x] Bỏ khóa tại Finance blur; Home eye dùng lại phiên và chỉ quên trạng thái hiện số khi app xuống background.
+- [x] Điều chỉnh regression đã có để theo chính sách phiên dùng chung, iOS inactive, chuyển tab và background/resume.
+- [x] Cập nhật kế hoạch và tài liệu theo chính sách đã sửa.
+- [ ] Chưa chạy Jest/TypeScript/lint hoặc build trong lượt sửa này.
+
+## Rà thiết kế và tính năng toàn app — 08/10/2026
+
+- [x] Rà mã/test và giao diện runtime; lưu bằng chứng, mức ưu tiên và kế hoạch trong docs/app-audit.md và tasks/plan.md.
+- [x] Chặn dữ liệu tài khoản cũ trong Tài chính và sửa tổng chi với danh mục cũ; regression tests.
+- [x] Chọn kỳ qua draft: hủy không đổi năm/tháng, áp dụng xuyên năm đúng; regression tests.
+- [x] Ghim tabs/nút thêm Tài chính, thu gọn báo cáo, mở/đóng chi tiết tháng, cải thiện dòng giao dịch và form.
+- [x] Home có tổng tháng theo tài khoản và lối vào Tài chính/MP3; trạng thái tải/lỗi và navigation.
+- [x] Thư viện tìm tên file có/không dấu, bỏ chọn ghép nhanh và trạng thái không có kết quả; regression tests.
+- [ ] Chạy lại Jest/TypeScript/lint/build và Simulator sau thay đổi vòng đời Face ID; kết quả trước đó chưa bao phủ chính sách phiên mới.
+- [x] Lỗi Tài chính được dịch rõ ràng, version theo app config; Login có phím Next sang mật khẩu và lời dẫn gọn.
+
 ## Hệ màu nâu đất, mây trời và nắng nhạt — 08/10/2026
 
 - [x] Xây bảng màu token nâu đất, trắng mây, xanh trời và vàng nắng nhạt; thêm kiểm tra độ tương phản cho chữ, nút và trạng thái.

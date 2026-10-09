@@ -25,7 +25,7 @@ describe('session gate', () => {
   it('unmounts authenticated navigation on logout', () => {
     useAuthStore
       .getState()
-      .setUser({ uid: '1', email: 'su.azura99@gmail.com', displayName: null });
+      .setUser({ uid: '1', email: 'asher@example.com', displayName: null });
     render(<AppNavigator />);
     expect(screen.getByText('Home MP3 Setting')).toBeTruthy();
     act(() => useAuthStore.getState().setUser(null));

@@ -5,6 +5,7 @@ import {
   getDocsFromServer,
   getFirestore,
   setDoc,
+  updateDoc,
 } from '@react-native-firebase/firestore';
 import {
   deleteObject,
@@ -97,11 +98,19 @@ export async function uploadAudioTrack(
     await uploadFreeAudio(candidate, audioLocalUri(track), signal, onProgress);
   }
   assertAudioSession(track.ownerId, signal);
+  const metadataRef = doc(
+    getFirestore(),
+    'audioLibraries',
+    track.ownerId,
+    'tracks',
+    track.id,
+  );
+  // A rename of a previously synced track must update an existing record.
+  // setDoc would recreate metadata deleted from another device.
   await abortable(
-    setDoc(
-      doc(getFirestore(), 'audioLibraries', track.ownerId, 'tracks', track.id),
-      metadata,
-    ),
+    track.synced
+      ? updateDoc(metadataRef, metadata)
+      : setDoc(metadataRef, metadata),
     signal,
     15000,
   );

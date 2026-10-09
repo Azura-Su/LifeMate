@@ -2,7 +2,11 @@
 
 React Native cho Android/iOS, TypeScript, Expo Development Build, Firebase Auth + Remote Config + FCM + Firestore và Supabase Storage Free và Zustand. Tên ứng dụng **LifeMate**, iOS Bundle ID/Android package **`vn.mobifone.vnsteel`**, Firebase project **`baseapp-dd227`**.
 
-Tab MP3 có thư viện riêng theo tài khoản: nhập audio/video, tự tách tiếng của video trên máy, nghe/tua, cắt và nối nhiều đoạn theo thứ tự. Có thể đặt tên khi nhập và đổi tên file đã lưu. Xem [cách dùng](docs/audio-library.md) và [cấu hình kho miễn phí](docs/free-audio-storage.md). Code và Firestore rules đã tích hợp; sao lưu cloud thật đang chờ tạo project Supabase Free.
+App có ba tab: Home, Tài chính và MP3; Ghi chú, Cài đặt và Đăng xuất nằm trong menu mở từ Home. Home có thu, chi, số dư tháng hiện tại và việc cần làm hôm nay. Tài chính hỗ trợ tìm trên toàn bộ giao dịch, sửa khoản đã nhập, tạo danh mục và mẫu riêng như “Cà phê 30.000đ”. Báo cáo Thu nhập và Chi tiêu xem theo năm hoặc khoảng tháng qua nhiều năm. Giao dịch lưu theo Firebase UID trong Firestore, có cache trên máy. Xem [yêu cầu tài chính](SPEC-finance.md), [lưu trữ tài khoản](docs/finance-cloud-storage.md) và [đặc tả tiện ích mới](SPEC-life-utilities.md).
+
+Tab MP3 có thư viện riêng theo tài khoản: nhập audio/video, tự tách tiếng của video trên máy, nghe/tua, cắt và nối nhiều đoạn theo thứ tự. Player hỗ trợ hẹn giờ dừng, nhớ vị trí, dấu mốc nghe lại và tốc độ 0,75×–2×. Có thể đặt tên, tìm tên file không phân biệt dấu và bỏ chọn nhanh các file ghép. Xem [cách dùng](docs/audio-library.md) và [cấu hình kho miễn phí](docs/free-audio-storage.md). Supabase Free và Firestore rules đã được cấu hình; kiểm thử audio cloud thật bằng fixture và hai tài khoản còn trong checklist triển khai.
+
+Tab Ghi chú lưu tiêu đề/nội dung theo tài khoản, cho sửa, xóa và tìm kiếm. Mục **Hôm nay** trên Home cho tạo, sửa, hoàn tất việc và đặt lời nhắc trên thiết bị. Từ danh sách việc có thể mở trình soạn sự kiện của lịch điện thoại; chỉ lịch hệ thống lưu sự kiện sau khi người dùng xác nhận. Ghi chú/việc đồng bộ Firestore theo UID; quyền đọc/ghi mới cần được triển khai cùng [Firestore rules](firebase/firestore.rules). Expo Calendar yêu cầu development build mới sau khi cài dependency.
 
 ## Chạy ứng dụng
 
@@ -53,12 +57,18 @@ src/
   screens/
     Login/                    LoginScreen.tsx + useLoginScreen.ts + styles
     Home/                     HomeScreen.tsx + useHomeScreen.ts + styles
+    Finance/                  thu chi tháng, báo cáo năm/khoảng tháng, form giao dịch
+    Notes/                    ghi chú riêng, tìm, sửa và xóa
+    Agenda/                   việc theo ngày, nhắc cục bộ, lịch hệ thống
     Mp3/                      màn thư viện, editor/player + các hook xử lý riêng
     Settings/                 SettingsScreen.tsx + useSettingsScreen.ts + styles
   hooks/                      lifecycle chung và profile selector
   services/firebase/          auth, remote config, push, metadata Firestore
   services/audio/             file/index local, import/edit, Supabase transfer, session guards
-  store/                      auth, config, notification, audio (Zustand)
+  services/finance/           Firestore theo UID, cache, giao dịch và mẫu nhập
+  services/notes/             Firestore/cache ghi chú theo UID
+  services/agenda/            Firestore/cache việc và nhắc cục bộ
+  store/                      auth, config, notification, audio, finance (Zustand)
   utils/                      validate, parse JSON, chuẩn hóa email, resolve tên
   navigation/                 auth gate, tabs và route types
   components/                 button, screen, avatar, notification banner
@@ -76,16 +86,22 @@ tasks/                        plan và checklist
 ## Firebase Console cần thiết lập
 
 1. Mở project `baseapp-dd227`, **Authentication → Sign-in method → Email/Password → Enable**.
-2. Trong **Authentication → Users**, tạo tài khoản thử nghiệm, ví dụ `su.azura99@gmail.com`, với mật khẩu do bạn chọn. App hiện hỗ trợ login, chưa có đăng ký/reset password/Google login.
+2. Trong **Authentication → Users**, tạo tài khoản thử nghiệm, ví dụ `asher@example.com`, với mật khẩu do bạn chọn. App hiện hỗ trợ login, chưa có đăng ký/reset password/Google login.
 3. **Remote Config → Add parameter**: key **`users`**, data type **JSON** (hoặc string chứa JSON), giá trị:
 
 ```json
-[{ "mail": "su.azura99@gmail.com", "name": "Asher" }]
+[{ "mail": "asher@example.com", "name": "Asher" }]
 ```
 
 4. **Publish changes**. Đăng nhập bằng email tương ứng: Home hiện **Asher** ở góc trên bên trái. Ghép email không phân biệt hoa/thường, bỏ khoảng trắng hai đầu. Nếu không có tên cấu hình, dùng displayName Firebase rồi phần tên trong email.
 
 App có defaults như dữ liệu mẫu. Khi khởi động/về foreground/kéo xuống Home, app fetch & activate. Development bỏ thời gian cache tối thiểu; production cache 1 giờ. Khi offline dùng activated cache; JSON không hợp lệ giữ dữ liệu hợp lệ đang có. Remote Config là dữ liệu tải xuống client, **không dùng chứa bí mật hoặc phân quyền**. Danh sách lớn/riêng tư nên chuyển sang database có security rules.
+
+## Khóa Tài chính
+
+Trong **Cài đặt → Khóa Tài chính**, bật xác thực bằng Face ID/Touch ID hoặc sinh trắc học Android; hệ điều hành có thể cho dùng mật mã thiết bị. Bật/tắt đều phải xác thực. Khi bật, app xác thực một lần lúc khởi động và khi quay lại sau khi xuống nền. Phiên dùng chung cho Home và Tài chính nên chuyển tab không hỏi lại; con mắt Home vẫn ẩn số cho đến khi người dùng chạm để hiện.
+
+Thiết lập lưu riêng cho tài khoản trên thiết bị này, không đồng bộ sang máy khác. Sau khi cập nhật dependency cần build/cài lại app (`npm run ios` / `npm run android`). Xem [thiết kế và kiểm chứng khóa](docs/finance-lock.md).
 
 ## Push notification
 
@@ -109,7 +125,7 @@ npx expo-doctor
 npm run prebuild -- --no-install
 ```
 
-Tests bao gồm Auth/Remote Config/FCM, lưu thư viện riêng, audio/video import, lỗi cloud, cắt và thứ tự ghép. Bundle command xuất Hermes JS cho cả Android/iOS, không thay cho native build. Xem [kết quả kiểm chứng](docs/verification.md) và [cách chạy native/rules tests](docs/audio-library.md).
+Tests bao gồm Auth/Remote Config/FCM, lưu thư viện riêng, audio/video import, lỗi cloud, cắt và thứ tự ghép, báo cáo tài chính, lọc tháng và cách ly tài khoản. Bundle command xuất Hermes JS cho cả Android/iOS, không thay cho native build. Xem [rà soát toàn app](docs/app-audit.md), [kết quả kiểm chứng](docs/verification.md) và [cách chạy native/rules tests](docs/audio-library.md).
 
 ## Tài liệu quyết định kỹ thuật
 

@@ -1,6 +1,6 @@
 import type { DirectoryUser } from '../types/models';
 
-export const DEFAULT_USERS: DirectoryUser[] = [
-  { mail: 'su.azura99@gmail.com', name: 'Asher' },
-];
+// Ships inside every build: never put real addresses here. Names come from
+// Remote Config at runtime; unknown users fall back to their own profile.
+export const DEFAULT_USERS: DirectoryUser[] = [];
 export const REMOTE_CONFIG_USERS_KEY = 'users';

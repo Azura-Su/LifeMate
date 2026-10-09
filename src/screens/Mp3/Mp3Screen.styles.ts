@@ -2,6 +2,30 @@ import { StyleSheet } from 'react-native';
 import { colors } from '../../theme';
 
 export const styles = StyleSheet.create({
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 48,
+    paddingLeft: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+  },
+  searchInput: {
+    flex: 1,
+    minHeight: 48,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: colors.ink,
+  },
+  searchClear: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   mp3FixedHeader: { paddingTop: 8, paddingBottom: 8 },
   mp3HeaderTitle: { fontSize: 26, lineHeight: 32 },
   fixedMp3Content: { gap: 12 },

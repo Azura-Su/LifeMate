@@ -3,7 +3,9 @@ import { colors, typography } from '../../theme';
 
 export const styles = StyleSheet.create({
   dialog: { maxHeight: '92%', padding: 0, gap: 0 },
+  header: { paddingHorizontal: 12, paddingTop: 12 },
   content: { padding: 22, gap: 12 },
+  amountPreview: { fontSize: 14, fontWeight: '600', color: colors.earth },
   typeRow: {
     flexDirection: 'row',
     padding: 4,
@@ -32,6 +34,28 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   categoryList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  preferenceSection: { gap: 8 },
+  templateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+  },
+  templateAction: {
+    minHeight: 34,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  smallAction: {
+    minWidth: 28,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inlineForm: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  inlineInput: { flex: 1, minHeight: 42 },
   category: {
     minHeight: 36,
     justifyContent: 'center',
