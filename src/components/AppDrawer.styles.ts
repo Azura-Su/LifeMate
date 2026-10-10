@@ -79,6 +79,8 @@ export const styles = StyleSheet.create({
     borderRadius: 11,
   },
   notesIcon: { backgroundColor: colors.primarySoft },
+  cardScoreIcon: { backgroundColor: colors.sunlightSoft },
+  scoreActionText: { flexShrink: 1, gap: 1 },
   notificationIcon: { backgroundColor: colors.skySoft },
   card: {
     gap: 8,

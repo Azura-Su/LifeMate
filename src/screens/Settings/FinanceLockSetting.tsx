@@ -37,15 +37,15 @@ export function FinanceLockSetting({
           <Text style={[styles.cardTitle, compact && styles.compactCardTitle]}>
             Face ID cho Tài chính
           </Text>
-          <Text
-            style={[typography.small, compact && styles.compactDescription]}
-          >
-            {privacy.enabled === null
-              ? 'Đang kiểm tra thiết lập'
-              : privacy.enabled
-                ? `${privacy.biometricLabel} · đang bật`
-                : `${privacy.biometricLabel} · chưa bật`}
-          </Text>
+          {!(compact && privacy.enabled === false) && (
+            <Text
+              style={[typography.small, compact && styles.compactDescription]}
+            >
+              {privacy.enabled === null
+                ? 'Đang kiểm tra thiết lập'
+                : `${privacy.biometricLabel} · đang bật`}
+            </Text>
+          )}
         </View>
         {busy ? (
           <ActivityIndicator

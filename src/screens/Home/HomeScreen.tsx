@@ -100,6 +100,7 @@ export function HomeScreen({
         visible={drawerVisible}
         onClose={() => setDrawerVisible(false)}
         onOpenNotes={() => navigation.navigate('Notes')}
+        onOpenCardScore={() => navigation.navigate('CardScore')}
         privacy={model.privacy}
       />
       <HomeCalendarSheet

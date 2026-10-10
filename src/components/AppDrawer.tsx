@@ -24,10 +24,17 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   onOpenNotes: () => void;
+  onOpenCardScore: () => void;
   privacy: ReturnType<typeof useFinancePrivacy>;
 };
 
-export function AppDrawer({ visible, onClose, onOpenNotes, privacy }: Props) {
+export function AppDrawer({
+  visible,
+  onClose,
+  onOpenNotes,
+  onOpenCardScore,
+  privacy,
+}: Props) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const panelWidth = Math.min(width * 0.88, 360);
@@ -152,6 +159,28 @@ export function AppDrawer({ visible, onClose, onOpenNotes, privacy }: Props) {
                   <Feather name="edit-3" size={18} color={colors.earth} />
                 </View>
                 <Text style={styles.actionTitle}>Ghi chú</Text>
+                <View style={styles.actionSpacer} />
+                <Feather name="chevron-right" size={20} color={colors.muted} />
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Ghi điểm bài"
+                onPress={() => close(onOpenCardScore)}
+                style={({ pressed }) => [
+                  styles.actionRow,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={[styles.iconBadge, styles.cardScoreIcon]}>
+                  <Feather name="award" size={18} color={colors.earth} />
+                </View>
+                <View style={styles.scoreActionText}>
+                  <Text style={styles.actionTitle}>Ghi điểm bài</Text>
+                  <Text numberOfLines={1} style={typography.small}>
+                    Dùng chung cho mọi trò chơi
+                  </Text>
+                </View>
                 <View style={styles.actionSpacer} />
                 <Feather name="chevron-right" size={20} color={colors.muted} />
               </Pressable>

@@ -4,4 +4,5 @@ export type MainTabParams = {
   MP3: undefined;
   Notes: undefined;
   Agenda: undefined;
+  CardScore: undefined;
 };

@@ -8,6 +8,7 @@ import { useFinancePrivacy } from '../hooks/useFinancePrivacy';
 import { Mp3Screen } from '../screens/Mp3/Mp3Screen';
 import { NotesScreen } from '../screens/Notes/NotesScreen';
 import { AgendaScreen } from '../screens/Agenda/AgendaScreen';
+import { CardScoreScreen } from '../screens/CardScore/CardScoreScreen';
 import { colors } from '../theme';
 import type { MainTabParams } from './types';
 
@@ -18,6 +19,7 @@ const icons = {
   MP3: 'headphones',
   Notes: 'edit-3',
   Agenda: 'calendar',
+  CardScore: 'award',
 } as const;
 
 export function MainTabs() {
@@ -82,6 +84,7 @@ export function MainTabs() {
         options={{
           tabBarButton: () => null,
           tabBarItemStyle: { display: 'none' },
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tab.Screen
@@ -90,6 +93,15 @@ export function MainTabs() {
         options={{
           tabBarButton: () => null,
           tabBarItemStyle: { display: 'none' },
+        }}
+      />
+      <Tab.Screen
+        name="CardScore"
+        component={CardScoreScreen}
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+          tabBarStyle: { display: 'none' },
         }}
       />
     </Tab.Navigator>

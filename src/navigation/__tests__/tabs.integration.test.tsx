@@ -154,7 +154,7 @@ it('shows the configured name, opens all tabs, and returns to Login on logout', 
   const hiddenTabItems = screen
     .UNSAFE_getAllByType(View)
     .filter((item) => StyleSheet.flatten(item.props.style)?.display === 'none');
-  expect(hiddenTabItems).toHaveLength(2);
+  expect(hiddenTabItems).toHaveLength(3);
   expect(await screen.findByText('Asher')).toBeTruthy();
   expect(screen.getByLabelText('Home, tab, 1 of 3')).toBeTruthy();
   expect(screen.getByLabelText('Tài chính, tab, 2 of 3')).toBeTruthy();
@@ -169,6 +169,7 @@ it('shows the configured name, opens all tabs, and returns to Login on logout', 
   expect(screen.queryByText('Ghi chú')).toBeNull();
   fireEvent.press(screen.getByRole('button', { name: 'Mở menu' }));
   expect(await screen.findByText('Face ID cho Tài chính')).toBeTruthy();
+  expect(screen.queryByText('Face ID · chưa bật')).toBeNull();
   expect(screen.getByText('Bật thông báo')).toBeTruthy();
   expect(screen.getByText('LifeMate · 1.0.0')).toBeTruthy();
   expect(
@@ -183,7 +184,17 @@ it('shows the configured name, opens all tabs, and returns to Login on logout', 
   fireEvent.press(screen.getByRole('button', { name: 'Ghi chú' }));
   expect(await screen.findByText('Chưa có ghi chú')).toBeTruthy();
 
-  fireEvent.press(screen.getByText('Home'));
+  fireEvent.press(screen.getByRole('button', { name: 'Quay về Home' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Mở menu' }));
+  fireEvent.press(await screen.findByRole('button', { name: 'Ghi điểm bài' }));
+  expect(await screen.findByText('Sẵn sàng ghi điểm?')).toBeTruthy();
+  expect(screen.getByRole('header', { name: 'Bảng điểm' })).toBeTruthy();
+  expect(screen.queryByText('TIỆN ÍCH')).toBeNull();
+  expect(screen.queryByLabelText('Home, tab, 1 of 3')).toBeNull();
+  expect(screen.queryByLabelText('Tài chính, tab, 2 of 3')).toBeNull();
+  expect(screen.queryByLabelText('MP3, tab, 3 of 3')).toBeNull();
+
+  fireEvent.press(screen.getByRole('button', { name: 'Quay về Home' }));
   fireEvent.press(screen.getByRole('button', { name: 'Mở menu' }));
   fireEvent.press(await screen.findByText('Đăng xuất'));
   expect(await screen.findByText('Đăng nhập')).toBeTruthy();

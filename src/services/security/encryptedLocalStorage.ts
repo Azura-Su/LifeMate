@@ -134,6 +134,7 @@ export async function migrateSensitiveCache(uid: string) {
     `lifemate:finance-preferences:v1:${encodedUid}`,
     `lifemate:notes:v1:${encodedUid}`,
     `lifemate:agenda:v1:${encodedUid}`,
+    `lifemate:card-score:v1:${encodedUid}`,
   ];
   const storedKeys = new Set(await AsyncStorage.getAllKeys());
   await Promise.all(
