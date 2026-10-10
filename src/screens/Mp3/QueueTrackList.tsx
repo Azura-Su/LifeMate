@@ -8,7 +8,6 @@ import {
 } from 'react';
 import { Animated, PanResponder, Pressable, Text, View } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
-import { Button } from '../../components/Button';
 import { colors, typography } from '../../theme';
 import type { AudioTrack } from '../../types/audio';
 import { formatAudioTime } from '../../utils/audio';
@@ -17,7 +16,7 @@ import { AudioTrackTitle } from './AudioTrackTitle';
 import { SpinningRecord } from './SpinningRecord';
 import { styles } from './Mp3Screen.styles';
 
-const QUEUE_ROW_GAP = 12;
+const QUEUE_ROW_GAP = 8;
 const DRAG_SPRING = {
   damping: 20,
   stiffness: 240,
@@ -254,7 +253,7 @@ const QueueTrackRow = memo(function QueueTrackRow({
           dragging && styles.queueReorderHandleDragging,
         ]}
       >
-        <Feather name="move" size={20} color={colors.earth} />
+        <Feather name="move" size={18} color={colors.earth} />
       </View>
       <Pressable
         accessibilityRole="button"
@@ -262,7 +261,7 @@ const QueueTrackRow = memo(function QueueTrackRow({
         onPress={() => onRemove(track.id)}
         style={styles.icon}
       >
-        <Feather name="x" size={20} color={colors.muted} />
+        <Feather name="x" size={18} color={colors.muted} />
       </Pressable>
     </Animated.View>
   );
@@ -287,7 +286,7 @@ function QueueTrackListView({
   const onDragStart = useCallback((id: string) => setDraggingId(id), []);
   const onDragEnd = useCallback(() => setDraggingId(null), []);
   return (
-    <View style={styles.list}>
+    <View style={styles.queueList}>
       {items.map((track, index) => (
         <QueueTrackRow
           key={track.id}
@@ -309,6 +308,7 @@ function QueueTrackListView({
 
 type ControlsProps = {
   itemCount: number;
+  currentId: string | null;
   repeatAll: boolean;
   busy: boolean;
   onToggleRepeatAll: () => void;
@@ -317,6 +317,7 @@ type ControlsProps = {
 
 function QueueTrackControlsView({
   itemCount,
+  currentId,
   repeatAll,
   busy,
   onToggleRepeatAll,
@@ -343,25 +344,37 @@ function QueueTrackControlsView({
           />
         </Pressable>
       </View>
-      <PlayAllButton busy={busy} onPress={onPlayAll} />
+      <PlayAllButton currentId={currentId} busy={busy} onPress={onPlayAll} />
     </>
   );
 }
 
 function PlayAllButton({
+  currentId,
   busy,
   onPress,
 }: {
+  currentId: string | null;
   busy: boolean;
   onPress: () => void;
 }) {
-  const currentId = useQueuePlaybackStore((state) => state.currentId);
+  const title = currentId ? 'Phát lại từ đầu' : 'Phát tất cả';
   return (
-    <Button
-      title={currentId ? 'Phát lại từ đầu' : 'Phát tất cả'}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: busy }}
       disabled={busy}
       onPress={onPress}
-    />
+      style={({ pressed }) => [
+        styles.queuePlayAllButton,
+        pressed && styles.queuePlayAllButtonPressed,
+        busy && styles.queuePlayAllButtonDisabled,
+      ]}
+    >
+      <Feather name="play" size={16} color={colors.earth} />
+      <Text style={styles.queuePlayAllText}>{title}</Text>
+    </Pressable>
   );
 }
 

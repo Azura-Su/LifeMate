@@ -1,4 +1,5 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { Mp3Library } from '../Mp3Library';
 import type { AudioTrack } from '../../../types/audio';
 
@@ -44,6 +45,8 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
+afterEach(() => jest.useRealTimers());
+
 function library() {
   return (
     <Mp3Library
@@ -88,9 +91,125 @@ it('shows a search empty state and offers a bulk clear for selected merge files'
   ).toBeNull();
 });
 
-it('offers a separate album option for choosing videos', () => {
+it('keeps the file limits visible below the add-audio action', () => {
   const view = render(library());
+  expect(
+    view.getByText('Tệp: audio/video · Album: video · tối đa 500 MB · 60 phút'),
+  ).toBeTruthy();
+});
+
+it('uses compact spacing for the library screen content', () => {
+  const view = render(library());
+  const scrollView = view.UNSAFE_getByType(ScrollView);
+  const content = StyleSheet.flatten(scrollView.props.contentContainerStyle);
+
+  expect(content.gap).toBe(12);
+});
+
+it('opens the source chooser from the add-audio row', () => {
+  const view = render(library());
+  expect(
+    view.queryByRole('button', { name: 'Chọn file audio hoặc video' }),
+  ).toBeNull();
+  expect(
+    view.queryByRole('button', { name: 'Chọn video từ album' }),
+  ).toBeNull();
+
+  fireEvent.press(view.getByRole('button', { name: 'Thêm âm thanh' }));
+
+  expect(
+    view.getByRole('button', { name: 'Chọn file audio hoặc video' }),
+  ).toBeTruthy();
+  expect(
+    view.getByRole('button', { name: 'Chọn video từ album' }),
+  ).toBeTruthy();
+});
+
+it('starts the selected picker after the source sheet closes', async () => {
+  jest.useFakeTimers();
+  const view = render(library());
+
+  fireEvent.press(view.getByRole('button', { name: 'Thêm âm thanh' }));
+  fireEvent.press(
+    view.getByRole('button', { name: 'Chọn file audio hoặc video' }),
+  );
+  expect(model.addFile).not.toHaveBeenCalled();
+
+  await act(async () => {
+    jest.advanceTimersByTime(300);
+    await Promise.resolve();
+  });
+  expect(model.addFile).toHaveBeenCalledTimes(1);
+});
+
+it('shows a compact loading state until the file picker finishes opening', async () => {
+  jest.useFakeTimers();
+  let finishPicker = () => {};
+  model.addFile.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        finishPicker = resolve;
+      }),
+  );
+  const view = render(library());
+
+  fireEvent.press(view.getByRole('button', { name: 'Thêm âm thanh' }));
+  fireEvent.press(
+    view.getByRole('button', { name: 'Chọn file audio hoặc video' }),
+  );
+
+  expect(view.getByText('Đang mở ứng dụng Tệp…')).toBeTruthy();
+  act(() => jest.advanceTimersByTime(300));
+  expect(model.addFile).toHaveBeenCalledTimes(1);
+  expect(view.getByText('Đang mở ứng dụng Tệp…')).toBeTruthy();
+
+  await act(async () => {
+    finishPicker();
+    await Promise.resolve();
+  });
+  expect(view.queryByText('Đang mở ứng dụng Tệp…')).toBeNull();
+});
+
+it('starts the album picker after the source sheet closes', async () => {
+  jest.useFakeTimers();
+  const view = render(library());
+
+  fireEvent.press(view.getByRole('button', { name: 'Thêm âm thanh' }));
   fireEvent.press(view.getByRole('button', { name: 'Chọn video từ album' }));
+  expect(model.naming.chooseFromAlbum).not.toHaveBeenCalled();
+
+  await act(async () => {
+    jest.advanceTimersByTime(300);
+    await Promise.resolve();
+  });
   expect(model.naming.chooseFromAlbum).toHaveBeenCalledTimes(1);
-  expect(view.getByText('Tệp: audio/video · Album: video · tối đa 500 MB · 60 phút')).toBeTruthy();
+});
+
+it('shows a compact loading state until the album picker finishes opening', async () => {
+  jest.useFakeTimers();
+  let finishPicker = () => {};
+  model.naming.chooseFromAlbum.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        finishPicker = resolve;
+      }),
+  );
+  const view = render(library());
+
+  fireEvent.press(view.getByRole('button', { name: 'Thêm âm thanh' }));
+  fireEvent.press(view.getByRole('button', { name: 'Chọn video từ album' }));
+
+  expect(view.getByText('Đang mở album ảnh…')).toBeTruthy();
+  await act(async () => {
+    jest.advanceTimersByTime(300);
+    await Promise.resolve();
+  });
+  expect(model.naming.chooseFromAlbum).toHaveBeenCalledTimes(1);
+  expect(view.getByText('Đang mở album ảnh…')).toBeTruthy();
+
+  await act(async () => {
+    finishPicker();
+    await Promise.resolve();
+  });
+  expect(view.queryByText('Đang mở album ảnh…')).toBeNull();
 });

@@ -44,12 +44,18 @@ jest.mock('../../../services/firebase/audioLibraryService', () => ({
   uploadAudioTrack: jest.fn(),
 }));
 jest.mock('../useAudioNaming', () => ({
-  useAudioNaming: () => ({
+  useAudioNaming: (options: {
+    run: (
+      action: (signal: AbortSignal) => Promise<void>,
+      runOptions?: { showStatus?: boolean },
+    ) => Promise<void>;
+  }) => ({
     draft: null,
     chooseFile: jest.fn(),
     rename: jest.fn(),
     save: jest.fn(),
     close: jest.fn(),
+    run: options.run,
   }),
 }));
 
@@ -94,6 +100,35 @@ it('removes a local track and its merge selection after confirmation', async () 
   expect(result.current.selected).toEqual([]);
 });
 
+it('reports a clear delete status while removing the local file', async () => {
+  const { result } = renderHook(() => useMp3Screen());
+  await waitFor(() => expect(result.current.tracks).toEqual([track]));
+  let finishDelete = () => {};
+  jest.mocked(deleteLocalAudioTrack).mockImplementationOnce(
+    () =>
+      new Promise<AudioTrack[]>((resolve) => {
+        finishDelete = () => resolve([]);
+      }),
+  );
+  let deletion: Promise<boolean> | undefined;
+
+  act(() => {
+    deletion = result.current.deleteTrack(track);
+  });
+  await waitFor(() =>
+    expect(result.current.job).toEqual({
+      label: 'Đang xóa file trên máy…',
+      progress: null,
+    }),
+  );
+
+  await act(async () => {
+    finishDelete();
+    await deletion;
+  });
+  expect(result.current.job).toBeNull();
+});
+
 it('clears a successful operation message automatically', async () => {
   const { result } = renderHook(() => useMp3Screen());
   await waitFor(() => expect(result.current.tracks).toEqual([track]));
@@ -113,6 +148,39 @@ it('clears a successful operation message automatically', async () => {
   } finally {
     jest.useRealTimers();
   }
+});
+
+it('keeps the picker active without showing processing status', async () => {
+  const { result } = renderHook(() => useMp3Screen());
+  await waitFor(() => expect(result.current.tracks).toEqual([track]));
+  const naming = result.current.naming as unknown as {
+    run: (
+      action: (signal: AbortSignal) => Promise<void>,
+      options?: { showStatus?: boolean },
+    ) => Promise<void>;
+  };
+  let finishAction = () => {};
+  let actionStarted = false;
+  let operation: Promise<void> | undefined;
+
+  act(() => {
+    operation = naming.run(
+      () =>
+        new Promise<void>((resolve) => {
+          actionStarted = true;
+          finishAction = resolve;
+        }),
+      { showStatus: false },
+    );
+  });
+  await waitFor(() => expect(actionStarted).toBe(true));
+  expect(result.current.job).toBeNull();
+
+  await act(async () => {
+    finishAction();
+    await operation;
+  });
+  expect(result.current.job).toBeNull();
 });
 
 it('clears the temporary merge selection when leaving the library', async () => {

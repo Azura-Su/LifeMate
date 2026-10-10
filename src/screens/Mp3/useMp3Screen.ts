@@ -136,7 +136,10 @@ export function useMp3Screen() {
       useAudioStore.getState().upsert(track);
   };
 
-  async function run(action: (signal: AbortSignal) => Promise<void>) {
+  async function run(
+    action: (signal: AbortSignal) => Promise<void>,
+    options: { showStatus?: boolean } = {},
+  ) {
     if (!uid || activeJob.current) return false;
     const controller = new AbortController();
     activeJob.current = controller;
@@ -146,7 +149,8 @@ export function useMp3Screen() {
     clearPlayback();
     setError(null);
     setMessage(null);
-    setJob({ label: 'Đang chuẩn bị…', progress: null });
+    if (options.showStatus !== false)
+      setJob({ label: 'Đang chuẩn bị…', progress: null });
     const tag = `lifemate-audio-${uid}`;
     try {
       await activateKeepAwakeAsync(tag).catch(() => undefined);
@@ -165,8 +169,8 @@ export function useMp3Screen() {
 
   const naming = useAudioNaming({
     uid,
-    run: async (action) => {
-      await run(action);
+    run: async (action, options) => {
+      await run(action, options);
     },
     report,
     onSaved,
@@ -195,6 +199,7 @@ export function useMp3Screen() {
         report({ label: 'Đang xóa bản sao lưu…', progress: null });
         await deleteAudioTrackRemote(track, signal);
       }
+      report({ label: 'Đang xóa file trên máy…', progress: null });
       assertAudioSession(track.ownerId, signal);
       await deleteLocalAudioTrack(track);
       assertAudioSession(track.ownerId, signal);

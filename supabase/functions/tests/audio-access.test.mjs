@@ -92,6 +92,25 @@ test('derives paths from verified UID for both upload and download', async () =>
     ['download', 'audio/owner-1/song-1/song-1.mp3'],
   ]);
 });
+test('confirms an uploaded object for the authenticated user without signing a URL', async () => {
+  const confirmed = [];
+  const handler = createTestHandler({
+    verifyToken,
+    confirmUpload: async (uid, path) => {
+      confirmed.push([uid, path]);
+      return true;
+    },
+    signObject: () => {
+      throw new Error('confirm must not sign another URL');
+    },
+  });
+
+  const response = await handler(await request({ ...body, action: 'confirm' }));
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { confirmed: true });
+  assert.deepEqual(confirmed, [['owner-1', 'audio/owner-1/song-1/song-1.mp3']]);
+});
 test('deletes only the authenticated user object without returning a URL', async () => {
   const deleted = [];
   const handler = createTestHandler({

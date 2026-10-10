@@ -106,7 +106,7 @@ it('keeps rename available beside the track title', () => {
   expect(onRename).toHaveBeenCalledTimes(1);
 });
 
-it('centers the delete action vertically in the file card', () => {
+it('keeps cards compact and aligns delete with the title row', () => {
   const view = render(
     <AudioTrackCard
       track={track}
@@ -130,13 +130,16 @@ it('centers the delete action vertically in the file card', () => {
 
   expect(StyleSheet.flatten(card.props.style)).toMatchObject({
     position: 'relative',
+    padding: 12,
+    gap: 8,
+    borderRadius: 16,
   });
   expect(StyleSheet.flatten(deleteAction.props.style)).toMatchObject({
     position: 'absolute',
-    top: '50%',
+    top: 12,
+    right: 12,
     width: 44,
     height: 44,
-    transform: [{ translateY: -22 }],
   });
 });
 

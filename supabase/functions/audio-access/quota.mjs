@@ -16,6 +16,7 @@ export function createAudioQuota(projectUrl, serviceKey, request = fetch) {
       body: JSON.stringify(body),
     });
     if (!response.ok) throw new Error('Audio quota check failed');
+    if (response.status === 204) return undefined;
     return response.json();
   }
 

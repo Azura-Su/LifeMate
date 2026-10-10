@@ -1,6 +1,7 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import {
+  QueueTrackControls,
   QueueTrackList,
   queueDragOffset,
   queueTargetIndex,
@@ -44,6 +45,56 @@ beforeEach(() => {
 
 it('memoizes the queue list so playback progress does not render it again', () => {
   expect(QueueTrackList.$$typeof).toBe(Symbol.for('react.memo'));
+});
+
+it('shows a compact, accessible play-all action', () => {
+  const onPlayAll = jest.fn();
+  const view = render(
+    <QueueTrackControls
+      itemCount={items.length}
+      currentId={null}
+      repeatAll={false}
+      busy={false}
+      onToggleRepeatAll={noop}
+      onPlayAll={onPlayAll}
+    />,
+  );
+  const button = view.getByRole('button', { name: 'Phát tất cả' });
+  const style = StyleSheet.flatten(button.props.style[0]);
+
+  expect(view.getByText('Phát tất cả')).toBeTruthy();
+  expect(style).toMatchObject({ minHeight: 44, borderRadius: 14 });
+  fireEvent.press(button);
+  expect(onPlayAll).toHaveBeenCalledTimes(1);
+});
+
+it('labels the play-all action as a restart when a track is already selected', () => {
+  const view = render(
+    <QueueTrackControls
+      itemCount={items.length}
+      currentId="b"
+      repeatAll={false}
+      busy={false}
+      onToggleRepeatAll={noop}
+      onPlayAll={noop}
+    />,
+  );
+
+  expect(view.getByRole('button', { name: 'Phát lại từ đầu' })).toBeTruthy();
+});
+
+it('keeps queue rows compact with clear positions and touch-sized controls', () => {
+  const view = render(<QueueTrackList {...props} />);
+  const row = StyleSheet.flatten(view.getByTestId('queue-track-a').props.style);
+  const position = StyleSheet.flatten(view.getByText('1').props.style);
+  const reorder = StyleSheet.flatten(
+    view.getByTestId('queue-reorder-handle-a').props.style,
+  );
+
+  expect(row).toMatchObject({ paddingVertical: 6, borderRadius: 16 });
+  expect(position).toMatchObject({ width: 28, height: 28, borderRadius: 9 });
+  expect(reorder).toMatchObject({ minWidth: 44, minHeight: 44 });
+  expect(view.getByLabelText('Bỏ a khỏi danh sách nghe')).toBeTruthy();
 });
 
 it('updates the active row indicator without rebuilding the queue list', () => {
@@ -94,7 +145,7 @@ it('maps drag distance to a clamped queue position', () => {
 });
 
 it('keeps the lifted row aligned with the finger as its slot changes', () => {
-  const step = 72 + 12;
+  const step = 72 + 8;
   expect(1 * step + queueDragOffset(1, 2, 50, 72)).toBe(50);
   expect(-1 * step + queueDragOffset(1, 0, -50, 72)).toBe(-50);
 });

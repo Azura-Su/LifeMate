@@ -208,6 +208,7 @@ export function Mp3Screen() {
             ) : (
               <QueueTrackControls
                 itemCount={playlist.items.length}
+                currentId={current}
                 repeatAll={repeatAll}
                 busy={!!model.job}
                 onToggleRepeatAll={toggleRepeatAll}

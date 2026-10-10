@@ -1,4 +1,5 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, within } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import type { useQueuePlayer } from '../useQueuePlayer';
 import { QueuePlayerBar } from '../QueuePlayerBar';
 
@@ -39,6 +40,56 @@ function queue(playing: boolean, isLoaded = true, isSwitchingTrack = false) {
     seekBookmark: jest.fn(),
   } as unknown as ReturnType<typeof useQueuePlayer>;
 }
+
+it('keeps the player panel compact without shrinking its touch controls', () => {
+  const view = render(
+    <QueuePlayerBar
+      queue={queue(false)}
+      title={title}
+      subtitle="Bài 1/2"
+      repeatAll={false}
+      repeatCurrent={false}
+      onToggleRepeatCurrent={jest.fn()}
+    />,
+  );
+  const panel = view.getByTestId('queue-player-bar');
+  const panelStyle = StyleSheet.flatten(panel.props.style);
+  const settings = StyleSheet.flatten(
+    view.getByLabelText('Cài đặt phát').props.style,
+  );
+  const play = StyleSheet.flatten(view.getByLabelText('Phát').props.style);
+
+  expect(panelStyle).toMatchObject({ padding: 12, borderRadius: 18 });
+  expect(settings).toMatchObject({ width: 44, height: 44 });
+  expect(play).toMatchObject({ width: 56, height: 56 });
+});
+
+it('places playback times on either side of the seek line', () => {
+  const view = render(
+    <QueuePlayerBar
+      queue={queue(true)}
+      title={title}
+      subtitle="Bài 1/2"
+      repeatAll={false}
+      repeatCurrent={false}
+      onToggleRepeatCurrent={jest.fn()}
+    />,
+  );
+  const progress = view.getByTestId('player-progress-row');
+  const style = StyleSheet.flatten(progress.props.style);
+  const progressContent = within(progress);
+  const elapsedStyle = StyleSheet.flatten(
+    progressContent.getByText('0:02').props.style,
+  );
+
+  expect(style.flexDirection).toBe('row');
+  expect(elapsedStyle).toMatchObject({
+    width: 34,
+    fontVariant: ['tabular-nums'],
+  });
+  expect(progressContent.getByText('0:02')).toBeTruthy();
+  expect(progressContent.getByText('0:28')).toBeTruthy();
+});
 
 it('shows the playing queue title on one line and scrolls it only while playing', () => {
   const view = render(

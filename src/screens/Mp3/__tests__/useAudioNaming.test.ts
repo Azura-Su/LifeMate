@@ -32,6 +32,12 @@ let controller: AbortController;
 const report = jest.fn();
 const onSaved = jest.fn();
 const onMessage = jest.fn();
+const run = jest.fn(
+  async (
+    action: (signal: AbortSignal) => Promise<void>,
+    _options?: { showStatus?: boolean },
+  ) => action(controller.signal),
+);
 function setup() {
   return renderHook(() =>
     useAudioNaming({
@@ -39,11 +45,12 @@ function setup() {
       report,
       onSaved,
       onMessage,
-      run: async (action) => action(controller.signal),
+      run,
     }),
   );
 }
 beforeEach(() => {
+  jest.clearAllMocks();
   controller = new AbortController();
   useAuthStore
     .getState()
@@ -72,6 +79,10 @@ beforeEach(() => {
 it('waits for a name before importing and passes that title to the audio operation', async () => {
   const { result } = setup();
   await act(() => result.current.chooseFile());
+  expect(run).toHaveBeenCalledWith(expect.any(Function), {
+    showStatus: false,
+  });
+  expect(report).not.toHaveBeenCalled();
   expect(result.current.draft).toMatchObject({
     kind: 'import',
     title: 'recording',
@@ -92,6 +103,10 @@ it('waits for a name before importing and passes that title to the audio operati
 it('lets the user select a video from the device album and imports its local copy', async () => {
   const { result } = setup();
   await act(() => result.current.chooseFromAlbum());
+  expect(run).toHaveBeenCalledWith(expect.any(Function), {
+    showStatus: false,
+  });
+  expect(report).not.toHaveBeenCalled();
   expect(requestMediaLibraryPermissionsAsync).toHaveBeenCalledTimes(1);
   expect(launchImageLibraryAsync).toHaveBeenCalledWith({
     mediaTypes: ['videos'],

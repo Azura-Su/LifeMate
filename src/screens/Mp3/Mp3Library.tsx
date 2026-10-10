@@ -18,6 +18,7 @@ import { AudioNameDialog } from './AudioNameDialog';
 import { AudioPlayer } from './AudioPlayer';
 import { AudioEditor } from './AudioEditor';
 import { AudioJobStatus } from './AudioJobStatus';
+import { AudioSourceSheet } from './AudioSourceSheet';
 import { PlaylistPicker } from './PlaylistPicker';
 import { styles } from './Mp3Screen.styles';
 import type { useMp3Screen } from './useMp3Screen';
@@ -45,6 +46,10 @@ export function Mp3Library({ model, playlist, onClose }: Props) {
   const [activeTitleId, setActiveTitleId] = useState<string | null>(null);
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
   const [playlistTrackId, setPlaylistTrackId] = useState<string | null>(null);
+  const [sourceSheetVisible, setSourceSheetVisible] = useState(false);
+  const [pendingPicker, setPendingPicker] = useState<'file' | 'album' | null>(
+    null,
+  );
   const [search, setSearch] = useState('');
   const query = normalizeSearch(search);
   const visibleTracks = model.tracks.filter((track) =>
@@ -58,12 +63,21 @@ export function Mp3Library({ model, playlist, onClose }: Props) {
     },
     [],
   );
+  const launchPicker = async (source: 'file' | 'album') => {
+    try {
+      if (source === 'file') await model.addFile();
+      else await model.naming.chooseFromAlbum();
+    } finally {
+      setPendingPicker(null);
+    }
+  };
   const close = () => {
     if (!model.job) onClose();
   };
   return (
     <ModalScreen
       onRequestClose={close}
+      contentGap={12}
       onTouchStart={() => setActiveTitleId(null)}
       fixedHeader={
         <ModalHeader
@@ -83,34 +97,50 @@ export function Mp3Library({ model, playlist, onClose }: Props) {
       }
     >
       <View style={styles.importSection}>
-        <Text style={styles.importDescription}>
-          Tách tiếng từ video, cắt đoạn hay và ghép thành bản riêng.
-        </Text>
         <View style={styles.importBox}>
-          <View style={styles.row}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Thêm âm thanh"
+            accessibilityHint="Chọn file từ ứng dụng Tệp hoặc video từ album"
+            accessibilityState={{
+              disabled: !!model.job || model.loading || !!pendingPicker,
+            }}
+            disabled={!!model.job || model.loading || !!pendingPicker}
+            onPress={() => setSourceSheetVisible(true)}
+            style={({ pressed }) => [
+              styles.row,
+              styles.importTrigger,
+              pressed && styles.importTriggerPressed,
+              (model.loading || !!model.job || !!pendingPicker) &&
+                styles.importTriggerDisabled,
+            ]}
+          >
             <View style={styles.importIcon}>
-              <Feather name="upload-cloud" size={22} color={colors.earth} />
+              {pendingPicker ? (
+                <ActivityIndicator
+                  accessibilityLabel={
+                    pendingPicker === 'file'
+                      ? 'Đang mở ứng dụng Tệp'
+                      : 'Đang mở album ảnh'
+                  }
+                  color={colors.earth}
+                  size="small"
+                />
+              ) : (
+                <Feather name="upload-cloud" size={19} color={colors.earth} />
+              )}
             </View>
             <View style={styles.flex}>
               <Text style={styles.importTitle}>Thêm âm thanh</Text>
               <Text style={styles.importDetail}>
-                Audio giữ nguyên; video chỉ lưu phần tiếng.
+                {pendingPicker === 'file'
+                  ? 'Đang mở ứng dụng Tệp…'
+                  : pendingPicker === 'album'
+                    ? 'Đang mở album ảnh…'
+                    : 'Audio giữ nguyên; video chỉ lưu phần tiếng.'}
               </Text>
             </View>
-          </View>
-          <Button
-            title="Chọn file audio hoặc video"
-            onPress={() => void model.addFile()}
-            disabled={!!model.job || model.loading}
-            compact
-          />
-          <Button
-            title="Chọn video từ album"
-            onPress={() => void model.naming.chooseFromAlbum()}
-            disabled={!!model.job || model.loading}
-            variant="secondary"
-            compact
-          />
+          </Pressable>
           <Text style={styles.importFootnote}>
             Tệp: audio/video · Album: video · tối đa 500 MB · 60 phút
           </Text>
@@ -135,6 +165,13 @@ export function Mp3Library({ model, playlist, onClose }: Props) {
           </View>
         </View>
       </View>
+      <AudioSourceSheet
+        visible={sourceSheetVisible}
+        onClose={() => setSourceSheetVisible(false)}
+        onPreparingPicker={setPendingPicker}
+        onChooseFile={() => void launchPicker('file')}
+        onChooseAlbum={() => void launchPicker('album')}
+      />
       {model.job && !model.editor && (
         <AudioJobStatus job={model.job} onCancel={model.cancel} />
       )}
@@ -254,7 +291,7 @@ export function Mp3Library({ model, playlist, onClose }: Props) {
           </Text>
         </View>
       ) : (
-        <View style={styles.list}>
+        <View style={styles.libraryTrackList}>
           {visibleTracks.map((track) => (
             <AudioTrackCard
               key={track.id}
@@ -281,9 +318,8 @@ export function Mp3Library({ model, playlist, onClose }: Props) {
         </View>
       )}
       <Text style={typography.small}>
-        Chọn từ 2 file để ghép nối tiếp. Bản cắt/ghép được lưu thành file mới và
-        giữ nguyên bản gốc. Bấm nút danh sách trên từng file để chọn danh sách
-        nghe.
+        Chọn từ 2 file để ghép; bản gốc luôn được giữ. Dùng nút danh sách trên
+        từng file để thêm bài vào danh sách nghe.
       </Text>
       {/* Nested inside this Modal so iOS can present them on top of it. */}
       {model.naming.draft && (

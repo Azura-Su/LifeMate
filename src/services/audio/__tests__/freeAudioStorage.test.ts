@@ -101,6 +101,36 @@ it('requests only the authenticated user file and rejects redirected signed URLs
     ).rejects.toThrow('không hợp lệ');
   }
 });
+it('confirms uploaded bytes before reporting a successful backup', async () => {
+  jest
+    .mocked(fetch)
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ url: signedUrl }),
+    } as Response)
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ confirmed: true }),
+    } as Response);
+  jest.mocked(FileSystem.createUploadTask).mockReturnValueOnce({
+    uploadAsync: async () => ({ status: 200 }),
+    cancelAsync: jest.fn().mockResolvedValue(undefined),
+  } as unknown as FileSystem.UploadTask);
+
+  await uploadFreeAudio(
+    track,
+    'file:///a.mp3',
+    new AbortController().signal,
+    jest.fn(),
+  );
+
+  const actions = jest
+    .mocked(fetch)
+    .mock.calls.map(
+      ([, options]) => JSON.parse(options?.body as string).action,
+    );
+  expect(actions).toEqual(['upload', 'confirm']);
+});
 it('does not upload after the account changes', async () => {
   jest.mocked(getIdToken).mockImplementation(async () => {
     useAuthStore

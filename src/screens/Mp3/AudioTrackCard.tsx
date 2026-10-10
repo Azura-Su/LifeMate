@@ -146,6 +146,7 @@ export function AudioTrackCard(props: Props) {
           <Button
             title={track.synced ? 'Đồng bộ tên' : 'Sao lưu miễn phí'}
             variant="secondary"
+            compact
             disabled={busy || !!unavailable}
             onPress={props.onSync}
           />

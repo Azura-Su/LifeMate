@@ -16,9 +16,13 @@ type Draft = { uid: string; title: string } & (
   | { kind: 'import'; asset: AudioImportAsset }
   | { kind: 'rename'; track: AudioTrack }
 );
+type RunOptions = { showStatus?: boolean };
 type Options = {
   uid: string | undefined;
-  run: (action: (signal: AbortSignal) => Promise<void>) => Promise<void>;
+  run: (
+    action: (signal: AbortSignal) => Promise<void>,
+    options?: RunOptions,
+  ) => Promise<void>;
   report: (job: AudioJob) => void;
   onSaved: (track: AudioTrack) => void;
   onMessage: (message: string) => void;
@@ -56,68 +60,73 @@ export function useAudioNaming({
     setDraft(value);
   }
   const chooseFile = () =>
-    run(async (signal) => {
-      if (!uid) return;
-      report({ label: 'Chọn file audio hoặc video…', progress: null });
-      const picked = await DocumentPicker.getDocumentAsync({
-        type: ['audio/*', 'video/*'],
-        copyToCacheDirectory: true,
-        multiple: false,
-      });
-      if (picked.canceled) return;
-      const asset = picked.assets[0];
-      try {
-        assertAudioSession(uid, signal);
-        open({
-          kind: 'import',
-          uid,
-          asset,
-          title: defaultAudioTitle(asset.name),
+    run(
+      async (signal) => {
+        if (!uid) return;
+        const picked = await DocumentPicker.getDocumentAsync({
+          type: ['audio/*', 'video/*'],
+          copyToCacheDirectory: true,
+          multiple: false,
         });
-      } catch (error) {
-        await removeTemporaryAudio(asset.uri);
-        throw error;
-      }
-    });
-  const chooseFromAlbum = () =>
-    run(async (signal) => {
-      if (!uid) return;
-      report({ label: 'Chọn video trong album…', progress: null });
-      if (Platform.OS === 'ios') {
-        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!permission.granted) {
-          Alert.alert(
-            'Chưa có quyền truy cập album',
-            'Hãy cho phép LifeMate truy cập album để chọn video và tách âm thanh.',
-          );
-          return;
+        if (picked.canceled) return;
+        const asset = picked.assets[0];
+        try {
+          assertAudioSession(uid, signal);
+          open({
+            kind: 'import',
+            uid,
+            asset,
+            title: defaultAudioTitle(asset.name),
+          });
+        } catch (error) {
+          await removeTemporaryAudio(asset.uri);
+          throw error;
         }
-      }
-      const picked = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['videos'],
-        allowsEditing: false,
-        shouldDownloadFromNetwork: true,
-        ...(Platform.OS === 'android' ? { defaultTab: 'albums' } : {}),
-      });
-      if (picked.canceled || !picked.assets[0]) return;
-      const selected = picked.assets[0];
-      const asset: AudioImportAsset = {
-        uri: selected.uri,
-        name: selected.fileName || `video-${Date.now()}.mp4`,
-      };
-      try {
-        assertAudioSession(uid, signal);
-        open({
-          kind: 'import',
-          uid,
-          asset,
-          title: defaultAudioTitle(asset.name),
+      },
+      { showStatus: false },
+    );
+  const chooseFromAlbum = () =>
+    run(
+      async (signal) => {
+        if (!uid) return;
+        if (Platform.OS === 'ios') {
+          const permission =
+            await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (!permission.granted) {
+            Alert.alert(
+              'Chưa có quyền truy cập album',
+              'Hãy cho phép LifeMate truy cập album để chọn video và tách âm thanh.',
+            );
+            return;
+          }
+        }
+        const picked = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['videos'],
+          allowsEditing: false,
+          shouldDownloadFromNetwork: true,
+          ...(Platform.OS === 'android' ? { defaultTab: 'albums' } : {}),
         });
-      } catch (error) {
-        await removeTemporaryAudio(asset.uri);
-        throw error;
-      }
-    });
+        if (picked.canceled || !picked.assets[0]) return;
+        const selected = picked.assets[0];
+        const asset: AudioImportAsset = {
+          uri: selected.uri,
+          name: selected.fileName || `video-${Date.now()}.mp4`,
+        };
+        try {
+          assertAudioSession(uid, signal);
+          open({
+            kind: 'import',
+            uid,
+            asset,
+            title: defaultAudioTitle(asset.name),
+          });
+        } catch (error) {
+          await removeTemporaryAudio(asset.uri);
+          throw error;
+        }
+      },
+      { showStatus: false },
+    );
   const rename = (track: AudioTrack) => {
     if (!uid || track.ownerId !== uid) return;
     open({ kind: 'rename', uid, track, title: track.title });
@@ -141,7 +150,9 @@ export function useAudioNaming({
           title,
         );
         assertAudioSession(uid, signal);
-        onMessage(result.warning ?? 'Đã lưu và sao lưu âm thanh vào thư viện riêng.');
+        onMessage(
+          result.warning ?? 'Đã lưu và sao lưu âm thanh vào thư viện riêng.',
+        );
       } else {
         const result = await renameAudio(
           pending.track,

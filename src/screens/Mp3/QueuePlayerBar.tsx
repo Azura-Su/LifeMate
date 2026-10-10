@@ -42,7 +42,10 @@ function ProgressView({
   onSeek,
 }: ProgressProps) {
   return (
-    <>
+    <View style={styles.progressRow} testID="player-progress-row">
+      <Text style={styles.progressTime}>
+        {formatAudioTime(currentTime * 1000)}
+      </Text>
       <Slider
         style={styles.slider}
         accessibilityLabel="Vị trí phát âm thanh"
@@ -55,13 +58,10 @@ function ProgressView({
         maximumTrackTintColor={colors.line}
         thumbTintColor={colors.sky}
       />
-      <View style={styles.row}>
-        <Text style={typography.small}>
-          {formatAudioTime(currentTime * 1000)}
-        </Text>
-        <Text style={typography.small}>{formatAudioTime(duration * 1000)}</Text>
-      </View>
-    </>
+      <Text style={[styles.progressTime, styles.progressTimeEnd]}>
+        {formatAudioTime(duration * 1000)}
+      </Text>
+    </View>
   );
 }
 
@@ -100,7 +100,7 @@ export function QueuePlayerBar({
   const duration = status.duration || 0;
   const hasNext = queue.hasNext();
   return (
-    <View style={styles.box}>
+    <View testID="queue-player-bar" style={styles.box}>
       <View style={styles.row}>
         <View style={styles.flex}>
           <Text style={typography.small}>{subtitle}</Text>
@@ -395,8 +395,8 @@ export function QueuePlayerBar({
 const styles = StyleSheet.create({
   box: {
     backgroundColor: colors.skySoft,
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 18,
+    padding: 12,
     gap: 4,
   },
   row: {
@@ -422,7 +422,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 4,
   },
   settingsButton: {
     width: 44,
@@ -461,7 +460,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 28,
   },
-  slider: { minHeight: 44 },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  progressTime: {
+    width: 34,
+    flexShrink: 0,
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 16,
+    fontVariant: ['tabular-nums'],
+  },
+  progressTimeEnd: { textAlign: 'right' },
+  slider: { flex: 1, minHeight: 44 },
   error: { color: colors.danger, lineHeight: 22 },
   dim: { opacity: 0.3 },
   sheetOverlay: {
