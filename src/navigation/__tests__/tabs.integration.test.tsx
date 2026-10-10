@@ -9,12 +9,14 @@ import {
 } from '@testing-library/react-native';
 import {
   AppState,
+  Platform,
   StyleSheet,
   View,
   type AppStateStatus,
 } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
+import { usePreventScreenCapture } from 'expo-screen-capture';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppNavigator } from '../AppNavigator';
 import { useAuthStore } from '../../store/authStore';
@@ -116,9 +118,7 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
-function renderApp(
-  insets = { top: 0, bottom: 0, left: 0, right: 0 },
-) {
+function renderApp(insets = { top: 0, bottom: 0, left: 0, right: 0 }) {
   return render(
     <SafeAreaProvider
       initialMetrics={{
@@ -153,11 +153,12 @@ it('shows the configured name, opens all tabs, and returns to Login on logout', 
   renderApp({ top: 59, bottom: 34, left: 0, right: 0 });
   const hiddenTabItems = screen
     .UNSAFE_getAllByType(View)
-    .filter(
-      (item) => StyleSheet.flatten(item.props.style)?.display === 'none',
-    );
+    .filter((item) => StyleSheet.flatten(item.props.style)?.display === 'none');
   expect(hiddenTabItems).toHaveLength(2);
   expect(await screen.findByText('Asher')).toBeTruthy();
+  expect(screen.getByLabelText('Home, tab, 1 of 3')).toBeTruthy();
+  expect(screen.getByLabelText('Tài chính, tab, 2 of 3')).toBeTruthy();
+  expect(screen.getByLabelText('MP3, tab, 3 of 3')).toBeTruthy();
   fireEvent.press(screen.getByText('Tài chính'));
   expect(await screen.findByText('Chưa có giao dịch nào')).toBeTruthy();
   fireEvent.press(screen.getByText('MP3'));
@@ -189,6 +190,37 @@ it('shows the configured name, opens all tabs, and returns to Login on logout', 
   expect(screen.queryByText('Asher')).toBeNull();
 });
 
+it('only prompts for Face ID when Finance is selected on launch or app resume', async () => {
+  jest.mocked(SecureStore.getItemAsync).mockResolvedValue('on');
+  let changeState!: (state: AppStateStatus) => void;
+  jest
+    .spyOn(AppState, 'addEventListener')
+    .mockImplementation((_event, callback) => {
+      changeState = callback;
+      return { remove: jest.fn() };
+    });
+
+  renderApp();
+  await waitFor(() =>
+    expect(useFinanceLockStore.getState().enabled).toBe(true),
+  );
+  expect(LocalAuthentication.authenticateAsync).not.toHaveBeenCalled();
+
+  act(() => changeState('background'));
+  act(() => changeState('active'));
+  expect(LocalAuthentication.authenticateAsync).not.toHaveBeenCalled();
+
+  fireEvent.press(screen.getByText('Tài chính'));
+  expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
+  expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(1);
+
+  act(() => changeState('background'));
+  expect(screen.queryByText('Giao dịch trong tháng')).toBeNull();
+  act(() => changeState('active'));
+  expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
+  expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(2);
+});
+
 it('keeps the ledger locked after canceled Face ID, allows retry, and reuses the session across tabs', async () => {
   jest.mocked(SecureStore.getItemAsync).mockResolvedValue('on');
   jest
@@ -206,7 +238,7 @@ it('keeps the ledger locked after canceled Face ID, allows retry, and reuses the
   expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(2);
 });
 
-it('unmounts an open transaction form in the background and asks once on resume', async () => {
+it('preserves an open transaction form across background and asks once on resume', async () => {
   jest.mocked(SecureStore.getItemAsync).mockResolvedValue('on');
   let changeState!: (state: AppStateStatus) => void;
   jest
@@ -220,11 +252,16 @@ it('unmounts an open transaction form in the background and asks once on resume'
   expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
   fireEvent.press(screen.getByRole('button', { name: 'Thêm giao dịch' }));
   expect(screen.getByLabelText('Số tiền')).toBeTruthy();
+  fireEvent.changeText(screen.getByLabelText('Số tiền'), '125000');
+  fireEvent.changeText(screen.getByLabelText('Ghi chú'), 'Ăn trưa');
   act(() => changeState('background'));
   expect(screen.queryByLabelText('Số tiền')).toBeNull();
   expect(screen.queryByText('Giao dịch trong tháng')).toBeNull();
   act(() => changeState('active'));
   expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
+  expect(await screen.findByLabelText('Số tiền')).toBeTruthy();
+  expect(screen.getByLabelText('Số tiền').props.value).toBe('125000');
+  expect(screen.getByLabelText('Ghi chú').props.value).toBe('Ăn trưa');
   expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(2);
 });
 
@@ -249,9 +286,58 @@ it('allows a successful Face ID prompt that temporarily makes iOS inactive', asy
   await waitFor(() =>
     expect(LocalAuthentication.authenticateAsync).toHaveBeenCalled(),
   );
-  act(() => changeState('inactive'));
+  act(() => {
+    AppState.currentState = 'inactive';
+    changeState('inactive');
+  });
   await act(async () => finish({ success: true }));
   expect(screen.queryByText('Giao dịch trong tháng')).toBeNull();
-  act(() => changeState('active'));
+  act(() => {
+    AppState.currentState = 'active';
+    changeState('active');
+  });
   expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
+});
+
+it('shows Finance when Face ID succeeds after iOS is active but its event was missed', async () => {
+  jest.mocked(SecureStore.getItemAsync).mockResolvedValue('on');
+  let changeState!: (state: AppStateStatus) => void;
+  jest
+    .spyOn(AppState, 'addEventListener')
+    .mockImplementation((_event, callback) => {
+      changeState = callback;
+      return { remove: jest.fn() };
+    });
+  let finish!: (value: LocalAuthentication.LocalAuthenticationResult) => void;
+  jest.mocked(LocalAuthentication.authenticateAsync).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+
+  renderApp();
+  fireEvent.press(await screen.findByText('Tài chính'));
+  await waitFor(() =>
+    expect(LocalAuthentication.authenticateAsync).toHaveBeenCalled(),
+  );
+  act(() => {
+    AppState.currentState = 'inactive';
+    changeState('inactive');
+  });
+  AppState.currentState = 'active';
+  await act(async () => finish({ success: true }));
+
+  expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
+});
+
+it('does not enable the secure-window screenshot workaround for Finance on iOS', async () => {
+  expect(Platform.OS).toBe('ios');
+  jest.mocked(SecureStore.getItemAsync).mockResolvedValue('on');
+
+  renderApp();
+  fireEvent.press(await screen.findByText('Tài chính'));
+
+  expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
+  expect(usePreventScreenCapture).not.toHaveBeenCalled();
 });

@@ -1,6 +1,6 @@
 import Feather from '@expo/vector-icons/Feather';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { HomeScreen } from '../screens/Home/HomeScreen';
 import { ProtectedFinanceScreen } from '../screens/Finance/ProtectedFinanceScreen';
 import { AppState } from 'react-native';
@@ -23,17 +23,6 @@ const icons = {
 export function MainTabs() {
   const privacy = useFinancePrivacy();
   const { lock, setAppActive } = privacy;
-  const {
-    appActive,
-    authenticating,
-    enabled,
-    lockVersion,
-    ready,
-    uid,
-    unlock,
-    unlocked,
-  } = privacy;
-  const autoUnlockVersion = useRef<number | null>(null);
   useEffect(() => {
     setAppActive(
       AppState.currentState !== 'background' &&
@@ -50,33 +39,6 @@ export function MainTabs() {
       lock();
     };
   }, [lock, setAppActive]);
-
-  useEffect(() => {
-    if (
-      !ready ||
-      !enabled ||
-      !uid ||
-      !appActive ||
-      unlocked ||
-      authenticating ||
-      autoUnlockVersion.current === lockVersion
-    )
-      return;
-
-    // One prompt per launch/background return. The Face ID sheet can emit
-    // inactive itself; that transition does not increment lockVersion.
-    autoUnlockVersion.current = lockVersion;
-    void unlock(uid);
-  }, [
-    appActive,
-    authenticating,
-    enabled,
-    lockVersion,
-    ready,
-    uid,
-    unlock,
-    unlocked,
-  ]);
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -84,7 +46,7 @@ export function MainTabs() {
         tabBarActiveTintColor: colors.earth,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
-          backgroundColor: colors.background,
+          backgroundColor: colors.bottomBar,
           borderTopColor: colors.line,
           justifyContent: 'space-around',
         },
@@ -95,13 +57,25 @@ export function MainTabs() {
         ),
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
+      {/* Hidden routes stay reachable from Home; label only the 3 visible tabs. */}
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{ tabBarAccessibilityLabel: 'Home, tab, 1 of 3' }}
+      />
       <Tab.Screen
         name="Finance"
         component={ProtectedFinanceScreen}
-        options={{ tabBarLabel: 'Tài chính' }}
+        options={{
+          tabBarLabel: 'Tài chính',
+          tabBarAccessibilityLabel: 'Tài chính, tab, 2 of 3',
+        }}
       />
-      <Tab.Screen name="MP3" component={Mp3Screen} />
+      <Tab.Screen
+        name="MP3"
+        component={Mp3Screen}
+        options={{ tabBarAccessibilityLabel: 'MP3, tab, 3 of 3' }}
+      />
       <Tab.Screen
         name="Notes"
         component={NotesScreen}

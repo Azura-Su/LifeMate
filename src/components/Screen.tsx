@@ -3,12 +3,13 @@ import {
   ScrollView,
   StyleSheet,
   type RefreshControlProps,
+  type ColorValue,
   type StyleProp,
   type ViewStyle,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '../theme';
+import { colors, layout } from '../theme';
 
 type Props = PropsWithChildren<{
   refreshControl?: ReactElement<RefreshControlProps>;
@@ -17,6 +18,8 @@ type Props = PropsWithChildren<{
   fixedHeaderStyle?: StyleProp<ViewStyle>;
   fixedContent?: ReactNode;
   fixedContentStyle?: StyleProp<ViewStyle>;
+  backgroundColor?: ColorValue;
+  safeAreaBackgroundColor?: ColorValue;
 }>;
 
 export function Screen({
@@ -27,13 +30,26 @@ export function Screen({
   fixedHeaderStyle,
   fixedContent,
   fixedContentStyle,
+  backgroundColor,
+  safeAreaBackgroundColor,
 }: Props) {
+  const screenColorStyle = {
+    backgroundColor: backgroundColor ?? colors.background,
+  };
+  const safeAreaColorStyle = {
+    backgroundColor:
+      safeAreaBackgroundColor ??
+      (fixedHeader ? colors.sunlightFaint : screenColorStyle.backgroundColor),
+  };
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+    <SafeAreaView
+      style={[styles.safe, safeAreaColorStyle]}
+      edges={['top', 'left', 'right']}
+    >
       {fixedHeader != null && (
         <View
           testID="screen-fixed-header"
-          style={[styles.fixedHeader, fixedHeaderStyle]}
+          style={[screenColorStyle, styles.fixedHeader, fixedHeaderStyle]}
         >
           {fixedHeader}
         </View>
@@ -41,20 +57,21 @@ export function Screen({
       {fixedContent != null && (
         <View
           testID="screen-fixed-content"
-          style={[styles.fixedContent, fixedContentStyle]}
+          style={[styles.fixedContent, screenColorStyle, fixedContentStyle]}
         >
           {fixedContent}
         </View>
       )}
       <ScrollView
         testID="screen-scroll-area"
-        style={styles.scroll}
+        style={[styles.scroll, screenColorStyle]}
         contentContainerStyle={[
           fixedContent != null ? styles.belowFixedContent : styles.content,
           fixedHeader != null &&
             fixedContent == null &&
             styles.afterFixedHeader,
           contentStyle,
+          screenColorStyle,
         ]}
         keyboardShouldPersistTaps="handled"
         refreshControl={refreshControl}
@@ -70,37 +87,38 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   fixedHeader: {
     width: '100%',
-    maxWidth: 620,
+    maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: layout.screenGutter,
     paddingTop: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.line,
-    backgroundColor: colors.background,
+    backgroundColor: colors.sunlightFaint,
   },
   fixedContent: {
     width: '100%',
-    maxWidth: 620,
+    maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: layout.screenGutter,
     paddingTop: 12,
   },
   afterFixedHeader: { paddingTop: 12 },
   belowFixedContent: {
     flexGrow: 1,
     width: '100%',
-    maxWidth: 620,
+    maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: layout.screenGutter,
     paddingTop: 8,
     paddingBottom: 24,
   },
   content: {
     flexGrow: 1,
     width: '100%',
-    maxWidth: 620,
+    maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
-    padding: 24,
+    paddingHorizontal: layout.screenGutter,
+    paddingVertical: 24,
     gap: 24,
     paddingBottom: 32,
   },

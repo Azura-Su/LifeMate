@@ -121,14 +121,6 @@ it('fails closed when secure preferences cannot be read or saved', async () => {
   expect(useFinanceLockStore.getState().error).not.toContain('Native details');
 });
 
-it('shares a successful Home peek unlock with the Finance tab for this session', async () => {
-  await useFinanceLockStore.getState().load('u1');
-  expect(await useFinanceLockStore.getState().revealHome('u1')).toBe(true);
-  expect(useFinanceLockStore.getState().unlocked).toBe(true);
-  expect(await useFinanceLockStore.getState().unlock('u1')).toBe(true);
-  expect(authenticateFinance).toHaveBeenCalledTimes(1);
-});
-
 it('never changes the lock preference after an authentication interrupted by backgrounding', async () => {
   await useFinanceLockStore.getState().load('u1');
   let finish!: (value: { success: boolean; message: null }) => void;

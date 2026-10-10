@@ -2,11 +2,11 @@
 
 React Native cho Android/iOS, TypeScript, Expo Development Build, Firebase Auth + Remote Config + FCM + Firestore và Supabase Storage Free và Zustand. Tên ứng dụng **LifeMate**, iOS Bundle ID/Android package **`vn.mobifone.vnsteel`**, Firebase project **`baseapp-dd227`**.
 
-App có ba tab: Home, Tài chính và MP3; Ghi chú, Cài đặt và Đăng xuất nằm trong menu mở từ Home. Home có thu, chi, số dư tháng hiện tại và việc cần làm hôm nay. Tài chính hỗ trợ tìm trên toàn bộ giao dịch, sửa khoản đã nhập, tạo danh mục và mẫu riêng như “Cà phê 30.000đ”. Báo cáo Thu nhập và Chi tiêu xem theo năm hoặc khoảng tháng qua nhiều năm. Giao dịch lưu theo Firebase UID trong Firestore, có cache trên máy. Xem [yêu cầu tài chính](SPEC-finance.md), [lưu trữ tài khoản](docs/finance-cloud-storage.md) và [đặc tả tiện ích mới](SPEC-life-utilities.md).
+App có ba tab: Home, Tài chính và MP3; Ghi chú, Cài đặt và Đăng xuất nằm trong menu mở từ Home. Home có lời chào, ngày dương kèm ngày âm và hai thẻ **Lịch** và **Việc cần làm**; số liệu thu chi chỉ xem trong tab Tài chính. Tài chính hỗ trợ tìm trên toàn bộ giao dịch, sửa khoản đã nhập, tạo danh mục và mẫu riêng như “Cà phê 30.000đ”. Báo cáo Thu nhập và Chi tiêu xem theo năm hoặc khoảng tháng qua nhiều năm. Giao dịch lưu theo Firebase UID trong Firestore, có cache trên máy. Xem [yêu cầu tài chính](SPEC-finance.md), [lưu trữ tài khoản](docs/finance-cloud-storage.md) và [đặc tả tiện ích mới](SPEC-life-utilities.md).
 
 Tab MP3 có thư viện riêng theo tài khoản: nhập audio/video, tự tách tiếng của video trên máy, nghe/tua, cắt và nối nhiều đoạn theo thứ tự. Player hỗ trợ hẹn giờ dừng, nhớ vị trí, dấu mốc nghe lại và tốc độ 0,75×–2×. Có thể đặt tên, tìm tên file không phân biệt dấu và bỏ chọn nhanh các file ghép. Xem [cách dùng](docs/audio-library.md) và [cấu hình kho miễn phí](docs/free-audio-storage.md). Supabase Free và Firestore rules đã được cấu hình; kiểm thử audio cloud thật bằng fixture và hai tài khoản còn trong checklist triển khai.
 
-Tab Ghi chú lưu tiêu đề/nội dung theo tài khoản, cho sửa, xóa và tìm kiếm. Mục **Hôm nay** trên Home cho tạo, sửa, hoàn tất việc và đặt lời nhắc trên thiết bị. Từ danh sách việc có thể mở trình soạn sự kiện của lịch điện thoại; chỉ lịch hệ thống lưu sự kiện sau khi người dùng xác nhận. Ghi chú/việc đồng bộ Firestore theo UID; quyền đọc/ghi mới cần được triển khai cùng [Firestore rules](firebase/firestore.rules). Expo Calendar yêu cầu development build mới sau khi cài dependency.
+Tab Ghi chú lưu tiêu đề/nội dung theo tài khoản, cho sửa, xóa và tìm kiếm. Thẻ **Lịch** trên Home mở lịch tháng âm–dương (tuần bắt đầu Chủ nhật) với ngày lễ/Tết và ghi chú theo ngày; ghi chú ngày lưu chung kho Ghi chú nhưng không hiện trong tab Ghi chú. Thẻ **Việc cần làm** cho tạo, sửa, hoàn tất việc và đặt lời nhắc trên thiết bị. Từ danh sách việc có thể mở trình soạn sự kiện của lịch điện thoại; chỉ lịch hệ thống lưu sự kiện sau khi người dùng xác nhận. Ghi chú/việc đồng bộ Firestore theo UID; quyền đọc/ghi mới cần được triển khai cùng [Firestore rules](firebase/firestore.rules). Expo Calendar yêu cầu development build mới sau khi cài dependency.
 
 ## Chạy ứng dụng
 
@@ -99,7 +99,7 @@ App có defaults như dữ liệu mẫu. Khi khởi động/về foreground/kéo
 
 ## Khóa Tài chính
 
-Trong **Cài đặt → Khóa Tài chính**, bật xác thực bằng Face ID/Touch ID hoặc sinh trắc học Android; hệ điều hành có thể cho dùng mật mã thiết bị. Bật/tắt đều phải xác thực. Khi bật, app xác thực một lần lúc khởi động và khi quay lại sau khi xuống nền. Phiên dùng chung cho Home và Tài chính nên chuyển tab không hỏi lại; con mắt Home vẫn ẩn số cho đến khi người dùng chạm để hiện.
+Trong **Cài đặt → Khóa Tài chính**, bật xác thực bằng Face ID/Touch ID hoặc sinh trắc học Android; hệ điều hành có thể cho dùng mật mã thiết bị. Bật/tắt đều phải xác thực. Khi bật, chỉ tab Tài chính hỏi xác thực: lúc mở tab và khi app quay lại từ nền ngay tại tab này. Chuyển tab trong cùng phiên không hỏi lại; trên Android, khi Tài chính đang mở app chặn chụp/quay màn hình.
 
 Thiết lập lưu riêng cho tài khoản trên thiết bị này, không đồng bộ sang máy khác. Sau khi cập nhật dependency cần build/cài lại app (`npm run ios` / `npm run android`). Xem [thiết kế và kiểm chứng khóa](docs/finance-lock.md).
 

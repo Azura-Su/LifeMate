@@ -1,5 +1,7 @@
 import Feather from '@expo/vector-icons/Feather';
+import { useIsFocused } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { PreventScreenCapture } from '../../components/PreventScreenCapture';
@@ -14,19 +16,58 @@ export function ProtectedFinanceScreen({
   navigation,
 }: BottomTabScreenProps<MainTabParams, 'Finance'>) {
   const privacy = useFinancePrivacy();
-
-  if (
+  const {
+    appActive,
+    authenticating,
+    enabled,
+    lockVersion,
+    ready,
+    uid,
+    unlock,
+    unlocked,
+  } = privacy;
+  const isFocused = useIsFocused();
+  const autoUnlockVersion = useRef<number | null>(null);
+  const canViewFinance =
     privacy.ready &&
-    (privacy.enabled === false || (privacy.appActive && privacy.unlocked))
-  )
-    return (
-      <>
-        {privacy.enabled && <PreventScreenCapture id="finance-tab" />}
-        <FinanceScreen />
-      </>
-    );
+    (privacy.enabled === false || (privacy.appActive && privacy.unlocked));
+  const [retainedFinanceUid, setRetainedFinanceUid] = useState<string | null>(
+    null,
+  );
 
-  return (
+  useEffect(() => {
+    if (canViewFinance && uid) setRetainedFinanceUid(uid);
+  }, [canViewFinance, uid]);
+  const shouldRetainFinance = !!uid && retainedFinanceUid === uid;
+
+  useEffect(() => {
+    if (
+      !isFocused ||
+      !ready ||
+      !enabled ||
+      !uid ||
+      !appActive ||
+      unlocked ||
+      authenticating ||
+      autoUnlockVersion.current === lockVersion
+    )
+      return;
+
+    autoUnlockVersion.current = lockVersion;
+    void unlock(uid);
+  }, [
+    appActive,
+    authenticating,
+    enabled,
+    isFocused,
+    lockVersion,
+    ready,
+    uid,
+    unlock,
+    unlocked,
+  ]);
+
+  const lockScreen = (
     <Screen
       fixedHeader={
         <Text
@@ -77,9 +118,33 @@ export function ProtectedFinanceScreen({
       />
     </Screen>
   );
+
+  if (!canViewFinance && !shouldRetainFinance) return lockScreen;
+
+  return (
+    <View style={styles.protected}>
+      {canViewFinance && privacy.enabled && (
+        <PreventScreenCapture id="finance-tab" />
+      )}
+      <View
+        style={styles.financeLayer}
+        pointerEvents={canViewFinance ? 'auto' : 'none'}
+        accessibilityElementsHidden={!canViewFinance}
+        importantForAccessibility={
+          canViewFinance ? 'auto' : 'no-hide-descendants'
+        }
+      >
+        <FinanceScreen suspended={!canViewFinance} />
+      </View>
+      {!canViewFinance && <View style={styles.lockLayer}>{lockScreen}</View>}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
+  protected: { flex: 1 },
+  financeLayer: { flex: 1 },
+  lockLayer: { ...StyleSheet.absoluteFillObject, zIndex: 1 },
   content: {
     flexGrow: 1,
     justifyContent: 'center',

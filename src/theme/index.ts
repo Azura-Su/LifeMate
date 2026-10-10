@@ -2,32 +2,42 @@ import { StyleSheet } from 'react-native';
 
 export const colors = {
   // Light earth, cloud-white sky, and a soft sunlight highlight.
-  background: '#F7FAFC',
+  background: '#F6FBFE',
   surface: '#FFFFFF',
-  primary: '#E8D9C9',
-  primaryBorder: '#D2B9A4',
-  primarySoft: '#F3EAE0',
+  primary: '#F1E7DE',
+  primaryBorder: '#E2D4C7',
+  primarySoft: '#F8F3EF',
+  bottomBar: '#FAF7F3',
   earth: '#7C5C45',
-  earthLight: '#E8D9C9',
+  earthLight: '#F1E7DE',
   sky: '#4D7088',
   skySoft: '#E9F0F3',
   sunlight: '#9C701D',
-  sunlightSoft: '#FBF4DD',
-  sunlightAction: '#EAD89D',
-  sunlightBorder: '#D2B875',
+  sunlightSoft: '#FFF9E8',
+  sunlightFaint: '#FFFCF5',
+  sunlightLine: '#F0E5C5',
+  sunlightAction: '#F6ECC9',
+  sunlightBorder: '#E3D59F',
   ink: '#352D28',
   muted: '#6A625B',
   line: '#DEE5E9',
   success: '#506F5F',
+  successSoft: '#EAF2EC',
   danger: '#A84646',
   dangerSoft: '#F8ECEB',
   onPrimary: '#352D28',
   scrim: 'rgba(53, 45, 40, 0.48)',
   shadow: '#352D2826',
-  onAccentDivider: '#D2B9A4',
+  cloudShadow: '#536774',
+  onAccentDivider: '#E2D4C7',
   record: '#342D29',
   recordGroove: '#8D796A',
 };
+
+export const layout = {
+  screenGutter: 20,
+  contentMaxWidth: 620,
+} as const;
 
 export const typography = StyleSheet.create({
   eyebrow: {

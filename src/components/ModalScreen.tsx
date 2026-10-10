@@ -14,7 +14,7 @@ import {
   type RefreshControlProps,
 } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
-import { colors } from '../theme';
+import { colors, layout } from '../theme';
 
 type Props = PropsWithChildren<{
   onRequestClose: () => void;
@@ -22,6 +22,7 @@ type Props = PropsWithChildren<{
   fixedHeader?: ReactNode;
   fixedFooter?: ReactNode;
   onTouchStart?: () => void;
+  contentGap?: number;
 }>;
 
 // A full-screen Modal is a separate native root on iOS, so SafeAreaView inside
@@ -34,6 +35,7 @@ export function ModalScreen({
   fixedHeader,
   fixedFooter,
   onTouchStart,
+  contentGap = 24,
 }: Props) {
   const insets = useContext(SafeAreaInsetsContext);
   const top = Math.max(insets?.top ?? 0, 20) + 16;
@@ -58,7 +60,7 @@ export function ModalScreen({
             style={styles.scroll}
             contentContainerStyle={[
               styles.content,
-              { paddingBottom: fixedFooter ? 16 : bottom },
+              { paddingBottom: fixedFooter ? 16 : bottom, gap: contentGap },
             ]}
             keyboardShouldPersistTaps="handled"
             refreshControl={refreshControl}
@@ -67,6 +69,7 @@ export function ModalScreen({
           </ScrollView>
           {fixedFooter && (
             <View
+              testID="modal-screen-fixed-footer"
               style={[
                 styles.fixedFooter,
                 { paddingBottom: Math.max(insets?.bottom ?? 0, 12) },
@@ -87,13 +90,13 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   fixedContent: {
     width: '100%',
-    maxWidth: 620,
+    maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
   },
   fixedHeader: {
     width: '100%',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: layout.screenGutter,
     paddingTop: 4,
     paddingBottom: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -104,7 +107,7 @@ const styles = StyleSheet.create({
   fixedFooter: {
     width: '100%',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: layout.screenGutter,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.line,
@@ -113,9 +116,9 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     width: '100%',
-    maxWidth: 620,
+    maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: layout.screenGutter,
     paddingTop: 8,
     gap: 24,
   },

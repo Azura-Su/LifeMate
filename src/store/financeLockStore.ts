@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { AppState } from 'react-native';
 import { useAuthStore } from './authStore';
 import {
   authenticateFinance,
@@ -23,7 +24,6 @@ type FinanceLockState = {
   lock: () => void;
   setAppActive: (active: boolean) => void;
   unlock: (uid: string) => Promise<boolean>;
-  revealHome: (uid: string) => Promise<boolean>;
   setEnabled: (uid: string, enabled: boolean) => Promise<void>;
 };
 
@@ -48,6 +48,8 @@ export const useFinanceLockStore = create<FinanceLockState>((set, get) => {
     try {
       const result = await authenticateFinance(prompt);
       if (!isCurrent(uid) || epoch !== accessEpoch) return false;
+      if (result.success && AppState.currentState === 'active')
+        set({ appActive: true });
       if (!result.success) set({ error: result.message });
       return result.success;
     } catch {
@@ -120,19 +122,6 @@ export const useFinanceLockStore = create<FinanceLockState>((set, get) => {
       if (get().unlocked) return true;
       const epoch = accessEpoch;
       const allowed = await authorize(uid, 'Mở khóa Tài chính');
-      if (allowed && isCurrent(uid) && epoch === accessEpoch) {
-        set({ unlocked: true });
-        return true;
-      }
-      return false;
-    },
-    revealHome: async (uid) => {
-      if (!isCurrent(uid) || get().changing || get().enabled === null)
-        return false;
-      if (!get().enabled) return true;
-      if (get().unlocked) return true;
-      const epoch = accessEpoch;
-      const allowed = await authorize(uid, 'Xem số tiền trên Home');
       if (allowed && isCurrent(uid) && epoch === accessEpoch) {
         set({ unlocked: true });
         return true;

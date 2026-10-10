@@ -1,9 +1,15 @@
 import { usePreventScreenCapture } from 'expo-screen-capture';
+import { Platform } from 'react-native';
 
-// While mounted, blocks screenshots/recording and blanks the Android
-// recent-apps preview (FLAG_SECURE). Android has no 'inactive' state, so the
-// JS masking used on iOS cannot hide content before the system snapshot.
 export function PreventScreenCapture({ id }: { id: string }) {
+  // Expo's iOS implementation reparents the app window under a secure text
+  // field. Avoid the black window it causes when Finance unlocks on iOS.
+  if (Platform.OS !== 'android') return null;
+
+  return <AndroidScreenCapture id={id} />;
+}
+
+function AndroidScreenCapture({ id }: { id: string }) {
   usePreventScreenCapture(id);
   return null;
 }
