@@ -112,6 +112,7 @@ export function AgendaTaskFormDialog({
         placeholderTextColor={colors.muted}
         value={details}
         onChangeText={setDetails}
+        editable={!busy}
         maxLength={2000}
         multiline
         textAlignVertical="top"
@@ -125,6 +126,7 @@ export function AgendaTaskFormDialog({
           placeholderTextColor={colors.muted}
           value={dateText}
           onChangeText={setDateText}
+          editable={!busy}
           keyboardType="numbers-and-punctuation"
           maxLength={10}
           style={[styles.input, styles.dateInput]}
@@ -135,6 +137,7 @@ export function AgendaTaskFormDialog({
           placeholderTextColor={colors.muted}
           value={timeText}
           onChangeText={setTimeText}
+          editable={!busy}
           keyboardType="numbers-and-punctuation"
           maxLength={5}
           style={[styles.input, styles.timeInput]}
@@ -143,7 +146,8 @@ export function AgendaTaskFormDialog({
       <Pressable
         accessibilityRole="switch"
         accessibilityLabel="Nhắc trước 10 phút"
-        accessibilityState={{ checked: remind }}
+        accessibilityState={{ checked: remind, disabled: busy }}
+        disabled={busy}
         onPress={() => setRemind((value) => !value)}
         style={styles.reminderToggle}
       >

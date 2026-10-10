@@ -1,6 +1,6 @@
 import Feather from '@expo/vector-icons/Feather';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { useAgendaAccount } from '../../hooks/useAgendaAccount';
@@ -12,6 +12,8 @@ import { AgendaTaskFormDialog } from './AgendaTaskFormDialog';
 import { AgendaTaskRow } from './AgendaTaskRow';
 import { styles } from './AgendaScreen.styles';
 
+type AgendaAction = 'complete' | 'delete' | 'calendar';
+
 export function AgendaScreen({
   navigation,
 }: BottomTabScreenProps<MainTabParams, 'Agenda'>) {
@@ -20,9 +22,42 @@ export function AgendaScreen({
   const [formVisible, setFormVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedbackIsError, setFeedbackIsError] = useState(false);
+  const [pendingActions, setPendingActions] = useState<
+    Record<string, AgendaAction>
+  >({});
+  const actionPending = useRef(new Set<string>());
+
+  async function runItemAction(
+    item: AgendaItem,
+    action: AgendaAction,
+    operation: () => Promise<unknown>,
+    fallback: string,
+  ) {
+    if (actionPending.current.has(item.id)) return;
+    actionPending.current.add(item.id);
+    setPendingActions((current) => ({ ...current, [item.id]: action }));
+    setFeedback(null);
+    setFeedbackIsError(false);
+    try {
+      await operation();
+    } catch (cause) {
+      setFeedback((cause as Error).message || fallback);
+      setFeedbackIsError(true);
+    } finally {
+      actionPending.current.delete(item.id);
+      setPendingActions((current) => {
+        const next = { ...current };
+        delete next[item.id];
+        return next;
+      });
+    }
+  }
 
   async function save(item: AgendaItem) {
     if (!model.uid) return;
+    setFeedback(null);
+    setFeedbackIsError(false);
     setSaving(true);
     try {
       const reminderStatus = await model.save(model.uid, {
@@ -48,21 +83,17 @@ export function AgendaScreen({
       {
         text: 'Xóa',
         style: 'destructive',
-        onPress: () =>
-          model.uid &&
-          void model
-            .remove(model.uid, item.id)
-            .catch((cause) => setFeedback((cause as Error).message)),
+        onPress: () => {
+          if (!model.uid) return;
+          void runItemAction(
+            item,
+            'delete',
+            () => model.remove(model.uid!, item.id),
+            'Chưa xóa được công việc. Hãy thử lại.',
+          );
+        },
       },
     ]);
-  }
-
-  async function addToCalendar(item: AgendaItem) {
-    try {
-      await addAgendaItemToCalendar(item);
-    } catch {
-      setFeedback('Chưa mở được lịch trên thiết bị này.');
-    }
   }
 
   return (
@@ -106,7 +137,11 @@ export function AgendaScreen({
           </Text>
         )}
         {!!feedback && (
-          <Text accessibilityLiveRegion="polite" style={styles.sync}>
+          <Text
+            accessibilityRole={feedbackIsError ? 'alert' : undefined}
+            accessibilityLiveRegion="polite"
+            style={[styles.sync, feedbackIsError && styles.error]}
+          >
             {feedback}
           </Text>
         )}
@@ -130,18 +165,29 @@ export function AgendaScreen({
             <AgendaTaskRow
               key={item.id}
               item={item}
+              pendingAction={pendingActions[item.id]}
               onComplete={() =>
                 model.uid &&
-                void model
-                  .complete(model.uid, item.id, !item.completed)
-                  .catch((cause) => setFeedback((cause as Error).message))
+                void runItemAction(
+                  item,
+                  'complete',
+                  () => model.complete(model.uid!, item.id, !item.completed),
+                  'Chưa cập nhật được công việc. Hãy thử lại.',
+                )
               }
               onEdit={() => {
                 setEditing(item);
                 setFormVisible(true);
               }}
               onDelete={() => remove(item)}
-              onAddToCalendar={() => void addToCalendar(item)}
+              onAddToCalendar={() =>
+                void runItemAction(
+                  item,
+                  'calendar',
+                  () => addAgendaItemToCalendar(item),
+                  'Chưa mở được lịch trên thiết bị này.',
+                )
+              }
             />
           ))
         )}

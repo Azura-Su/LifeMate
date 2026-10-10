@@ -215,7 +215,7 @@ export function AppDrawer({ visible, onClose, onOpenNotes, privacy }: Props) {
                 accessibilityLabel="Đăng xuất"
                 accessibilityState={{ busy: model.busy === 'logout' }}
                 disabled={
-                  model.busy === 'push' ||
+                  model.busy !== null ||
                   privacy.authenticating ||
                   privacy.changing
                 }

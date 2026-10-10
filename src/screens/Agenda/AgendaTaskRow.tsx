@@ -1,5 +1,5 @@
 import Feather from '@expo/vector-icons/Feather';
-import { Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { colors, typography } from '../../theme';
 import type { AgendaItem } from '../../types/agenda';
 import { formatAgendaDate, formatAgendaTime } from '../../utils/agenda';
@@ -11,6 +11,7 @@ type Props = {
   onEdit: () => void;
   onDelete: () => void;
   onAddToCalendar: () => void;
+  pendingAction?: 'complete' | 'delete' | 'calendar';
 };
 export function AgendaTaskRow({
   item,
@@ -18,8 +19,10 @@ export function AgendaTaskRow({
   onEdit,
   onDelete,
   onAddToCalendar,
+  pendingAction,
 }: Props) {
   const due = new Date(item.dueAt);
+  const busy = !!pendingAction;
   return (
     <View style={styles.taskRow}>
       <Pressable
@@ -29,18 +32,29 @@ export function AgendaTaskRow({
             ? `Đánh dấu chưa xong ${item.title}`
             : `Hoàn thành ${item.title}`
         }
-        accessibilityState={{ checked: item.completed }}
+        accessibilityState={{
+          checked: item.completed,
+          disabled: busy,
+          busy: pendingAction === 'complete',
+        }}
+        disabled={busy}
         onPress={onComplete}
         style={styles.check}
       >
-        <Feather
-          name={item.completed ? 'check-circle' : 'circle'}
-          size={21}
-          color={item.completed ? colors.success : colors.muted}
-        />
+        {pendingAction === 'complete' ? (
+          <ActivityIndicator size="small" color={colors.earth} />
+        ) : (
+          <Feather
+            name={item.completed ? 'check-circle' : 'circle'}
+            size={21}
+            color={item.completed ? colors.success : colors.muted}
+          />
+        )}
       </Pressable>
       <Pressable
         accessibilityRole="button"
+        accessibilityState={{ disabled: busy }}
+        disabled={busy}
         onPress={onEdit}
         style={styles.taskText}
       >
@@ -64,18 +78,36 @@ export function AgendaTaskRow({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Thêm ${item.title} vào lịch điện thoại`}
+          accessibilityState={{
+            disabled: busy,
+            busy: pendingAction === 'calendar',
+          }}
+          disabled={busy}
           onPress={onAddToCalendar}
           style={styles.action}
         >
-          <Feather name="calendar" size={17} color={colors.sky} />
+          {pendingAction === 'calendar' ? (
+            <ActivityIndicator size="small" color={colors.sky} />
+          ) : (
+            <Feather name="calendar" size={17} color={colors.sky} />
+          )}
         </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Xóa ${item.title}`}
+          accessibilityState={{
+            disabled: busy,
+            busy: pendingAction === 'delete',
+          }}
+          disabled={busy}
           onPress={onDelete}
           style={styles.action}
         >
-          <Feather name="trash-2" size={17} color={colors.muted} />
+          {pendingAction === 'delete' ? (
+            <ActivityIndicator size="small" color={colors.earth} />
+          ) : (
+            <Feather name="trash-2" size={17} color={colors.muted} />
+          )}
         </Pressable>
       </View>
     </View>

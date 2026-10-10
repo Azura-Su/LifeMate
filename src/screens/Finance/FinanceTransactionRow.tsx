@@ -1,6 +1,6 @@
 import Feather from '@expo/vector-icons/Feather';
 import { memo } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { colors } from '../../theme';
 import type { FinanceTransaction } from '../../types/finance';
 import { formatFinanceAmount, formatFinanceDate } from '../../utils/finance';
@@ -12,12 +12,14 @@ type Props = {
   // unchanged rows skip re-rendering (e.g. on each search keystroke).
   onDelete: (transaction: FinanceTransaction) => void;
   onEdit?: (transaction: FinanceTransaction) => void;
+  deleting?: boolean;
 };
 
 export const FinanceTransactionRow = memo(function FinanceTransactionRow({
   transaction,
   onDelete,
   onEdit,
+  deleting = false,
 }: Props) {
   const income = transaction.type === 'income';
   const date = formatFinanceDate(new Date(transaction.createdAt));
@@ -58,6 +60,8 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Sửa giao dịch ${transaction.note || transaction.category}`}
+          accessibilityState={{ disabled: deleting }}
+          disabled={deleting}
           hitSlop={8}
           onPress={() => onEdit(transaction)}
           style={styles.deleteButton}
@@ -68,11 +72,17 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Xóa giao dịch ${transaction.note || transaction.category}`}
+        accessibilityState={{ disabled: deleting, busy: deleting }}
+        disabled={deleting}
         hitSlop={8}
         onPress={() => onDelete(transaction)}
         style={styles.deleteButton}
       >
-        <Feather name="trash-2" size={16} color={colors.muted} />
+        {deleting ? (
+          <ActivityIndicator size="small" color={colors.earth} />
+        ) : (
+          <Feather name="trash-2" size={16} color={colors.muted} />
+        )}
       </Pressable>
     </View>
   );

@@ -1,5 +1,5 @@
 import Feather from '@expo/vector-icons/Feather';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { useAgendaAccount } from '../../hooks/useAgendaAccount';
 import { addAgendaItemToCalendar } from '../../services/agenda/calendarService';
@@ -10,6 +10,8 @@ import { isSameDay } from '../../utils/vietnameseCalendar';
 import { AgendaTaskFormDialog } from '../Agenda/AgendaTaskFormDialog';
 import { AgendaTaskRow } from '../Agenda/AgendaTaskRow';
 import { styles } from './HomeAgendaCard.styles';
+
+type AgendaAction = 'complete' | 'delete' | 'calendar';
 
 export function HomeAgendaCard({
   date,
@@ -23,11 +25,44 @@ export function HomeAgendaCard({
   const [editing, setEditing] = useState<AgendaItem | null>(null);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedbackIsError, setFeedbackIsError] = useState(false);
+  const [pendingActions, setPendingActions] = useState<
+    Record<string, AgendaAction>
+  >({});
+  const actionPending = useRef(new Set<string>());
   const todaysItems = getAgendaForDate(model.items, date);
   const isToday = isSameDay(date, new Date());
 
+  async function runItemAction(
+    item: AgendaItem,
+    action: AgendaAction,
+    operation: () => Promise<unknown>,
+    fallback: string,
+  ) {
+    if (actionPending.current.has(item.id)) return;
+    actionPending.current.add(item.id);
+    setPendingActions((current) => ({ ...current, [item.id]: action }));
+    setFeedback(null);
+    setFeedbackIsError(false);
+    try {
+      await operation();
+    } catch (cause) {
+      setFeedback((cause as Error).message || fallback);
+      setFeedbackIsError(true);
+    } finally {
+      actionPending.current.delete(item.id);
+      setPendingActions((current) => {
+        const next = { ...current };
+        delete next[item.id];
+        return next;
+      });
+    }
+  }
+
   async function save(item: AgendaItem) {
     if (!model.uid) return;
+    setFeedback(null);
+    setFeedbackIsError(false);
     setSaving(true);
     try {
       const reminderStatus = await model.save(model.uid, {
@@ -49,11 +84,15 @@ export function HomeAgendaCard({
       {
         text: 'Xóa',
         style: 'destructive',
-        onPress: () =>
-          model.uid &&
-          void model
-            .remove(model.uid, item.id)
-            .catch((cause) => setFeedback((cause as Error).message)),
+        onPress: () => {
+          if (!model.uid) return;
+          void runItemAction(
+            item,
+            'delete',
+            () => model.remove(model.uid!, item.id),
+            'Chưa xóa được công việc. Hãy thử lại.',
+          );
+        },
       },
     ]);
   }
@@ -117,11 +156,15 @@ export function HomeAgendaCard({
             <AgendaTaskRow
               key={item.id}
               item={item}
+              pendingAction={pendingActions[item.id]}
               onComplete={() =>
                 model.uid &&
-                void model
-                  .complete(model.uid, item.id, true)
-                  .catch((cause) => setFeedback((cause as Error).message))
+                void runItemAction(
+                  item,
+                  'complete',
+                  () => model.complete(model.uid!, item.id, !item.completed),
+                  'Chưa cập nhật được công việc. Hãy thử lại.',
+                )
               }
               onEdit={() => {
                 setEditing(item);
@@ -129,8 +172,11 @@ export function HomeAgendaCard({
               }}
               onDelete={() => deleteItem(item)}
               onAddToCalendar={() =>
-                addAgendaItemToCalendar(item).catch(() =>
-                  setFeedback('Chưa mở được lịch trên thiết bị này.'),
+                void runItemAction(
+                  item,
+                  'calendar',
+                  () => addAgendaItemToCalendar(item),
+                  'Chưa mở được lịch trên thiết bị này.',
                 )
               }
             />
@@ -154,7 +200,11 @@ export function HomeAgendaCard({
           </Text>
         )}
         {!!feedback && (
-          <Text accessibilityLiveRegion="polite" style={styles.error}>
+          <Text
+            accessibilityRole={feedbackIsError ? 'alert' : undefined}
+            accessibilityLiveRegion="polite"
+            style={feedbackIsError ? styles.error : styles.sync}
+          >
             {feedback}
           </Text>
         )}

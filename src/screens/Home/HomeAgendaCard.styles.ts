@@ -43,4 +43,5 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
   },
   error: { fontSize: 12, color: colors.danger },
+  sync: { fontSize: 12, color: colors.success },
 });

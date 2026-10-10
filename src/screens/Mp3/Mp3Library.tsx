@@ -212,11 +212,19 @@ export function Mp3Library({ model, playlist, onClose }: Props) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Làm mới thư viện"
+          accessibilityState={{
+            disabled: model.cloudLoading || !!model.job,
+            busy: model.cloudLoading,
+          }}
           onPress={() => void model.refresh()}
           disabled={model.cloudLoading || !!model.job}
           style={styles.icon}
         >
-          <Feather name="refresh-cw" size={20} color={colors.earth} />
+          {model.cloudLoading ? (
+            <ActivityIndicator size="small" color={colors.earth} />
+          ) : (
+            <Feather name="refresh-cw" size={20} color={colors.earth} />
+          )}
         </Pressable>
       </View>
       {model.tracks.length > 0 && (
