@@ -13,8 +13,9 @@ import { Button } from '../../components/Button';
 import { DialogModal } from '../../components/DialogModal';
 import { Screen } from '../../components/Screen';
 import { useNotesAccount } from '../../hooks/useNotesAccount';
-import { colors, typography } from '../../theme';
+import { colors, layout, typography } from '../../theme';
 import type { LifeNote } from '../../types/note';
+import { isCalendarNote } from '../../utils/calendarNotes';
 
 const foldText = (value: string) =>
   value
@@ -36,23 +37,27 @@ export function NotesScreen() {
   const [body, setBody] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const regularNotes = useMemo(
+    () => model.notes.filter((note) => !isCalendarNote(note.id)),
+    [model.notes],
+  );
   // Fold each note once when notes change, not on every search keystroke.
   const searchable = useMemo(
     () =>
-      model.notes.map((note) => ({
+      regularNotes.map((note) => ({
         note,
         text: foldText(`${note.title} ${note.body}`),
       })),
-    [model.notes],
+    [regularNotes],
   );
   const deferredQuery = useDeferredValue(query);
   const visibleNotes = useMemo(() => {
     const value = foldText(deferredQuery).trim();
-    if (!value) return model.notes;
+    if (!value) return regularNotes;
     return searchable
       .filter((item) => item.text.includes(value))
       .map((item) => item.note);
-  }, [deferredQuery, model.notes, searchable]);
+  }, [deferredQuery, regularNotes, searchable]);
 
   function open(note?: LifeNote) {
     setEditing(note ?? null);
@@ -234,7 +239,11 @@ export function NotesScreen() {
 }
 
 const styles = StyleSheet.create({
-  fixedHeader: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
+  fixedHeader: {
+    paddingHorizontal: layout.screenGutter,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -249,7 +258,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sunlightSoft,
   },
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: layout.screenGutter,
     paddingTop: 14,
     paddingBottom: 32,
     gap: 12,

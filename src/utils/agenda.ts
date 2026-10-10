@@ -37,15 +37,19 @@ export function parseAgendaDateTime(dateText: string, timeText: string) {
 }
 
 export function getTodaysAgenda(items: AgendaItem[], now = new Date()) {
+  return getAgendaForDate(items, now);
+}
+
+export function getAgendaForDate(items: AgendaItem[], date: Date) {
   const start = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
   ).getTime();
   const end = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate() + 1,
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate() + 1,
   ).getTime();
   return items
     .filter(

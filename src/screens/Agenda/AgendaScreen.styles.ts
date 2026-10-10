@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors, typography } from '../../theme';
+import { colors, layout, typography } from '../../theme';
 
 export const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -18,9 +18,13 @@ export const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: colors.sunlightSoft,
   },
-  fixedHeader: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 12 },
+  fixedHeader: {
+    paddingHorizontal: layout.screenGutter,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
   content: {
-    paddingHorizontal: 18,
+    paddingHorizontal: layout.screenGutter,
     paddingTop: 14,
     paddingBottom: 32,
     gap: 10,

@@ -8,14 +8,20 @@ import { Screen } from '../../components/Screen';
 import type { MainTabParams } from '../../navigation/types';
 import { colors, typography } from '../../theme';
 import { useHomeScreen } from './useHomeScreen';
-import { HomeFinanceCard } from './HomeFinanceCard';
-import { HomeAgendaCard } from './HomeAgendaCard';
+import { HomeCalendarSheet } from './HomeCalendarSheet';
+import { HomeTodayCard } from './HomeTodayCard';
+import { getCalendarNoteDateKey } from '../../utils/calendarNotes';
 
 export function HomeScreen({
   navigation,
 }: BottomTabScreenProps<MainTabParams, 'Home'>) {
   const model = useHomeScreen();
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [calendarVisible, setCalendarVisible] = useState(false);
+  const [calendarSheetTab, setCalendarSheetTab] = useState<
+    'calendar' | 'tasks'
+  >('calendar');
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [refreshing, setRefreshing] = useState(false);
   const refreshInFlight = useRef(false);
   async function refresh() {
@@ -31,17 +37,21 @@ export function HomeScreen({
   }
   return (
     <Screen
+      backgroundColor={colors.background}
+      safeAreaBackgroundColor={colors.sunlightFaint}
       fixedHeader={
         <View style={styles.header}>
           <View style={styles.greeting}>
-            <Text style={typography.small}>Chào bạn,</Text>
-            <Text
-              accessibilityRole="header"
-              numberOfLines={1}
-              style={[typography.title, styles.headerName]}
-            >
-              {model.name}
-            </Text>
+            <View style={styles.headerGreetingRow}>
+              <Text style={typography.small}>Chào bạn,</Text>
+              <Text
+                accessibilityRole="header"
+                numberOfLines={1}
+                style={[typography.title, styles.headerName]}
+              >
+                {model.name}
+              </Text>
+            </View>
             <Text style={typography.small}>{model.date}</Text>
           </View>
           <Pressable
@@ -50,7 +60,7 @@ export function HomeScreen({
             onPress={() => setDrawerVisible(true)}
             style={styles.menuButton}
           >
-            <BrandAvatar size={36} />
+            <BrandAvatar size={32} />
           </Pressable>
         </View>
       }
@@ -64,12 +74,23 @@ export function HomeScreen({
         />
       }
     >
-      <HomeFinanceCard
-        key={model.finance.uid}
-        model={model}
-        onOpen={() => navigation.navigate('Finance')}
+      <HomeTodayCard
+        date={new Date()}
+        notes={model.notes.notes}
+        notesLoading={model.notes.loading}
+        agendaItems={model.agenda.items}
+        agendaLoading={model.agenda.loading}
+        onOpenCalendar={() => {
+          setCalendarSheetTab('calendar');
+          setSelectedDate(new Date());
+          setCalendarVisible(true);
+        }}
+        onOpenTasks={() => {
+          setCalendarSheetTab('tasks');
+          setSelectedDate(new Date());
+          setCalendarVisible(true);
+        }}
       />
-      <HomeAgendaCard onOpenAgenda={() => navigation.navigate('Agenda')} />
       {model.warning && (
         <Text accessibilityLiveRegion="polite" style={typography.small}>
           {model.warning} Kéo xuống để thử lại.
@@ -80,6 +101,26 @@ export function HomeScreen({
         onClose={() => setDrawerVisible(false)}
         onOpenNotes={() => navigation.navigate('Notes')}
         privacy={model.privacy}
+      />
+      <HomeCalendarSheet
+        visible={calendarVisible}
+        onClose={() => setCalendarVisible(false)}
+        initialTab={calendarSheetTab}
+        selectedDate={selectedDate}
+        onSelectDate={setSelectedDate}
+        noteDateKeys={model.notes.notes.flatMap((note) => {
+          const dateKey = getCalendarNoteDateKey(note.id);
+          return dateKey ? [dateKey] : [];
+        })}
+        noteUid={model.notes.uid}
+        notes={model.notes.notes}
+        notesSynced={model.notes.synced}
+        onSaveNote={model.notes.save}
+        onDeleteNote={model.notes.remove}
+        onOpenAgenda={() => {
+          setCalendarVisible(false);
+          navigation.navigate('Agenda');
+        }}
       />
     </Screen>
   );

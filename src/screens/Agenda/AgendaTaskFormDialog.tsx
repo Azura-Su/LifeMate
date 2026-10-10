@@ -10,11 +10,13 @@ import {
   formatAgendaTime,
   parseAgendaDateTime,
 } from '../../utils/agenda';
+import { isSameDay } from '../../utils/vietnameseCalendar';
 import { styles } from './AgendaScreen.styles';
 
 type Props = {
   visible: boolean;
   item?: AgendaItem | null;
+  initialDate?: Date;
   busy?: boolean;
   onClose: () => void;
   onSave: (item: AgendaItem) => Promise<void>;
@@ -25,6 +27,7 @@ const newId = () =>
 export function AgendaTaskFormDialog({
   visible,
   item,
+  initialDate,
   busy = false,
   onClose,
   onSave,
@@ -37,16 +40,25 @@ export function AgendaTaskFormDialog({
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     if (!visible) return;
-    const due = item
+    let due = item
       ? new Date(item.dueAt)
       : new Date(Date.now() + 60 * 60 * 1000);
+    if (!item && initialDate) {
+      due = new Date(initialDate);
+      const now = new Date();
+      if (isSameDay(due, now) && now.getHours() >= 23)
+        due.setHours(23, 59, 0, 0);
+      else if (isSameDay(due, now) && now.getHours() >= 9)
+        due.setHours(now.getHours() + 1, 0, 0, 0);
+      else due.setHours(9, 0, 0, 0);
+    }
     setTitle(item?.title ?? '');
     setDetails(item?.details ?? '');
     setDateText(formatAgendaDate(due));
     setTimeText(formatAgendaTime(due));
     setRemind(item?.reminderAt !== null && item?.reminderAt !== undefined);
     setError(null);
-  }, [item, visible]);
+  }, [initialDate, item, visible]);
 
   async function submit() {
     if (busy) return;

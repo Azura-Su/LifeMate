@@ -11,7 +11,7 @@ Make daily use of LifeMate faster by improving the finance ledger, adding study-
 - Notes and agenda items are private Firestore data per UID so they survive reinstall and can be used across the account's devices.
 - Agenda reminders are optional, device-local notifications. A task remains useful when notification permission is denied.
 - Adding a calendar event opens the OS event editor with the task details prefilled. LifeMate does not read the user's calendar or create an event without the user's confirmation.
-- Keep three bottom tabs: Home, Tài chính, MP3. Notes and Settings open from the Home menu (drawer); tasks live in the Home “Hôm nay” section rather than another tab.
+- Keep three bottom tabs: Home, Tài chính, MP3. Notes and Settings open from the Home menu (drawer); tasks open from the Home “Việc cần làm” card (bottom sheet) rather than another tab.
 
 ## Existing stack and commands
 
@@ -27,7 +27,7 @@ Make daily use of LifeMate faster by improving the finance ledger, adding study-
 - Store a note's title, body, and update timestamp. Store a task's title, optional details, due timestamp, completion state, optional reminder timestamp, and scheduled local-notification id.
 - Schedule/cancel reminders from agenda actions; recreate a reminder when its task date changes. Do not request notification permission until the user enables a reminder.
 - For external calendar handoff, use `expo-calendar/next` system UI with title, notes, start, and end; no calendar read/write permission is needed for that dialog.
-- Home's Today section reads only the signed-in UID's agenda items and shows incomplete items due today, with a clear empty state and add action.
+- Home's “Việc cần làm” card counts the signed-in UID's tasks due today and opens a sheet listing them, with a clear empty state and add action. The “Lịch” card opens a Vietnamese solar/lunar month calendar with holidays and per-day notes; day notes reuse the notes store with ids `calendar-day-YYYY-MM-DD-<id>` and are hidden from the Notes screen.
 
 ## User flows and acceptance criteria
 
@@ -54,7 +54,7 @@ Make daily use of LifeMate faster by improving the finance ledger, adding study-
 
 - User can create, edit, complete, and delete a dated task with optional details and reminder time.
 - User can add a saved task to the device calendar by opening a prefilled system calendar editor. Canceling the OS editor does not change the saved task.
-- Home shows today's incomplete tasks, reminder time, completion action, and an add action; tasks remain usable if notifications/calendar access is unavailable.
+- The Home tasks sheet shows the day's tasks, completion action, and an add action; tasks remain usable if notifications/calendar access is unavailable.
 - Task notifications are local to the device and are rescheduled/canceled when the task changes, completes, or is deleted.
 
 ## Testing strategy

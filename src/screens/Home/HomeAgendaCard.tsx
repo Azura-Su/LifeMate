@@ -5,18 +5,26 @@ import { useAgendaAccount } from '../../hooks/useAgendaAccount';
 import { addAgendaItemToCalendar } from '../../services/agenda/calendarService';
 import { colors, typography } from '../../theme';
 import type { AgendaItem } from '../../types/agenda';
-import { getTodaysAgenda } from '../../utils/agenda';
+import { formatAgendaDate, getAgendaForDate } from '../../utils/agenda';
+import { isSameDay } from '../../utils/vietnameseCalendar';
 import { AgendaTaskFormDialog } from '../Agenda/AgendaTaskFormDialog';
 import { AgendaTaskRow } from '../Agenda/AgendaTaskRow';
 import { styles } from './HomeAgendaCard.styles';
 
-export function HomeAgendaCard({ onOpenAgenda }: { onOpenAgenda: () => void }) {
+export function HomeAgendaCard({
+  date,
+  onOpenAgenda,
+}: {
+  date: Date;
+  onOpenAgenda: () => void;
+}) {
   const model = useAgendaAccount();
   const [formVisible, setFormVisible] = useState(false);
   const [editing, setEditing] = useState<AgendaItem | null>(null);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const todaysItems = getTodaysAgenda(model.items);
+  const todaysItems = getAgendaForDate(model.items, date);
+  const isToday = isSameDay(date, new Date());
 
   async function save(item: AgendaItem) {
     if (!model.uid) return;
@@ -58,11 +66,15 @@ export function HomeAgendaCard({ onOpenAgenda }: { onOpenAgenda: () => void }) {
             <Feather name="check-square" size={19} color={colors.earth} />
           </View>
           <View style={styles.heading}>
-            <Text style={styles.title}>Hôm nay</Text>
+            <Text style={styles.title}>
+              {isToday ? 'Hôm nay' : 'Việc trong ngày'}
+            </Text>
             <Text style={typography.small}>
-              {todaysItems.length
-                ? `${todaysItems.length} việc cần làm`
-                : 'Một ngày nhẹ nhàng'}
+              {isToday
+                ? todaysItems.length
+                  ? `${todaysItems.length} việc cần làm`
+                  : 'Một ngày nhẹ nhàng'
+                : formatAgendaDate(date)}
             </Text>
           </View>
           <Pressable
@@ -150,6 +162,7 @@ export function HomeAgendaCard({ onOpenAgenda }: { onOpenAgenda: () => void }) {
       <AgendaTaskFormDialog
         visible={formVisible}
         item={editing}
+        initialDate={date}
         busy={saving}
         onClose={() => {
           setFormVisible(false);
