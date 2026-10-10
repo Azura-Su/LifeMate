@@ -49,7 +49,6 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 13,
-    backgroundColor: colors.surface,
   },
   scroll: { flexShrink: 1 },
   content: { gap: 10, paddingBottom: 10 },

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { Button } from '../../components/Button';
+import { DialogCloseButton } from '../../components/DialogCloseButton';
 import { DialogModal } from '../../components/DialogModal';
 import { colors, typography } from '../../theme';
 import type { AgendaItem } from '../../types/agenda';
@@ -94,15 +95,27 @@ export function AgendaTaskFormDialog({
       onRequestClose={busy ? undefined : onClose}
       style={styles.dialog}
     >
-      <Text accessibilityRole="header" style={styles.dialogTitle}>
-        {item ? 'Sửa việc cần làm' : 'Việc mới'}
-      </Text>
+      <View style={styles.dialogHeader}>
+        <Text
+          accessibilityRole="header"
+          style={[styles.dialogTitle, styles.flex]}
+        >
+          {item ? 'Sửa việc cần làm' : 'Việc mới'}
+        </Text>
+        {!busy && (
+          <DialogCloseButton
+            accessibilityLabel="Đóng việc cần làm"
+            onPress={onClose}
+          />
+        )}
+      </View>
       <TextInput
         accessibilityLabel="Tên công việc"
         placeholder="Bạn cần làm gì?"
         placeholderTextColor={colors.muted}
         value={title}
         onChangeText={setTitle}
+        editable={!busy}
         maxLength={120}
         style={styles.input}
       />
@@ -172,12 +185,6 @@ export function AgendaTaskFormDialog({
         title={item ? 'Lưu thay đổi' : 'Lưu công việc'}
         loading={busy}
         onPress={() => void submit()}
-      />
-      <Button
-        title="Hủy"
-        variant="secondary"
-        disabled={busy}
-        onPress={onClose}
       />
     </DialogModal>
   );

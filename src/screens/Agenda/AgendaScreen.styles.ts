@@ -69,6 +69,7 @@ export const styles = StyleSheet.create({
   syncLocal: { color: colors.sunlight },
   error: { ...typography.small, color: colors.danger },
   dialog: { gap: 13, padding: 20 },
+  dialogHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   dialogTitle: { ...typography.heading, color: colors.ink },
   input: {
     minHeight: 46,

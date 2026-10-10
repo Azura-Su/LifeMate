@@ -116,7 +116,6 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 11,
-    backgroundColor: colors.surface,
   },
   dialogDate: { gap: 0 },
   dialogTitleInput: {
