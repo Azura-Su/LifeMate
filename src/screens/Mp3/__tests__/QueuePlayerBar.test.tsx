@@ -218,6 +218,10 @@ it('opens playback settings in a bottom sheet and applies its actions', () => {
   fireEvent.press(view.getByLabelText('Cài đặt phát'));
 
   expect(view.getByText('Tiện ích nghe')).toBeTruthy();
+  expect(
+    StyleSheet.flatten(view.getByLabelText('Tốc độ 1.5 lần').props.style)
+      .minHeight,
+  ).toBe(44);
   fireEvent.press(view.getByLabelText('Tốc độ 1.5 lần'));
   fireEvent.press(view.getByLabelText('Tạm dừng sau 30 phút'));
   fireEvent.press(view.getByLabelText('Đánh dấu vị trí đang nghe'));

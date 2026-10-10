@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { AudioNameDialog } from '../AudioNameDialog';
 
+jest.mock('@expo/vector-icons/Feather', () => 'Feather');
+
 it('lets the user replace a generated name and rejects a blank title', () => {
   const save = jest.fn();
   const close = jest.fn();
@@ -22,7 +24,10 @@ it('lets the user replace a generated name and rejects a blank title', () => {
   fireEvent.changeText(field, '  Nhạc buổi sáng  ');
   fireEvent.press(screen.getByText('Lưu âm thanh'));
   expect(save).toHaveBeenCalledWith('Nhạc buổi sáng');
-  fireEvent.press(screen.getByText('Hủy'));
+  expect(screen.queryByText('Hủy')).toBeNull();
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Đóng đặt tên âm thanh' }),
+  );
   expect(close).toHaveBeenCalled();
 });
 
@@ -40,6 +45,14 @@ it('allows renaming an existing file and prevents duplicate saves while busy', (
   );
   expect(screen.getByText('Đổi tên âm thanh')).toBeTruthy();
   expect(screen.getByLabelText('Tên âm thanh')).toHaveProp('value', 'Tên cũ');
-  fireEvent.press(screen.getByText('Lưu tên'));
+  expect(
+    screen.queryByRole('button', { name: 'Đóng đặt tên âm thanh' }),
+  ).toBeNull();
+  const saveButton = screen.getByRole('button', { name: 'Lưu tên' });
+  expect(saveButton.props.accessibilityState).toMatchObject({
+    disabled: true,
+    busy: true,
+  });
+  fireEvent.press(saveButton);
   expect(save).not.toHaveBeenCalled();
 });

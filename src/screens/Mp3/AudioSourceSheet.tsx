@@ -182,7 +182,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 13,
-    backgroundColor: colors.surface,
   },
   option: {
     minHeight: 58,

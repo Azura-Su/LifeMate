@@ -30,6 +30,22 @@ it('preserves edited boundaries while changing the merge order', () => {
   ]);
   expect(save.mock.calls[0][0][1].startMs).toBe(1500);
 });
+it('shows editable ranges as readable minute-second values', () => {
+  const { result } = renderHook(() =>
+    useAudioEditor([{ track, startMs: 1230, endMs: 4500 }]),
+  );
+
+  expect(result.current.drafts[0]).toMatchObject({
+    start: '0:01.230',
+    end: '0:04.500',
+  });
+
+  act(() => result.current.changeRange(track.id, 2300, 4900));
+  expect(result.current.drafts[0]).toMatchObject({
+    start: '0:02.300',
+    end: '0:04.900',
+  });
+});
 it('previews every selected range in the current merge order', () => {
   const { result } = renderHook(() => useAudioEditor(input));
   act(() => result.current.change('a', 'start', '1.5'));

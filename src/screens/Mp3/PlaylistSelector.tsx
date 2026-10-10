@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { Button } from '../../components/Button';
+import { DialogCloseButton } from '../../components/DialogCloseButton';
 import { DialogModal } from '../../components/DialogModal';
 import { colors, typography } from '../../theme';
 import {
@@ -175,11 +176,20 @@ export function PlaylistSelector({
         </ScrollView>
       </View>
       <DialogModal visible={dialogMode !== null} onRequestClose={closeDialog}>
-        <Text accessibilityRole="header" style={typography.heading}>
-          {dialogMode === 'rename'
-            ? 'Đổi tên danh sách nghe'
-            : 'Tạo danh sách nghe'}
-        </Text>
+        <View style={styles.dialogHeader}>
+          <Text
+            accessibilityRole="header"
+            style={[typography.heading, styles.dialogTitle]}
+          >
+            {dialogMode === 'rename'
+              ? 'Đổi tên danh sách nghe'
+              : 'Tạo danh sách nghe'}
+          </Text>
+          <DialogCloseButton
+            accessibilityLabel="Đóng danh sách nghe"
+            onPress={closeDialog}
+          />
+        </View>
         <Text style={typography.body}>
           {dialogMode === 'rename'
             ? 'Tên mới sẽ hiển thị trong danh sách phát và thư viện.'
@@ -209,7 +219,6 @@ export function PlaylistSelector({
           title={dialogMode === 'rename' ? 'Lưu tên' : 'Tạo danh sách'}
           onPress={submit}
         />
-        <Button title="Hủy" variant="secondary" onPress={closeDialog} />
       </DialogModal>
     </>
   );
@@ -299,4 +308,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   error: { color: colors.danger, lineHeight: 22 },
+  dialogHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  dialogTitle: { flex: 1 },
 });

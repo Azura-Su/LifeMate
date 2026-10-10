@@ -87,6 +87,24 @@ it('rejects blank and duplicate list names', () => {
   expect(onCreate).not.toHaveBeenCalled();
 });
 
+it('closes the create dialog from an X button instead of a footer cancel action', () => {
+  const view = render(
+    <PlaylistSelector
+      playlists={playlists}
+      selectedId="default"
+      onSelect={jest.fn()}
+      onCreate={jest.fn(() => true)}
+      onDelete={jest.fn()}
+      onRename={jest.fn(() => true)}
+    />,
+  );
+  fireEvent.press(view.getByLabelText('Tạo danh sách nghe mới'));
+
+  expect(view.queryByText('Hủy')).toBeNull();
+  fireEvent.press(view.getByRole('button', { name: 'Đóng danh sách nghe' }));
+  expect(view.queryByLabelText('Tên danh sách nghe')).toBeNull();
+});
+
 it('confirms before deleting the selected list and explains files are kept', () => {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
   const onDelete = jest.fn();

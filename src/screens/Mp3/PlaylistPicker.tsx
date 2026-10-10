@@ -25,7 +25,7 @@ export function PlaylistPicker({
       <Text accessibilityRole="header" style={typography.heading}>
         Chọn danh sách
       </Text>
-      <Text style={styles.description} numberOfLines={1} ellipsizeMode="tail">
+      <Text style={styles.description} numberOfLines={2} ellipsizeMode="tail">
         “{trackTitle}” có thể được thêm vào nhiều danh sách.
       </Text>
       <ScrollView

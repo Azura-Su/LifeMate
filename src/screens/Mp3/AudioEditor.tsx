@@ -55,7 +55,7 @@ export function AudioEditor(props: Props) {
           : 'Chọn đoạn muốn giữ. Bản gốc sẽ không thay đổi.'}
       </Text>
       <Text style={typography.small}>
-        Thời gian dạng phút:giây hoặc số giây · ví dụ 1:20 hoặc 80
+        Thời gian dạng phút:giây hoặc số giây · ví dụ 1:20, 80 hoặc 1:20.500
       </Text>
       {model.drafts.map((draft, index) => (
         <View key={draft.track.id} style={styles.segment}>

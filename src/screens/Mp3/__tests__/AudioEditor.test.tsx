@@ -142,13 +142,13 @@ it('keeps the draggable trim handles synchronized with the time fields', () => {
       nativeEvent: { actionName: 'increment' },
     }),
   );
-  expect(screen.getByLabelText('Bắt đầu đoạn 1').props.value).toBe('1.3');
+  expect(screen.getByLabelText('Bắt đầu đoạn 1').props.value).toBe('0:01.300');
   act(() =>
     screen.getByLabelText('Điểm kết thúc đoạn 1').props.onAccessibilityAction({
       nativeEvent: { actionName: 'decrement' },
     }),
   );
-  expect(screen.getByLabelText('Kết thúc đoạn 1').props.value).toBe('4.9');
+  expect(screen.getByLabelText('Kết thúc đoạn 1').props.value).toBe('0:04.900');
 });
 
 it('lets each merge source set its range and previews the clips in merge order', () => {

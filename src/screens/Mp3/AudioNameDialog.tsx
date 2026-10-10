@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button } from '../../components/Button';
+import { DialogCloseButton } from '../../components/DialogCloseButton';
 import { DialogModal } from '../../components/DialogModal';
 import { colors, typography } from '../../theme';
 import { normalizeAudioTitle } from '../../utils/audio';
@@ -34,9 +35,20 @@ export function AudioNameDialog(props: Props) {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
       >
-        <Text accessibilityRole="header" style={typography.heading}>
-          {props.renaming ? 'Đổi tên âm thanh' : 'Đặt tên âm thanh'}
-        </Text>
+        <View style={styles.header}>
+          <Text
+            accessibilityRole="header"
+            style={[typography.heading, styles.title]}
+          >
+            {props.renaming ? 'Đổi tên âm thanh' : 'Đặt tên âm thanh'}
+          </Text>
+          {!props.busy && (
+            <DialogCloseButton
+              accessibilityLabel="Đóng đặt tên âm thanh"
+              onPress={props.onClose}
+            />
+          )}
+        </View>
         <Text style={typography.body}>
           {props.renaming
             ? 'Tên này hiển thị trong thư viện của bạn.'
@@ -70,13 +82,8 @@ export function AudioNameDialog(props: Props) {
         <Button
           title={props.renaming ? 'Lưu tên' : 'Lưu âm thanh'}
           disabled={props.busy}
+          loading={props.busy}
           onPress={submit}
-        />
-        <Button
-          title="Hủy"
-          variant="secondary"
-          disabled={props.busy}
-          onPress={props.onClose}
         />
       </ScrollView>
     </DialogModal>
@@ -86,6 +93,8 @@ const styles = StyleSheet.create({
   // The scroll content carries the padding so long errors stay reachable.
   card: { maxHeight: '90%', padding: 0, gap: 0 },
   content: { padding: 24, gap: 16 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  title: { flex: 1 },
   input: {
     minHeight: 52,
     padding: 14,

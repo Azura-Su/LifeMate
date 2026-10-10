@@ -6,12 +6,22 @@ import {
   validateSegments,
 } from '../../utils/audio';
 
+function formatTimeField(milliseconds: number) {
+  const value = Math.max(0, Math.floor(milliseconds));
+  const totalSeconds = Math.floor(value / 1000);
+  const remainder = value % 1000;
+  const seconds = `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, '0')}`;
+  return remainder === 0
+    ? seconds
+    : `${seconds}.${String(remainder).padStart(3, '0')}`;
+}
+
 export function useAudioEditor(initial: EditSegment[]) {
   const [drafts, setDrafts] = useState(() =>
     initial.map((s) => ({
       track: s.track,
-      start: String(Math.floor(s.startMs) / 1000),
-      end: String(Math.floor(s.endMs) / 1000),
+      start: formatTimeField(s.startMs),
+      end: formatTimeField(s.endMs),
     })),
   );
   const [title, setTitle] = useState(
@@ -27,12 +37,14 @@ export function useAudioEditor(initial: EditSegment[]) {
     setError(null);
   }
   function changeRange(id: string, startMs: number, endMs: number) {
-    const seconds = (value: number) =>
-      String(Number((Math.floor(value) / 1000).toFixed(3)));
     setDrafts((current) =>
       current.map((draft) =>
         draft.track.id === id
-          ? { ...draft, start: seconds(startMs), end: seconds(endMs) }
+          ? {
+              ...draft,
+              start: formatTimeField(startMs),
+              end: formatTimeField(endMs),
+            }
           : draft,
       ),
     );

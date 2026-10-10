@@ -521,7 +521,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
-    backgroundColor: colors.surface,
   },
   sheetContent: {
     gap: 20,
@@ -546,7 +545,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   choice: {
-    minHeight: 40,
+    minHeight: 44,
     justifyContent: 'center',
     paddingHorizontal: 13,
     borderRadius: 14,

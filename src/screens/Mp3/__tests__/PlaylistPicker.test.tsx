@@ -24,7 +24,7 @@ it('lets one track be selected for more than one playlist', () => {
   expect(
     view.getByText('“Bài nghe” có thể được thêm vào nhiều danh sách.').props
       .numberOfLines,
-  ).toBe(1);
+  ).toBe(2);
   fireEvent.press(view.getByLabelText('Thêm vào danh sách Đi đường'));
   fireEvent.press(view.getByLabelText('Thêm vào danh sách Tập trung'));
   expect(onToggle.mock.calls).toEqual([['one'], ['two']]);
