@@ -38,13 +38,14 @@ export const categoryReportStyles = StyleSheet.create({
   modeButton: {
     flex: 1,
     minHeight: 42,
+    minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     borderRadius: 10,
   },
   modeSelected: { backgroundColor: colors.surface },
-  modeText: { fontSize: 13, fontWeight: '600', color: colors.muted },
+  modeText: { fontSize: 12, fontWeight: '600', color: colors.muted },
   modeTextSelected: { color: colors.earth },
   yearPicker: {
     flexDirection: 'row',
@@ -62,6 +63,19 @@ export const categoryReportStyles = StyleSheet.create({
     minWidth: 88,
     textAlign: 'center',
     fontSize: 20,
+  },
+  selectedMonthButton: {
+    minHeight: 40,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  selectedMonthText: {
+    ...typography.heading,
+    fontSize: 16,
+    textAlign: 'center',
   },
   rangeRow: { flexDirection: 'row', gap: 10 },
   rangeButton: {

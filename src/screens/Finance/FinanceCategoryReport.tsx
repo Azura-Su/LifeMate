@@ -20,8 +20,8 @@ import { FinanceTransactionRow } from './FinanceTransactionRow';
 import { categoryReportStyles as styles } from './FinanceCategoryReport.styles';
 
 export type FinanceReportPoint = { year: number; month: number };
-export type FinancePeriodMode = 'year' | 'range';
-type PickerEdge = 'start' | 'end';
+export type FinancePeriodMode = 'year' | 'month' | 'range';
+type PickerEdge = 'start' | 'end' | 'month';
 
 type Props = {
   kind: Extract<FinanceTransactionType, 'income' | 'expense'>;
@@ -39,6 +39,8 @@ type Props = {
   onPeriodModeChange: (mode: FinancePeriodMode) => void;
   year: number;
   onYearChange: (year: number) => void;
+  month: FinanceReportPoint;
+  onMonthChange: (point: FinanceReportPoint) => void;
   start: FinanceReportPoint;
   onStartChange: (point: FinanceReportPoint) => void;
   end: FinanceReportPoint;
@@ -68,6 +70,8 @@ export function FinanceCategoryReport({
   onPeriodModeChange,
   year,
   onYearChange,
+  month,
+  onMonthChange,
   start,
   onStartChange,
   end,
@@ -111,21 +115,33 @@ export function FinanceCategoryReport({
     : 'Tổng chi tiêu';
   const report = useMemo(() => {
     const getReport = isIncome ? getIncomeReport : getExpenseReport;
-    return periodMode === 'year'
-      ? getReport(reportTransactions, year, 1, year, 12, customCategories)
-      : getReport(
-          reportTransactions,
-          start.year,
-          start.month,
-          end.year,
-          end.month,
-          customCategories,
-        );
+    if (periodMode === 'year') {
+      return getReport(reportTransactions, year, 1, year, 12, customCategories);
+    }
+    if (periodMode === 'month') {
+      return getReport(
+        reportTransactions,
+        month.year,
+        month.month,
+        month.year,
+        month.month,
+        customCategories,
+      );
+    }
+    return getReport(
+      reportTransactions,
+      start.year,
+      start.month,
+      end.year,
+      end.month,
+      customCategories,
+    );
   }, [
     reportTransactions,
     isIncome,
     periodMode,
     year,
+    month,
     start,
     end,
     customCategories,
@@ -151,6 +167,11 @@ export function FinanceCategoryReport({
   function changePoint(month: number) {
     if (!picker) return;
     const chosen = { ...selectedPoint, month };
+    if (picker.edge === 'month') {
+      onMonthChange(chosen);
+      setPicker(null);
+      return;
+    }
     if (picker.edge === 'start') {
       onStartChange(chosen);
       if (pointValue(chosen) > pointValue(end)) onEndChange(chosen);
@@ -167,10 +188,23 @@ export function FinanceCategoryReport({
     setPicker({ ...picker, point: { ...selectedPoint, year: nextYear } });
   }
 
+  function moveReportMonth(delta: number) {
+    const monthIndex = Math.min(
+      9999 * 12 + 11,
+      Math.max(1900 * 12, month.year * 12 + month.month - 1 + delta),
+    );
+    onMonthChange({
+      year: Math.floor(monthIndex / 12),
+      month: (monthIndex % 12) + 1,
+    });
+  }
+
   const periodLabel =
     periodMode === 'year'
       ? `Cả năm ${year}`
-      : `${formatPeriodPoint(start)} – ${formatPeriodPoint(end)}`;
+      : periodMode === 'month'
+        ? `Tháng ${month.month}/${month.year}`
+        : `${formatPeriodPoint(start)} – ${formatPeriodPoint(end)}`;
 
   return (
     <View style={styles.container}>
@@ -186,12 +220,34 @@ export function FinanceCategoryReport({
             ]}
           >
             <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
               style={[
                 styles.modeText,
                 periodMode === 'year' && styles.modeTextSelected,
               ]}
             >
               Cả năm
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ selected: periodMode === 'month' }}
+            onPress={() => onPeriodModeChange('month')}
+            style={[
+              styles.modeButton,
+              periodMode === 'month' && styles.modeSelected,
+            ]}
+          >
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              style={[
+                styles.modeText,
+                periodMode === 'month' && styles.modeTextSelected,
+              ]}
+            >
+              Tháng
             </Text>
           </Pressable>
           <Pressable
@@ -204,6 +260,8 @@ export function FinanceCategoryReport({
             ]}
           >
             <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
               style={[
                 styles.modeText,
                 periodMode === 'range' && styles.modeTextSelected,
@@ -235,6 +293,40 @@ export function FinanceCategoryReport({
               disabled={year >= 9999}
               hitSlop={8}
               onPress={() => onYearChange(Math.min(9999, year + 1))}
+              style={styles.yearArrow}
+            >
+              <Feather name="chevron-right" size={20} color={colors.earth} />
+            </Pressable>
+          </View>
+        ) : periodMode === 'month' ? (
+          <View style={styles.yearPicker}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tháng báo cáo trước"
+              disabled={month.year === 1900 && month.month === 1}
+              hitSlop={8}
+              onPress={() => moveReportMonth(-1)}
+              style={styles.yearArrow}
+            >
+              <Feather name="chevron-left" size={20} color={colors.earth} />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Chọn tháng ${month.month} năm ${month.year}`}
+              onPress={() => setPicker({ edge: 'month', point: { ...month } })}
+              style={styles.selectedMonthButton}
+            >
+              <Text style={styles.selectedMonthText}>
+                Tháng {month.month} năm {month.year}
+              </Text>
+              <Feather name="chevron-down" size={15} color={colors.muted} />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tháng báo cáo sau"
+              disabled={month.year === 9999 && month.month === 12}
+              hitSlop={8}
+              onPress={() => moveReportMonth(1)}
               style={styles.yearArrow}
             >
               <Feather name="chevron-right" size={20} color={colors.earth} />
@@ -368,12 +460,16 @@ export function FinanceCategoryReport({
 
       <View style={styles.detailsHeading}>
         <Text accessibilityRole="header" style={styles.detailsTitle}>
-          Theo từng tháng
+          {periodMode === 'month' ? 'Giao dịch trong tháng' : 'Theo từng tháng'}
         </Text>
         <Text style={styles.monthCount}>
-          {report.months.length > 0
-            ? `${report.months.length} tháng có ${isIncome ? 'thu' : 'chi'}`
-            : 'Chưa phát sinh'}
+          {periodMode === 'month'
+            ? report.months.length > 0
+              ? `${report.months[0].transactions.length} khoản ${isIncome ? 'thu' : 'chi'}`
+              : 'Chưa phát sinh'
+            : report.months.length > 0
+              ? `${report.months.length} tháng có ${isIncome ? 'thu' : 'chi'}`
+              : 'Chưa phát sinh'}
         </Text>
       </View>
 
@@ -474,7 +570,9 @@ export function FinanceCategoryReport({
         <Text accessibilityRole="header" style={styles.dialogTitle}>
           {picker?.edge === 'start'
             ? 'Chọn tháng bắt đầu'
-            : 'Chọn tháng kết thúc'}
+            : picker?.edge === 'end'
+              ? 'Chọn tháng kết thúc'
+              : 'Chọn tháng báo cáo'}
         </Text>
         <View style={styles.dialogYearRow}>
           <Pressable

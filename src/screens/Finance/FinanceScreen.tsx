@@ -80,6 +80,10 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   const [reportPeriodMode, setReportPeriodMode] =
     useState<FinancePeriodMode>('year');
   const [reportYear, setReportYear] = useState(currentDate.getFullYear());
+  const [reportMonth, setReportMonth] = useState<FinanceReportPoint>({
+    year: currentDate.getFullYear(),
+    month: currentDate.getMonth() + 1,
+  });
   const [reportStart, setReportStart] = useState<FinanceReportPoint>({
     year: currentDate.getFullYear(),
     month: 1,
@@ -207,13 +211,15 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     const period =
       reportPeriodMode === 'range'
         ? reportEnd
-        : {
-            year: reportYear,
-            month:
-              reportYear === currentDate.getFullYear()
-                ? currentDate.getMonth() + 1
-                : 1,
-          };
+        : reportPeriodMode === 'month'
+          ? reportMonth
+          : {
+              year: reportYear,
+              month:
+                reportYear === currentDate.getFullYear()
+                  ? currentDate.getMonth() + 1
+                  : 1,
+            };
     openAddDialog(reportMode, period);
   }
 
@@ -383,6 +389,8 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             onPeriodModeChange={setReportPeriodMode}
             year={reportYear}
             onYearChange={setReportYear}
+            month={reportMonth}
+            onMonthChange={setReportMonth}
             start={reportStart}
             onStartChange={setReportStart}
             end={reportEnd}
