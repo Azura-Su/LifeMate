@@ -123,6 +123,7 @@ export const styles = StyleSheet.create({
   balanceAmount: {
     fontSize: 24,
     lineHeight: 32,
+    fontVariant: ['tabular-nums'],
     fontWeight: '700',
     color: colors.ink,
   },
@@ -154,12 +155,21 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  monthTextBlock: { flex: 1, gap: 2 },
+  monthTextBlock: { flex: 1, minWidth: 0, gap: 2 },
   monthTitle: { ...typography.body, color: colors.ink, fontWeight: '700' },
-  monthTotals: { ...typography.small, fontSize: 11 },
+  monthTotals: {
+    ...typography.small,
+    fontSize: 11,
+    lineHeight: 15,
+  },
   monthBalanceBlock: { alignItems: 'flex-end', gap: 2 },
   monthBalanceLabel: { ...typography.small, fontSize: 10 },
-  monthBalance: { fontSize: 13, fontWeight: '700', color: colors.earth },
+  monthBalance: {
+    fontSize: 13,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '700',
+    color: colors.earth,
+  },
   monthAddButton: {
     width: 34,
     height: 34,

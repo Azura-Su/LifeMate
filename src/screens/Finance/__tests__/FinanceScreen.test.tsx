@@ -640,7 +640,9 @@ it('shows a separate expenses-only report with category totals', async () => {
   fireEvent.press(await screen.findByRole('tab', { name: 'Báo cáo chi tiêu' }));
 
   expect(await screen.findByText('Tổng chi tiêu')).toBeTruthy();
-  expect(screen.getByText('3.500.000 ₫')).toBeTruthy();
+  const totalAmount = screen.getByLabelText('Tổng chi tiêu: 3.500.000 ₫');
+  expect(totalAmount.props.adjustsFontSizeToFit).toBeUndefined();
+  expect(totalAmount.props.numberOfLines).toBeUndefined();
   fireEvent.press(
     screen.getByRole('button', { name: `Xem giao dịch tháng 5 năm ${year}` }),
   );
@@ -717,4 +719,55 @@ it('keeps an empty expense report compact without zero category rows', async () 
   expect(screen.getByLabelText('Tổng chi tiêu: 0 ₫')).toBeTruthy();
   expect(screen.queryByText('Ăn uống')).toBeNull();
   expect(screen.getByRole('button', { name: 'Thêm khoản chi' })).toBeTruthy();
+  expect(screen.getByText('Chưa phát sinh')).toBeTruthy();
+});
+
+it('keeps long report categories on one line while retaining their amounts', async () => {
+  const category = 'Thu nhập dự án tư vấn và cộng tác dài hạn';
+  const transaction: FinanceTransaction = {
+    id: 'long-category-income',
+    ownerId: 'finance-user',
+    type: 'income',
+    amount: 987654321,
+    category,
+    note: 'Khoản thu lớn',
+    createdAt: Date.now(),
+  };
+  seedFirestoreMock('finance-user', transaction);
+
+  render(<FinanceScreen />);
+  fireEvent.press(await screen.findByRole('tab', { name: 'Báo cáo thu nhập' }));
+
+  const categoryName = await screen.findByText(category);
+  expect(categoryName.props.numberOfLines).toBe(1);
+  expect(screen.getByLabelText('Thu nhập công ty: 987.654.321 ₫')).toBeTruthy();
+  expect(screen.getAllByText('987.654.321 ₫').length).toBeGreaterThan(0);
+});
+
+it('allows monthly income and expense totals to wrap instead of clipping', async () => {
+  const now = new Date();
+  const income: FinanceTransaction = {
+    id: 'month-income-wrap',
+    ownerId: 'finance-user',
+    type: 'income',
+    amount: 12500000,
+    category: 'Lương',
+    note: 'Lương tháng này',
+    createdAt: now.getTime(),
+  };
+  const expense: FinanceTransaction = {
+    ...income,
+    id: 'month-expense-wrap',
+    type: 'expense',
+    amount: 2500000,
+    category: 'Nhà cửa',
+    note: 'Tiền nhà',
+  };
+  seedFirestoreMock('finance-user', income);
+  seedFirestoreMock('finance-user', expense);
+
+  render(<FinanceScreen />);
+
+  const totals = await screen.findByText('Thu 12.500.000 ₫ · Chi 2.500.000 ₫');
+  expect(totals.props.numberOfLines).toBe(2);
 });

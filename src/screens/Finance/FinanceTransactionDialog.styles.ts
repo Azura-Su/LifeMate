@@ -58,7 +58,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   templateAction: {
-    minHeight: 34,
+    minHeight: 38,
     justifyContent: 'center',
     paddingHorizontal: 10,
   },
@@ -79,7 +79,7 @@ export const styles = StyleSheet.create({
   },
   sourceButton: {
     flex: 1,
-    minHeight: 38,
+    minHeight: 42,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 10,
@@ -90,7 +90,7 @@ export const styles = StyleSheet.create({
   category: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 36,
+    minHeight: 40,
     justifyContent: 'center',
     paddingHorizontal: 12,
     borderWidth: 1,

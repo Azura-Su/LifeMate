@@ -70,7 +70,7 @@ export const styles = StyleSheet.create({
   monthGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   monthChoice: {
     width: '31%',
-    minHeight: 42,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,

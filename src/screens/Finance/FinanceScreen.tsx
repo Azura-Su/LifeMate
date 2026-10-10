@@ -68,6 +68,10 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   const [dialogInitialDate, setDialogInitialDate] =
     useState(formatFinanceDate());
   const [saving, setSaving] = useState(false);
+  const [deletingIds, setDeletingIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const deletingIdsRef = useRef(new Set<string>());
   const [editTarget, setEditTarget] = useState<FinanceTransaction | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [reportMode, setReportMode] = useState<
@@ -139,6 +143,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   }
 
   function confirmDelete(transaction: FinanceTransaction) {
+    if (deletingIdsRef.current.has(transaction.id)) return;
     Alert.alert(
       'Xóa giao dịch?',
       'Giao dịch này sẽ được xóa khỏi sổ thu chi của tài khoản.',
@@ -147,12 +152,31 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
         {
           text: 'Xóa',
           style: 'destructive',
-          onPress: () => {
-            void model.removeTransaction(transaction.id).catch(() => undefined);
-          },
+          onPress: () => void deleteTransaction(transaction),
         },
       ],
     );
+  }
+
+  async function deleteTransaction(transaction: FinanceTransaction) {
+    if (deletingIdsRef.current.has(transaction.id)) return;
+    deletingIdsRef.current.add(transaction.id);
+    setDeletingIds((current) => new Set(current).add(transaction.id));
+    try {
+      await model.removeTransaction(transaction.id);
+    } catch (cause) {
+      Alert.alert(
+        'Chưa xóa được giao dịch',
+        (cause as Error).message || 'Vui lòng thử lại.',
+      );
+    } finally {
+      deletingIdsRef.current.delete(transaction.id);
+      setDeletingIds((current) => {
+        const next = new Set(current);
+        next.delete(transaction.id);
+        return next;
+      });
+    }
   }
 
   async function save(
@@ -292,20 +316,30 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
                 accessibilityRole="button"
                 accessibilityLabel="Tải lại"
                 accessibilityHint="Tải lại dữ liệu từ tài khoản."
+                accessibilityState={{
+                  disabled: model.loading,
+                  busy: model.loading,
+                }}
                 hitSlop={4}
+                disabled={model.loading}
                 onPress={() => void model.refresh()}
                 style={({ pressed }) => [
                   styles.syncAction,
                   pressed && styles.syncActionPressed,
                 ]}
               >
-                <Feather name="refresh-cw" size={17} color={colors.earth} />
+                {model.loading ? (
+                  <ActivityIndicator size="small" color={colors.earth} />
+                ) : (
+                  <Feather name="refresh-cw" size={17} color={colors.earth} />
+                )}
               </Pressable>
             ) : (
               <Button
                 compact
                 title="Đồng bộ lại"
                 variant="secondary"
+                loading={model.loading}
                 onPress={model.refresh}
               />
             ))}
@@ -321,6 +355,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             compact
             title="Thử tải lại"
             variant="secondary"
+            loading={model.loading}
             onPress={model.refresh}
           />
         </View>
@@ -333,6 +368,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             transactions={model.transactions}
             onDelete={deleteRow}
             onEdit={editRow}
+            deletingIds={deletingIds}
             customCategories={
               model.preferences[
                 reportMode === 'income'
@@ -369,7 +405,11 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             <View style={styles.summary}>
               <View style={styles.balance}>
                 <Text style={styles.balanceLabel}>Còn lại trong kỳ</Text>
-                <Text numberOfLines={1} style={styles.balanceAmount}>
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  style={styles.balanceAmount}
+                >
                   {formatFinanceAmount(model.report.balance)}
                 </Text>
               </View>
@@ -416,6 +456,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
                 compact
                 title="Thử tải lại"
                 variant="secondary"
+                loading={model.loading}
                 onPress={model.refresh}
               />
             </View>
@@ -427,6 +468,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
                 <FinanceTransactionRow
                   key={transaction.id}
                   transaction={transaction}
+                  deleting={deletingIds.has(transaction.id)}
                   onEdit={editRow}
                   onDelete={deleteRow}
                 />
@@ -478,6 +520,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
                   balance={month.balance}
                   onDelete={deleteRow}
                   onEdit={editRow}
+                  deletingIds={deletingIds}
                   onAdd={() =>
                     openAddDialog('income', {
                       year: model.year,

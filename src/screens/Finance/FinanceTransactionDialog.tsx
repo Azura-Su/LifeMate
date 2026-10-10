@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { Button } from '../../components/Button';
 import { DialogModal } from '../../components/DialogModal';
@@ -91,6 +98,7 @@ export function FinanceTransactionDialog({
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [preferenceBusy, setPreferenceBusy] = useState(false);
+  const [preferenceAction, setPreferenceAction] = useState<string | null>(null);
   const categories =
     type === 'income'
       ? incomeCategories.filter(
@@ -107,7 +115,8 @@ export function FinanceTransactionDialog({
     parsedAmount !== null &&
     parseFinanceDate(date) !== null &&
     !!category.trim() &&
-    !busy;
+    !busy &&
+    !preferenceBusy;
 
   useEffect(() => {
     if (visible) {
@@ -151,7 +160,7 @@ export function FinanceTransactionDialog({
   }
 
   async function submit() {
-    if (busy) return;
+    if (busy || preferenceBusy) return;
     if (parseFinanceAmount(amount) === null) {
       setError('Nhập số tiền lớn hơn 0.');
       return;
@@ -180,6 +189,7 @@ export function FinanceTransactionDialog({
       return;
     }
     setPreferenceBusy(true);
+    setPreferenceAction('save-template');
     try {
       await onSaveTemplate({
         name: templateName,
@@ -194,6 +204,22 @@ export function FinanceTransactionDialog({
     } catch (cause) {
       setError((cause as Error).message || 'Chưa lưu được mẫu.');
     } finally {
+      setPreferenceAction(null);
+      setPreferenceBusy(false);
+    }
+  }
+
+  async function removeTemplate(id: string) {
+    if (!onRemoveTemplate || preferenceBusy) return;
+    setPreferenceBusy(true);
+    setPreferenceAction(`remove-template:${id}`);
+    try {
+      await onRemoveTemplate(id);
+      setError(null);
+    } catch (cause) {
+      setError((cause as Error).message || 'Chưa xóa được mẫu giao dịch.');
+    } finally {
+      setPreferenceAction(null);
       setPreferenceBusy(false);
     }
   }
@@ -201,6 +227,7 @@ export function FinanceTransactionDialog({
   async function saveCategory() {
     if (!onAddCategory || preferenceBusy) return;
     setPreferenceBusy(true);
+    setPreferenceAction('save-category');
     try {
       await onAddCategory(type, newCategory);
       setCategory(newCategory.trim());
@@ -210,6 +237,7 @@ export function FinanceTransactionDialog({
     } catch (cause) {
       setError((cause as Error).message || 'Chưa lưu được danh mục.');
     } finally {
+      setPreferenceAction(null);
       setPreferenceBusy(false);
     }
   }
@@ -219,6 +247,7 @@ export function FinanceTransactionDialog({
     const builtIns = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
     if (builtIns.some((builtIn) => builtIn === value)) return;
     setPreferenceBusy(true);
+    setPreferenceAction(`remove-category:${value}`);
     try {
       await onRemoveCategory(type, value);
       if (category === value) setCategory(builtIns[0]);
@@ -226,6 +255,7 @@ export function FinanceTransactionDialog({
     } catch (cause) {
       setError((cause as Error).message || 'Chưa xóa được danh mục.');
     } finally {
+      setPreferenceAction(null);
       setPreferenceBusy(false);
     }
   }
@@ -233,7 +263,7 @@ export function FinanceTransactionDialog({
   return (
     <DialogModal
       visible={visible && !suspended}
-      onRequestClose={busy ? undefined : onClose}
+      onRequestClose={busy || preferenceBusy ? undefined : onClose}
       style={styles.dialog}
     >
       <View style={styles.header}>
@@ -242,7 +272,7 @@ export function FinanceTransactionDialog({
           accessibilityLabel={
             initialTransaction ? 'Đóng sửa giao dịch' : 'Đóng thêm giao dịch'
           }
-          disabled={busy}
+          disabled={busy || preferenceBusy}
           onBack={onClose}
         />
       </View>
@@ -262,6 +292,7 @@ export function FinanceTransactionDialog({
                     showTemplateForm ? 'Đóng thêm mẫu' : 'Thêm mẫu giao dịch'
                   }
                   accessibilityState={{ expanded: showTemplateForm }}
+                  hitSlop={6}
                   onPress={() => setShowTemplateForm((current) => !current)}
                   style={styles.addAction}
                 >
@@ -288,10 +319,26 @@ export function FinanceTransactionDialog({
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={`Xóa mẫu ${template.name}`}
-                        onPress={() => void onRemoveTemplate(template.id)}
+                        accessibilityState={{
+                          disabled: preferenceBusy,
+                          busy:
+                            preferenceAction ===
+                            `remove-template:${template.id}`,
+                        }}
+                        disabled={preferenceBusy}
+                        hitSlop={6}
+                        onPress={() => void removeTemplate(template.id)}
                         style={styles.smallAction}
                       >
-                        <Feather name="x" size={13} color={colors.muted} />
+                        {preferenceAction ===
+                        `remove-template:${template.id}` ? (
+                          <ActivityIndicator
+                            size="small"
+                            color={colors.earth}
+                          />
+                        ) : (
+                          <Feather name="x" size={13} color={colors.muted} />
+                        )}
                       </Pressable>
                     )}
                   </View>
@@ -319,6 +366,7 @@ export function FinanceTransactionDialog({
                     !templateName.trim() ||
                     parsedAmount === null
                   }
+                  loading={preferenceAction === 'save-template'}
                   onPress={() => void saveTemplate()}
                 />
               </View>
@@ -448,6 +496,7 @@ export function FinanceTransactionDialog({
                 showCategoryForm ? 'Đóng thêm danh mục' : 'Thêm danh mục'
               }
               accessibilityState={{ expanded: showCategoryForm }}
+              hitSlop={6}
               onPress={() => {
                 setShowCategoryForm((current) => !current);
                 setNewCategory('');
@@ -493,11 +542,20 @@ export function FinanceTransactionDialog({
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={`Xóa danh mục ${value}`}
+                      accessibilityState={{
+                        disabled: preferenceBusy,
+                        busy: preferenceAction === `remove-category:${value}`,
+                      }}
                       disabled={preferenceBusy}
+                      hitSlop={6}
                       onPress={() => void removeCategory(value)}
                       style={styles.smallAction}
                     >
-                      <Feather name="x" size={13} color={colors.muted} />
+                      {preferenceAction === `remove-category:${value}` ? (
+                        <ActivityIndicator size="small" color={colors.earth} />
+                      ) : (
+                        <Feather name="x" size={13} color={colors.muted} />
+                      )}
                     </Pressable>
                   )}
               </View>
@@ -521,6 +579,7 @@ export function FinanceTransactionDialog({
               title="Thêm mục"
               variant="secondary"
               disabled={preferenceBusy || !newCategory.trim()}
+              loading={preferenceAction === 'save-category'}
               onPress={() => void saveCategory()}
             />
           </View>

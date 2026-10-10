@@ -28,6 +28,7 @@ type Props = {
   transactions: FinanceTransaction[];
   onDelete: (transaction: FinanceTransaction) => void;
   onEdit: (transaction: FinanceTransaction) => void;
+  deletingIds?: ReadonlySet<string>;
   customCategories?: string[];
   onAdd: (
     year: number,
@@ -60,6 +61,7 @@ export function FinanceCategoryReport({
   transactions,
   onDelete,
   onEdit,
+  deletingIds,
   customCategories,
   onAdd,
   periodMode,
@@ -345,7 +347,9 @@ export function FinanceCategoryReport({
                         !isIncome && styles.expenseCategoryDot,
                       ]}
                     />
-                    <Text style={styles.categoryName}>{category}</Text>
+                    <Text numberOfLines={1} style={styles.categoryName}>
+                      {category}
+                    </Text>
                   </View>
                   <Text
                     adjustsFontSizeToFit
@@ -367,7 +371,9 @@ export function FinanceCategoryReport({
           Theo từng tháng
         </Text>
         <Text style={styles.monthCount}>
-          {report.months.length} tháng có {isIncome ? 'thu' : 'chi'}
+          {report.months.length > 0
+            ? `${report.months.length} tháng có ${isIncome ? 'thu' : 'chi'}`
+            : 'Chưa phát sinh'}
         </Text>
       </View>
 
@@ -447,6 +453,7 @@ export function FinanceCategoryReport({
                       <FinanceTransactionRow
                         key={transaction.id}
                         transaction={transaction}
+                        deleting={deletingIds?.has(transaction.id)}
                         onDelete={onDelete}
                         onEdit={onEdit}
                       />

@@ -15,6 +15,7 @@ type Props = {
   balance: number;
   onDelete: (transaction: FinanceTransaction) => void;
   onEdit: (transaction: FinanceTransaction) => void;
+  deletingIds?: ReadonlySet<string>;
   onAdd: () => void;
 };
 
@@ -27,6 +28,7 @@ export function FinanceMonthSection({
   balance,
   onDelete,
   onEdit,
+  deletingIds,
   onAdd,
 }: Props) {
   return (
@@ -36,20 +38,25 @@ export function FinanceMonthSection({
           <Text accessibilityRole="header" style={styles.monthTitle}>
             Tháng {month}
           </Text>
-          <Text numberOfLines={1} style={styles.monthTotals}>
+          <Text numberOfLines={2} style={styles.monthTotals}>
             Thu {formatFinanceAmount(income)} · Chi{' '}
             {formatFinanceAmount(expense)}
           </Text>
         </View>
         <View style={styles.monthBalanceBlock}>
           <Text style={styles.monthBalanceLabel}>Còn lại</Text>
-          <Text style={styles.monthBalance}>
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            style={styles.monthBalance}
+          >
             {formatFinanceAmount(balance)}
           </Text>
         </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Thêm khoản thu tháng ${month} năm ${year}`}
+          hitSlop={5}
           onPress={onAdd}
           style={styles.monthAddButton}
         >
@@ -61,6 +68,7 @@ export function FinanceMonthSection({
           <FinanceTransactionRow
             key={transaction.id}
             transaction={transaction}
+            deleting={deletingIds?.has(transaction.id)}
             onDelete={onDelete}
             onEdit={onEdit}
           />

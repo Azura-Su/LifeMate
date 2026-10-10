@@ -20,7 +20,7 @@ export const categoryReportStyles = StyleSheet.create({
   },
   sourceButton: {
     flex: 1,
-    minHeight: 38,
+    minHeight: 42,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 5,
@@ -37,7 +37,7 @@ export const categoryReportStyles = StyleSheet.create({
   },
   modeButton: {
     flex: 1,
-    minHeight: 38,
+    minHeight: 42,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 8,
@@ -127,7 +127,13 @@ export const categoryReportStyles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.line,
   },
-  categoryNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  categoryNameRow: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   categoryDot: {
     width: 7,
     height: 7,
@@ -135,7 +141,12 @@ export const categoryReportStyles = StyleSheet.create({
     backgroundColor: colors.earthLight,
   },
   expenseCategoryDot: { backgroundColor: colors.sunlight },
-  categoryName: { ...typography.small, fontSize: 13, color: colors.ink },
+  categoryName: {
+    ...typography.small,
+    flexShrink: 1,
+    fontSize: 13,
+    color: colors.ink,
+  },
   categoryAmount: { fontSize: 13, fontWeight: '700', color: colors.earth },
   detailsHeading: {
     flexDirection: 'row',
