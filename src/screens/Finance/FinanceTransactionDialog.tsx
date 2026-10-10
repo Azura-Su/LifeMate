@@ -7,6 +7,7 @@ import { ModalHeader } from '../../components/ModalHeader';
 import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
+  type FinanceIncomeSource,
   type FinanceTransactionType,
   type FinanceTransaction,
 } from '../../types/finance';
@@ -22,6 +23,7 @@ import { styles } from './FinanceTransactionDialog.styles';
 
 type Draft = {
   type: FinanceTransactionType;
+  incomeSource: FinanceIncomeSource;
   amount: string;
   category: string;
   note: string;
@@ -30,7 +32,9 @@ type Draft = {
 
 type Props = {
   visible: boolean;
+  suspended?: boolean;
   initialType?: FinanceTransactionType;
+  initialIncomeSource?: FinanceIncomeSource;
   initialDate?: string;
   initialTransaction?: FinanceTransaction | null;
   incomeCategories?: string[];
@@ -52,7 +56,9 @@ type Props = {
 
 export function FinanceTransactionDialog({
   visible,
+  suspended = false,
   initialType = 'expense',
+  initialIncomeSource = 'company',
   initialDate = formatFinanceDate(),
   initialTransaction = null,
   incomeCategories = [...INCOME_CATEGORIES],
@@ -74,14 +80,34 @@ export function FinanceTransactionDialog({
     initialTransaction?.category ??
       (initialType === 'income' ? INCOME_CATEGORIES[0] : EXPENSE_CATEGORIES[0]),
   );
+  const [incomeSource, setIncomeSource] = useState<FinanceIncomeSource>(
+    initialTransaction?.incomeSource ?? initialIncomeSource,
+  );
   const [note, setNote] = useState('');
   const [date, setDate] = useState(initialDate);
   const [error, setError] = useState<string | null>(null);
   const [templateName, setTemplateName] = useState('');
   const [newCategory, setNewCategory] = useState('');
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [preferenceBusy, setPreferenceBusy] = useState(false);
-  const categories = type === 'income' ? incomeCategories : expenseCategories;
+  const categories =
+    type === 'income'
+      ? incomeCategories.filter(
+          (value) =>
+            incomeSource !== 'other' ||
+            (value !== INCOME_CATEGORIES[0] && value !== INCOME_CATEGORIES[1]),
+        )
+      : expenseCategories;
+  const visibleTemplates = templates.filter(
+    (template) => template.type === type,
+  );
   const parsedAmount = parseFinanceAmount(amount);
+  const canSave =
+    parsedAmount !== null &&
+    parseFinanceDate(date) !== null &&
+    !!category.trim() &&
+    !busy;
 
   useEffect(() => {
     if (visible) {
@@ -94,6 +120,7 @@ export function FinanceTransactionDialog({
             ? INCOME_CATEGORIES[0]
             : EXPENSE_CATEGORIES[0]),
       );
+      setIncomeSource(initialTransaction?.incomeSource ?? initialIncomeSource);
       setNote(initialTransaction?.note ?? '');
       setDate(
         initialTransaction
@@ -103,11 +130,20 @@ export function FinanceTransactionDialog({
       setError(null);
       setTemplateName('');
       setNewCategory('');
+      setShowCategoryForm(false);
+      setShowTemplateForm(false);
     }
-  }, [initialDate, initialTransaction, initialType, visible]);
+  }, [
+    initialDate,
+    initialIncomeSource,
+    initialTransaction,
+    initialType,
+    visible,
+  ]);
 
   async function applyTemplate(template: FinanceTransactionTemplate) {
     setType(template.type);
+    setIncomeSource(template.incomeSource ?? 'company');
     setAmount(String(template.amount));
     setCategory(template.category);
     setNote(template.note);
@@ -126,7 +162,7 @@ export function FinanceTransactionDialog({
     }
     try {
       await onSave(
-        { type, amount, category, note, date },
+        { type, incomeSource, amount, category, note, date },
         initialTransaction?.id,
       );
       setError(null);
@@ -151,6 +187,7 @@ export function FinanceTransactionDialog({
         amount: value,
         category,
         note: note.trim(),
+        ...(type === 'income' ? { incomeSource } : {}),
       });
       setTemplateName('');
       setError(null);
@@ -168,6 +205,7 @@ export function FinanceTransactionDialog({
       await onAddCategory(type, newCategory);
       setCategory(newCategory.trim());
       setNewCategory('');
+      setShowCategoryForm(false);
       setError(null);
     } catch (cause) {
       setError((cause as Error).message || 'Chưa lưu được danh mục.');
@@ -194,7 +232,7 @@ export function FinanceTransactionDialog({
 
   return (
     <DialogModal
-      visible={visible}
+      visible={visible && !suspended}
       onRequestClose={busy ? undefined : onClose}
       style={styles.dialog}
     >
@@ -202,7 +240,7 @@ export function FinanceTransactionDialog({
         <ModalHeader
           title={initialTransaction ? 'Sửa giao dịch' : 'Thêm giao dịch'}
           accessibilityLabel={
-            initialTransaction ? 'Đóng sửa giao dịch' : 'Hủy thêm giao dịch'
+            initialTransaction ? 'Đóng sửa giao dịch' : 'Đóng thêm giao dịch'
           }
           disabled={busy}
           onBack={onClose}
@@ -212,32 +250,79 @@ export function FinanceTransactionDialog({
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
       >
-        {templates.length > 0 && (
+        {(visibleTemplates.length > 0 ||
+          (!initialTransaction && onSaveTemplate)) && (
           <View style={styles.preferenceSection}>
-            <Text style={styles.label}>Mẫu giao dịch</Text>
-            <View style={styles.categoryList}>
-              {templates.map((template) => (
-                <View key={template.id} style={styles.templateChip}>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => void applyTemplate(template)}
-                    style={styles.templateAction}
-                  >
-                    <Text style={styles.categoryText}>{template.name}</Text>
-                  </Pressable>
-                  {template.id !== 'coffee-default' && onRemoveTemplate && (
+            <View style={styles.sectionHeading}>
+              <Text style={styles.label}>Mẫu giao dịch</Text>
+              {!initialTransaction && onSaveTemplate && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    showTemplateForm ? 'Đóng thêm mẫu' : 'Thêm mẫu giao dịch'
+                  }
+                  accessibilityState={{ expanded: showTemplateForm }}
+                  onPress={() => setShowTemplateForm((current) => !current)}
+                  style={styles.addAction}
+                >
+                  <Feather
+                    name={showTemplateForm ? 'x' : 'plus'}
+                    size={16}
+                    color={colors.earth}
+                  />
+                </Pressable>
+              )}
+            </View>
+            {visibleTemplates.length > 0 && (
+              <View style={styles.categoryList}>
+                {visibleTemplates.map((template) => (
+                  <View key={template.id} style={styles.templateChip}>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={`Xóa mẫu ${template.name}`}
-                      onPress={() => void onRemoveTemplate(template.id)}
-                      style={styles.smallAction}
+                      onPress={() => void applyTemplate(template)}
+                      style={styles.templateAction}
                     >
-                      <Feather name="x" size={13} color={colors.muted} />
+                      <Text style={styles.categoryText}>{template.name}</Text>
                     </Pressable>
-                  )}
-                </View>
-              ))}
-            </View>
+                    {template.id !== 'coffee-default' && onRemoveTemplate && (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Xóa mẫu ${template.name}`}
+                        onPress={() => void onRemoveTemplate(template.id)}
+                        style={styles.smallAction}
+                      >
+                        <Feather name="x" size={13} color={colors.muted} />
+                      </Pressable>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
+            {showTemplateForm && onSaveTemplate && (
+              <View style={styles.inlineForm}>
+                <TextInput
+                  accessibilityLabel="Tên mẫu mới"
+                  placeholder="Tên mẫu giao dịch"
+                  placeholderTextColor={colors.muted}
+                  value={templateName}
+                  onChangeText={setTemplateName}
+                  maxLength={50}
+                  editable={!preferenceBusy}
+                  style={[styles.input, styles.inlineInput]}
+                />
+                <Button
+                  compact
+                  title="Lưu mẫu"
+                  variant="secondary"
+                  disabled={
+                    preferenceBusy ||
+                    !templateName.trim() ||
+                    parsedAmount === null
+                  }
+                  onPress={() => void saveTemplate()}
+                />
+              </View>
+            )}
           </View>
         )}
         <View style={styles.typeRow}>
@@ -252,11 +337,14 @@ export function FinanceTransactionDialog({
                 accessibilityState={{ selected }}
                 onPress={() => {
                   setType(value);
+                  if (value === 'income') setIncomeSource('company');
                   setCategory(
                     value === 'income'
                       ? INCOME_CATEGORIES[0]
                       : EXPENSE_CATEGORIES[0],
                   );
+                  setTemplateName('');
+                  setShowTemplateForm(false);
                   setError(null);
                 }}
                 style={[styles.typeButton, selected && styles.typeSelected]}
@@ -270,6 +358,50 @@ export function FinanceTransactionDialog({
             );
           })}
         </View>
+        {type === 'income' && (
+          <View style={styles.incomeSourceSection}>
+            <Text style={styles.label}>Nguồn thu</Text>
+            <View style={styles.sourceRow}>
+              {(
+                [
+                  ['company', 'Công ty'],
+                  ['other', 'Ngoài công ty'],
+                ] as const
+              ).map(([value, label]) => {
+                const selected = incomeSource === value;
+                return (
+                  <Pressable
+                    key={value}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Nguồn thu: ${label}`}
+                    accessibilityState={{ selected }}
+                    onPress={() => {
+                      setIncomeSource(value);
+                      setCategory(
+                        value === 'company'
+                          ? INCOME_CATEGORIES[0]
+                          : INCOME_CATEGORIES[2],
+                      );
+                    }}
+                    style={[
+                      styles.sourceButton,
+                      selected && styles.sourceSelected,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.sourceText,
+                        selected && styles.sourceTextSelected,
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        )}
         <Text style={styles.label}>Số tiền</Text>
         <TextInput
           accessibilityLabel="Số tiền"
@@ -307,7 +439,29 @@ export function FinanceTransactionDialog({
           maxLength={10}
           style={styles.input}
         />
-        <Text style={styles.label}>Danh mục</Text>
+        <View style={styles.sectionHeading}>
+          <Text style={styles.label}>Danh mục</Text>
+          {onAddCategory && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                showCategoryForm ? 'Đóng thêm danh mục' : 'Thêm danh mục'
+              }
+              accessibilityState={{ expanded: showCategoryForm }}
+              onPress={() => {
+                setShowCategoryForm((current) => !current);
+                setNewCategory('');
+              }}
+              style={styles.addAction}
+            >
+              <Feather
+                name={showCategoryForm ? 'x' : 'plus'}
+                size={16}
+                color={colors.earth}
+              />
+            </Pressable>
+          )}
+        </View>
         <View style={styles.categoryList}>
           {categories.map((value) => {
             const selected = value === category;
@@ -316,6 +470,7 @@ export function FinanceTransactionDialog({
             return (
               <View
                 key={value}
+                testID={`finance-category-${value}`}
                 style={[styles.category, selected && styles.categorySelected]}
               >
                 <Pressable
@@ -349,7 +504,7 @@ export function FinanceTransactionDialog({
             );
           })}
         </View>
-        {onAddCategory && (
+        {showCategoryForm && onAddCategory && (
           <View style={styles.inlineForm}>
             <TextInput
               accessibilityLabel="Tên danh mục mới"
@@ -358,6 +513,7 @@ export function FinanceTransactionDialog({
               value={newCategory}
               onChangeText={setNewCategory}
               maxLength={50}
+              editable={!preferenceBusy}
               style={[styles.input, styles.inlineInput]}
             />
             <Button
@@ -387,38 +543,11 @@ export function FinanceTransactionDialog({
             {error}
           </Text>
         )}
-        {!initialTransaction && onSaveTemplate && (
-          <View style={styles.inlineForm}>
-            <TextInput
-              accessibilityLabel="Tên mẫu mới"
-              placeholder="Tên mẫu mới (vd. Cà phê 30.000đ)"
-              placeholderTextColor={colors.muted}
-              value={templateName}
-              onChangeText={setTemplateName}
-              maxLength={50}
-              style={[styles.input, styles.inlineInput]}
-            />
-            <Button
-              compact
-              title="Lưu mẫu"
-              variant="secondary"
-              disabled={
-                preferenceBusy || !templateName.trim() || parsedAmount === null
-              }
-              onPress={() => void saveTemplate()}
-            />
-          </View>
-        )}
         <Button
           title={initialTransaction ? 'Lưu thay đổi' : 'Lưu giao dịch'}
           onPress={() => void submit()}
           loading={busy}
-        />
-        <Button
-          title="Hủy"
-          variant="secondary"
-          disabled={busy}
-          onPress={onClose}
+          disabled={!canSave}
         />
       </ScrollView>
     </DialogModal>

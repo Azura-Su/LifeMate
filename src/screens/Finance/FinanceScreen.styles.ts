@@ -1,8 +1,18 @@
 import { StyleSheet } from 'react-native';
-import { colors, typography } from '../../theme';
+import { colors, layout, typography } from '../../theme';
 
 export const styles = StyleSheet.create({
-  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12, gap: 8 },
+  header: {
+    paddingHorizontal: layout.screenGutter,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  reportModeSection: {
+    paddingHorizontal: layout.screenGutter,
+    paddingTop: 20,
+    paddingBottom: 12,
+    backgroundColor: colors.background,
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -19,7 +29,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.sunlightSoft,
   },
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: layout.screenGutter,
     paddingTop: 14,
     paddingBottom: 28,
     gap: 14,
@@ -64,7 +74,7 @@ export const styles = StyleSheet.create({
     gap: 7,
     paddingHorizontal: 10,
     borderRadius: 10,
-    backgroundColor: '#EAF2EC',
+    backgroundColor: colors.successSoft,
   },
   syncPending: {
     flexWrap: 'wrap',
@@ -84,6 +94,17 @@ export const styles = StyleSheet.create({
   },
   syncPendingText: { color: colors.sunlight },
   syncRecoveryText: { color: colors.sky },
+  syncAction: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  syncActionPressed: { opacity: 0.65 },
   summary: {
     gap: 14,
     padding: 16,
@@ -167,7 +188,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 10,
   },
-  incomeIcon: { backgroundColor: '#EAF2EC' },
+  incomeIcon: { backgroundColor: colors.successSoft },
   expenseIcon: { backgroundColor: colors.sunlightSoft },
   transactionText: { flex: 1, gap: 2 },
   transactionTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },

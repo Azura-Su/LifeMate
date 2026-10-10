@@ -1,10 +1,10 @@
 import {
   formatFinanceDate,
+  getFinanceIncomeSource,
   getExpenseReport,
   getFinanceReport,
   getIncomeReport,
   getSalaryReport,
-  getMonthlySummary,
   parseFinanceAmount,
   parseFinanceDate,
   parseFinanceTransaction,
@@ -47,19 +47,27 @@ it('parses only valid transactions for the expected account', () => {
   expect(parseFinanceTransaction(rows[0], 'u2')).toBeNull();
 });
 
+it('treats income without a source as company income and preserves other income', () => {
+  const legacyIncome = parseFinanceTransaction(rows[0], 'u1');
+  expect(legacyIncome).not.toBeNull();
+  expect(getFinanceIncomeSource(legacyIncome!)).toBe('company');
+
+  const outsideIncome = parseFinanceTransaction(
+    { ...rows[0], incomeSource: 'other' },
+    'u1',
+  );
+  expect(outsideIncome).toMatchObject({ incomeSource: 'other' });
+  expect(getFinanceIncomeSource(outsideIncome!)).toBe('other');
+  expect(
+    parseFinanceTransaction({ ...rows[0], incomeSource: 'unknown' }, 'u1'),
+  ).toBeNull();
+});
+
 it('accepts positive whole-number VND amounts and rejects invalid input', () => {
   expect(parseFinanceAmount('25.000.000')).toBe(25000000);
   expect(parseFinanceAmount('0')).toBeNull();
   expect(parseFinanceAmount('abc')).toBeNull();
   expect(parseFinanceAmount('999999999999999999999')).toBeNull();
-});
-
-it('summarizes the selected month without counting other months', () => {
-  expect(getMonthlySummary(rows, new Date(2026, 9, 15))).toEqual({
-    income: 25000000,
-    expense: 1250000,
-    balance: 23750000,
-  });
 });
 
 it('groups every transaction in the selected inclusive month range', () => {
@@ -297,6 +305,8 @@ it('summarizes expenses by category across a custom multi-year range', () => {
       'Ăn uống': 100,
       'Di chuyển': 0,
       'Nhà cửa': 200,
+      'Điện nước': 0,
+      'Xăng xe': 0,
       'Mua sắm': 0,
       'Sức khỏe': 0,
       Khác: 300,
@@ -311,6 +321,8 @@ it('summarizes expenses by category across a custom multi-year range', () => {
           'Ăn uống': 100,
           'Di chuyển': 0,
           'Nhà cửa': 0,
+          'Điện nước': 0,
+          'Xăng xe': 0,
           'Mua sắm': 0,
           'Sức khỏe': 0,
           Khác: 0,
@@ -326,6 +338,8 @@ it('summarizes expenses by category across a custom multi-year range', () => {
           'Ăn uống': 0,
           'Di chuyển': 0,
           'Nhà cửa': 200,
+          'Điện nước': 0,
+          'Xăng xe': 0,
           'Mua sắm': 0,
           'Sức khỏe': 0,
           Khác: 300,
@@ -341,6 +355,8 @@ it('summarizes expenses by category across a custom multi-year range', () => {
           'Ăn uống': 0,
           'Di chuyển': 0,
           'Nhà cửa': 0,
+          'Điện nước': 0,
+          'Xăng xe': 0,
           'Mua sắm': 0,
           'Sức khỏe': 0,
           Khác: 0,

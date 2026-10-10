@@ -123,11 +123,23 @@ export const runTransaction = jest.fn(
     return result;
   },
 );
+const DELETE_FIELD = Symbol('deleteField');
+export const deleteField = jest.fn(() => DELETE_FIELD);
+// Mirrors Firestore: merges fields, removes deleteField() keys and rejects
+// undefined values.
 export const updateDoc = jest.fn(
   async (ref: FirestoreReference, value: Record<string, unknown>) => {
-    if (!records.has(ref.path))
+    const existing = records.get(ref.path);
+    if (!existing)
       throw Object.assign(new Error('Not found'), { code: 'not-found' });
-    saveRecord(ref, value);
+    const merged: Record<string, unknown> = { ...existing.value };
+    for (const [key, field] of Object.entries(value)) {
+      if (field === undefined)
+        throw new Error('Unsupported field value: undefined');
+      if (field === DELETE_FIELD) delete merged[key];
+      else merged[key] = field;
+    }
+    saveRecord(ref, merged);
   },
 );
 export const deleteDoc = jest.fn(async (ref: FirestoreReference) => {

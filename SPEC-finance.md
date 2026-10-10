@@ -49,12 +49,12 @@ Theo cấu trúc screen/hook/styles và component hiện tại; validate dữ li
 - Người dùng có thể ghi giao dịch thu nhập/lương và chi tiêu với số tiền, danh mục, mô tả ngắn.
 - Thu chi mặc định là tháng hiện tại; người dùng tìm tháng bằng picker năm/tháng hoặc chuyển tháng trước/sau. Giao dịch mới cho chọn ngày phát sinh.
 - Thu nhập cộng mọi khoản thu; Chi tiêu chỉ cộng các khoản chi. Cả hai báo cáo giữ tên và số tiền của danh mục cũ hoặc tự tạo đã xóa để không bỏ sót giao dịch. Mỗi báo cáo mặc định cả năm hiện tại, có thể chọn từ tháng A/năm B đến tháng C/năm D.
-- Báo cáo có tổng kỳ, tổng danh mục có phát sinh và tổng từng tháng; chạm tháng để mở/thu gọn từng khoản. Home có tổng thu/chi/số dư tháng hiện tại.
+- Báo cáo có tổng kỳ, tổng danh mục có phát sinh và tổng từng tháng; chạm tháng để mở/thu gọn từng khoản. Home không hiển thị số liệu tài chính; tổng tháng xem trong tab Tài chính.
 - Tab và nút thêm ở header cố định. Dấu cộng trong tháng điền sẵn ngày của tháng và loại thu/chi đang xem. Đóng picker chưa chọn tháng giữ kỳ đã áp dụng.
 - Giao dịch được lưu trong Firestore dưới UID chủ sở hữu để còn sau khi gỡ/cài lại; AsyncStorage là cache và dữ liệu local cũ được chuyển lên cloud.
 - Chỉ người dùng đã đăng nhập đúng UID mới được đọc/ghi giao dịch của họ; khi cloud chưa kết nối, giao diện phân biệt rõ dữ liệu chưa sao lưu.
 - Người dùng có thể xóa một giao dịch; trạng thái rỗng, loading và lỗi được trình bày rõ.
-- Cài đặt có khóa Tài chính bằng Face ID/Touch ID/sinh trắc học mạnh của Android, với mật mã thiết bị làm fallback hệ điều hành. Bật/tắt đều xác thực. App xác thực một lần khi khởi động và khi quay lại từ background; phiên dùng chung cho Home và tab Tài chính, chuyển tab không khóa lại. Home mặc định ẩn số và dùng lại phiên khi chạm nút hiện; background hoặc đổi UID khóa lại. Thiết lập theo UID trên từng thiết bị, lưu SecureStore; lỗi đọc thiết lập không mở dữ liệu.
+- Cài đặt có khóa Tài chính bằng Face ID/Touch ID/sinh trắc học mạnh của Android, với mật mã thiết bị làm fallback hệ điều hành. Bật/tắt đều xác thực. Chỉ tab Tài chính yêu cầu xác thực (khi mở tab, hoặc khi app quay lại từ background ngay tại tab này); chuyển tab không khóa lại; background hoặc đổi UID khóa lại. Thiết lập theo UID trên từng thiết bị, lưu SecureStore; lỗi đọc thiết lập không mở dữ liệu.
 - Các kiểm tra dự án nêu trên đều đạt.
 
 ## Open Questions

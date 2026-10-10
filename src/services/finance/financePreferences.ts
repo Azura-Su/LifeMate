@@ -7,6 +7,7 @@ import {
 import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
+  type FinanceIncomeSource,
   type FinanceTransactionType,
 } from '../../types/finance';
 import {
@@ -18,6 +19,7 @@ export type FinanceTransactionTemplate = {
   id: string;
   name: string;
   type: FinanceTransactionType;
+  incomeSource?: FinanceIncomeSource;
   amount: number;
   category: string;
   note: string;
@@ -127,6 +129,9 @@ function parsePreferences(value: unknown): FinancePreferences {
             item.name.trim().length > 0 &&
             item.name.length <= 120 &&
             (item.type === 'income' || item.type === 'expense') &&
+            (item.incomeSource === undefined ||
+              item.incomeSource === 'company' ||
+              item.incomeSource === 'other') &&
             Number.isSafeInteger(item.amount) &&
             item.amount > 0 &&
             typeof item.category === 'string' &&
@@ -278,7 +283,7 @@ function applyLocalChanges(
   const names = new Set<string>();
   const ids = new Set<string>();
   const templates = mergedTemplates.filter((item) => {
-    const name = item.name.toLocaleLowerCase('vi');
+    const name = `${item.type}:${item.name.toLocaleLowerCase('vi')}`;
     if (ids.has(item.id) || names.has(name)) return false;
     ids.add(item.id);
     names.add(name);
@@ -317,13 +322,15 @@ function mergeLegacyPreferences(
     ].slice(0, 30);
   };
   const names = new Set(
-    cloud.templates.map((item) => item.name.toLocaleLowerCase('vi')),
+    cloud.templates.map(
+      (item) => `${item.type}:${item.name.toLocaleLowerCase('vi')}`,
+    ),
   );
   const ids = new Set(cloud.templates.map(({ id }) => id));
   const templates = [
     ...cloud.templates,
     ...local.templates.filter((item) => {
-      const name = item.name.toLocaleLowerCase('vi');
+      const name = `${item.type}:${item.name.toLocaleLowerCase('vi')}`;
       if (ids.has(item.id) || names.has(name)) return false;
       ids.add(item.id);
       names.add(name);

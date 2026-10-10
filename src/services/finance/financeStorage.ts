@@ -1,6 +1,7 @@
 import {
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDocsFromServer,
   getFirestore,
@@ -331,7 +332,14 @@ async function pushChange(
       await withTimeout(
         change === 'add'
           ? setDoc(ref, transaction)
-          : updateDoc(ref, transaction),
+          : // updateDoc merges fields: drop a source left from when the row
+            // was income, or rules reject the expense.
+            updateDoc(
+              ref,
+              transaction.type === 'expense'
+                ? { ...transaction, incomeSource: deleteField() }
+                : transaction,
+            ),
       );
       return (await readPendingChanges(uid)).size === 0;
     } catch {

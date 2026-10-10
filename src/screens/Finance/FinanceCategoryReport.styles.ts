@@ -12,6 +12,23 @@ export const categoryReportStyles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   periodHint: { ...typography.small, fontSize: 11, textAlign: 'center' },
+  sourceSwitch: {
+    flexDirection: 'row',
+    padding: 3,
+    borderRadius: 13,
+    backgroundColor: colors.skySoft,
+  },
+  sourceButton: {
+    flex: 1,
+    minHeight: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+    borderRadius: 10,
+  },
+  sourceSelected: { backgroundColor: colors.surface },
+  sourceText: { fontSize: 12, fontWeight: '600', color: colors.muted },
+  sourceTextSelected: { color: colors.earth },
   modeSwitch: {
     flexDirection: 'row',
     padding: 3,

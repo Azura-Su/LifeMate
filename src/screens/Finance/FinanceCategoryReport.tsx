@@ -5,6 +5,7 @@ import { Button } from '../../components/Button';
 import { DialogModal } from '../../components/DialogModal';
 import { colors } from '../../theme';
 import type {
+  FinanceIncomeSource,
   FinanceTransaction,
   FinanceTransactionType,
 } from '../../types/finance';
@@ -12,6 +13,7 @@ import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../../types/finance';
 import {
   formatFinanceAmount,
   getExpenseReport,
+  getFinanceIncomeSource,
   getIncomeReport,
 } from '../../utils/finance';
 import { FinanceTransactionRow } from './FinanceTransactionRow';
@@ -27,7 +29,11 @@ type Props = {
   onDelete: (transaction: FinanceTransaction) => void;
   onEdit: (transaction: FinanceTransaction) => void;
   customCategories?: string[];
-  onAdd: (year: number, month: number) => void;
+  onAdd: (
+    year: number,
+    month: number,
+    incomeSource?: FinanceIncomeSource,
+  ) => void;
   periodMode: FinancePeriodMode;
   onPeriodModeChange: (mode: FinancePeriodMode) => void;
   year: number;
@@ -66,34 +72,62 @@ export function FinanceCategoryReport({
   onEndChange,
 }: Props) {
   const isIncome = kind === 'income';
+  const [incomeSource, setIncomeSource] = useState<'all' | FinanceIncomeSource>(
+    'company',
+  );
+  const reportTransactions = useMemo(
+    () =>
+      !isIncome || incomeSource === 'all'
+        ? transactions
+        : transactions.filter(
+            (transaction) =>
+              transaction.type === 'income' &&
+              getFinanceIncomeSource(transaction) === incomeSource,
+          ),
+    [incomeSource, isIncome, transactions],
+  );
   const categories = useMemo(
     () => [
       ...new Set([
         ...(customCategories ??
           (isIncome ? INCOME_CATEGORIES : EXPENSE_CATEGORIES)),
-        ...transactions
+        ...reportTransactions
           .filter((transaction) => transaction.type === kind)
           .map((transaction) => transaction.category.trim())
           .filter(Boolean),
       ]),
     ],
-    [customCategories, isIncome, kind, transactions],
+    [customCategories, isIncome, kind, reportTransactions],
   );
   const categoryLabel = isIncome ? 'khoản thu' : 'khoản chi';
-  const totalLabel = isIncome ? 'Tổng thu nhập' : 'Tổng chi tiêu';
+  const totalLabel = isIncome
+    ? incomeSource === 'company'
+      ? 'Thu nhập công ty'
+      : incomeSource === 'other'
+        ? 'Thu nhập ngoài công ty'
+        : 'Tổng thu nhập'
+    : 'Tổng chi tiêu';
   const report = useMemo(() => {
     const getReport = isIncome ? getIncomeReport : getExpenseReport;
     return periodMode === 'year'
-      ? getReport(transactions, year, 1, year, 12, customCategories)
+      ? getReport(reportTransactions, year, 1, year, 12, customCategories)
       : getReport(
-          transactions,
+          reportTransactions,
           start.year,
           start.month,
           end.year,
           end.month,
           customCategories,
         );
-  }, [transactions, isIncome, periodMode, year, start, end, customCategories]);
+  }, [
+    reportTransactions,
+    isIncome,
+    periodMode,
+    year,
+    start,
+    end,
+    customCategories,
+  ]);
   const [picker, setPicker] = useState<{
     edge: PickerEdge;
     point: FinanceReportPoint;
@@ -236,10 +270,49 @@ export function FinanceCategoryReport({
         )}
         <Text style={styles.periodHint}>
           {isIncome
-            ? 'Chỉ tính lương, thưởng và thu thêm'
+            ? incomeSource === 'company'
+              ? 'Lương, thưởng và khoản khác từ công ty'
+              : incomeSource === 'other'
+                ? 'Chỉ tính thu nhập ngoài công ty'
+                : 'Tất cả nguồn thu trong kỳ'
             : 'Chỉ tính các khoản chi tiêu'}
         </Text>
       </View>
+
+      {isIncome && (
+        <View style={styles.sourceSwitch}>
+          {(
+            [
+              ['all', 'Tất cả'],
+              ['company', 'Công ty'],
+              ['other', 'Ngoài công ty'],
+            ] as const
+          ).map(([value, label]) => {
+            const selected = incomeSource === value;
+            return (
+              <Pressable
+                key={value}
+                accessibilityRole="button"
+                accessibilityLabel={`Nguồn thu: ${label}`}
+                accessibilityState={{ selected }}
+                onPress={() => setIncomeSource(value)}
+                style={[styles.sourceButton, selected && styles.sourceSelected]}
+              >
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  style={[
+                    styles.sourceText,
+                    selected && styles.sourceTextSelected,
+                  ]}
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
 
       <View style={styles.summaryCard}>
         <View style={[styles.totalCard, !isIncome && styles.expenseTotalCard]}>
@@ -352,7 +425,17 @@ export function FinanceCategoryReport({
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`Thêm khoản ${isIncome ? 'thu' : 'chi'} tháng ${month.month} năm ${month.year}`}
-                    onPress={() => onAdd(month.year, month.month)}
+                    onPress={() =>
+                      onAdd(
+                        month.year,
+                        month.month,
+                        isIncome
+                          ? incomeSource === 'other'
+                            ? 'other'
+                            : 'company'
+                          : undefined,
+                      )
+                    }
                     style={styles.monthAddButton}
                   >
                     <Feather name="plus" size={17} color={colors.earth} />

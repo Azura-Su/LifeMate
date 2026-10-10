@@ -263,3 +263,17 @@ it('saves locally at once without re-reading the ledger when offline', async () 
   expect(getDocsFromServer).not.toHaveBeenCalled();
   expect(setDoc).not.toHaveBeenCalled();
 });
+
+it('turns an income into an expense without leaving its income source', async () => {
+  seedFirestoreMock('u1', { ...row, incomeSource: 'other' });
+  await readFinanceData('u1');
+  const { incomeSource: _source, ...base } = { ...row, incomeSource: 'other' };
+  void _source;
+  const expense = { ...base, type: 'expense' as const, category: 'Ăn uống' };
+
+  await expect(updateFinanceTransaction('u1', expense)).resolves.toEqual({
+    transactions: [expense],
+    synced: true,
+  });
+  expect(getFirestoreMockRows('u1')).toEqual([expense]);
+});

@@ -36,9 +36,16 @@ Chỉ các khoản chi tiết được nhập, không nhập dòng tổng phụ 
 có tính ổn định để chạy lại thao tác nhập không tạo bản sao. Báo cáo tháng nhóm
 theo ngày phát sinh thực tế của từng giao dịch.
 
-Rule giới hạn cài đặt tài chính theo UID và kích thước danh sách đã được thêm
-vào `firebase/firestore.rules`; cần publish phiên bản rules mới để bản ứng dụng
-có thể đồng bộ danh mục và mẫu lên cloud.
+Rule giới hạn cài đặt tài chính theo UID và kích thước danh sách nằm trong
+`firebase/firestore.rules`. Phiên bản rules này đã được kiểm thử và publish lên
+project `baseapp-dd227` ngày 09/10/2026 để ứng dụng đồng bộ danh mục và mẫu lên
+cloud.
+
+**Cần publish lại (10/10/2026):** giao dịch thu giờ có trường `incomeSource`
+(`company` | `other`). Rules trong repo đã cho phép trường này, nhưng bản đang
+chạy trên `baseapp-dd227` (09/10) chưa có. Trước khi phát hành, deploy lại
+Firestore rules; nếu không, mọi giao dịch thu mới hoặc vừa sửa sẽ bị từ chối và
+chỉ nằm trên máy ở trạng thái “chưa sao lưu”.
 
 Các rule nằm ở `firebase/firestore.rules`, kiểm thử cùng emulator bằng:
 

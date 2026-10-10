@@ -23,6 +23,7 @@ import {
   formatFinanceDate,
 } from '../../utils/finance';
 import type {
+  FinanceIncomeSource,
   FinanceTransaction,
   FinanceTransactionType,
 } from '../../types/finance';
@@ -56,12 +57,14 @@ const reportTabs = [
   },
 ] as const;
 
-export function FinanceScreen() {
+export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   const model = useFinanceScreen();
   const currentDate = new Date();
   const [dialogVisible, setDialogVisible] = useState(false);
   const [dialogInitialType, setDialogInitialType] =
     useState<FinanceTransactionType>('expense');
+  const [dialogInitialIncomeSource, setDialogInitialIncomeSource] =
+    useState<FinanceIncomeSource>('company');
   const [dialogInitialDate, setDialogInitialDate] =
     useState(formatFinanceDate());
   const [saving, setSaving] = useState(false);
@@ -85,6 +88,7 @@ export function FinanceScreen() {
   function openAddDialog(
     type: FinanceTransactionType,
     period?: FinanceReportPoint,
+    incomeSource: FinanceIncomeSource = 'company',
   ) {
     setEditTarget(null);
     const today = new Date();
@@ -99,6 +103,7 @@ export function FinanceScreen() {
         )
       : today;
     setDialogInitialType(type);
+    setDialogInitialIncomeSource(incomeSource);
     setDialogInitialDate(formatFinanceDate(initialDate));
     setDialogVisible(true);
   }
@@ -128,6 +133,7 @@ export function FinanceScreen() {
   function openEditDialog(transaction: FinanceTransaction) {
     setEditTarget(transaction);
     setDialogInitialType(transaction.type);
+    setDialogInitialIncomeSource(transaction.incomeSource ?? 'company');
     setDialogInitialDate(formatFinanceDate(new Date(transaction.createdAt)));
     setDialogVisible(true);
   }
@@ -190,52 +196,53 @@ export function FinanceScreen() {
   return (
     <Screen
       fixedHeader={
-        <>
-          <View style={styles.headerRow}>
-            <Text
-              accessibilityRole="header"
-              style={[typography.title, styles.headerTitle]}
-            >
-              Tài chính
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={addLabel}
-              accessibilityState={{ disabled: model.loading || saving }}
-              disabled={model.loading || saving}
-              onPress={addInViewedPeriod}
-              style={styles.addButton}
-            >
-              <Feather name="plus" size={22} color={colors.earth} />
-            </Pressable>
-          </View>
-          <View style={styles.reportMode} accessibilityRole="tablist">
-            {reportTabs.map((tab) => (
-              <Pressable
-                key={tab.value}
-                accessibilityRole="tab"
-                accessibilityLabel={tab.accessibilityLabel}
-                accessibilityState={{ selected: reportMode === tab.value }}
-                onPress={() => setReportMode(tab.value)}
-                style={[
-                  styles.reportModeButton,
-                  reportMode === tab.value && styles.reportModeSelected,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.reportModeText,
-                    reportMode === tab.value && styles.reportModeTextSelected,
-                  ]}
-                >
-                  {tab.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </>
+        <View style={styles.headerRow}>
+          <Text
+            accessibilityRole="header"
+            style={[typography.title, styles.headerTitle]}
+          >
+            Tài chính
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={addLabel}
+            accessibilityState={{ disabled: model.loading || saving }}
+            disabled={model.loading || saving}
+            onPress={addInViewedPeriod}
+            style={styles.addButton}
+          >
+            <Feather name="plus" size={22} color={colors.earth} />
+          </Pressable>
+        </View>
       }
       fixedHeaderStyle={styles.header}
+      fixedContent={
+        <View style={styles.reportMode} accessibilityRole="tablist">
+          {reportTabs.map((tab) => (
+            <Pressable
+              key={tab.value}
+              accessibilityRole="tab"
+              accessibilityLabel={tab.accessibilityLabel}
+              accessibilityState={{ selected: reportMode === tab.value }}
+              onPress={() => setReportMode(tab.value)}
+              style={[
+                styles.reportModeButton,
+                reportMode === tab.value && styles.reportModeSelected,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.reportModeText,
+                  reportMode === tab.value && styles.reportModeTextSelected,
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      }
+      fixedContentStyle={styles.reportModeSection}
       contentStyle={styles.content}
     >
       {reportMode === 'overview' && (
@@ -279,16 +286,29 @@ export function FinanceScreen() {
                 ? 'Đã tải từ cloud · cache trên máy chưa đọc được'
                 : 'Chưa sao lưu · chỉ có trên thiết bị'}
           </Text>
-          {model.syncStatus !== 'synced' && (
-            <Button
-              compact
-              title={
-                model.syncStatus === 'recovery' ? 'Tải lại' : 'Đồng bộ lại'
-              }
-              variant="secondary"
-              onPress={model.refresh}
-            />
-          )}
+          {model.syncStatus !== 'synced' &&
+            (model.syncStatus === 'recovery' ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Tải lại"
+                accessibilityHint="Tải lại dữ liệu từ tài khoản."
+                hitSlop={4}
+                onPress={() => void model.refresh()}
+                style={({ pressed }) => [
+                  styles.syncAction,
+                  pressed && styles.syncActionPressed,
+                ]}
+              >
+                <Feather name="refresh-cw" size={17} color={colors.earth} />
+              </Pressable>
+            ) : (
+              <Button
+                compact
+                title="Đồng bộ lại"
+                variant="secondary"
+                onPress={model.refresh}
+              />
+            ))}
         </View>
       )}
 
@@ -320,7 +340,9 @@ export function FinanceScreen() {
                   : 'expenseCategories'
               ]
             }
-            onAdd={(year, month) => openAddDialog(reportMode, { year, month })}
+            onAdd={(year, month, incomeSource) =>
+              openAddDialog(reportMode, { year, month }, incomeSource)
+            }
             periodMode={reportPeriodMode}
             onPeriodModeChange={setReportPeriodMode}
             year={reportYear}
@@ -347,10 +369,7 @@ export function FinanceScreen() {
             <View style={styles.summary}>
               <View style={styles.balance}>
                 <Text style={styles.balanceLabel}>Còn lại trong kỳ</Text>
-                <Text
-                  numberOfLines={1}
-                  style={styles.balanceAmount}
-                >
+                <Text numberOfLines={1} style={styles.balanceAmount}>
                   {formatFinanceAmount(model.report.balance)}
                 </Text>
               </View>
@@ -474,8 +493,10 @@ export function FinanceScreen() {
 
       <FinanceTransactionDialog
         visible={dialogVisible}
+        suspended={suspended}
         initialTransaction={editTarget}
         initialType={dialogInitialType}
+        initialIncomeSource={dialogInitialIncomeSource}
         initialDate={dialogInitialDate}
         incomeCategories={model.preferences.incomeCategories}
         expenseCategories={model.preferences.expenseCategories}

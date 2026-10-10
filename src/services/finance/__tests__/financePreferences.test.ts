@@ -73,6 +73,40 @@ it('restores custom categories and templates on another device for the same acco
   });
 });
 
+it('includes the new utility and vehicle expense categories by default', async () => {
+  const result = await readFinancePreferences('u1');
+  expect(result.preferences.expenseCategories).toEqual(
+    expect.arrayContaining(['Điện nước', 'Xăng xe']),
+  );
+});
+
+it('keeps same-named expense and income templates separate while syncing', async () => {
+  const sameNameTemplates: FinancePreferences = {
+    ...preferences,
+    templates: [
+      ...preferences.templates,
+      {
+        id: 'coffee-income',
+        name: 'Cà phê 30.000đ',
+        type: 'income',
+        amount: 30000,
+        category: 'Thu nhập khác',
+        note: '',
+      },
+    ],
+  };
+  await writeFinancePreferences('u1', sameNameTemplates);
+
+  await expect(readFinancePreferences('u1')).resolves.toMatchObject({
+    preferences: {
+      templates: expect.arrayContaining([
+        expect.objectContaining({ id: 'coffee-default', type: 'expense' }),
+        expect.objectContaining({ id: 'coffee-income', type: 'income' }),
+      ]),
+    },
+  });
+});
+
 it('keeps offline changes locally and uploads them on the next refresh', async () => {
   jest.mocked(setDoc).mockRejectedValueOnce(new Error('Offline'));
   await expect(

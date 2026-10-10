@@ -23,7 +23,10 @@ service cloud.firestore {
       allow read, delete: if owns(uid);
       allow create, update: if owns(uid)
         && request.resource.data.keys().hasAll(['id', 'ownerId', 'type', 'amount', 'category', 'note', 'createdAt'])
-        && request.resource.data.keys().hasOnly(['id', 'ownerId', 'type', 'amount', 'category', 'note', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['id', 'ownerId', 'type', 'amount', 'category', 'note', 'createdAt', 'incomeSource'])
+        && (!('incomeSource' in request.resource.data)
+          || (request.resource.data.type == 'income'
+            && request.resource.data.incomeSource in ['company', 'other']))
         && transactionId.matches('^[A-Za-z0-9_-]{1,128}$')
         && request.resource.data.id == transactionId
         && request.resource.data.ownerId == uid

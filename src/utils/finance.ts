@@ -1,4 +1,4 @@
-import type { FinanceTransaction } from '../types/finance';
+import type { FinanceIncomeSource, FinanceTransaction } from '../types/finance';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../types/finance';
 
 export function getFinanceErrorMessage(cause: unknown, fallback: string) {
@@ -88,6 +88,12 @@ export function parseFinanceTransaction(
     row.createdAt < 0
   )
     return null;
+  if (
+    row.incomeSource !== undefined &&
+    row.incomeSource !== 'company' &&
+    row.incomeSource !== 'other'
+  )
+    return null;
   return {
     id: row.id,
     ownerId: row.ownerId,
@@ -96,30 +102,18 @@ export function parseFinanceTransaction(
     category: row.category.trim(),
     note: row.note.trim(),
     createdAt: row.createdAt,
+    ...(row.type === 'income' && row.incomeSource
+      ? { incomeSource: row.incomeSource }
+      : {}),
   };
 }
 
-export function getMonthlySummary(
-  transactions: FinanceTransaction[],
-  date: Date = new Date(),
-) {
-  const start = new Date(date.getFullYear(), date.getMonth(), 1).getTime();
-  const end = new Date(date.getFullYear(), date.getMonth() + 1, 1).getTime();
-  const currentMonth = transactions.filter(
-    (transaction) =>
-      transaction.createdAt >= start && transaction.createdAt < end,
-  );
-  const income = currentMonth.reduce(
-    (sum, transaction) =>
-      transaction.type === 'income' ? sum + transaction.amount : sum,
-    0,
-  );
-  const expense = currentMonth.reduce(
-    (sum, transaction) =>
-      transaction.type === 'expense' ? sum + transaction.amount : sum,
-    0,
-  );
-  return { income, expense, balance: income - expense };
+export function getFinanceIncomeSource(
+  transaction: FinanceTransaction,
+): FinanceIncomeSource {
+  return transaction.type === 'income' && transaction.incomeSource === 'other'
+    ? 'other'
+    : 'company';
 }
 
 export function getFinanceReport(

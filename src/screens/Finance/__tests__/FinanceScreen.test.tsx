@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getDocsFromServer, setDoc } from '@react-native-firebase/firestore';
 import * as SecureStore from 'expo-secure-store';
+import { StyleSheet } from 'react-native';
 import {
   act,
   fireEvent,
@@ -20,10 +21,12 @@ import {
   readFinanceTransactions,
 } from '../../../services/finance/financeStorage';
 import { setEncryptedItem } from '../../../services/security/encryptedLocalStorage';
+import { readFinancePreferences } from '../../../services/finance/financePreferences';
 import type { FinanceTransaction } from '../../../types/finance';
 import {
   resetFirestoreMock,
   seedFirestoreMock,
+  seedFinancePreferencesMock,
 } from '../../../testing/firestoreMock';
 
 jest.mock('@expo/vector-icons/Feather', () => 'Feather');
@@ -95,13 +98,16 @@ it('shows a clear empty state and zero period totals', async () => {
   expect(await screen.findByText('Đã lưu trên tài khoản')).toBeTruthy();
 });
 
-it('keeps report tabs and the add action in the fixed header', async () => {
+it('separates fixed report tabs from the title header', async () => {
   render(<FinanceScreen />);
   await screen.findByText('Đã lưu trên tài khoản');
   const header = within(screen.getByTestId('screen-fixed-header'));
-  expect(header.getByRole('tab', { name: 'Báo cáo chi tiêu' })).toBeTruthy();
+  const reportMode = within(screen.getByTestId('screen-fixed-content'));
+  expect(
+    reportMode.getByRole('tab', { name: 'Báo cáo chi tiêu' }),
+  ).toBeTruthy();
   expect(header.getByRole('button', { name: 'Thêm giao dịch' })).toBeTruthy();
-  fireEvent.press(header.getByRole('tab', { name: 'Báo cáo thu nhập' }));
+  fireEvent.press(reportMode.getByRole('tab', { name: 'Báo cáo thu nhập' }));
   fireEvent.press(screen.getByRole('button', { name: 'Năm báo cáo trước' }));
   fireEvent.press(header.getByRole('button', { name: 'Thêm khoản thu' }));
 
@@ -203,6 +209,7 @@ it('records salary on the selected date and persists it', async () => {
   ).not.toBeNull();
   const [saved] = await readFinanceTransactions('finance-user');
   expect(new Date(saved.createdAt).getDate()).toBe(15);
+  expect(saved).toMatchObject({ type: 'income', incomeSource: 'company' });
 });
 
 it('formats the entered amount and can dismiss the form from its header', async () => {
@@ -211,8 +218,178 @@ it('formats the entered amount and can dismiss the form from its header', async 
   fireEvent.press(screen.getByRole('button', { name: 'Thêm giao dịch' }));
   fireEvent.changeText(screen.getByLabelText('Số tiền'), '25000000');
   expect(screen.getByLabelText('Số tiền đã nhập: 25.000.000 ₫')).toBeTruthy();
-  fireEvent.press(screen.getByRole('button', { name: 'Hủy thêm giao dịch' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Đóng thêm giao dịch' }));
   expect(screen.queryByLabelText('Số tiền')).toBeNull();
+});
+
+it('keeps the delete button beside a newly added finance category', async () => {
+  render(<FinanceScreen />);
+  await screen.findByText('Đã lưu trên tài khoản');
+  fireEvent.press(screen.getByRole('button', { name: 'Thêm giao dịch' }));
+  expect(screen.queryByLabelText('Tên danh mục mới')).toBeNull();
+  fireEvent.press(screen.getByRole('button', { name: 'Thêm danh mục' }));
+  fireEvent.changeText(screen.getByLabelText('Tên danh mục mới'), 'Thú cưng');
+  fireEvent.press(screen.getByRole('button', { name: 'Thêm mục' }));
+
+  const removeButton = await screen.findByRole('button', {
+    name: 'Xóa danh mục Thú cưng',
+  });
+  expect(removeButton).toBeTruthy();
+  const categoryChip = screen.getByTestId('finance-category-Thú cưng');
+  expect(StyleSheet.flatten(categoryChip.props.style)).toMatchObject({
+    flexDirection: 'row',
+    alignItems: 'center',
+  });
+});
+
+it('shows compact add controls, default categories, and a validity-gated save', async () => {
+  render(<FinanceScreen />);
+  await screen.findByText('Đã lưu trên tài khoản');
+  fireEvent.press(screen.getByRole('button', { name: 'Thêm giao dịch' }));
+
+  expect(screen.getByText('Điện nước')).toBeTruthy();
+  expect(screen.getByText('Xăng xe')).toBeTruthy();
+  expect(screen.queryByLabelText('Tên danh mục mới')).toBeNull();
+  expect(screen.queryByLabelText('Tên mẫu mới')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Hủy' })).toBeNull();
+
+  const save = screen.getByRole('button', { name: 'Lưu giao dịch' });
+  expect(save.props.accessibilityState).toMatchObject({ disabled: true });
+  fireEvent.changeText(screen.getByLabelText('Số tiền'), '125000');
+  expect(save.props.accessibilityState).toMatchObject({ disabled: false });
+  fireEvent.changeText(screen.getByLabelText('Ngày giao dịch'), '31/02/2026');
+  expect(
+    screen.getByRole('button', { name: 'Lưu giao dịch' }).props
+      .accessibilityState,
+  ).toMatchObject({ disabled: true });
+});
+
+it('keeps transaction templates scoped to their income or expense type', async () => {
+  seedFinancePreferencesMock('finance-user', {
+    incomeCategories: ['Lương', 'Thưởng', 'Thu nhập khác'],
+    expenseCategories: [
+      'Ăn uống',
+      'Di chuyển',
+      'Nhà cửa',
+      'Mua sắm',
+      'Sức khỏe',
+      'Khác',
+    ],
+    templates: [
+      {
+        id: 'coffee-default',
+        name: 'Cà phê 30.000đ',
+        type: 'expense',
+        amount: 30000,
+        category: 'Ăn uống',
+        note: 'Cà phê',
+      },
+      {
+        id: 'salary-template',
+        name: 'Lương tháng',
+        type: 'income',
+        amount: 25000000,
+        category: 'Lương',
+        note: '',
+      },
+    ],
+  });
+  render(<FinanceScreen />);
+  await screen.findByText('Đã lưu trên tài khoản');
+  fireEvent.press(screen.getByRole('button', { name: 'Thêm giao dịch' }));
+
+  expect(screen.getByText('Cà phê 30.000đ')).toBeTruthy();
+  expect(screen.queryByText('Lương tháng')).toBeNull();
+  expect(screen.queryByLabelText('Tên mẫu mới')).toBeNull();
+  fireEvent.press(screen.getByRole('button', { name: 'Thu nhập' }));
+  expect(screen.getByText('Lương tháng')).toBeTruthy();
+  expect(screen.queryByText('Cà phê 30.000đ')).toBeNull();
+  fireEvent.press(screen.getByRole('button', { name: 'Thêm mẫu giao dịch' }));
+  expect(screen.getByLabelText('Tên mẫu mới')).toBeTruthy();
+  fireEvent.changeText(screen.getByLabelText('Số tiền'), '800000');
+  fireEvent.changeText(screen.getByLabelText('Tên mẫu mới'), 'Thưởng quý');
+  fireEvent.press(screen.getByRole('button', { name: 'Lưu mẫu' }));
+  expect(await screen.findByText('Thưởng quý')).toBeTruthy();
+  const savedPreferences = await readFinancePreferences('finance-user');
+  expect(savedPreferences.preferences.templates).toContainEqual(
+    expect.objectContaining({
+      name: 'Thưởng quý',
+      type: 'income',
+      amount: 800000,
+      incomeSource: 'company',
+    }),
+  );
+});
+
+it('allows outside income and keeps company income report separate', async () => {
+  const year = new Date().getFullYear();
+  const companyIncome: FinanceTransaction = {
+    id: 'legacy-company-salary',
+    ownerId: 'finance-user',
+    type: 'income',
+    amount: 25000000,
+    category: 'Lương',
+    note: 'Lương cũ',
+    createdAt: new Date(year, 0, 5, 12).getTime(),
+  };
+  const outsideIncome: FinanceTransaction = {
+    ...companyIncome,
+    id: 'outside-income',
+    amount: 350000,
+    incomeSource: 'other',
+    category: 'Thu nhập khác',
+    note: 'Bán đồ cũ',
+    createdAt: new Date(year, 0, 6, 12).getTime(),
+  };
+  seedFirestoreMock('finance-user', companyIncome);
+  seedFirestoreMock('finance-user', outsideIncome);
+
+  render(<FinanceScreen />);
+  fireEvent.press(await screen.findByRole('tab', { name: 'Báo cáo thu nhập' }));
+  expect(
+    await screen.findByLabelText('Thu nhập công ty: 25.000.000 ₫'),
+  ).toBeTruthy();
+  expect(screen.queryByText('Bán đồ cũ')).toBeNull();
+  fireEvent.press(
+    screen.getAllByRole('button', { name: 'Nguồn thu: Ngoài công ty' })[0],
+  );
+  expect(
+    screen.getByLabelText('Thu nhập ngoài công ty: 350.000 ₫'),
+  ).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Nguồn thu: Tất cả' }));
+  expect(screen.getByLabelText('Tổng thu nhập: 25.350.000 ₫')).toBeTruthy();
+
+  fireEvent.press(screen.getByRole('button', { name: 'Thêm khoản thu' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Thu nhập' }));
+  fireEvent.press(
+    screen.getAllByRole('button', { name: 'Nguồn thu: Ngoài công ty' })[1],
+  );
+  expect(screen.queryByTestId('finance-category-Lương')).toBeNull();
+  expect(screen.queryByTestId('finance-category-Thưởng')).toBeNull();
+  expect(screen.getByTestId('finance-category-Thu nhập khác')).toBeTruthy();
+  fireEvent.press(
+    screen.getAllByRole('button', { name: 'Nguồn thu: Công ty' })[1],
+  );
+  expect(screen.getByTestId('finance-category-Lương')).toBeTruthy();
+  expect(screen.getByTestId('finance-category-Thưởng')).toBeTruthy();
+  fireEvent.press(
+    screen.getAllByRole('button', { name: 'Nguồn thu: Ngoài công ty' })[1],
+  );
+  fireEvent.changeText(screen.getByLabelText('Số tiền'), '50000');
+  fireEvent.changeText(screen.getByLabelText('Ghi chú'), 'Bán sách');
+  fireEvent.press(screen.getByRole('button', { name: 'Lưu giao dịch' }));
+
+  await waitFor(async () => {
+    expect(await readFinanceTransactions('finance-user')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          note: 'Bán sách',
+          type: 'income',
+          incomeSource: 'other',
+        }),
+      ]),
+    );
+  });
 });
 
 it('opens on the current month and excludes transactions from other months', async () => {
@@ -392,9 +569,9 @@ it('shows all income including removed categories and excludes expenses', async 
   render(<FinanceScreen />);
   fireEvent.press(await screen.findByRole('tab', { name: 'Báo cáo thu nhập' }));
 
-  expect(await screen.findByText('Tổng thu nhập')).toBeTruthy();
+  expect(await screen.findByText('Thu nhập công ty')).toBeTruthy();
   expect(screen.getByText('15.400.000 ₫')).toBeTruthy();
-  expect(screen.getByLabelText('Tổng thu nhập: 15.400.000 ₫')).toBeTruthy();
+  expect(screen.getByLabelText('Thu nhập công ty: 15.400.000 ₫')).toBeTruthy();
   expect(screen.queryByText('Lương tháng 3')).toBeNull();
   fireEvent.press(
     screen.getByRole('button', { name: `Xem giao dịch tháng 3 năm ${year}` }),
@@ -412,7 +589,7 @@ it('shows all income including removed categories and excludes expenses', async 
     screen.getByRole('button', { name: `Xem giao dịch tháng 3 năm ${year}` }),
   );
   expect(screen.queryByText('Lương tháng 3')).toBeNull();
-  expect(screen.getByLabelText('Tổng thu nhập: 15.400.000 ₫')).toBeTruthy();
+  expect(screen.getByLabelText('Thu nhập công ty: 15.400.000 ₫')).toBeTruthy();
 
   fireEvent.press(
     screen.getByRole('button', {

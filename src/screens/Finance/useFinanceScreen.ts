@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFinanceAccount } from '../../hooks/useFinanceAccount';
 import { useFinanceStore } from '../../store/financeStore';
 import type {
+  FinanceIncomeSource,
   FinanceTransaction,
   FinanceTransactionType,
 } from '../../types/finance';
@@ -20,6 +21,7 @@ import {
 
 type Draft = {
   type: FinanceTransactionType;
+  incomeSource?: FinanceIncomeSource;
   amount: string;
   category: string;
   note: string;
@@ -129,6 +131,9 @@ export function useFinanceScreen() {
       id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`,
       ownerId: uid,
       type: draft.type,
+      ...(draft.type === 'income'
+        ? { incomeSource: draft.incomeSource ?? 'company' }
+        : {}),
       amount,
       category: draft.category,
       note: draft.note.trim(),
@@ -159,6 +164,10 @@ export function useFinanceScreen() {
       note: draft.note.trim(),
       createdAt,
     };
+    // Omit the key for expenses: Firestore rejects `undefined` field values.
+    if (draft.type === 'income')
+      transaction.incomeSource = draft.incomeSource ?? 'company';
+    else delete transaction.incomeSource;
     await update(uid, transaction);
   }
 
@@ -172,6 +181,7 @@ export function useFinanceScreen() {
     if (
       preferencesRef.current.templates.some(
         (item) =>
+          item.type === template.type &&
           item.name.toLocaleLowerCase('vi') === name.toLocaleLowerCase('vi'),
       )
     )
@@ -213,11 +223,8 @@ export function useFinanceScreen() {
   }
 
   async function removeCategory(type: FinanceTransactionType, value: string) {
-    const builtIn =
-      type === 'income'
-        ? ['Lương', 'Thưởng', 'Thu nhập khác']
-        : ['Ăn uống', 'Di chuyển', 'Nhà cửa', 'Mua sắm', 'Sức khỏe', 'Khác'];
-    if (builtIn.includes(value)) return;
+    const builtIn = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+    if (builtIn.some((category) => category === value)) return;
     const key = type === 'income' ? 'incomeCategories' : 'expenseCategories';
     await savePreferences((current) => ({
       ...current,

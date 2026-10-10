@@ -124,6 +124,27 @@ const { ref, uploadBytes, getBytes } = tool('firebase/storage');
         createdAt: 'yesterday',
       }),
     );
+    // Income may carry its source; expenses never may.
+    await assertSucceeds(
+      setDoc(doc(owner.firestore(), financePath), {
+        ...finance,
+        incomeSource: 'other',
+      }),
+    );
+    await assertFails(
+      setDoc(doc(owner.firestore(), financePath), {
+        ...finance,
+        incomeSource: 'salary',
+      }),
+    );
+    await assertFails(
+      setDoc(doc(owner.firestore(), financePath), {
+        ...finance,
+        type: 'expense',
+        category: 'Ăn uống',
+        incomeSource: 'company',
+      }),
+    );
     await assertSucceeds(deleteDoc(doc(owner.firestore(), financePath)));
     const preferencesPath = 'financeAccounts/u1/settings/preferences';
     const preferences = {
