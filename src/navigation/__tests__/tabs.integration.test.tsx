@@ -385,6 +385,45 @@ it('shows Notes when Face ID succeeds after iOS is active but its event was miss
   expect(await screen.findByText('Chưa có ghi chú')).toBeTruthy();
 });
 
+it('keeps a successful Notes Face ID result when iOS reports active after the prompt resolves', async () => {
+  const listeners: ((state: AppStateStatus) => void)[] = [];
+  jest
+    .spyOn(AppState, 'addEventListener')
+    .mockImplementation((_event, callback) => {
+      listeners.push(callback);
+      return { remove: jest.fn() };
+    });
+  let finish!: (value: LocalAuthentication.LocalAuthenticationResult) => void;
+  jest.mocked(LocalAuthentication.authenticateAsync).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+
+  AppState.currentState = 'active';
+  renderApp();
+  fireEvent.press(screen.getByRole('button', { name: 'Mở menu' }));
+  fireEvent.press(await screen.findByRole('button', { name: 'Ghi chú' }));
+  await waitFor(() =>
+    expect(LocalAuthentication.authenticateAsync).toHaveBeenCalled(),
+  );
+
+  act(() => {
+    AppState.currentState = 'inactive';
+    listeners.forEach((listener) => listener('inactive'));
+  });
+  await act(async () => finish({ success: true }));
+  expect(useNotesLockStore.getState().unlocked).toBe(true);
+  expect(screen.queryByText('Chưa có ghi chú')).toBeNull();
+
+  act(() => {
+    AppState.currentState = 'active';
+    listeners.forEach((listener) => listener('active'));
+  });
+  expect(await screen.findByText('Chưa có ghi chú')).toBeTruthy();
+});
+
 it('does not enable the secure-window screenshot workaround for Finance on iOS', async () => {
   expect(Platform.OS).toBe('ios');
   jest.mocked(SecureStore.getItemAsync).mockResolvedValue('on');

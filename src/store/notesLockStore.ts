@@ -15,6 +15,10 @@ type NotesLockState = {
 
 let accessEpoch = 0;
 
+function isAppBackgrounded() {
+  return AppState.currentState === 'background';
+}
+
 export const useNotesLockStore = create<NotesLockState>((set, get) => ({
   uid: null,
   unlocked: false,
@@ -48,7 +52,7 @@ export const useNotesLockStore = create<NotesLockState>((set, get) => ({
         epoch !== accessEpoch ||
         get().uid !== uid ||
         useAuthStore.getState().user?.uid !== uid ||
-        AppState.currentState !== 'active'
+        isAppBackgrounded()
       )
         return false;
       if (result.success) set({ unlocked: true });
