@@ -33,6 +33,13 @@ function formatDay(date: Date) {
   }).format(date);
 }
 
+function formatCompactDay(date: Date) {
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: 'numeric',
+    month: 'short',
+  }).format(date);
+}
+
 export function HomeFinanceCard({
   today,
   transactions,
@@ -109,9 +116,25 @@ export function HomeFinanceCard({
           <Feather name="pie-chart" size={18} color={colors.earth} />
         </View>
         <View style={styles.headingCopy}>
-          <Text accessibilityRole="header" style={styles.title}>
-            {todayIsSelected ? 'Tài chính hôm nay' : 'Tài chính theo ngày'}
-          </Text>
+          <View style={styles.headingTitleRow}>
+            <Text accessibilityRole="header" style={styles.title}>
+              Tài chính
+            </Text>
+            {canViewFinance && !loading && (
+              <Pressable
+                testID="home-finance-heading-date"
+                accessibilityRole="button"
+                accessibilityLabel={`Chọn ngày, ${todayIsSelected ? 'hôm nay' : formatDay(selectedDate)}`}
+                onPress={openPicker}
+                style={styles.headerDateButton}
+              >
+                <Text numberOfLines={1} style={styles.headerDateText}>
+                  {todayIsSelected ? 'Hôm nay' : formatCompactDay(selectedDate)}
+                </Text>
+                <Feather name="chevron-down" size={13} color={colors.earth} />
+              </Pressable>
+            )}
+          </View>
           <Text style={typography.small}>Thu chi theo ngày</Text>
         </View>
         <Pressable
@@ -157,33 +180,19 @@ export function HomeFinanceCard({
           )}
 
           <View style={styles.summary}>
-            <View style={styles.selectedDateRow}>
+            {!todayIsSelected && (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Chọn ngày, ${todayIsSelected ? 'hôm nay' : formatDay(selectedDate)}`}
-                onPress={openPicker}
-                style={styles.selectedDateButton}
+                accessibilityLabel="Về hôm nay"
+                onPress={() => {
+                  setSelectedDate(today);
+                  setMonthDate(today);
+                }}
+                style={styles.todayButton}
               >
-                <Feather name="calendar" size={15} color={colors.earth} />
-                <Text numberOfLines={1} style={styles.selectedDate}>
-                  {todayIsSelected ? 'Hôm nay' : formatDay(selectedDate)}
-                </Text>
-                <Feather name="chevron-down" size={15} color={colors.earth} />
+                <Text style={styles.todayText}>Về hôm nay</Text>
               </Pressable>
-              {!todayIsSelected && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Về hôm nay"
-                  onPress={() => {
-                    setSelectedDate(today);
-                    setMonthDate(today);
-                  }}
-                  style={styles.todayButton}
-                >
-                  <Text style={styles.todayText}>Hôm nay</Text>
-                </Pressable>
-              )}
-            </View>
+            )}
             <View style={styles.totals}>
               <View style={[styles.total, styles.incomeTotal]}>
                 <Text style={styles.incomeLabel}>Thu vào</Text>

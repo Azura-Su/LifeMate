@@ -64,7 +64,9 @@ it('shows both totals for today and updates them when another day is selected', 
 
   expect(screen.getByText('300.000 ₫')).toBeTruthy();
   expect(screen.getByText('80.000 ₫')).toBeTruthy();
-  expect(screen.getByText('Tài chính hôm nay')).toBeTruthy();
+  expect(screen.getByText('Tài chính')).toBeTruthy();
+  expect(screen.getByTestId('home-finance-heading-date')).toBeTruthy();
+  expect(screen.queryByTestId('home-finance-summary-date')).toBeNull();
   expect(
     screen.getByRole('button', { name: 'Chọn ngày, hôm nay' }),
   ).toBeTruthy();
@@ -77,7 +79,7 @@ it('shows both totals for today and updates them when another day is selected', 
   ).toBe(true);
   fireEvent.press(screen.getByTestId('home-finance-picker-day-2026-10-12'));
 
-  expect(screen.getByText('Tài chính theo ngày')).toBeTruthy();
+  expect(screen.getByText('Tài chính')).toBeTruthy();
   expect(screen.getByText('40.000 ₫')).toBeTruthy();
   expect(screen.getByText('0 ₫')).toBeTruthy();
 
@@ -95,8 +97,13 @@ it('opens the month picker to choose any date without expanding the Home card', 
   fireEvent.press(screen.getByTestId('home-finance-picker-day-2026-10-20'));
 
   expect(screen.queryByTestId('home-finance-picker')).toBeNull();
-  expect(screen.getByText('Thứ Ba, 20 tháng 10')).toBeTruthy();
-  expect(screen.getByText('Tài chính theo ngày')).toBeTruthy();
+  expect(screen.getByText('20 thg 10')).toBeTruthy();
+  expect(
+    screen.getByRole('button', {
+      name: 'Chọn ngày, Thứ Ba, 20 tháng 10',
+    }),
+  ).toBeTruthy();
+  expect(screen.getByText('Tài chính')).toBeTruthy();
 });
 
 it('changes month in the picker and can return to today', () => {
@@ -110,7 +117,7 @@ it('changes month in the picker and can return to today', () => {
   );
   fireEvent.press(screen.getByTestId('home-finance-picker-day-2026-02-28'));
   expect(screen.queryByTestId('home-finance-picker')).toBeNull();
-  expect(screen.getByText(/28 tháng 2/)).toBeTruthy();
+  expect(screen.getByText('28 thg 2')).toBeTruthy();
   fireEvent.press(screen.getByRole('button', { name: 'Về hôm nay' }));
   fireEvent.press(screen.getByRole('button', { name: 'Chọn ngày, hôm nay' }));
   expect(

@@ -141,6 +141,10 @@ function renderApp(insets = { top: 0, bottom: 0, left: 0, right: 0 }) {
   );
 }
 
+function pressFinanceTab() {
+  fireEvent.press(screen.getByLabelText('Tài chính, tab, 2 of 3'));
+}
+
 it('shows the configured name, opens all tabs, and returns to Login on logout', async () => {
   useAuthStore.getState().setUser({
     uid: 'test-user',
@@ -167,7 +171,7 @@ it('shows the configured name, opens all tabs, and returns to Login on logout', 
   expect(screen.getByLabelText('Home, tab, 1 of 3')).toBeTruthy();
   expect(screen.getByLabelText('Tài chính, tab, 2 of 3')).toBeTruthy();
   expect(screen.getByLabelText('MP3, tab, 3 of 3')).toBeTruthy();
-  fireEvent.press(screen.getByText('Tài chính'));
+  pressFinanceTab();
   expect(await screen.findByText('Chưa có giao dịch nào')).toBeTruthy();
   fireEvent.press(screen.getByText('MP3'));
   expect(await screen.findByText('Chưa có bài để nghe')).toBeTruthy();
@@ -230,7 +234,7 @@ it('only prompts for Face ID when Finance is selected on launch or app resume', 
   act(() => changeState('active'));
   expect(LocalAuthentication.authenticateAsync).not.toHaveBeenCalled();
 
-  fireEvent.press(screen.getByText('Tài chính'));
+  pressFinanceTab();
   expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
   expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(1);
 
@@ -247,13 +251,13 @@ it('keeps the ledger locked after canceled Face ID, allows retry, and reuses the
     .mocked(LocalAuthentication.authenticateAsync)
     .mockResolvedValueOnce({ success: false, error: 'user_cancel' });
   renderApp();
-  fireEvent.press(await screen.findByText('Tài chính'));
+  pressFinanceTab();
   expect(await screen.findByText('Đã hủy xác thực.')).toBeTruthy();
   expect(screen.queryByText('Giao dịch trong tháng')).toBeNull();
   fireEvent.press(screen.getByRole('button', { name: 'Mở khóa' }));
   expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
   fireEvent.press(screen.getByText('Home'));
-  fireEvent.press(screen.getByText('Tài chính'));
+  pressFinanceTab();
   expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
   expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(2);
 });
@@ -268,7 +272,7 @@ it('preserves an open transaction form across background and asks once on resume
       return { remove: jest.fn() };
     });
   renderApp();
-  fireEvent.press(await screen.findByText('Tài chính'));
+  pressFinanceTab();
   expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
   fireEvent.press(screen.getByRole('button', { name: 'Thêm giao dịch' }));
   expect(screen.getByLabelText('Số tiền')).toBeTruthy();
@@ -302,7 +306,7 @@ it('allows a successful Face ID prompt that temporarily makes iOS inactive', asy
       }),
   );
   renderApp();
-  fireEvent.press(await screen.findByText('Tài chính'));
+  pressFinanceTab();
   await waitFor(() =>
     expect(LocalAuthentication.authenticateAsync).toHaveBeenCalled(),
   );
@@ -337,7 +341,7 @@ it('shows Finance when Face ID succeeds after iOS is active but its event was mi
   );
 
   renderApp();
-  fireEvent.press(await screen.findByText('Tài chính'));
+  pressFinanceTab();
   await waitFor(() =>
     expect(LocalAuthentication.authenticateAsync).toHaveBeenCalled(),
   );
@@ -498,7 +502,7 @@ it('does not enable the secure-window screenshot workaround for Finance on iOS',
   jest.mocked(SecureStore.getItemAsync).mockResolvedValue('on');
 
   renderApp();
-  fireEvent.press(await screen.findByText('Tài chính'));
+  pressFinanceTab();
 
   expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
   expect(usePreventScreenCapture).not.toHaveBeenCalled();
