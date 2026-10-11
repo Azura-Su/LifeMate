@@ -57,7 +57,7 @@ export function ProtectedNotesScreen({
       setAppState(nextState);
       if (nextState === 'background') {
         promptAttempted.current = false;
-        setRetainedNotesUid(null);
+        // Keep the editor mounted behind the lock so an unfinished draft survives.
         lock();
       }
     });
@@ -142,7 +142,9 @@ export function ProtectedNotesScreen({
           }
           style={styles.notesLayer}
         >
-          {canViewNotes && <PreventScreenCapture id="notes-tab" />}
+          {(canViewNotes || shouldRetainNotes) && (
+            <PreventScreenCapture id="notes-tab" />
+          )}
           <NotesScreen navigation={navigation} suspended={!canViewNotes} />
         </View>
         {!canViewNotes && <View style={styles.lockLayer}>{lockScreen}</View>}

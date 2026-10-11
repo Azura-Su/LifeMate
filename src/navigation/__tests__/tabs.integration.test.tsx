@@ -380,6 +380,45 @@ it('shows Notes after successful Face ID when iOS never sends the active event',
   expect(await screen.findByText('Chưa có ghi chú')).toBeTruthy();
 });
 
+it('preserves a new note draft across background and Face ID', async () => {
+  const listeners: ((state: AppStateStatus) => void)[] = [];
+  jest
+    .spyOn(AppState, 'addEventListener')
+    .mockImplementation((_event, callback) => {
+      listeners.push(callback);
+      return { remove: jest.fn() };
+    });
+
+  AppState.currentState = 'active';
+  renderApp();
+  fireEvent.press(screen.getByRole('button', { name: 'Mở menu' }));
+  fireEvent.press(await screen.findByRole('button', { name: 'Ghi chú' }));
+  await waitFor(() => expect(useNotesLockStore.getState().unlocked).toBe(true));
+  expect(await screen.findByText('Chưa có ghi chú')).toBeTruthy();
+
+  fireEvent.press(screen.getByLabelText('Tạo ghi chú'));
+  fireEvent.changeText(screen.getByLabelText('Tiêu đề ghi chú'), 'Ý tưởng mới');
+  fireEvent.changeText(screen.getByLabelText('Ý thứ 1'), 'Nội dung cần giữ');
+
+  act(() => {
+    AppState.currentState = 'background';
+    listeners.forEach((listener) => listener('background'));
+  });
+  expect(screen.getByText('Ghi chú riêng tư')).toBeTruthy();
+
+  act(() => {
+    AppState.currentState = 'active';
+    listeners.forEach((listener) => listener('active'));
+  });
+
+  expect(await screen.findByText('Ghi chú mới')).toBeTruthy();
+  expect(screen.getByLabelText('Tiêu đề ghi chú').props.value).toBe(
+    'Ý tưởng mới',
+  );
+  expect(screen.getByLabelText('Ý thứ 1').props.value).toBe('Nội dung cần giữ');
+  expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(2);
+});
+
 it('keeps Notes locked when the app backgrounds during Face ID', async () => {
   const listeners: ((state: AppStateStatus) => void)[] = [];
   jest
