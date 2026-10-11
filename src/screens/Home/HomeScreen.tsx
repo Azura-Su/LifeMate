@@ -1,7 +1,7 @@
 import { styles } from './HomeScreen.styles';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { Pressable, RefreshControl, Text, View } from 'react-native';
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BrandAvatar } from '../../components/BrandAvatar';
 import { AppDrawer } from '../../components/AppDrawer';
 import { Screen } from '../../components/Screen';
@@ -11,11 +11,18 @@ import { useHomeScreen } from './useHomeScreen';
 import { HomeCalendarSheet } from './HomeCalendarSheet';
 import { HomeTodayCard } from './HomeTodayCard';
 import { getCalendarNoteDateKey } from '../../utils/calendarNotes';
+import { useAuthStore } from '../../store/authStore';
+import { readPrepChecklists } from '../../services/checklists/checklistStorage';
+import type { PrepChecklist } from '../../types/prepChecklist';
 
 export function HomeScreen({
   navigation,
 }: BottomTabScreenProps<MainTabParams, 'Home'>) {
   const model = useHomeScreen();
+  const uid = useAuthStore((state) => state.user?.uid);
+  const [checklists, setChecklists] = useState<PrepChecklist[]>([]);
+  const [checklistsLoading, setChecklistsLoading] = useState(true);
+  const [checklistsError, setChecklistsError] = useState<string | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [calendarSheetTab, setCalendarSheetTab] = useState<
@@ -24,12 +31,63 @@ export function HomeScreen({
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [refreshing, setRefreshing] = useState(false);
   const refreshInFlight = useRef(false);
+  const checklistLoadGeneration = useRef(0);
+
+  const refreshChecklists = useCallback(async () => {
+    const generation = ++checklistLoadGeneration.current;
+    if (!uid) {
+      setChecklists([]);
+      setChecklistsLoading(false);
+      setChecklistsError(null);
+      return;
+    }
+    setChecklists([]);
+    setChecklistsLoading(true);
+    setChecklistsError(null);
+    try {
+      const saved = await readPrepChecklists(uid);
+      if (
+        generation === checklistLoadGeneration.current &&
+        uid === useAuthStore.getState().user?.uid
+      )
+        setChecklists(saved);
+    } catch (cause) {
+      if (
+        generation === checklistLoadGeneration.current &&
+        uid === useAuthStore.getState().user?.uid
+      )
+        setChecklistsError(
+          (cause as Error).message || 'Chưa đọc được danh sách chuẩn bị.',
+        );
+    } finally {
+      if (
+        generation === checklistLoadGeneration.current &&
+        uid === useAuthStore.getState().user?.uid
+      )
+        setChecklistsLoading(false);
+    }
+  }, [uid]);
+
+  useEffect(() => {
+    void refreshChecklists();
+    const unsubscribe = navigation.addListener?.('focus', () => {
+      void refreshChecklists();
+    });
+    return () => {
+      checklistLoadGeneration.current += 1;
+      unsubscribe?.();
+    };
+  }, [navigation, refreshChecklists]);
+
+  const checklistDateKeys = checklists.flatMap((checklist) =>
+    checklist.scheduledDateKey ? [checklist.scheduledDateKey] : [],
+  );
   async function refresh() {
     if (refreshInFlight.current) return;
     refreshInFlight.current = true;
     setRefreshing(true);
     try {
-      await model.refresh();
+      await Promise.all([model.refresh(), refreshChecklists()]);
     } finally {
       refreshInFlight.current = false;
       setRefreshing(false);
@@ -76,6 +134,8 @@ export function HomeScreen({
     >
       <HomeTodayCard
         date={new Date()}
+        checklists={checklists}
+        checklistsLoading={checklistsLoading}
         notes={model.notes.notes}
         notesLoading={model.notes.loading}
         agendaItems={model.agenda.items}
@@ -96,11 +156,17 @@ export function HomeScreen({
           {model.warning} Kéo xuống để thử lại.
         </Text>
       )}
+      {checklistsError && (
+        <Text accessibilityRole="alert" style={typography.small}>
+          {checklistsError}
+        </Text>
+      )}
       <AppDrawer
         visible={drawerVisible}
         onClose={() => setDrawerVisible(false)}
         onOpenNotes={() => navigation.navigate('Notes')}
         onOpenCardScore={() => navigation.navigate('CardScore')}
+        onOpenChecklists={() => navigation.navigate('Checklists')}
         privacy={model.privacy}
       />
       <HomeCalendarSheet
@@ -113,6 +179,9 @@ export function HomeScreen({
           const dateKey = getCalendarNoteDateKey(note.id);
           return dateKey ? [dateKey] : [];
         })}
+        checklistDateKeys={checklistDateKeys}
+        checklists={checklists}
+        checklistsLoading={checklistsLoading}
         noteUid={model.notes.uid}
         notes={model.notes.notes}
         notesSynced={model.notes.synced}
@@ -121,6 +190,10 @@ export function HomeScreen({
         onOpenAgenda={() => {
           setCalendarVisible(false);
           navigation.navigate('Agenda');
+        }}
+        onOpenChecklist={(checklistId) => {
+          setCalendarVisible(false);
+          navigation.navigate('Checklists', { checklistId });
         }}
       />
     </Screen>

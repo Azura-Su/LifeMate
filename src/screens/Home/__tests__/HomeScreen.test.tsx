@@ -212,11 +212,11 @@ it('shows today’s calendar and tasks without the Finance card', async () => {
 
   expect(screen.getByRole('button', { name: 'Mở lịch hôm nay' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Mở việc hôm nay' })).toBeTruthy();
-  expect(screen.getByText(/\d+ mục hôm nay/)).toBeTruthy();
+  await waitFor(() => expect(screen.getByText(/\d+ mục hôm nay/)).toBeTruthy());
   expect(screen.getByText('1 việc hôm nay')).toBeTruthy();
-  expect(screen.queryByText('Sinh nhật vợ')).toBeNull();
-  expect(screen.queryByText('Đóng tiền điện')).toBeNull();
-  expect(screen.queryByText('18:30')).toBeNull();
+  expect(screen.getByText('Sinh nhật vợ')).toBeTruthy();
+  expect(screen.getByText('Đóng tiền điện')).toBeTruthy();
+  expect(screen.getByText('18:30')).toBeTruthy();
   expect(screen.queryByText('Tài chính của bạn')).toBeNull();
   expect(screen.queryByLabelText('Mở Tài chính')).toBeNull();
   expect(screen.getByText(/· Âm \d+\/\d+/)).toBeTruthy();
@@ -238,4 +238,16 @@ it('shows today’s calendar and tasks without the Finance card', async () => {
   fireEvent.press(screen.getByRole('button', { name: 'Mở việc hôm nay' }));
   expect(screen.queryByRole('tablist')).toBeNull();
   fireEvent.press(screen.getByRole('button', { name: 'Đóng lịch và việc' }));
+});
+
+it('opens the preparation checklist from the drawer', async () => {
+  navigation.navigate.mockClear();
+  renderHome();
+
+  fireEvent.press(screen.getByRole('button', { name: 'Mở menu' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Danh sách chuẩn bị' }));
+
+  await waitFor(() =>
+    expect(navigation.navigate).toHaveBeenCalledWith('Checklists'),
+  );
 });

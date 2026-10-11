@@ -5,4 +5,5 @@ export type MainTabParams = {
   Notes: undefined;
   Agenda: undefined;
   CardScore: undefined;
+  Checklists: { checklistId?: string } | undefined;
 };

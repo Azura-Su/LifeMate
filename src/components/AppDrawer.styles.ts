@@ -80,6 +80,7 @@ export const styles = StyleSheet.create({
   },
   notesIcon: { backgroundColor: colors.primarySoft },
   cardScoreIcon: { backgroundColor: colors.sunlightSoft },
+  checklistIcon: { backgroundColor: colors.skySoft },
   scoreActionText: { flexShrink: 1, gap: 1 },
   notificationIcon: { backgroundColor: colors.skySoft },
   card: {

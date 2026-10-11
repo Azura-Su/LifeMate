@@ -195,6 +195,7 @@ export function AgendaScreen({
       <AgendaTaskFormDialog
         visible={formVisible}
         item={editing}
+        existingItems={model.items}
         busy={saving}
         onClose={() => setFormVisible(false)}
         onSave={save}

@@ -106,13 +106,13 @@
       [
         "expo-secure-store",
         {
-          "faceIDPermission": "LifeMate dùng Face ID để bảo vệ sổ thu chi của bạn."
+          "faceIDPermission": "LifeMate dùng Face ID để bảo vệ ghi chú và sổ thu chi của bạn."
         }
       ],
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "LifeMate dùng Face ID để bảo vệ sổ thu chi của bạn."
+          "faceIDPermission": "LifeMate dùng Face ID để bảo vệ ghi chú và sổ thu chi của bạn."
         }
       ]
     ]

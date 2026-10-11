@@ -5,10 +5,12 @@ import { HomeScreen } from '../screens/Home/HomeScreen';
 import { ProtectedFinanceScreen } from '../screens/Finance/ProtectedFinanceScreen';
 import { AppState } from 'react-native';
 import { useFinancePrivacy } from '../hooks/useFinancePrivacy';
+import { useNotesLockStore } from '../store/notesLockStore';
 import { Mp3Screen } from '../screens/Mp3/Mp3Screen';
-import { NotesScreen } from '../screens/Notes/NotesScreen';
+import { ProtectedNotesScreen } from '../screens/Notes/ProtectedNotesScreen';
 import { AgendaScreen } from '../screens/Agenda/AgendaScreen';
 import { CardScoreScreen } from '../screens/CardScore/CardScoreScreen';
+import { ChecklistsScreen } from '../screens/Checklists/ChecklistsScreen';
 import { colors } from '../theme';
 import type { MainTabParams } from './types';
 
@@ -20,6 +22,7 @@ const icons = {
   Notes: 'edit-3',
   Agenda: 'calendar',
   CardScore: 'award',
+  Checklists: 'check-square',
 } as const;
 
 export function MainTabs() {
@@ -34,11 +37,15 @@ export function MainTabs() {
       setAppActive(state === 'active');
       // The biometric prompt itself can make iOS inactive. Only a real
       // background transition invalidates an in-flight authentication.
-      if (state === 'background') lock();
+      if (state === 'background') {
+        lock();
+        useNotesLockStore.getState().lock();
+      }
     });
     return () => {
       listener.remove();
       lock();
+      useNotesLockStore.getState().lock();
     };
   }, [lock, setAppActive]);
   return (
@@ -80,7 +87,7 @@ export function MainTabs() {
       />
       <Tab.Screen
         name="Notes"
-        component={NotesScreen}
+        component={ProtectedNotesScreen}
         options={{
           tabBarButton: () => null,
           tabBarItemStyle: { display: 'none' },
@@ -98,6 +105,15 @@ export function MainTabs() {
       <Tab.Screen
         name="CardScore"
         component={CardScoreScreen}
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tab.Screen
+        name="Checklists"
+        component={ChecklistsScreen}
         options={{
           tabBarButton: () => null,
           tabBarItemStyle: { display: 'none' },

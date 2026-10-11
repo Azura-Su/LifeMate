@@ -2,11 +2,13 @@
 
 React Native cho Android/iOS, TypeScript, Expo Development Build, Firebase Auth + Remote Config + FCM + Firestore và Supabase Storage Free và Zustand. Tên ứng dụng **LifeMate**, iOS Bundle ID/Android package **`vn.mobifone.vnsteel`**, Firebase project **`baseapp-dd227`**.
 
-App có ba tab: Home, Tài chính và MP3; Ghi chú, Cài đặt và Đăng xuất nằm trong menu mở từ Home. Home có lời chào, ngày dương kèm ngày âm và hai thẻ **Lịch** và **Việc cần làm**; số liệu thu chi chỉ xem trong tab Tài chính. Tài chính hỗ trợ tìm trên toàn bộ giao dịch, sửa khoản đã nhập, tạo danh mục và mẫu riêng như “Cà phê 30.000đ”. Báo cáo Thu nhập và Chi tiêu xem theo năm hoặc khoảng tháng qua nhiều năm. Giao dịch lưu theo Firebase UID trong Firestore, có cache trên máy. Xem [yêu cầu tài chính](SPEC-finance.md), [lưu trữ tài khoản](docs/finance-cloud-storage.md) và [đặc tả tiện ích mới](SPEC-life-utilities.md).
+App có ba tab: Home, Tài chính và MP3; Ghi chú, Danh sách chuẩn bị, Cài đặt và Đăng xuất nằm trong menu mở từ Home. Home có lời chào, ngày dương kèm ngày âm và hai thẻ **Lịch** và **Việc cần làm**; số liệu thu chi chỉ xem trong tab Tài chính. Tài chính hỗ trợ tìm trên toàn bộ giao dịch, sửa khoản đã nhập, tạo danh mục và mẫu riêng như “Cà phê 30.000đ”. Báo cáo Thu nhập và Chi tiêu xem theo năm hoặc khoảng tháng qua nhiều năm. Giao dịch lưu theo Firebase UID trong Firestore, có cache trên máy. Xem [yêu cầu tài chính](SPEC-finance.md), [lưu trữ tài khoản](docs/finance-cloud-storage.md) và [đặc tả tiện ích mới](SPEC-life-utilities.md).
 
 Tab MP3 có thư viện riêng theo tài khoản: nhập audio/video, tự tách tiếng của video trên máy, nghe/tua, cắt và nối nhiều đoạn theo thứ tự. Player hỗ trợ hẹn giờ dừng, nhớ vị trí, dấu mốc nghe lại và tốc độ 0,75×–2×. Có thể đặt tên, tìm tên file không phân biệt dấu và bỏ chọn nhanh các file ghép. Xem [cách dùng](docs/audio-library.md) và [cấu hình kho miễn phí](docs/free-audio-storage.md). Supabase Free và Firestore rules đã được cấu hình; kiểm thử audio cloud thật bằng fixture và hai tài khoản còn trong checklist triển khai.
 
 Tab Ghi chú lưu tiêu đề/nội dung theo tài khoản, cho sửa, xóa và tìm kiếm. Thẻ **Lịch** trên Home mở lịch tháng âm–dương (tuần bắt đầu Chủ nhật) với ngày lễ/Tết và ghi chú theo ngày; ghi chú ngày lưu chung kho Ghi chú nhưng không hiện trong tab Ghi chú. Thẻ **Việc cần làm** cho tạo, sửa, hoàn tất việc và đặt lời nhắc trên thiết bị. Từ danh sách việc có thể mở trình soạn sự kiện của lịch điện thoại; chỉ lịch hệ thống lưu sự kiện sau khi người dùng xác nhận. Ghi chú/việc đồng bộ Firestore theo UID; quyền đọc/ghi mới cần được triển khai cùng [Firestore rules](firebase/firestore.rules). Expo Calendar yêu cầu development build mới sau khi cài dependency.
+
+**Danh sách chuẩn bị** mở từ menu bên Home. Tạo checklist trống hoặc từ mẫu Mua sắm, Đi du lịch, Về quê; thêm tên món/việc và số lượng tùy chọn, đánh dấu hoàn tất, sửa/xóa mục và dùng lại danh sách bằng một bản mới. Nội dung được lưu mã hóa cục bộ theo tài khoản nên dùng được offline; module này chưa đồng bộ cloud hay sang thiết bị khác. Xem [đặc tả](SPEC-checklists.md) và [kế hoạch triển khai](tasks/checklists-plan-2026-10-11.md).
 
 ## Chạy ứng dụng
 
@@ -57,6 +59,7 @@ src/
   screens/
     Login/                    LoginScreen.tsx + useLoginScreen.ts + styles
     Home/                     HomeScreen.tsx + useHomeScreen.ts + styles
+    Checklists/               Mẫu mua sắm/du lịch/về quê, checklist offline
     Finance/                  thu chi tháng, báo cáo năm/khoảng tháng, form giao dịch
     Notes/                    ghi chú riêng, tìm, sửa và xóa
     Agenda/                   việc theo ngày, nhắc cục bộ, lịch hệ thống

@@ -1,7 +1,9 @@
 import Feather from '@expo/vector-icons/Feather';
 import { useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import type { LifeNote } from '../../types/note';
 import { colors } from '../../theme';
+import { isCalendarNoteForDate } from '../../utils/calendarNotes';
 import {
   formatLunarDate,
   getMonthGrid,
@@ -32,15 +34,23 @@ function moveMonth(date: Date, offset: number) {
 
 export function HomeCalendar({
   selectedDate,
+  monthDate = selectedDate,
   noteDateKeys,
+  notes = [],
+  checklistDateKeys,
   onSelect,
+  onMonthChange,
 }: {
   selectedDate: Date;
+  monthDate?: Date;
   noteDateKeys?: string[];
+  notes?: LifeNote[];
+  checklistDateKeys?: string[];
   onSelect: (date: Date) => void;
+  onMonthChange?: (date: Date) => void;
 }) {
-  const year = selectedDate.getFullYear();
-  const monthIndex = selectedDate.getMonth();
+  const year = monthDate.getFullYear();
+  const monthIndex = monthDate.getMonth();
   const previousMonthDisabled = year <= MIN_SOLAR_YEAR && monthIndex === 0;
   const nextMonthDisabled = year >= MAX_SOLAR_YEAR && monthIndex === 11;
   const today = new Date();
@@ -67,10 +77,28 @@ export function HomeCalendar({
     [year, monthIndex],
   );
   const datesWithNotes = useMemo(() => new Set(noteDateKeys), [noteDateKeys]);
+  const recurringNoteDates = useMemo(
+    () =>
+      new Set(
+        cells
+          .filter(({ dateKey }) =>
+            notes.some((note) => isCalendarNoteForDate(note, dateKey)),
+          )
+          .map(({ dateKey }) => dateKey),
+      ),
+    [cells, notes],
+  );
+  const datesWithChecklists = useMemo(
+    () => new Set(checklistDateKeys),
+    [checklistDateKeys],
+  );
   const monthLabel = new Intl.DateTimeFormat('vi-VN', {
     month: 'long',
     year: 'numeric',
-  }).format(selectedDate);
+  }).format(monthDate);
+  const changeMonth = onMonthChange ?? onSelect;
+  const showingCurrentMonth =
+    year === today.getFullYear() && monthIndex === today.getMonth();
 
   return (
     <View style={styles.card}>
@@ -81,7 +109,7 @@ export function HomeCalendar({
             accessibilityLabel="Tháng trước"
             accessibilityState={{ disabled: previousMonthDisabled }}
             disabled={previousMonthDisabled}
-            onPress={() => onSelect(moveMonth(selectedDate, -1))}
+            onPress={() => changeMonth(moveMonth(monthDate, -1))}
             style={[
               styles.arrow,
               previousMonthDisabled && styles.disabledArrow,
@@ -97,17 +125,20 @@ export function HomeCalendar({
             accessibilityLabel="Tháng sau"
             accessibilityState={{ disabled: nextMonthDisabled }}
             disabled={nextMonthDisabled}
-            onPress={() => onSelect(moveMonth(selectedDate, 1))}
+            onPress={() => changeMonth(moveMonth(monthDate, 1))}
             style={[styles.arrow, nextMonthDisabled && styles.disabledArrow]}
           >
             <Feather name="chevron-right" size={20} color={colors.earth} />
           </Pressable>
         </View>
-        {!isSameDay(selectedDate, today) && (
+        {(!isSameDay(selectedDate, today) || !showingCurrentMonth) && (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Về hôm nay"
-            onPress={() => onSelect(today)}
+            onPress={() => {
+              onSelect(today);
+              onMonthChange?.(today);
+            }}
             style={styles.todayButton}
           >
             <Text style={styles.todayText}>Hôm nay</Text>
@@ -122,7 +153,9 @@ export function HomeCalendar({
         <View style={styles.holidayLegend} />
         <Text style={styles.legendText}>Lễ</Text>
         <View style={styles.noteLegend} />
-        <Text style={styles.legendText}>Ghi chú ngày</Text>
+        <Text style={styles.legendText}>Ghi chú</Text>
+        <View style={styles.checklistLegend} />
+        <Text style={styles.legendText}>Chuẩn bị</Text>
       </View>
       <View style={styles.grid}>
         {WEEKDAYS.map((weekday) => (
@@ -140,8 +173,10 @@ export function HomeCalendar({
               : lunar.day === 1
                 ? `${lunar.day}/${lunar.month}`
                 : String(lunar.day);
-          const hasNote = datesWithNotes.has(dateKey);
-          const dayLabel = `${date.getDate()} tháng ${date.getMonth() + 1}${lunar ? `, ngày âm ${formatLunarDate(lunar)}` : ''}${events.length ? `, ${events.map((event) => event.title).join(', ')}` : ''}${hasNote ? ', có ghi chú' : ''}`;
+          const hasNote =
+            datesWithNotes.has(dateKey) || recurringNoteDates.has(dateKey);
+          const hasChecklist = datesWithChecklists.has(dateKey);
+          const dayLabel = `${date.getDate()} tháng ${date.getMonth() + 1}${lunar ? `, ngày âm ${formatLunarDate(lunar)}` : ''}${events.length ? `, ${events.map((event) => event.title).join(', ')}` : ''}${hasNote ? ', có ghi chú' : ''}${hasChecklist ? ', có danh sách chuẩn bị' : ''}`;
           const eventKind = events.some((event) => event.kind === 'holiday')
             ? 'holiday'
             : events.length
@@ -179,7 +214,7 @@ export function HomeCalendar({
               >
                 {lunarLabel}
               </Text>
-              {(eventKind || hasNote) && (
+              {(eventKind || hasNote || hasChecklist) && (
                 <View style={styles.dotsRow}>
                   {eventKind && (
                     <View
@@ -198,6 +233,16 @@ export function HomeCalendar({
                       style={[
                         styles.eventDot,
                         styles.noteDot,
+                        selected && styles.selectedEventDot,
+                      ]}
+                    />
+                  )}
+                  {hasChecklist && (
+                    <View
+                      testID={`calendar-checklist-dot-${dateKey}`}
+                      style={[
+                        styles.eventDot,
+                        styles.checklistDot,
                         selected && styles.selectedEventDot,
                       ]}
                     />

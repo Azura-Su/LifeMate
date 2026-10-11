@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import type { LifeNote } from '../../../types/note';
 import { HomeCalendar } from '../HomeCalendar';
 
 jest.mock('@expo/vector-icons/Feather', () => 'Feather');
@@ -27,6 +28,25 @@ it('marks dates that have a saved note', () => {
   expect(
     screen.getByTestId('calendar-day-2026-10-09').props.accessibilityLabel,
   ).toContain('có ghi chú');
+});
+
+it('marks the next year date for a saved birthday note', () => {
+  const birthday: LifeNote = {
+    id: 'calendar-day-2025-09-26-birthday',
+    ownerId: 'u1',
+    title: 'Sinh nhật vợ',
+    body: '',
+    updatedAt: 1,
+  };
+  render(
+    <HomeCalendar
+      selectedDate={new Date(2026, 8, 26)}
+      notes={[birthday]}
+      onSelect={jest.fn()}
+    />,
+  );
+
+  expect(screen.getByTestId('calendar-note-dot-2026-09-26')).toBeTruthy();
 });
 
 it('changes the selected date when moving months and supports picking a day', () => {

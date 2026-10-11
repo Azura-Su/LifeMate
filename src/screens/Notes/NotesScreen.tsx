@@ -26,6 +26,7 @@ import {
 
 type NotesScreenProps = {
   navigation?: BottomTabScreenProps<MainTabParams, 'Notes'>['navigation'];
+  suspended?: boolean;
 };
 
 const foldText = (value: string) =>
@@ -69,7 +70,10 @@ const getPreviewItems = (body: string) => {
   ];
 };
 
-export function NotesScreen({ navigation }: NotesScreenProps = {}) {
+export function NotesScreen({
+  navigation,
+  suspended = false,
+}: NotesScreenProps = {}) {
   const model = useNotesAccount();
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<LifeNote | null>(null);
@@ -335,7 +339,7 @@ export function NotesScreen({ navigation }: NotesScreenProps = {}) {
         )}
       </Screen>
       <DialogModal
-        visible={visible}
+        visible={visible && !suspended}
         onRequestClose={() => !saving && setVisible(false)}
         style={styles.dialog}
       >

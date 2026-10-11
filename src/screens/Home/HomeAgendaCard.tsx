@@ -212,6 +212,7 @@ export function HomeAgendaCard({
       <AgendaTaskFormDialog
         visible={formVisible}
         item={editing}
+        existingItems={model.items}
         initialDate={date}
         busy={saving}
         onClose={() => {

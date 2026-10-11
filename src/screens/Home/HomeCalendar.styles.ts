@@ -66,6 +66,13 @@ export const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: colors.sky,
   },
+  checklistLegend: {
+    width: 6,
+    height: 6,
+    marginLeft: 7,
+    borderRadius: 3,
+    backgroundColor: colors.earth,
+  },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   weekday: {
     width: '14.2857%',
@@ -113,5 +120,6 @@ export const styles = StyleSheet.create({
   holidayDot: { backgroundColor: colors.danger },
   festivalDot: { backgroundColor: colors.sunlight },
   noteDot: { backgroundColor: colors.sky },
+  checklistDot: { backgroundColor: colors.earth },
   selectedEventDot: { backgroundColor: colors.sunlight },
 });

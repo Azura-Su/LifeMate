@@ -3,6 +3,38 @@ import { colors, typography } from '../../theme';
 
 export const styles = StyleSheet.create({
   dialog: { maxHeight: '92%', padding: 0, gap: 0 },
+  hidden: { display: 'none' },
+  pickerDialog: { maxHeight: '92%', padding: 20, gap: 16 },
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  pickerTitle: { ...typography.heading, color: colors.ink },
+  datePicker: { width: '100%', height: 350 },
+  dateField: {
+    minHeight: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
+  },
+  dateFieldInput: {
+    flex: 1,
+    minHeight: 48,
+    paddingHorizontal: 14,
+    fontSize: 16,
+    color: colors.ink,
+  },
+  datePickerAction: {
+    width: 44,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   header: { paddingHorizontal: 12, paddingTop: 12 },
   content: { padding: 22, gap: 12 },
   amountPreview: { fontSize: 14, fontWeight: '600', color: colors.earth },

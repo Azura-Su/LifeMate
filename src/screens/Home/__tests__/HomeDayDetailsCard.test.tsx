@@ -156,6 +156,30 @@ it('shows multiple note titles and opens only the selected note body', () => {
   );
 });
 
+it('shows a saved birthday note on the same date in a later year', () => {
+  const birthday: LifeNote = {
+    id: 'calendar-day-2025-09-26-birthday',
+    ownerId: 'u1',
+    title: 'Sinh nhật vợ',
+    body: 'Mua bánh',
+    updatedAt: 1,
+  };
+  render(
+    <HomeDayDetailsCard
+      date={new Date(2026, 8, 26)}
+      uid="u1"
+      notes={[birthday]}
+      synced
+      onSave={jest.fn().mockResolvedValue(undefined)}
+      onDelete={jest.fn().mockResolvedValue(undefined)}
+    />,
+  );
+
+  expect(
+    screen.getByRole('button', { name: 'Mở ghi chú: Sinh nhật vợ' }),
+  ).toBeTruthy();
+});
+
 it('asks before deleting one day note and removes only the selected note', async () => {
   const note: LifeNote = {
     id: 'calendar-day-2026-10-09-trip',

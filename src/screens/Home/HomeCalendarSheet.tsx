@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { LifeNote } from '../../types/note';
+import type { PrepChecklist } from '../../types/prepChecklist';
 import { formatLunarDate, solarToLunar } from '../../utils/vietnameseCalendar';
 import { colors, typography } from '../../theme';
 import { HomeAgendaCard } from './HomeAgendaCard';
@@ -19,12 +20,16 @@ type Props = {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
   noteDateKeys: string[];
+  checklistDateKeys?: string[];
+  checklists?: PrepChecklist[];
+  checklistsLoading?: boolean;
   noteUid: string | null;
   notes: LifeNote[];
   notesSynced: boolean;
   onSaveNote: (uid: string, note: LifeNote) => Promise<void>;
   onDeleteNote: (uid: string, noteId: string) => Promise<void>;
   onOpenAgenda: () => void;
+  onOpenChecklist?: (checklistId: string) => void;
 };
 
 export function HomeCalendarSheet({
@@ -34,12 +39,16 @@ export function HomeCalendarSheet({
   selectedDate,
   onSelectDate,
   noteDateKeys,
+  checklistDateKeys = [],
+  checklists = [],
+  checklistsLoading = false,
   noteUid,
   notes,
   notesSynced,
   onSaveNote,
   onDeleteNote,
   onOpenAgenda,
+  onOpenChecklist = () => undefined,
 }: Props) {
   const insets = useSafeAreaInsets();
   const [savedToastVisible, setSavedToastVisible] = useState(false);
@@ -125,6 +134,8 @@ export function HomeCalendarSheet({
                 <HomeCalendar
                   selectedDate={selectedDate}
                   noteDateKeys={noteDateKeys}
+                  notes={notes}
+                  checklistDateKeys={checklistDateKeys}
                   onSelect={onSelectDate}
                 />
                 <HomeDayDetailsCard
@@ -136,6 +147,9 @@ export function HomeCalendarSheet({
                   onSave={onSaveNote}
                   onDelete={onDeleteNote}
                   onSaved={showSavedToast}
+                  checklists={checklists}
+                  checklistsLoading={checklistsLoading}
+                  onOpenChecklist={onOpenChecklist}
                 />
               </>
             ) : (

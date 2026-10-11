@@ -25,6 +25,7 @@ type Props = {
   onClose: () => void;
   onOpenNotes: () => void;
   onOpenCardScore: () => void;
+  onOpenChecklists: () => void;
   privacy: ReturnType<typeof useFinancePrivacy>;
 };
 
@@ -33,6 +34,7 @@ export function AppDrawer({
   onClose,
   onOpenNotes,
   onOpenCardScore,
+  onOpenChecklists,
   privacy,
 }: Props) {
   const { width } = useWindowDimensions();
@@ -159,6 +161,28 @@ export function AppDrawer({
                   <Feather name="edit-3" size={18} color={colors.earth} />
                 </View>
                 <Text style={styles.actionTitle}>Ghi chú</Text>
+                <View style={styles.actionSpacer} />
+                <Feather name="chevron-right" size={20} color={colors.muted} />
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Danh sách chuẩn bị"
+                onPress={() => close(onOpenChecklists)}
+                style={({ pressed }) => [
+                  styles.actionRow,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={[styles.iconBadge, styles.checklistIcon]}>
+                  <Feather name="check-square" size={18} color={colors.sky} />
+                </View>
+                <View style={styles.scoreActionText}>
+                  <Text style={styles.actionTitle}>Danh sách chuẩn bị</Text>
+                  <Text numberOfLines={1} style={typography.small}>
+                    Mua sắm, du lịch, về quê
+                  </Text>
+                </View>
                 <View style={styles.actionSpacer} />
                 <Feather name="chevron-right" size={20} color={colors.muted} />
               </Pressable>

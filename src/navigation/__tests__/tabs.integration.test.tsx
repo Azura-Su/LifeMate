@@ -24,6 +24,7 @@ import { useConfigStore } from '../../store/configStore';
 import { useFinanceStore } from '../../store/financeStore';
 import { resetFirestoreMock } from '../../testing/firestoreMock';
 import { useFinanceLockStore } from '../../store/financeLockStore';
+import { useNotesLockStore } from '../../store/notesLockStore';
 
 // Native font loading is outside this navigation integration test.
 jest.mock('@expo/vector-icons/Feather', () => 'Feather');
@@ -87,6 +88,7 @@ jest.mock('../../services/firebase/messagingService', () => ({
 }));
 
 beforeEach(() => {
+  AppState.currentState = 'active';
   jest.mocked(SecureStore.getItemAsync).mockResolvedValue(null);
   jest
     .mocked(LocalAuthentication.authenticateAsync)
@@ -106,6 +108,12 @@ beforeEach(() => {
     authenticating: false,
     changing: false,
     loading: false,
+    error: null,
+  });
+  useNotesLockStore.setState({
+    uid: null,
+    unlocked: false,
+    authenticating: false,
     error: null,
   });
   useFinanceStore.setState({
@@ -154,7 +162,7 @@ it('shows the configured name, opens all tabs, and returns to Login on logout', 
   const hiddenTabItems = screen
     .UNSAFE_getAllByType(View)
     .filter((item) => StyleSheet.flatten(item.props.style)?.display === 'none');
-  expect(hiddenTabItems).toHaveLength(3);
+  expect(hiddenTabItems).toHaveLength(4);
   expect(await screen.findByText('Asher')).toBeTruthy();
   expect(screen.getByLabelText('Home, tab, 1 of 3')).toBeTruthy();
   expect(screen.getByLabelText('Tài chính, tab, 2 of 3')).toBeTruthy();
@@ -182,6 +190,7 @@ it('shows the configured name, opens all tabs, and returns to Login on logout', 
     within(drawerBottom).getByRole('button', { name: 'Đăng xuất' }),
   ).toBeTruthy();
   fireEvent.press(screen.getByRole('button', { name: 'Ghi chú' }));
+  await waitFor(() => expect(useNotesLockStore.getState().unlocked).toBe(true));
   expect(await screen.findByText('Chưa có ghi chú')).toBeTruthy();
 
   fireEvent.press(screen.getByRole('button', { name: 'Quay về Home' }));
@@ -340,6 +349,40 @@ it('shows Finance when Face ID succeeds after iOS is active but its event was mi
   await act(async () => finish({ success: true }));
 
   expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
+});
+
+it('shows Notes when Face ID succeeds after iOS is active but its event was missed', async () => {
+  const listeners: ((state: AppStateStatus) => void)[] = [];
+  jest
+    .spyOn(AppState, 'addEventListener')
+    .mockImplementation((_event, callback) => {
+      listeners.push(callback);
+      return { remove: jest.fn() };
+    });
+  let finish!: (value: LocalAuthentication.LocalAuthenticationResult) => void;
+  jest.mocked(LocalAuthentication.authenticateAsync).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+
+  AppState.currentState = 'active';
+  renderApp();
+  fireEvent.press(screen.getByRole('button', { name: 'Mở menu' }));
+  fireEvent.press(await screen.findByRole('button', { name: 'Ghi chú' }));
+  await waitFor(() =>
+    expect(LocalAuthentication.authenticateAsync).toHaveBeenCalled(),
+  );
+
+  act(() => {
+    AppState.currentState = 'inactive';
+    listeners.forEach((listener) => listener('inactive'));
+  });
+  AppState.currentState = 'active';
+  await act(async () => finish({ success: true }));
+
+  expect(await screen.findByText('Chưa có ghi chú')).toBeTruthy();
 });
 
 it('does not enable the secure-window screenshot workaround for Finance on iOS', async () => {

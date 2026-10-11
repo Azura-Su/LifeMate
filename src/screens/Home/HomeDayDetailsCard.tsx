@@ -5,6 +5,7 @@ import { Button } from '../../components/Button';
 import { DialogModal } from '../../components/DialogModal';
 import { colors, typography } from '../../theme';
 import type { LifeNote } from '../../types/note';
+import type { PrepChecklist } from '../../types/prepChecklist';
 import {
   formatLunarDate,
   getVietnamCalendarEvents,
@@ -12,7 +13,7 @@ import {
   toDateKey,
 } from '../../utils/vietnameseCalendar';
 import {
-  getCalendarNoteDateKey,
+  isCalendarNoteForDate,
   makeCalendarNoteId,
 } from '../../utils/calendarNotes';
 import { styles } from './HomeDayDetailsCard.styles';
@@ -33,6 +34,9 @@ export function HomeDayDetailsCard({
   onSave,
   onDelete,
   onSaved,
+  checklists = [],
+  checklistsLoading = false,
+  onOpenChecklist = () => undefined,
 }: {
   date: Date;
   uid: string | null;
@@ -41,11 +45,17 @@ export function HomeDayDetailsCard({
   onSave: (uid: string, note: LifeNote) => Promise<void>;
   onDelete: (uid: string, noteId: string) => Promise<void>;
   onSaved?: () => void;
+  checklists?: PrepChecklist[];
+  checklistsLoading?: boolean;
+  onOpenChecklist?: (checklistId: string) => void;
 }) {
   const dateKey = toDateKey(date);
   const dayNotes = notes
-    .filter((note) => getCalendarNoteDateKey(note.id) === dateKey)
+    .filter((note) => isCalendarNoteForDate(note, dateKey))
     .sort((first, second) => second.updatedAt - first.updatedAt);
+  const dayChecklists = checklists.filter(
+    (checklist) => checklist.scheduledDateKey === dateKey,
+  );
   const [popupVisible, setPopupVisible] = useState(false);
   const [activeNote, setActiveNote] = useState<LifeNote | null>(null);
   const [title, setTitle] = useState('');
@@ -194,6 +204,67 @@ export function HomeDayDetailsCard({
                 </Text>
               </View>
             ))}
+          </View>
+        )}
+        {dayChecklists.length > 0 && (
+          <View style={styles.checklistSection}>
+            <View style={styles.checklistSectionHeading}>
+              <Text style={styles.checklistSectionTitle}>
+                Chuẩn bị · {dayChecklists.length}
+              </Text>
+              {checklistsLoading && (
+                <Text style={styles.checklistLoading}>Đang cập nhật</Text>
+              )}
+            </View>
+            {dayChecklists.map((checklist) => {
+              const checkedCount = checklist.items.filter(
+                (item) => item.checked,
+              ).length;
+              const itemCount = checklist.items.length;
+              const percent = itemCount
+                ? Math.round((checkedCount / itemCount) * 100)
+                : 0;
+              return (
+                <Pressable
+                  key={checklist.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Mở danh sách ${checklist.title}, ${checkedCount} trên ${itemCount} mục đã chuẩn bị`}
+                  onPress={() => onOpenChecklist(checklist.id)}
+                  style={styles.checklistPreview}
+                >
+                  <View style={styles.checklistPreviewHeader}>
+                    <View style={styles.checklistPreviewCopy}>
+                      <Text numberOfLines={1} style={styles.checklistTitle}>
+                        {checklist.title}
+                      </Text>
+                      <Text style={styles.checklistProgressText}>
+                        {itemCount === 0
+                          ? 'Chưa có mục'
+                          : `${checkedCount}/${itemCount} mục đã chuẩn bị`}
+                      </Text>
+                    </View>
+                    <Feather
+                      name="chevron-right"
+                      size={18}
+                      color={colors.muted}
+                    />
+                  </View>
+                  <View
+                    accessibilityRole="progressbar"
+                    accessibilityLabel={`Tiến độ ${checklist.title}`}
+                    accessibilityValue={{ min: 0, max: 100, now: percent }}
+                    style={styles.checklistProgressTrack}
+                  >
+                    <View
+                      style={[
+                        styles.checklistProgressFill,
+                        { width: `${percent}%` },
+                      ]}
+                    />
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
         )}
         {dayNotes.length > 0 && (

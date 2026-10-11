@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -8,7 +9,11 @@ import {
   View,
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
+import DateTimePicker, {
+  DateTimePickerAndroid,
+} from '@react-native-community/datetimepicker';
 import { Button } from '../../components/Button';
+import { DialogCloseButton } from '../../components/DialogCloseButton';
 import { DialogModal } from '../../components/DialogModal';
 import { ModalHeader } from '../../components/ModalHeader';
 import {
@@ -92,6 +97,7 @@ export function FinanceTransactionDialog({
   );
   const [note, setNote] = useState('');
   const [date, setDate] = useState(initialDate);
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [templateName, setTemplateName] = useState('');
   const [newCategory, setNewCategory] = useState('');
@@ -117,6 +123,8 @@ export function FinanceTransactionDialog({
     !!category.trim() &&
     !busy &&
     !preferenceBusy;
+  const parsedDate = parseFinanceDate(date);
+  const pickerValue = parsedDate === null ? new Date() : new Date(parsedDate);
 
   useEffect(() => {
     if (visible) {
@@ -136,6 +144,7 @@ export function FinanceTransactionDialog({
           ? formatFinanceDate(new Date(initialTransaction.createdAt))
           : initialDate,
       );
+      setDatePickerVisible(false);
       setError(null);
       setTemplateName('');
       setNewCategory('');
@@ -149,6 +158,25 @@ export function FinanceTransactionDialog({
     initialType,
     visible,
   ]);
+
+  function openDatePicker() {
+    if (busy || preferenceBusy) return;
+    if (Platform.OS === 'android') {
+      DateTimePickerAndroid.open({
+        value: pickerValue,
+        mode: 'date',
+        display: 'calendar',
+        onChange: (event, selectedDate) => {
+          if (event.type === 'set' && selectedDate) {
+            setDate(formatFinanceDate(selectedDate));
+            setError(null);
+          }
+        },
+      });
+      return;
+    }
+    setDatePickerVisible(true);
+  }
 
   async function applyTemplate(template: FinanceTransactionTemplate) {
     setType(template.type);
@@ -263,10 +291,23 @@ export function FinanceTransactionDialog({
   return (
     <DialogModal
       visible={visible && !suspended}
-      onRequestClose={busy || preferenceBusy ? undefined : onClose}
-      style={styles.dialog}
+      onRequestClose={
+        busy || preferenceBusy
+          ? undefined
+          : datePickerVisible
+            ? () => setDatePickerVisible(false)
+            : onClose
+      }
+      style={
+        Platform.OS === 'ios' && datePickerVisible
+          ? styles.pickerDialog
+          : styles.dialog
+      }
     >
-      <View style={styles.header}>
+      <View
+        style={[styles.header, datePickerVisible && styles.hidden]}
+        pointerEvents={datePickerVisible ? 'none' : 'auto'}
+      >
         <ModalHeader
           title={initialTransaction ? 'Sửa giao dịch' : 'Thêm giao dịch'}
           accessibilityLabel={
@@ -277,6 +318,7 @@ export function FinanceTransactionDialog({
         />
       </View>
       <ScrollView
+        style={datePickerVisible ? styles.hidden : undefined}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
       >
@@ -473,20 +515,34 @@ export function FinanceTransactionDialog({
           </Text>
         )}
         <Text style={styles.label}>Ngày giao dịch</Text>
-        <TextInput
-          accessibilityLabel="Ngày giao dịch"
-          placeholder="DD/MM/YYYY"
-          placeholderTextColor={colors.muted}
-          keyboardType="numbers-and-punctuation"
-          value={date}
-          onChangeText={(value) => {
-            setDate(value);
-            setError(null);
-          }}
-          editable={!busy}
-          maxLength={10}
-          style={styles.input}
-        />
+        <View style={styles.dateField}>
+          <TextInput
+            accessibilityLabel="Ngày giao dịch"
+            placeholder="DD/MM/YYYY"
+            placeholderTextColor={colors.muted}
+            value={date}
+            onPressIn={openDatePicker}
+            onChangeText={(value) => {
+              setDate(value);
+              setError(null);
+            }}
+            editable={!busy && !preferenceBusy}
+            showSoftInputOnFocus={false}
+            maxLength={10}
+            style={styles.dateFieldInput}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Mở lịch chọn ngày giao dịch"
+            accessibilityHint="Mở lịch để chọn ngày"
+            accessibilityState={{ disabled: busy || preferenceBusy }}
+            disabled={busy || preferenceBusy}
+            onPress={openDatePicker}
+            style={styles.datePickerAction}
+          >
+            <Feather name="calendar" size={18} color={colors.earth} />
+          </Pressable>
+        </View>
         <View style={styles.sectionHeading}>
           <Text style={styles.label}>Danh mục</Text>
           {onAddCategory && (
@@ -609,6 +665,35 @@ export function FinanceTransactionDialog({
           disabled={!canSave}
         />
       </ScrollView>
+      {Platform.OS === 'ios' && datePickerVisible && (
+        <>
+          <View style={styles.pickerHeader}>
+            <Text accessibilityRole="header" style={styles.pickerTitle}>
+              Chọn ngày giao dịch
+            </Text>
+            <DialogCloseButton
+              accessibilityLabel="Đóng chọn ngày giao dịch"
+              onPress={() => setDatePickerVisible(false)}
+            />
+          </View>
+          <DateTimePicker
+            value={pickerValue}
+            mode="date"
+            display="inline"
+            style={styles.datePicker}
+            themeVariant="light"
+            textColor={colors.ink}
+            accentColor={colors.earth}
+            onChange={(event, selectedDate) => {
+              if (event.type === 'set' && selectedDate) {
+                setDate(formatFinanceDate(selectedDate));
+                setError(null);
+              }
+            }}
+          />
+          <Button title="Xong" onPress={() => setDatePickerVisible(false)} />
+        </>
+      )}
     </DialogModal>
   );
 }
