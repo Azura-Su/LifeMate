@@ -258,7 +258,13 @@ export function NotesScreen({
             {model.error}
           </Text>
         )}
-        {model.loading ? (
+        {model.loading && model.notes.length > 0 && (
+          <View style={styles.refreshing}>
+            <ActivityIndicator size="small" color={colors.earth} />
+            <Text style={typography.small}>Đang cập nhật ghi chú…</Text>
+          </View>
+        )}
+        {model.loading && model.notes.length === 0 ? (
           <ActivityIndicator color={colors.earth} />
         ) : visibleNotes.length === 0 ? (
           <View style={styles.empty}>
@@ -489,6 +495,7 @@ const styles = StyleSheet.create({
   emptyTitle: { ...typography.heading, fontSize: 17 },
   error: { ...typography.small, color: colors.danger },
   pending: { ...typography.small, fontSize: 11, color: colors.sunlight },
+  refreshing: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dialog: { gap: 14, padding: 22, maxHeight: '90%' },
   dialogHeader: {
     minHeight: 40,

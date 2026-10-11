@@ -1,6 +1,7 @@
 import Feather from '@expo/vector-icons/Feather';
+import { useFocusEffect } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { useAgendaAccount } from '../../hooks/useAgendaAccount';
@@ -18,6 +19,7 @@ export function AgendaScreen({
   navigation,
 }: BottomTabScreenProps<MainTabParams, 'Agenda'>) {
   const model = useAgendaAccount();
+  const { uid, refresh } = model;
   const [editing, setEditing] = useState<AgendaItem | null>(null);
   const [formVisible, setFormVisible] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -27,6 +29,19 @@ export function AgendaScreen({
     Record<string, AgendaAction>
   >({});
   const actionPending = useRef(new Set<string>());
+  const hasFocused = useRef(false);
+  const focusedUid = useRef(uid);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasFocused.current || focusedUid.current !== uid) {
+        hasFocused.current = true;
+        focusedUid.current = uid;
+        return;
+      }
+      if (uid) void refresh();
+    }, [refresh, uid]),
+  );
 
   async function runItemAction(
     item: AgendaItem,
@@ -136,6 +151,12 @@ export function AgendaScreen({
             {model.error}
           </Text>
         )}
+        {model.loading && model.items.length > 0 && (
+          <View style={styles.refreshing}>
+            <ActivityIndicator size="small" color={colors.earth} />
+            <Text style={styles.refreshingText}>Đang cập nhật danh sách…</Text>
+          </View>
+        )}
         {!!feedback && (
           <Text
             accessibilityRole={feedbackIsError ? 'alert' : undefined}
@@ -150,7 +171,7 @@ export function AgendaScreen({
             Có thay đổi chỉ lưu trên thiết bị. Đồng bộ lại khi mạng ổn định.
           </Text>
         )}
-        {model.loading ? (
+        {model.loading && model.items.length === 0 ? (
           <ActivityIndicator color={colors.earth} />
         ) : model.items.length === 0 ? (
           <View style={styles.empty}>

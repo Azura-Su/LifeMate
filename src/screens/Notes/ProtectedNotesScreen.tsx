@@ -15,6 +15,7 @@ import { PreventScreenCapture } from '../../components/PreventScreenCapture';
 import { Screen } from '../../components/Screen';
 import { useNotesPrivacy } from '../../hooks/useNotesPrivacy';
 import type { MainTabParams } from '../../navigation/types';
+import { useNoteStore } from '../../store/noteStore';
 import { colors, typography } from '../../theme';
 import { NotesScreen } from './NotesScreen';
 
@@ -23,6 +24,7 @@ export function ProtectedNotesScreen({
 }: BottomTabScreenProps<MainTabParams, 'Notes'>) {
   const { authenticating, error, lock, uid, unlock, unlocked } =
     useNotesPrivacy();
+  const refreshNotes = useNoteStore((state) => state.load);
   const isFocused = useIsFocused();
   const [appState, setAppState] = useState(AppState.currentState);
   const promptAttempted = useRef(false);
@@ -38,9 +40,12 @@ export function ProtectedNotesScreen({
       // iOS may omit the matching active event. A successful device check is
       // enough to release this screen; the store rejects results after a
       // background transition or account change.
-      if (didUnlock) setAppState('active');
+      if (didUnlock) {
+        setAppState('active');
+        await refreshNotes(userId);
+      }
     },
-    [unlock],
+    [refreshNotes, unlock],
   );
 
   useEffect(() => {
@@ -62,7 +67,7 @@ export function ProtectedNotesScreen({
   useEffect(() => {
     if (!isFocused) {
       promptAttempted.current = false;
-      if (authenticating) lock();
+      lock();
       return;
     }
     if (

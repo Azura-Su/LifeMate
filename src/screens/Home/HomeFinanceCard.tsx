@@ -13,8 +13,18 @@ import {
 import { styles } from './HomeFinanceCard.styles';
 
 const WEEKDAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+const MIN_PICKER_YEAR = 1900;
+const MAX_PICKER_YEAR = 9999;
+const YEAR_PAGE_SIZE = 12;
 
-type DayTotals = { income: number; expense: number; count: number };
+type DayTotals = { income: number; expense: number };
+
+function getYearPageStart(year: number) {
+  return (
+    MIN_PICKER_YEAR +
+    Math.floor((year - MIN_PICKER_YEAR) / YEAR_PAGE_SIZE) * YEAR_PAGE_SIZE
+  );
+}
 
 function moveMonth(date: Date, offset: number) {
   const month = new Date(date.getFullYear(), date.getMonth() + offset, 1);
@@ -30,14 +40,17 @@ function formatDay(date: Date) {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
+    year: 'numeric',
   }).format(date);
 }
 
-function formatCompactDay(date: Date) {
-  return new Intl.DateTimeFormat('vi-VN', {
-    day: 'numeric',
-    month: 'short',
-  }).format(date);
+function formatCompactDay(date: Date, currentYear: number) {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const dateLabel = `${day}/${month}`;
+  return date.getFullYear() === currentYear
+    ? dateLabel
+    : `${dateLabel}/${date.getFullYear()}`;
 }
 
 export function HomeFinanceCard({
@@ -61,6 +74,7 @@ export function HomeFinanceCard({
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [monthDate, setMonthDate] = useState(() => today);
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [yearPickerVisible, setYearPickerVisible] = useState(false);
   useEffect(() => setSelectedDate(null), [dateResetKey]);
   const dateBeingViewed = selectedDate ?? today;
   const selectedDateKey = toDateKey(dateBeingViewed);
@@ -68,18 +82,27 @@ export function HomeFinanceCard({
   const monthIndex = monthDate.getMonth();
   const previousMonthDisabled = year <= 1900 && monthIndex === 0;
   const nextMonthDisabled = year >= 9999 && monthIndex === 11;
+  const yearPageStart = getYearPageStart(year);
+  const yearPageEnd = Math.min(
+    MAX_PICKER_YEAR,
+    yearPageStart + YEAR_PAGE_SIZE - 1,
+  );
+  const previousPickerDisabled = yearPickerVisible
+    ? yearPageStart === MIN_PICKER_YEAR
+    : previousMonthDisabled;
+  const nextPickerDisabled = yearPickerVisible
+    ? yearPageEnd === MAX_PICKER_YEAR
+    : nextMonthDisabled;
   const todayIsSelected = selectedDate === null;
   const monthLabel = new Intl.DateTimeFormat('vi-VN', {
     month: 'long',
-    year: 'numeric',
   }).format(monthDate);
   const transactionsByDate = useMemo(() => {
     const totals = new Map<string, DayTotals>();
     for (const transaction of transactions) {
       const dateKey = toDateKey(new Date(transaction.createdAt));
-      const day = totals.get(dateKey) ?? { income: 0, expense: 0, count: 0 };
+      const day = totals.get(dateKey) ?? { income: 0, expense: 0 };
       day[transaction.type] += transaction.amount;
-      day.count += 1;
       totals.set(dateKey, day);
     }
     return totals;
@@ -87,7 +110,6 @@ export function HomeFinanceCard({
   const selectedTotals = transactionsByDate.get(selectedDateKey) ?? {
     income: 0,
     expense: 0,
-    count: 0,
   };
   const cells = useMemo(
     () => getMonthGrid(year, monthIndex),
@@ -101,6 +123,7 @@ export function HomeFinanceCard({
 
   function openPicker() {
     setMonthDate(dateBeingViewed);
+    setYearPickerVisible(false);
     setPickerVisible(true);
   }
 
@@ -111,6 +134,24 @@ export function HomeFinanceCard({
 
   function changePickerMonth(offset: number) {
     setMonthDate((current) => moveMonth(current, offset));
+  }
+
+  function changeYearPage(offset: number) {
+    setMonthDate((current) => {
+      const nextYear = Math.max(
+        MIN_PICKER_YEAR,
+        Math.min(
+          MAX_PICKER_YEAR - YEAR_PAGE_SIZE + 1,
+          getYearPageStart(current.getFullYear()) + offset * YEAR_PAGE_SIZE,
+        ),
+      );
+      return new Date(nextYear, current.getMonth(), 1);
+    });
+  }
+
+  function selectYear(selectedYear: number) {
+    setMonthDate(new Date(selectedYear, monthIndex, 1));
+    setYearPickerVisible(false);
   }
 
   return (
@@ -135,13 +176,26 @@ export function HomeFinanceCard({
                 <Text numberOfLines={1} style={styles.headerDateText}>
                   {todayIsSelected
                     ? 'Hôm nay'
-                    : formatCompactDay(dateBeingViewed)}
+                    : formatCompactDay(dateBeingViewed, today.getFullYear())}
                 </Text>
                 <Feather name="chevron-down" size={13} color={colors.earth} />
               </Pressable>
             )}
           </View>
-          <Text style={typography.small}>Thu chi theo ngày</Text>
+          {canViewFinance && !loading && !todayIsSelected && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Về hôm nay"
+              onPress={() => {
+                setSelectedDate(null);
+                setMonthDate(today);
+              }}
+              style={styles.headerTodayButton}
+            >
+              <Feather name="rotate-ccw" size={13} color={colors.earth} />
+              <Text style={styles.todayText}>Về hôm nay</Text>
+            </Pressable>
+          )}
         </View>
         <Pressable
           accessibilityRole="button"
@@ -149,7 +203,6 @@ export function HomeFinanceCard({
           onPress={onOpenFinance}
           style={styles.detailButton}
         >
-          <Text style={styles.detailText}>Chi tiết</Text>
           <Feather name="arrow-up-right" size={16} color={colors.earth} />
         </Pressable>
       </View>
@@ -186,38 +239,20 @@ export function HomeFinanceCard({
           )}
 
           <View style={styles.summary}>
-            {!todayIsSelected && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Về hôm nay"
-                onPress={() => {
-                  setSelectedDate(null);
-                  setMonthDate(today);
-                }}
-                style={styles.todayButton}
-              >
-                <Text style={styles.todayText}>Về hôm nay</Text>
-              </Pressable>
-            )}
             <View style={styles.totals}>
               <View style={[styles.total, styles.incomeTotal]}>
-                <Text style={styles.incomeLabel}>Thu vào</Text>
+                <Text style={styles.incomeLabel}>Thu</Text>
                 <Text numberOfLines={1} style={styles.incomeAmount}>
                   {formatFinanceAmount(selectedTotals.income)}
                 </Text>
               </View>
               <View style={[styles.total, styles.expenseTotal]}>
-                <Text style={styles.expenseLabel}>Chi ra</Text>
+                <Text style={styles.expenseLabel}>Chi</Text>
                 <Text numberOfLines={1} style={styles.expenseAmount}>
                   {formatFinanceAmount(selectedTotals.expense)}
                 </Text>
               </View>
             </View>
-            {!selectedTotals.count && !error && (
-              <Text style={styles.empty}>
-                Chưa có giao dịch trong ngày này.
-              </Text>
-            )}
           </View>
 
           <Modal
@@ -259,13 +294,19 @@ export function HomeFinanceCard({
                 <View style={styles.monthHeader}>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Tháng trước"
-                    accessibilityState={{ disabled: previousMonthDisabled }}
-                    disabled={previousMonthDisabled}
-                    onPress={() => changePickerMonth(-1)}
+                    accessibilityLabel={
+                      yearPickerVisible ? '12 năm trước' : 'Tháng trước'
+                    }
+                    accessibilityState={{ disabled: previousPickerDisabled }}
+                    disabled={previousPickerDisabled}
+                    onPress={() =>
+                      yearPickerVisible
+                        ? changeYearPage(-1)
+                        : changePickerMonth(-1)
+                    }
                     style={[
                       styles.monthArrow,
-                      previousMonthDisabled && styles.disabledArrow,
+                      previousPickerDisabled && styles.disabledArrow,
                     ]}
                   >
                     <Feather
@@ -274,22 +315,49 @@ export function HomeFinanceCard({
                       color={colors.earth}
                     />
                   </Pressable>
-                  <Text
-                    testID="home-finance-month-label"
-                    accessibilityRole="header"
-                    style={styles.monthTitle}
-                  >
-                    {monthLabel}
-                  </Text>
+                  {yearPickerVisible ? (
+                    <Text
+                      testID="home-finance-month-label"
+                      accessibilityRole="header"
+                      style={styles.yearRangeTitle}
+                    >
+                      {yearPageStart} – {yearPageEnd}
+                    </Text>
+                  ) : (
+                    <View style={styles.monthPickerControl}>
+                      <Text
+                        testID="home-finance-month-label"
+                        accessibilityRole="header"
+                        style={styles.monthTitle}
+                      >
+                        {monthLabel}
+                      </Text>
+                      <Text style={styles.monthTitle}>Năm</Text>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Chọn năm ${year}`}
+                        onPress={() => setYearPickerVisible(true)}
+                        style={styles.yearButton}
+                      >
+                        <Text style={styles.yearButtonText}>{year}</Text>
+                      </Pressable>
+                    </View>
+                  )}
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Tháng sau"
-                    accessibilityState={{ disabled: nextMonthDisabled }}
-                    disabled={nextMonthDisabled}
-                    onPress={() => changePickerMonth(1)}
+                    accessibilityLabel={
+                      yearPickerVisible ? '12 năm sau' : 'Tháng sau'
+                    }
+                    accessibilityState={{ disabled: nextPickerDisabled }}
+                    disabled={nextPickerDisabled}
+                    onPress={() =>
+                      yearPickerVisible
+                        ? changeYearPage(1)
+                        : changePickerMonth(1)
+                    }
                     style={[
                       styles.monthArrow,
-                      nextMonthDisabled && styles.disabledArrow,
+                      nextPickerDisabled && styles.disabledArrow,
                     ]}
                   >
                     <Feather
@@ -299,64 +367,90 @@ export function HomeFinanceCard({
                     />
                   </Pressable>
                 </View>
-                <View style={styles.grid}>
-                  {WEEKDAYS.map((weekday) => (
-                    <Text key={weekday} style={styles.weekday}>
-                      {weekday}
-                    </Text>
-                  ))}
-                  {cells.map((date) => {
-                    const dateKey = toDateKey(date);
-                    const totals = transactionsByDate.get(dateKey);
-                    const selected = isSameDay(date, dateBeingViewed);
-                    const isToday = isSameDay(date, today);
-                    const inMonth = date.getMonth() === monthIndex;
-                    const dayLabel = new Intl.DateTimeFormat('vi-VN', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                    }).format(date);
-                    const activityLabel = totals
-                      ? `, thu ${formatFinanceAmount(totals.income)}, chi ${formatFinanceAmount(totals.expense)}`
-                      : ', chưa có giao dịch';
-                    return (
+                {yearPickerVisible ? (
+                  <View style={styles.yearGrid}>
+                    {Array.from(
+                      { length: yearPageEnd - yearPageStart + 1 },
+                      (_, index) => yearPageStart + index,
+                    ).map((candidateYear) => (
                       <Pressable
-                        key={dateKey}
-                        testID={`home-finance-picker-day-${dateKey}`}
+                        key={candidateYear}
+                        testID={`home-finance-picker-year-${candidateYear}`}
                         accessibilityRole="button"
-                        accessibilityLabel={`Chọn ngày ${dayLabel}${activityLabel}`}
-                        accessibilityState={{ selected }}
-                        onPress={() => selectPickerDate(date)}
+                        accessibilityLabel={`Chọn năm ${candidateYear}`}
+                        accessibilityState={{ selected: candidateYear === year }}
+                        onPress={() => selectYear(candidateYear)}
                         style={[
-                          styles.day,
-                          !inMonth && styles.outsideMonth,
-                          isToday && !selected && styles.todayCell,
-                          selected && styles.selectedCell,
+                          styles.yearOption,
+                          candidateYear === year && styles.selectedYearOption,
                         ]}
                       >
-                        <Text
+                        <Text style={styles.yearOptionText}>
+                          {candidateYear}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.grid}>
+                    {WEEKDAYS.map((weekday) => (
+                      <Text key={weekday} style={styles.weekday}>
+                        {weekday}
+                      </Text>
+                    ))}
+                    {cells.map((date) => {
+                      const dateKey = toDateKey(date);
+                      const totals = transactionsByDate.get(dateKey);
+                      const selected = isSameDay(date, dateBeingViewed);
+                      const isToday = isSameDay(date, today);
+                      const inMonth = date.getMonth() === monthIndex;
+                      const dayLabel = new Intl.DateTimeFormat('vi-VN', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      }).format(date);
+                      const activityLabel = totals
+                        ? `, thu ${formatFinanceAmount(totals.income)}, chi ${formatFinanceAmount(totals.expense)}`
+                        : ', chưa có giao dịch';
+                      return (
+                        <Pressable
+                          key={dateKey}
+                          testID={`home-finance-picker-day-${dateKey}`}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Chọn ngày ${dayLabel}${activityLabel}`}
+                          accessibilityState={{ selected }}
+                          onPress={() => selectPickerDate(date)}
                           style={[
-                            styles.dayNumber,
-                            isToday && !selected && styles.todayNumber,
-                            selected && styles.selectedNumber,
+                            styles.day,
+                            !inMonth && styles.outsideMonth,
+                            isToday && !selected && styles.todayCell,
+                            selected && styles.selectedCell,
                           ]}
                         >
-                          {date.getDate()}
-                        </Text>
-                        {totals && (
-                          <View style={styles.dots}>
-                            {totals.income > 0 && (
-                              <View style={[styles.dot, styles.incomeDot]} />
-                            )}
-                            {totals.expense > 0 && (
-                              <View style={[styles.dot, styles.expenseDot]} />
-                            )}
-                          </View>
-                        )}
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                          <Text
+                            style={[
+                              styles.dayNumber,
+                              isToday && !selected && styles.todayNumber,
+                              selected && styles.selectedNumber,
+                            ]}
+                          >
+                            {date.getDate()}
+                          </Text>
+                          {totals && (
+                            <View style={styles.dots}>
+                              {totals.income > 0 && (
+                                <View style={[styles.dot, styles.incomeDot]} />
+                              )}
+                              {totals.expense > 0 && (
+                                <View style={[styles.dot, styles.expenseDot]} />
+                              )}
+                            </View>
+                          )}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             </View>
           </Modal>

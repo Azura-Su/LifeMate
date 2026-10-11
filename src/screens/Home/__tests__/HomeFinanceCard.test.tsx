@@ -91,7 +91,7 @@ it('shows both totals for today and updates them when another day is selected', 
 
   fireEvent.press(screen.getByRole('button', { name: /^Chọn ngày,/ }));
   fireEvent.press(screen.getByTestId('home-finance-picker-day-2026-10-13'));
-  expect(screen.getByText('Chưa có giao dịch trong ngày này.')).toBeTruthy();
+  expect(screen.queryByText('Chưa có giao dịch trong ngày này.')).toBeNull();
 });
 
 it('opens the month picker to choose any date without expanding the Home card', () => {
@@ -103,10 +103,10 @@ it('opens the month picker to choose any date without expanding the Home card', 
   fireEvent.press(screen.getByTestId('home-finance-picker-day-2026-10-20'));
 
   expect(screen.queryByTestId('home-finance-picker')).toBeNull();
-  expect(screen.getByText('20 thg 10')).toBeTruthy();
+  expect(screen.getByText('20/10')).toBeTruthy();
   expect(
     screen.getByRole('button', {
-      name: 'Chọn ngày, Thứ Ba, 20 tháng 10',
+      name: /^Chọn ngày, Thứ Ba, 20 tháng 10/,
     }),
   ).toBeTruthy();
   expect(screen.getByText('Tài chính')).toBeTruthy();
@@ -123,7 +123,7 @@ it('changes month in the picker and can return to today', () => {
   );
   fireEvent.press(screen.getByTestId('home-finance-picker-day-2026-02-28'));
   expect(screen.queryByTestId('home-finance-picker')).toBeNull();
-  expect(screen.getByText('28 thg 2')).toBeTruthy();
+  expect(screen.getByText('28/02')).toBeTruthy();
   fireEvent.press(screen.getByRole('button', { name: 'Về hôm nay' }));
   fireEvent.press(screen.getByRole('button', { name: 'Chọn ngày, hôm nay' }));
   expect(

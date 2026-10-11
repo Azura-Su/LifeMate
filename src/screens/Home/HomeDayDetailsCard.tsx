@@ -1,6 +1,12 @@
 import Feather from '@expo/vector-icons/Feather';
-import { useMemo, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  Text,
+  View,
+} from 'react-native';
 import { Button } from '../../components/Button';
 import { DialogModal } from '../../components/DialogModal';
 import { AppTextInput as TextInput } from '../../components/AppTextInput';
@@ -64,8 +70,15 @@ export function HomeDayDetailsCard({
   const [savedTitle, setSavedTitle] = useState('');
   const [savedBody, setSavedBody] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deletingNoteIds, setDeletingNoteIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const deletingNotes = useRef(new Set<string>());
   const [error, setError] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<{
+    dateKey: string;
+    message: string;
+  } | null>(null);
   const hasChanges = title.trim() !== savedTitle || body !== savedBody;
 
   const lunar = solarToLunar(
@@ -139,19 +152,33 @@ export function HomeDayDetailsCard({
   }
 
   function confirmDelete(note: LifeNote) {
-    if (!uid) return;
+    if (!uid || deletingNotes.current.has(note.id)) return;
     Alert.alert('Xóa ghi chú?', `“${displayTitle(note, dateKey)}” sẽ bị xóa.`, [
       { text: 'Hủy', style: 'cancel' },
       {
         text: 'Xóa',
         style: 'destructive',
         onPress: () => {
+          if (deletingNotes.current.has(note.id)) return;
+          deletingNotes.current.add(note.id);
           setDeleteError(null);
-          void onDelete(uid, note.id).catch((cause) =>
-            setDeleteError(
-              (cause as Error).message || 'Chưa xóa được ghi chú.',
-            ),
-          );
+          setDeletingNoteIds((current) => new Set(current).add(note.id));
+          void onDelete(uid, note.id)
+            .catch((cause) =>
+              setDeleteError({
+                dateKey,
+                message:
+                  (cause as Error).message || 'Chưa xóa được ghi chú.',
+              }),
+            )
+            .finally(() => {
+              deletingNotes.current.delete(note.id);
+              setDeletingNoteIds((current) => {
+                const next = new Set(current);
+                next.delete(note.id);
+                return next;
+              });
+            });
         },
       },
     ]);
@@ -291,19 +318,28 @@ export function HomeDayDetailsCard({
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`Xóa ghi chú: ${displayTitle(note, dateKey)}`}
+                  accessibilityState={{
+                    disabled: deletingNoteIds.has(note.id),
+                    busy: deletingNoteIds.has(note.id),
+                  }}
+                  disabled={deletingNoteIds.has(note.id)}
                   onPress={() => confirmDelete(note)}
                   style={styles.deleteNoteButton}
                   hitSlop={4}
                 >
-                  <Feather name="trash-2" size={17} color={colors.danger} />
+                  {deletingNoteIds.has(note.id) ? (
+                    <ActivityIndicator size="small" color={colors.danger} />
+                  ) : (
+                    <Feather name="trash-2" size={17} color={colors.danger} />
+                  )}
                 </Pressable>
               </View>
             ))}
           </View>
         )}
-        {deleteError && (
+        {deleteError?.dateKey === dateKey && (
           <Text accessibilityRole="alert" style={styles.error}>
-            {deleteError}
+            {deleteError.message}
           </Text>
         )}
         <Pressable

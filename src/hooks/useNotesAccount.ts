@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useNoteStore } from '../store/noteStore';
 
@@ -13,6 +13,7 @@ export function useNotesAccount() {
   const save = useNoteStore((state) => state.save);
   const remove = useNoteStore((state) => state.remove);
   const matches = !!uid && storeUid === uid;
+  const refresh = useCallback(() => load(uid), [load, uid]);
   useEffect(() => {
     if (useNoteStore.getState().uid !== uid) void load(uid);
   }, [load, storeUid, uid]);
@@ -24,6 +25,6 @@ export function useNotesAccount() {
     error: matches ? error : null,
     save,
     remove,
-    refresh: () => load(uid),
+    refresh,
   };
 }

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useAuthStore } from './authStore';
 import type { AgendaItem } from '../types/agenda';
 import {
   cancelAgendaReminder,
@@ -29,6 +30,11 @@ type AgendaState = {
 };
 
 let request = 0;
+
+function isActiveAccount(uid: string) {
+  return useAuthStore.getState().user?.uid === uid;
+}
+
 export const useAgendaStore = create<AgendaState>((set, get) => ({
   uid: null,
   items: [],
@@ -52,7 +58,11 @@ export const useAgendaStore = create<AgendaState>((set, get) => ({
     if (!uid) return;
     try {
       const result = await readAgenda(uid);
-      if (mine === request && get().uid === uid) {
+      if (
+        mine === request &&
+        get().uid === uid &&
+        isActiveAccount(uid)
+      ) {
         set({
           items: result.items,
           synced: result.synced,
@@ -73,10 +83,11 @@ export const useAgendaStore = create<AgendaState>((set, get) => ({
     }
   },
   save: async (uid, item) => {
-    if (get().uid !== uid)
+    if (get().uid !== uid || !isActiveAccount(uid))
       throw new Error('Tài khoản đã thay đổi. Hãy thử lại.');
     const result = await saveAgendaItem(uid, item);
     let reminderStatus: AgendaState['reminderStatus'] = null;
+    if (get().uid !== uid || !isActiveAccount(uid)) return null;
     if (!item.completed && item.reminderAt !== null) {
       try {
         reminderStatus = await scheduleAgendaReminder(
@@ -88,7 +99,7 @@ export const useAgendaStore = create<AgendaState>((set, get) => ({
         reminderStatus = 'denied';
       }
     } else await cancelAgendaReminder(uid, item.id);
-    if (get().uid === uid)
+    if (get().uid === uid && isActiveAccount(uid))
       set({
         items: result.items,
         synced: result.synced,
@@ -98,26 +109,28 @@ export const useAgendaStore = create<AgendaState>((set, get) => ({
     return reminderStatus;
   },
   complete: async (uid, id, completed) => {
-    if (get().uid !== uid)
+    if (get().uid !== uid || !isActiveAccount(uid))
       throw new Error('Tài khoản đã thay đổi. Hãy thử lại.');
     const current = get().items.find((item) => item.id === id);
     if (!current) return;
     const item = { ...current, completed, updatedAt: Date.now() };
     const result = await saveAgendaItem(uid, item);
+    if (get().uid !== uid || !isActiveAccount(uid)) return;
     if (completed) await cancelAgendaReminder(uid, id);
     else if (item.reminderAt !== null)
       await scheduleAgendaReminder(uid, id, item.reminderAt, false).catch(
         () => undefined,
       );
-    if (get().uid === uid)
+    if (get().uid === uid && isActiveAccount(uid))
       set({ items: result.items, synced: result.synced, error: null });
   },
   remove: async (uid, id) => {
-    if (get().uid !== uid)
+    if (get().uid !== uid || !isActiveAccount(uid))
       throw new Error('Tài khoản đã thay đổi. Hãy thử lại.');
     const result = await deleteAgendaItem(uid, id);
+    if (get().uid !== uid || !isActiveAccount(uid)) return;
     await cancelAgendaReminder(uid, id);
-    if (get().uid === uid)
+    if (get().uid === uid && isActiveAccount(uid))
       set({ items: result.items, synced: result.synced, error: null });
   },
 }));

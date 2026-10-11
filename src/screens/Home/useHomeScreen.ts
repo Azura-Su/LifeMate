@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useProfile } from '../../hooks/useProfile';
 import { useConfigStore } from '../../store/configStore';
 import { useFinancePrivacy } from '../../hooks/useFinancePrivacy';
@@ -10,13 +11,25 @@ const REFRESH_TIMEOUT_MS = 15_000;
 
 export function useHomeScreen() {
   const { name } = useProfile();
+  const [today, setToday] = useState(() => new Date());
   const warning = useConfigStore((state) => state.warning);
   const refreshConfig = useConfigStore((state) => state.refresh);
   const agenda = useAgendaAccount();
   const finance = useFinanceAccount();
   const notes = useNotesAccount();
   const privacy = useFinancePrivacy();
-  const today = new Date();
+  useEffect(() => {
+    const nextDay = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() + 1,
+    );
+    const timer = setTimeout(
+      () => setToday(new Date()),
+      Math.max(1, nextDay.getTime() - Date.now() + 50),
+    );
+    return () => clearTimeout(timer);
+  }, [today]);
   const dateLabel = new Intl.DateTimeFormat('vi-VN', {
     weekday: 'long',
     day: 'numeric',
@@ -30,6 +43,7 @@ export function useHomeScreen() {
   const date = `${dateLabel} · Âm ${formatLunarDate(lunarDate)}`;
   return {
     name,
+    today,
     date,
     warning,
     agenda,

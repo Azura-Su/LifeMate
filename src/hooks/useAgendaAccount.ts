@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useAgendaStore } from '../store/agendaStore';
 
@@ -15,6 +15,7 @@ export function useAgendaAccount() {
   const complete = useAgendaStore((state) => state.complete);
   const remove = useAgendaStore((state) => state.remove);
   const matches = !!uid && storeUid === uid;
+  const refresh = useCallback(() => load(uid), [load, uid]);
   useEffect(() => {
     if (useAgendaStore.getState().uid !== uid) void load(uid);
   }, [load, storeUid, uid]);
@@ -28,6 +29,6 @@ export function useAgendaAccount() {
     save,
     complete,
     remove,
-    refresh: () => load(uid),
+    refresh,
   };
 }

@@ -136,7 +136,7 @@ export function HomeScreen({
       }
     >
       <HomeFinanceCard
-        today={new Date()}
+        today={model.today}
         transactions={model.finance.transactions}
         loading={model.finance.loading || model.privacy.loading}
         error={model.finance.error}
@@ -149,7 +149,7 @@ export function HomeScreen({
         onOpenFinance={() => navigation.navigate('Finance')}
       />
       <HomeTodayCard
-        date={new Date()}
+        date={model.today}
         checklists={checklists}
         checklistsLoading={checklistsLoading}
         notes={model.notes.notes}
@@ -158,12 +158,12 @@ export function HomeScreen({
         agendaLoading={model.agenda.loading}
         onOpenCalendar={() => {
           setCalendarSheetTab('calendar');
-          setSelectedDate(new Date());
+          setSelectedDate(model.today);
           setCalendarVisible(true);
         }}
         onOpenTasks={() => {
           setCalendarSheetTab('tasks');
-          setSelectedDate(new Date());
+          setSelectedDate(model.today);
           setCalendarVisible(true);
         }}
       />

@@ -66,6 +66,8 @@ export const styles = StyleSheet.create({
   },
   emptyTitle: { ...typography.heading, fontSize: 17 },
   sync: { ...typography.small, fontSize: 11, color: colors.success },
+  refreshing: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  refreshingText: { ...typography.small, fontSize: 11, color: colors.muted },
   syncLocal: { color: colors.sunlight },
   error: { ...typography.small, color: colors.danger },
   dialog: { gap: 13, padding: 20 },

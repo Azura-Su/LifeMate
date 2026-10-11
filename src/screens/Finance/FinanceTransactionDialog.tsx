@@ -138,7 +138,6 @@ export function FinanceTransactionDialog({
 
   useEffect(() => {
     if (visible) {
-      setType(initialType);
       setType(initialTransaction?.type ?? initialType);
       setAmount(initialTransaction ? String(initialTransaction.amount) : '');
       setCategory(
