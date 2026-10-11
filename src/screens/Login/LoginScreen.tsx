@@ -6,19 +6,18 @@ import {
   Platform,
   Pressable,
   Text,
-  TextInput as NativeTextInput,
+  TextInput,
   View,
 } from 'react-native';
 import { BrandAvatar } from '../../components/BrandAvatar';
 import { Button } from '../../components/Button';
-import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { Screen } from '../../components/Screen';
 import { colors, typography } from '../../theme';
 import { useLoginScreen } from './useLoginScreen';
 
 export function LoginScreen() {
   const model = useLoginScreen();
-  const passwordInput = useRef<NativeTextInput>(null);
+  const passwordInput = useRef<TextInput>(null);
   return (
     <KeyboardAvoidingView
       style={styles.root}
