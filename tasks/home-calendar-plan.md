@@ -14,7 +14,7 @@ Giữ Home gọn, đưa lịch âm–dương, các dịp lễ/Tết, ghi chú th
    - Lưới tuần bắt đầu từ Chủ nhật như ảnh tham khảo; mỗi ô ghi ngày dương lớn, ngày âm nhỏ.
    - Ngày hôm nay, ngày đang chọn, ngày có lễ và ngày có ghi chú được phân biệt; ngày lễ/ghi chú dùng dấu chấm nhỏ, không nhồi tên dài vào ô.
 5. Dưới lưới, hiển thị ngày chọn và tên lễ nếu có. Nếu có ghi chú, hiện một ô xem trước chỉ có tiêu đề; chạm vào mở popup đọc toàn bộ và sửa ghi chú.
-6. ~~Giữ tổng quan Tài chính trên Home~~ — đã bỏ theo quyết định ngày 09/10/2026; số liệu tài chính chỉ còn trong tab Tài chính.
+6. ~~Giữ tổng quan Tài chính trên Home~~ — đã bỏ theo quyết định ngày 09/10/2026. Yêu cầu ngày 11/10/2026 khôi phục tổng thu/chi theo ngày ở đầu Home; trạng thái khóa hiện hành được ghi trong `docs/finance-lock.md` và kế hoạch `home-finance-overview-plan-2026-10-11.md`.
 
 ## Quy tắc dữ liệu
 

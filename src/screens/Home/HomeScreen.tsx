@@ -9,6 +9,7 @@ import type { MainTabParams } from '../../navigation/types';
 import { colors, typography } from '../../theme';
 import { useHomeScreen } from './useHomeScreen';
 import { HomeCalendarSheet } from './HomeCalendarSheet';
+import { HomeFinanceCard } from './HomeFinanceCard';
 import { HomeTodayCard } from './HomeTodayCard';
 import { getCalendarNoteDateKey } from '../../utils/calendarNotes';
 import { useAuthStore } from '../../store/authStore';
@@ -132,6 +133,18 @@ export function HomeScreen({
         />
       }
     >
+      <HomeFinanceCard
+        today={new Date()}
+        transactions={model.finance.transactions}
+        loading={model.finance.loading || model.privacy.loading}
+        error={model.finance.error}
+        canViewFinance={
+          model.privacy.ready &&
+          (!model.privacy.enabled ||
+            (model.privacy.appActive && model.privacy.unlocked))
+        }
+        onOpenFinance={() => navigation.navigate('Finance')}
+      />
       <HomeTodayCard
         date={new Date()}
         checklists={checklists}

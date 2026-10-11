@@ -11,6 +11,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { useConfigStore } from '../../../store/configStore';
 import { resetFirestoreMock } from '../../../testing/firestoreMock';
 import { useFinanceLockStore } from '../../../store/financeLockStore';
+import { useFinanceStore } from '../../../store/financeStore';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -20,7 +21,25 @@ import { useNoteStore } from '../../../store/noteStore';
 import { loadRemoteUsers } from '../../../services/firebase/remoteConfigService';
 import type { AgendaItem } from '../../../types/agenda';
 import type { LifeNote } from '../../../types/note';
+import type { FinanceTransaction } from '../../../types/finance';
 import { toDateKey } from '../../../utils/vietnameseCalendar';
+
+type RenderedNode = {
+  props: { testID?: unknown };
+  children: (RenderedNode | string)[];
+};
+
+function findRenderedCardIds(node: RenderedNode): string[] {
+  const testID = node.props.testID;
+  return [
+    ...(testID === 'home-finance-card' || testID === 'home-today-card'
+      ? [testID]
+      : []),
+    ...node.children.flatMap((child) =>
+      typeof child === 'string' ? [] : findRenderedCardIds(child),
+    ),
+  ];
+}
 
 jest.mock('@expo/vector-icons/Feather', () => 'Feather');
 jest.mock('@react-native-async-storage/async-storage', () =>
@@ -73,13 +92,20 @@ beforeEach(async () => {
     .mockResolvedValue({ success: true });
   useFinanceLockStore.getState().lock();
   useFinanceLockStore.setState({
-    uid: null,
-    enabled: null,
+    uid: 'home-user',
+    enabled: false,
     authenticating: false,
     changing: false,
     loading: false,
     unlocked: false,
     appActive: true,
+    error: null,
+  });
+  useFinanceStore.setState({
+    uid: 'home-user',
+    transactions: [],
+    syncStatus: 'synced',
+    loading: false,
     error: null,
   });
 });
@@ -109,7 +135,7 @@ it('keeps the pull-to-refresh indicator hidden during background loads', () => {
   expect(screen.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(false);
   expect(screen.getByText('Lịch')).toBeTruthy();
   expect(screen.getByText('Việc cần làm')).toBeTruthy();
-  expect(screen.queryByText('Tài chính của bạn')).toBeNull();
+  expect(screen.getByTestId('home-finance-card')).toBeTruthy();
 });
 
 it('shows the pull-to-refresh indicator only while a manual refresh runs', async () => {
@@ -167,7 +193,7 @@ it('shows the agenda offline status in the calendar sheet task tab', () => {
   ).toBeTruthy();
 });
 
-it('shows today’s calendar and tasks without the Finance card', async () => {
+it('shows the finance summary before today’s calendar and tasks', async () => {
   const today = new Date();
   const dateKey = toDateKey(today);
   const note: LifeNote = {
@@ -193,6 +219,36 @@ it('shows today’s calendar and tasks without the Finance card', async () => {
     reminderAt: null,
     updatedAt: 1,
   };
+  const financeTransactions: FinanceTransaction[] = [
+    {
+      id: 'home-income',
+      ownerId: 'home-user',
+      type: 'income',
+      amount: 500_000,
+      category: 'Lương',
+      note: 'Phụ cấp',
+      createdAt: new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+        12,
+      ).getTime(),
+    },
+    {
+      id: 'home-expense',
+      ownerId: 'home-user',
+      type: 'expense',
+      amount: 50_000,
+      category: 'Ăn uống',
+      note: 'Bữa trưa',
+      createdAt: new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+        12,
+      ).getTime(),
+    },
+  ];
   useNoteStore.setState({
     uid: 'home-user',
     notes: [note],
@@ -208,8 +264,23 @@ it('shows today’s calendar and tasks without the Finance card', async () => {
     error: null,
     reminderStatus: null,
   });
-  renderHome();
+  useFinanceStore.setState({
+    uid: 'home-user',
+    transactions: financeTransactions,
+    syncStatus: 'synced',
+    loading: false,
+    error: null,
+  });
+  const home = renderHome();
 
+  const cardOrder = findRenderedCardIds(home.root as unknown as RenderedNode);
+  expect([...new Set(cardOrder)]).toEqual([
+    'home-finance-card',
+    'home-today-card',
+  ]);
+  expect(screen.getByTestId('home-finance-card')).toBeTruthy();
+  expect(screen.getByText('500.000 ₫')).toBeTruthy();
+  expect(screen.getByText('50.000 ₫')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Mở lịch hôm nay' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Mở việc hôm nay' })).toBeTruthy();
   await waitFor(() => expect(screen.getByText(/\d+ mục hôm nay/)).toBeTruthy());
@@ -217,8 +288,6 @@ it('shows today’s calendar and tasks without the Finance card', async () => {
   expect(screen.getByText('Sinh nhật vợ')).toBeTruthy();
   expect(screen.getByText('Đóng tiền điện')).toBeTruthy();
   expect(screen.getByText('18:30')).toBeTruthy();
-  expect(screen.queryByText('Tài chính của bạn')).toBeNull();
-  expect(screen.queryByLabelText('Mở Tài chính')).toBeNull();
   expect(screen.getByText(/· Âm \d+\/\d+/)).toBeTruthy();
   expect(screen.queryByText('Xem hoặc thêm việc hôm nay')).toBeNull();
   expect(screen.queryByTestId(/^calendar-day-/)).toBeNull();
@@ -238,6 +307,85 @@ it('shows today’s calendar and tasks without the Finance card', async () => {
   fireEvent.press(screen.getByRole('button', { name: 'Mở việc hôm nay' }));
   expect(screen.queryByRole('tablist')).toBeNull();
   fireEvent.press(screen.getByRole('button', { name: 'Đóng lịch và việc' }));
+});
+
+it('hides Home amounts while locked and opens Finance for authentication', () => {
+  const today = new Date();
+  useFinanceStore.setState({
+    uid: 'home-user',
+    transactions: [
+      {
+        id: 'private-income',
+        ownerId: 'home-user',
+        type: 'income',
+        amount: 900_000,
+        category: 'Lương',
+        note: '',
+        createdAt: new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate(),
+          12,
+        ).getTime(),
+      },
+    ],
+    syncStatus: 'synced',
+    loading: false,
+    error: null,
+  });
+  useFinanceLockStore.setState({
+    ...useFinanceLockStore.getState(),
+    uid: 'home-user',
+    enabled: true,
+    loading: false,
+    unlocked: false,
+    appActive: true,
+  });
+  navigation.navigate.mockClear();
+  renderHome();
+
+  expect(screen.queryByText('900.000 ₫')).toBeNull();
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Mở Tài chính để xác thực' }),
+  );
+  expect(navigation.navigate).toHaveBeenCalledWith('Finance');
+});
+
+it('shows Home amounts only for an unlocked foreground Finance session', () => {
+  const today = new Date();
+  useFinanceStore.setState({
+    uid: 'home-user',
+    transactions: [
+      {
+        id: 'private-income',
+        ownerId: 'home-user',
+        type: 'income',
+        amount: 900_000,
+        category: 'Lương',
+        note: '',
+        createdAt: new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate(),
+          12,
+        ).getTime(),
+      },
+    ],
+    syncStatus: 'synced',
+    loading: false,
+    error: null,
+  });
+  useFinanceLockStore.setState({
+    ...useFinanceLockStore.getState(),
+    uid: 'home-user',
+    enabled: true,
+    loading: false,
+    unlocked: true,
+    appActive: true,
+  });
+  renderHome();
+
+  expect(screen.getByText('900.000 ₫')).toBeTruthy();
 });
 
 it('opens the preparation checklist from the drawer', async () => {

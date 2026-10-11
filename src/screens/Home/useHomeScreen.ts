@@ -2,6 +2,7 @@ import { useProfile } from '../../hooks/useProfile';
 import { useConfigStore } from '../../store/configStore';
 import { useFinancePrivacy } from '../../hooks/useFinancePrivacy';
 import { useAgendaAccount } from '../../hooks/useAgendaAccount';
+import { useFinanceAccount } from '../../hooks/useFinanceAccount';
 import { useNotesAccount } from '../../hooks/useNotesAccount';
 import { formatLunarDate, solarToLunar } from '../../utils/vietnameseCalendar';
 
@@ -12,6 +13,7 @@ export function useHomeScreen() {
   const warning = useConfigStore((state) => state.warning);
   const refreshConfig = useConfigStore((state) => state.refresh);
   const agenda = useAgendaAccount();
+  const finance = useFinanceAccount();
   const notes = useNotesAccount();
   const privacy = useFinancePrivacy();
   const today = new Date();
@@ -31,6 +33,7 @@ export function useHomeScreen() {
     date,
     warning,
     agenda,
+    finance,
     notes,
     privacy,
     refresh: () => {
@@ -42,6 +45,7 @@ export function useHomeScreen() {
         Promise.allSettled([
           refreshConfig(),
           agenda.refresh(),
+          finance.refresh(),
           notes.refresh(),
         ]).then(() => undefined),
         timeout,

@@ -126,7 +126,10 @@ export function HomeTodayCard({
   );
 
   return (
-    <View style={[styles.todayCards, { minHeight: cardsMinHeight }]}>
+    <View
+      testID="home-today-card"
+      style={[styles.todayCards, { minHeight: cardsMinHeight }]}
+    >
       <TodaySection
         cloudShape="calendar"
         icon="calendar"
