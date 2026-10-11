@@ -65,23 +65,31 @@ it('shows both totals for today and updates them when another day is selected', 
   expect(screen.getByText('300.000 ₫')).toBeTruthy();
   expect(screen.getByText('80.000 ₫')).toBeTruthy();
   expect(screen.getByText('Tài chính hôm nay')).toBeTruthy();
-  expect(screen.queryByTestId('home-finance-day-2026-10-20')).toBeNull();
-  fireEvent.press(screen.getByTestId('home-finance-day-2026-10-12'));
+  expect(
+    screen.getByRole('button', { name: 'Chọn ngày, hôm nay' }),
+  ).toBeTruthy();
+  expect(screen.queryByTestId('home-finance-picker')).toBeNull();
+  expect(screen.queryByTestId('home-finance-day-2026-10-12')).toBeNull();
+  fireEvent.press(screen.getByRole('button', { name: 'Chọn ngày, hôm nay' }));
+  expect(
+    screen.getByTestId('home-finance-picker-day-2026-10-11').props
+      .accessibilityState.selected,
+  ).toBe(true);
+  fireEvent.press(screen.getByTestId('home-finance-picker-day-2026-10-12'));
 
   expect(screen.getByText('Tài chính theo ngày')).toBeTruthy();
   expect(screen.getByText('40.000 ₫')).toBeTruthy();
   expect(screen.getByText('0 ₫')).toBeTruthy();
 
-  fireEvent.press(screen.getByTestId('home-finance-day-2026-10-13'));
+  fireEvent.press(screen.getByRole('button', { name: /^Chọn ngày,/ }));
+  fireEvent.press(screen.getByTestId('home-finance-picker-day-2026-10-13'));
   expect(screen.getByText('Chưa có giao dịch trong ngày này.')).toBeTruthy();
 });
 
 it('opens the month picker to choose any date without expanding the Home card', () => {
   renderCard();
 
-  fireEvent.press(
-    screen.getByRole('button', { name: /Chọn ngày trong tháng/ }),
-  );
+  fireEvent.press(screen.getByRole('button', { name: 'Chọn ngày, hôm nay' }));
 
   expect(screen.getByTestId('home-finance-picker')).toBeTruthy();
   fireEvent.press(screen.getByTestId('home-finance-picker-day-2026-10-20'));
@@ -94,9 +102,7 @@ it('opens the month picker to choose any date without expanding the Home card', 
 it('changes month in the picker and can return to today', () => {
   renderCard({ today: new Date(2026, 2, 31, 12) });
 
-  fireEvent.press(
-    screen.getByRole('button', { name: /Chọn ngày trong tháng/ }),
-  );
+  fireEvent.press(screen.getByRole('button', { name: 'Chọn ngày, hôm nay' }));
   fireEvent.press(screen.getByRole('button', { name: 'Tháng trước' }));
 
   expect(screen.getByTestId('home-finance-month-label').props.children).toMatch(
@@ -106,10 +112,14 @@ it('changes month in the picker and can return to today', () => {
   expect(screen.queryByTestId('home-finance-picker')).toBeNull();
   expect(screen.getByText(/28 tháng 2/)).toBeTruthy();
   fireEvent.press(screen.getByRole('button', { name: 'Về hôm nay' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Chọn ngày, hôm nay' }));
   expect(
-    screen.getByTestId('home-finance-day-2026-03-31').props.accessibilityState
-      .selected,
+    screen.getByTestId('home-finance-picker-day-2026-03-31').props
+      .accessibilityState.selected,
   ).toBe(true);
+  expect(screen.getByTestId('home-finance-month-label').props.children).toMatch(
+    /tháng 3/i,
+  );
 });
 
 it('does not reveal amounts or activity marks while finance is locked', () => {
@@ -118,6 +128,7 @@ it('does not reveal amounts or activity marks while finance is locked', () => {
 
   expect(screen.queryByText('300.000 ₫')).toBeNull();
   expect(screen.queryByTestId('home-finance-day-2026-10-11')).toBeNull();
+  expect(screen.queryByRole('button', { name: /Chọn ngày/ })).toBeNull();
   fireEvent.press(
     screen.getByRole('button', { name: 'Mở Tài chính để xác thực' }),
   );

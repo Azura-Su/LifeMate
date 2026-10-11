@@ -62,22 +62,6 @@ export function HomeFinanceCard({
     month: 'long',
     year: 'numeric',
   }).format(monthDate);
-  const weekDates = useMemo(() => {
-    const firstDate = new Date(
-      selectedDate.getFullYear(),
-      selectedDate.getMonth(),
-      selectedDate.getDate() - selectedDate.getDay(),
-    );
-    return Array.from(
-      { length: 7 },
-      (_, index) =>
-        new Date(
-          firstDate.getFullYear(),
-          firstDate.getMonth(),
-          firstDate.getDate() + index,
-        ),
-    );
-  }, [selectedDate]);
   const transactionsByDate = useMemo(() => {
     const totals = new Map<string, DayTotals>();
     for (const transaction of transactions) {
@@ -173,9 +157,33 @@ export function HomeFinanceCard({
           )}
 
           <View style={styles.summary}>
-            <Text style={styles.selectedDate}>
-              {todayIsSelected ? 'Hôm nay' : formatDay(selectedDate)}
-            </Text>
+            <View style={styles.selectedDateRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Chọn ngày, ${todayIsSelected ? 'hôm nay' : formatDay(selectedDate)}`}
+                onPress={openPicker}
+                style={styles.selectedDateButton}
+              >
+                <Feather name="calendar" size={15} color={colors.earth} />
+                <Text numberOfLines={1} style={styles.selectedDate}>
+                  {todayIsSelected ? 'Hôm nay' : formatDay(selectedDate)}
+                </Text>
+                <Feather name="chevron-down" size={15} color={colors.earth} />
+              </Pressable>
+              {!todayIsSelected && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Về hôm nay"
+                  onPress={() => {
+                    setSelectedDate(today);
+                    setMonthDate(today);
+                  }}
+                  style={styles.todayButton}
+                >
+                  <Text style={styles.todayText}>Hôm nay</Text>
+                </Pressable>
+              )}
+            </View>
             <View style={styles.totals}>
               <View style={[styles.total, styles.incomeTotal]}>
                 <Text style={styles.incomeLabel}>Thu vào</Text>
@@ -195,83 +203,6 @@ export function HomeFinanceCard({
                 Chưa có giao dịch trong ngày này.
               </Text>
             )}
-          </View>
-
-          <View style={styles.datePickerRow}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Chọn ngày trong ${monthLabel}`}
-              onPress={openPicker}
-              style={styles.openPickerButton}
-            >
-              <Feather name="calendar" size={16} color={colors.earth} />
-              <View style={styles.openPickerCopy}>
-                <Text style={styles.openPickerHint}>Chọn ngày</Text>
-                <Text numberOfLines={1} style={styles.openPickerMonth}>
-                  {monthLabel}
-                </Text>
-              </View>
-              <Feather name="chevron-down" size={16} color={colors.earth} />
-            </Pressable>
-            {!todayIsSelected && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Về hôm nay"
-                onPress={() => {
-                  setSelectedDate(today);
-                  setMonthDate(today);
-                }}
-                style={styles.todayButton}
-              >
-                <Text style={styles.todayText}>Hôm nay</Text>
-              </Pressable>
-            )}
-          </View>
-
-          <View style={styles.weekStrip}>
-            {weekDates.map((date) => {
-              const dateKey = toDateKey(date);
-              const totals = transactionsByDate.get(dateKey);
-              const selected = isSameDay(date, selectedDate);
-              const isToday = isSameDay(date, today);
-              const weekday = WEEKDAYS[date.getDay()];
-              const dayLabel = new Intl.DateTimeFormat('vi-VN', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              }).format(date);
-              const activityLabel = totals
-                ? `, thu ${formatFinanceAmount(totals.income)}, chi ${formatFinanceAmount(totals.expense)}`
-                : ', chưa có giao dịch';
-              return (
-                <Pressable
-                  key={dateKey}
-                  testID={`home-finance-day-${dateKey}`}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Chọn ${weekday}, ngày ${dayLabel}${activityLabel}`}
-                  accessibilityState={{ selected }}
-                  onPress={() => selectDate(date)}
-                  style={[
-                    styles.weekDay,
-                    isToday && !selected && styles.todayWeekDay,
-                    selected && styles.selectedWeekDay,
-                  ]}
-                >
-                  <Text style={styles.weekdayLabel}>{weekday}</Text>
-                  <Text style={styles.weekDayNumber}>{date.getDate()}</Text>
-                  {totals && (
-                    <View style={styles.dots}>
-                      {totals.income > 0 && (
-                        <View style={[styles.dot, styles.incomeDot]} />
-                      )}
-                      {totals.expense > 0 && (
-                        <View style={[styles.dot, styles.expenseDot]} />
-                      )}
-                    </View>
-                  )}
-                </Pressable>
-              );
-            })}
           </View>
 
           <Modal
