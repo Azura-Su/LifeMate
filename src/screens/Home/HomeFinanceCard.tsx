@@ -1,6 +1,7 @@
 import Feather from '@expo/vector-icons/Feather';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { FinanceTransaction } from '../../types/finance';
 import { colors, typography } from '../../theme';
 import { formatFinanceAmount } from '../../utils/finance';
@@ -47,20 +48,36 @@ export function HomeFinanceCard({
   canViewFinance: boolean;
   onOpenFinance: () => void;
 }) {
+  const insets = useSafeAreaInsets();
   const [selectedDate, setSelectedDate] = useState(() => today);
   const [monthDate, setMonthDate] = useState(() => today);
+  const [pickerVisible, setPickerVisible] = useState(false);
   const selectedDateKey = toDateKey(selectedDate);
   const year = monthDate.getFullYear();
   const monthIndex = monthDate.getMonth();
   const previousMonthDisabled = year <= 1900 && monthIndex === 0;
   const nextMonthDisabled = year >= 9999 && monthIndex === 11;
   const todayIsSelected = isSameDay(selectedDate, today);
-  const showingCurrentMonth =
-    year === today.getFullYear() && monthIndex === today.getMonth();
   const monthLabel = new Intl.DateTimeFormat('vi-VN', {
     month: 'long',
     year: 'numeric',
   }).format(monthDate);
+  const weekDates = useMemo(() => {
+    const firstDate = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate() - selectedDate.getDay(),
+    );
+    return Array.from(
+      { length: 7 },
+      (_, index) =>
+        new Date(
+          firstDate.getFullYear(),
+          firstDate.getMonth(),
+          firstDate.getDate() + index,
+        ),
+    );
+  }, [selectedDate]);
   const transactionsByDate = useMemo(() => {
     const totals = new Map<string, DayTotals>();
     for (const transaction of transactions) {
@@ -84,14 +101,21 @@ export function HomeFinanceCard({
 
   function selectDate(date: Date) {
     setSelectedDate(date);
-    if (date.getFullYear() !== year || date.getMonth() !== monthIndex)
-      setMonthDate(date);
+    setMonthDate(date);
   }
 
-  function changeMonth(offset: number) {
-    const nextDate = moveMonth(selectedDate, offset);
-    setSelectedDate(nextDate);
-    setMonthDate(nextDate);
+  function openPicker() {
+    setMonthDate(selectedDate);
+    setPickerVisible(true);
+  }
+
+  function selectPickerDate(date: Date) {
+    selectDate(date);
+    setPickerVisible(false);
+  }
+
+  function changePickerMonth(offset: number) {
+    setMonthDate((current) => moveMonth(current, offset));
   }
 
   return (
@@ -173,41 +197,23 @@ export function HomeFinanceCard({
             )}
           </View>
 
-          <View style={styles.monthHeader}>
+          <View style={styles.datePickerRow}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Tháng trước"
-              accessibilityState={{ disabled: previousMonthDisabled }}
-              disabled={previousMonthDisabled}
-              onPress={() => changeMonth(-1)}
-              style={[
-                styles.monthArrow,
-                previousMonthDisabled && styles.disabledArrow,
-              ]}
+              accessibilityLabel={`Chọn ngày trong ${monthLabel}`}
+              onPress={openPicker}
+              style={styles.openPickerButton}
             >
-              <Feather name="chevron-left" size={19} color={colors.earth} />
+              <Feather name="calendar" size={16} color={colors.earth} />
+              <View style={styles.openPickerCopy}>
+                <Text style={styles.openPickerHint}>Chọn ngày</Text>
+                <Text numberOfLines={1} style={styles.openPickerMonth}>
+                  {monthLabel}
+                </Text>
+              </View>
+              <Feather name="chevron-down" size={16} color={colors.earth} />
             </Pressable>
-            <Text
-              testID="home-finance-month-label"
-              accessibilityRole="header"
-              style={styles.monthTitle}
-            >
-              {monthLabel}
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Tháng sau"
-              accessibilityState={{ disabled: nextMonthDisabled }}
-              disabled={nextMonthDisabled}
-              onPress={() => changeMonth(1)}
-              style={[
-                styles.monthArrow,
-                nextMonthDisabled && styles.disabledArrow,
-              ]}
-            >
-              <Feather name="chevron-right" size={19} color={colors.earth} />
-            </Pressable>
-            {(!todayIsSelected || !showingCurrentMonth) && (
+            {!todayIsSelected && (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Về hôm nay"
@@ -222,18 +228,13 @@ export function HomeFinanceCard({
             )}
           </View>
 
-          <View style={styles.grid}>
-            {WEEKDAYS.map((weekday) => (
-              <Text key={weekday} style={styles.weekday}>
-                {weekday}
-              </Text>
-            ))}
-            {cells.map((date) => {
+          <View style={styles.weekStrip}>
+            {weekDates.map((date) => {
               const dateKey = toDateKey(date);
               const totals = transactionsByDate.get(dateKey);
               const selected = isSameDay(date, selectedDate);
               const isToday = isSameDay(date, today);
-              const inMonth = date.getMonth() === monthIndex;
+              const weekday = WEEKDAYS[date.getDay()];
               const dayLabel = new Intl.DateTimeFormat('vi-VN', {
                 day: 'numeric',
                 month: 'long',
@@ -247,25 +248,17 @@ export function HomeFinanceCard({
                   key={dateKey}
                   testID={`home-finance-day-${dateKey}`}
                   accessibilityRole="button"
-                  accessibilityLabel={`Chọn ngày ${dayLabel}${activityLabel}`}
+                  accessibilityLabel={`Chọn ${weekday}, ngày ${dayLabel}${activityLabel}`}
                   accessibilityState={{ selected }}
                   onPress={() => selectDate(date)}
                   style={[
-                    styles.day,
-                    !inMonth && styles.outsideMonth,
-                    isToday && !selected && styles.todayCell,
-                    selected && styles.selectedCell,
+                    styles.weekDay,
+                    isToday && !selected && styles.todayWeekDay,
+                    selected && styles.selectedWeekDay,
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.dayNumber,
-                      isToday && !selected && styles.todayNumber,
-                      selected && styles.selectedNumber,
-                    ]}
-                  >
-                    {date.getDate()}
-                  </Text>
+                  <Text style={styles.weekdayLabel}>{weekday}</Text>
+                  <Text style={styles.weekDayNumber}>{date.getDate()}</Text>
                   {totals && (
                     <View style={styles.dots}>
                       {totals.income > 0 && (
@@ -280,6 +273,147 @@ export function HomeFinanceCard({
               );
             })}
           </View>
+
+          <Modal
+            visible={pickerVisible}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setPickerVisible(false)}
+            statusBarTranslucent
+          >
+            <View style={styles.pickerOverlay}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Đóng bộ chọn ngày"
+                onPress={() => setPickerVisible(false)}
+                style={styles.pickerBackdrop}
+              />
+              <View
+                testID="home-finance-picker"
+                accessibilityViewIsModal
+                style={[
+                  styles.pickerSheet,
+                  { paddingBottom: Math.max(insets.bottom, 16) },
+                ]}
+              >
+                <View style={styles.pickerGrabber} />
+                <View style={styles.pickerHeading}>
+                  <Text accessibilityRole="header" style={styles.pickerTitle}>
+                    Chọn ngày
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Đóng bộ chọn ngày"
+                    onPress={() => setPickerVisible(false)}
+                    style={styles.pickerCloseButton}
+                  >
+                    <Feather name="x" size={20} color={colors.ink} />
+                  </Pressable>
+                </View>
+                <View style={styles.monthHeader}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Tháng trước"
+                    accessibilityState={{ disabled: previousMonthDisabled }}
+                    disabled={previousMonthDisabled}
+                    onPress={() => changePickerMonth(-1)}
+                    style={[
+                      styles.monthArrow,
+                      previousMonthDisabled && styles.disabledArrow,
+                    ]}
+                  >
+                    <Feather
+                      name="chevron-left"
+                      size={19}
+                      color={colors.earth}
+                    />
+                  </Pressable>
+                  <Text
+                    testID="home-finance-month-label"
+                    accessibilityRole="header"
+                    style={styles.monthTitle}
+                  >
+                    {monthLabel}
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Tháng sau"
+                    accessibilityState={{ disabled: nextMonthDisabled }}
+                    disabled={nextMonthDisabled}
+                    onPress={() => changePickerMonth(1)}
+                    style={[
+                      styles.monthArrow,
+                      nextMonthDisabled && styles.disabledArrow,
+                    ]}
+                  >
+                    <Feather
+                      name="chevron-right"
+                      size={19}
+                      color={colors.earth}
+                    />
+                  </Pressable>
+                </View>
+                <View style={styles.grid}>
+                  {WEEKDAYS.map((weekday) => (
+                    <Text key={weekday} style={styles.weekday}>
+                      {weekday}
+                    </Text>
+                  ))}
+                  {cells.map((date) => {
+                    const dateKey = toDateKey(date);
+                    const totals = transactionsByDate.get(dateKey);
+                    const selected = isSameDay(date, selectedDate);
+                    const isToday = isSameDay(date, today);
+                    const inMonth = date.getMonth() === monthIndex;
+                    const dayLabel = new Intl.DateTimeFormat('vi-VN', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    }).format(date);
+                    const activityLabel = totals
+                      ? `, thu ${formatFinanceAmount(totals.income)}, chi ${formatFinanceAmount(totals.expense)}`
+                      : ', chưa có giao dịch';
+                    return (
+                      <Pressable
+                        key={dateKey}
+                        testID={`home-finance-picker-day-${dateKey}`}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Chọn ngày ${dayLabel}${activityLabel}`}
+                        accessibilityState={{ selected }}
+                        onPress={() => selectPickerDate(date)}
+                        style={[
+                          styles.day,
+                          !inMonth && styles.outsideMonth,
+                          isToday && !selected && styles.todayCell,
+                          selected && styles.selectedCell,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.dayNumber,
+                            isToday && !selected && styles.todayNumber,
+                            selected && styles.selectedNumber,
+                          ]}
+                        >
+                          {date.getDate()}
+                        </Text>
+                        {totals && (
+                          <View style={styles.dots}>
+                            {totals.income > 0 && (
+                              <View style={[styles.dot, styles.incomeDot]} />
+                            )}
+                            {totals.expense > 0 && (
+                              <View style={[styles.dot, styles.expenseDot]} />
+                            )}
+                          </View>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+          </Modal>
         </>
       )}
     </View>

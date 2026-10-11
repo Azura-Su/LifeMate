@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { FinanceTransaction } from '../../../types/finance';
 import { HomeFinanceCard } from '../HomeFinanceCard';
 
@@ -39,15 +40,22 @@ function renderCard(
   overrides: Partial<React.ComponentProps<typeof HomeFinanceCard>> = {},
 ) {
   return render(
-    <HomeFinanceCard
-      today={today}
-      transactions={transactions}
-      loading={false}
-      error={null}
-      canViewFinance
-      onOpenFinance={jest.fn()}
-      {...overrides}
-    />,
+    <SafeAreaProvider
+      initialMetrics={{
+        frame: { x: 0, y: 0, width: 390, height: 844 },
+        insets: { top: 0, bottom: 0, left: 0, right: 0 },
+      }}
+    >
+      <HomeFinanceCard
+        today={today}
+        transactions={transactions}
+        loading={false}
+        error={null}
+        canViewFinance
+        onOpenFinance={jest.fn()}
+        {...overrides}
+      />
+    </SafeAreaProvider>,
   );
 }
 
@@ -57,6 +65,7 @@ it('shows both totals for today and updates them when another day is selected', 
   expect(screen.getByText('300.000 ₫')).toBeTruthy();
   expect(screen.getByText('80.000 ₫')).toBeTruthy();
   expect(screen.getByText('Tài chính hôm nay')).toBeTruthy();
+  expect(screen.queryByTestId('home-finance-day-2026-10-20')).toBeNull();
   fireEvent.press(screen.getByTestId('home-finance-day-2026-10-12'));
 
   expect(screen.getByText('Tài chính theo ngày')).toBeTruthy();
@@ -67,18 +76,35 @@ it('shows both totals for today and updates them when another day is selected', 
   expect(screen.getByText('Chưa có giao dịch trong ngày này.')).toBeTruthy();
 });
 
-it('changes month while keeping the nearest matching day and can return to today', () => {
+it('opens the month picker to choose any date without expanding the Home card', () => {
+  renderCard();
+
+  fireEvent.press(
+    screen.getByRole('button', { name: /Chọn ngày trong tháng/ }),
+  );
+
+  expect(screen.getByTestId('home-finance-picker')).toBeTruthy();
+  fireEvent.press(screen.getByTestId('home-finance-picker-day-2026-10-20'));
+
+  expect(screen.queryByTestId('home-finance-picker')).toBeNull();
+  expect(screen.getByText('Thứ Ba, 20 tháng 10')).toBeTruthy();
+  expect(screen.getByText('Tài chính theo ngày')).toBeTruthy();
+});
+
+it('changes month in the picker and can return to today', () => {
   renderCard({ today: new Date(2026, 2, 31, 12) });
 
+  fireEvent.press(
+    screen.getByRole('button', { name: /Chọn ngày trong tháng/ }),
+  );
   fireEvent.press(screen.getByRole('button', { name: 'Tháng trước' }));
 
   expect(screen.getByTestId('home-finance-month-label').props.children).toMatch(
     /tháng 2/i,
   );
-  expect(
-    screen.getByTestId('home-finance-day-2026-02-28').props.accessibilityState
-      .selected,
-  ).toBe(true);
+  fireEvent.press(screen.getByTestId('home-finance-picker-day-2026-02-28'));
+  expect(screen.queryByTestId('home-finance-picker')).toBeNull();
+  expect(screen.getByText(/28 tháng 2/)).toBeTruthy();
   fireEvent.press(screen.getByRole('button', { name: 'Về hôm nay' }));
   expect(
     screen.getByTestId('home-finance-day-2026-03-31').props.accessibilityState
