@@ -15,8 +15,8 @@ jest.mock('../../security/encryptedLocalStorage', () => {
   ) as { default?: typeof AsyncStorage } & typeof AsyncStorage;
   const storage = storageModule.default ?? storageModule;
   return {
-    getEncryptedItem: (uid: string, key: string) => storage.getItem(key),
-    setEncryptedItem: (uid: string, key: string, value: string) =>
+    getEncryptedItem: (_uid: string, key: string) => storage.getItem(key),
+    setEncryptedItem: (_uid: string, key: string, value: string) =>
       storage.setItem(key, value),
   };
 });
