@@ -2,7 +2,7 @@ import Feather from '@expo/vector-icons/Feather';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useEffect } from 'react';
 import { HomeScreen } from '../screens/Home/HomeScreen';
-import { FinanceScreen } from '../screens/Finance/FinanceScreen';
+import { ProtectedFinanceScreen } from '../screens/Finance/ProtectedFinanceScreen';
 import { AppState } from 'react-native';
 import { useFinancePrivacy } from '../hooks/useFinancePrivacy';
 import { useNotesLockStore } from '../store/notesLockStore';
@@ -74,7 +74,7 @@ export function MainTabs() {
       />
       <Tab.Screen
         name="Finance"
-        component={FinanceScreen}
+        component={ProtectedFinanceScreen}
         options={{
           tabBarLabel: 'Tài chính',
           tabBarAccessibilityLabel: 'Tài chính, tab, 2 of 3',

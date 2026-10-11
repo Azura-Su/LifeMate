@@ -58,18 +58,14 @@ export function HomeFinanceCard({
   transactions,
   loading,
   error,
-  canViewFinance,
   onOpenFinance,
-  onUnlockSummary,
   dateResetKey = 0,
 }: {
   today: Date;
   transactions: FinanceTransaction[];
   loading: boolean;
   error: string | null;
-  canViewFinance: boolean;
   onOpenFinance: () => void;
-  onUnlockSummary: () => void;
   dateResetKey?: number;
 }) {
   const insets = useSafeAreaInsets();
@@ -167,7 +163,7 @@ export function HomeFinanceCard({
             <Text accessibilityRole="header" style={styles.title}>
               Tài chính
             </Text>
-            {canViewFinance && !loading && (
+            {!loading && (
               <Pressable
                 testID="home-finance-heading-date"
                 accessibilityRole="button"
@@ -184,7 +180,7 @@ export function HomeFinanceCard({
               </Pressable>
             )}
           </View>
-          {canViewFinance && !loading && !todayIsSelected && (
+          {!loading && !todayIsSelected && (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Về hôm nay"
@@ -213,24 +209,6 @@ export function HomeFinanceCard({
         <View style={styles.status}>
           <ActivityIndicator color={colors.earth} />
           <Text style={typography.small}>Đang tải sổ thu chi…</Text>
-        </View>
-      ) : !canViewFinance ? (
-        <View style={styles.locked}>
-          <Feather name="lock" size={18} color={colors.earth} />
-          <View style={styles.lockedCopy}>
-            <Text style={styles.lockedTitle}>Tóm tắt trên Home đang ẩn</Text>
-            <Text style={typography.small}>
-              Xác thực để xem số liệu tại đây.
-            </Text>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Mở khóa tóm tắt Home"
-            onPress={onUnlockSummary}
-            style={styles.unlockButton}
-          >
-            <Feather name="unlock" size={18} color={colors.earth} />
-          </Pressable>
         </View>
       ) : (
         <>

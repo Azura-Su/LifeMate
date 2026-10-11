@@ -13,7 +13,7 @@
 - Chạm nút ngày mở lịch tháng dạng sheet phủ lên Home. Chọn ngày cập nhật tổng rồi đóng sheet; khi xem ngày cũ có nút nhỏ để quay về hôm nay.
 - Dùng cùng định dạng tiền Việt hiện có và đánh dấu ngày có giao dịch bằng chấm thu/chi nhỏ trong lịch popup. Mọi ô ngày có nhãn trợ năng đầy đủ, không dùng màu làm tín hiệu duy nhất.
 - Dùng `useFinanceAccount` để tái sử dụng nạp dữ liệu và cách ly UID hiện có; thao tác kéo để làm mới cũng làm mới sổ thu chi.
-- Tuân thủ khóa hiện hành: số liệu và dấu ngày chỉ hiện khi khóa tắt hoặc phiên Tài chính hiện tại đã được mở. Khi chưa mở, hiện CTA sang Tài chính để xác thực; Home không tự gọi Face ID.
+- Home luôn hiển thị số liệu và dấu ngày, không gọi Face ID. Khi khóa tab Tài chính đang bật, lối vào sổ đầy đủ sẽ yêu cầu xác thực.
 - Giữ nguyên thẻ HomeTodayCard, lịch trong bottom sheet, danh sách việc và điều hướng hiện có.
 
 ## Công việc
@@ -26,7 +26,7 @@
 
 - [x] Hôm nay được chọn ban đầu; chỉ nút ngày gọn hiện thường trực, còn lịch tháng chỉ mở khi chạm nút và cập nhật đúng số liệu.
 - [x] Bộ chọn ngày không chiếm chỗ thường trực trên Home; ngày không có giao dịch có trạng thái rỗng rõ ràng.
-- [x] Khi khóa, không lộ số tiền hoặc dấu ngày có giao dịch; CTA mở đúng tab Tài chính.
+- [x] Tổng tiền và dấu ngày luôn hiển thị trên Home; lối vào sổ đầy đủ mở đúng tab Tài chính.
 
 **Xác minh:** Test component cho tổng ngày, chọn ngày/chuyển tháng, ngày rỗng và khóa.
 
@@ -48,11 +48,11 @@
 
 ## Rủi ro và giảm thiểu
 
-| Rủi ro                                                | Ảnh hưởng  | Giảm thiểu                                                                                                 |
-| ----------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------- |
-| Bộ chọn ngày đẩy Lịch/Việc xuống thấp trên Home       | Trung bình | Chỉ hiện nút ngày đang xem; lịch tháng mở dạng sheet khi người dùng cần chọn ngày khác.                    |
-| Số liệu tài chính lộ khi đang khóa hoặc đổi tài khoản | Cao        | Chỉ hiển thị khi quyền xem hợp lệ theo cùng điều kiện với Finance; ẩn dấu giao dịch trong trạng thái khóa. |
-| Ngày giao dịch lệch qua nửa đêm                       | Thấp       | So ngày theo khóa ngày địa phương `toDateKey`, phù hợp cách nhập ngày hiện có.                             |
+| Rủi ro                                             | Ảnh hưởng     | Giảm thiểu                                                                                    |
+| -------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------- |
+| Bộ chọn ngày đẩy Lịch/Việc xuống thấp trên Home    | Trung bình    | Chỉ hiện nút ngày đang xem; lịch tháng mở dạng sheet khi người dùng cần chọn ngày khác.       |
+| Thông tin thu chi hiện trên Home khi tab đang khóa | Theo thiết kế | Chỉ hiện tổng theo ngày và ngày có giao dịch; sổ chi tiết vẫn qua xác thực của tab Tài chính. |
+| Ngày giao dịch lệch qua nửa đêm                    | Thấp          | So ngày theo khóa ngày địa phương `toDateKey`, phù hợp cách nhập ngày hiện có.                |
 
 ## Giới hạn phạm vi
 

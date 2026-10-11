@@ -138,19 +138,10 @@ export function HomeScreen({
       <HomeFinanceCard
         today={model.today}
         transactions={model.finance.transactions}
-        loading={model.finance.loading || model.privacy.loading}
+        loading={model.finance.loading}
         error={model.finance.error}
-        canViewFinance={
-          model.privacy.ready &&
-          (!model.privacy.enabled ||
-            (model.privacy.appActive && model.privacy.unlocked))
-        }
         dateResetKey={financeDateResetKey}
         onOpenFinance={() => navigation.navigate('Finance')}
-        onUnlockSummary={() => {
-          if (model.privacy.uid)
-            void model.privacy.unlock(model.privacy.uid);
-        }}
       />
       <HomeTodayCard
         date={model.today}

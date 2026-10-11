@@ -2,11 +2,11 @@
 
 ## Sửa vòng đời Face ID của Tài chính — 08/10/2026
 
-Rà lại [thiết kế khóa Tài chính](../docs/finance-lock.md) sau phản hồi: một phiên xác thực dùng chung giữa tab Tài chính và con mắt Home; chuyển tab giữ nguyên phiên; mở app mới hoặc quay lại từ background hỏi Face ID một lần. Hủy prompt giữ khóa. Số trên Home được ẩn khi xuống background, nhưng không bị reset chỉ vì iOS chuyển `inactive` trong lúc hiện prompt. Thiết lập vẫn riêng theo UID/thiết bị.
+Theo [thiết kế khóa Tài chính](../docs/finance-lock.md): thẻ tổng quan Home luôn hiển thị và không gọi Face ID; công tắc riêng quyết định tab Tài chính có cần xác thực hay không. Khi khóa tab bật, app mới hoặc quay lại từ background tại tab Tài chính yêu cầu Face ID. Hủy prompt giữ khóa. Thiết lập vẫn riêng theo UID/thiết bị.
 
 1. Thêm revision phiên tăng khi background hoặc thiết lập tài khoản đổi, không tăng khi Finance mất focus hay iOS inactive.
 2. Chuyển xác thực tự động về coordinator cấp app; gate Finance chỉ kiểm tra phiên và cho phép thử lại thủ công sau khi hủy.
-3. Dùng quyền mở khóa chung cho Home và Finance; reset trạng thái hiện số Home khi revision đổi.
+3. Giữ quyền mở khóa cho tab Tài chính; không gắn khả năng hiển thị tổng quan Home với phiên Face ID.
 4. Đối chiếu startup, hủy, chuyển tab lặp, Home eye, background/resume và account switch theo tiêu chí trong `docs/finance-lock.md`.
 
 ## Rà toàn app và cải thiện — 08/10/2026

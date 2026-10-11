@@ -35,7 +35,7 @@ export function FinanceLockSetting({
         </View>
         <View style={styles.notificationText}>
           <Text style={[styles.cardTitle, compact && styles.compactCardTitle]}>
-            Face ID cho tóm tắt Home
+            Face ID cho tab Tài chính
           </Text>
           {!(compact && privacy.enabled === false) && (
             <Text
@@ -49,12 +49,12 @@ export function FinanceLockSetting({
         </View>
         {busy ? (
           <ActivityIndicator
-            accessibilityLabel="Đang xử lý khóa tóm tắt Home"
+            accessibilityLabel="Đang xử lý khóa tab Tài chính"
             color={colors.earth}
           />
         ) : (
           <Switch
-            accessibilityLabel="Ẩn tóm tắt tài chính trên Home bằng xác thực thiết bị"
+            accessibilityLabel="Yêu cầu xác thực thiết bị để mở tab Tài chính"
             value={privacy.enabled === true}
             disabled={
               disabled ||
@@ -72,11 +72,11 @@ export function FinanceLockSetting({
       <Text style={[typography.small, compact && styles.compactDescription]}>
         {compact
           ? privacy.ready && !privacy.enabled && !privacy.canEnable
-            ? 'Thiết lập Face ID hoặc vân tay để ẩn tóm tắt Home.'
-            : 'Chỉ khóa tóm tắt trên Home. Tab Tài chính luôn mở trực tiếp.'
+            ? 'Thiết lập Face ID hoặc vân tay để khóa tab Tài chính.'
+            : 'Tóm tắt Home luôn hiển thị. Bật khóa để yêu cầu Face ID khi mở tab Tài chính.'
           : privacy.ready && !privacy.enabled && !privacy.canEnable
-            ? 'Thiết lập Face ID hoặc vân tay trong cài đặt thiết bị để ẩn tóm tắt Home.'
-            : 'Khóa này chỉ ẩn tóm tắt trên Home. Tab Tài chính luôn mở trực tiếp. Áp dụng cho tài khoản này trên thiết bị này.'}
+            ? 'Thiết lập Face ID hoặc vân tay trong cài đặt thiết bị để khóa tab Tài chính.'
+            : 'Tóm tắt Home luôn hiển thị. Bật khóa để yêu cầu Face ID khi mở tab Tài chính trên thiết bị này.'}
       </Text>
       {privacy.error && (
         <Text accessibilityRole="alert" style={styles.error}>

@@ -317,7 +317,7 @@ it('shows the finance summary before today’s calendar and tasks', async () => 
   fireEvent.press(screen.getByRole('button', { name: 'Đóng lịch và việc' }));
 });
 
-it('keeps Home totals private until unlocked and still opens Finance directly', async () => {
+it('shows Home totals while Finance tab remains locked', async () => {
   const today = new Date();
   useFinanceStore.setState({
     uid: 'home-user',
@@ -352,20 +352,19 @@ it('keeps Home totals private until unlocked and still opens Finance directly', 
   navigation.navigate.mockClear();
   renderHome();
 
-  expect(screen.queryByText('900.000 ₫')).toBeNull();
-  fireEvent.press(
-    screen.getByRole('button', { name: 'Mở khóa tóm tắt Home' }),
-  );
   expect(await screen.findByText('900.000 ₫')).toBeTruthy();
-  expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(1);
+  expect(
+    screen.getByRole('button', { name: 'Chọn ngày, hôm nay' }),
+  ).toBeTruthy();
+  expect(LocalAuthentication.authenticateAsync).not.toHaveBeenCalled();
   fireEvent.press(
     screen.getByRole('button', { name: 'Mở sổ Tài chính' }),
   );
   expect(navigation.navigate).toHaveBeenCalledWith('Finance');
-  expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(1);
+  expect(LocalAuthentication.authenticateAsync).not.toHaveBeenCalled();
 });
 
-it('shows Home amounts only for an unlocked foreground Finance session', () => {
+it('shows Home amounts while Finance is locked and the app is inactive', () => {
   const today = new Date();
   useFinanceStore.setState({
     uid: 'home-user',
@@ -394,8 +393,8 @@ it('shows Home amounts only for an unlocked foreground Finance session', () => {
     uid: 'home-user',
     enabled: true,
     loading: false,
-    unlocked: true,
-    appActive: true,
+    unlocked: false,
+    appActive: false,
   });
   renderHome();
 
