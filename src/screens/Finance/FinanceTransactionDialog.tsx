@@ -66,6 +66,16 @@ type Props = {
   onRemoveTemplate?: (id: string) => Promise<void>;
 };
 
+function capitalizeInitialLetter(value: string) {
+  const characters = Array.from(value);
+  const index = characters.findIndex(
+    (character) => character.toUpperCase() !== character.toLowerCase(),
+  );
+  if (index < 0) return value;
+  characters[index] = characters[index].toUpperCase();
+  return characters.join('');
+}
+
 export function FinanceTransactionDialog({
   visible,
   suspended = false,
@@ -138,7 +148,7 @@ export function FinanceTransactionDialog({
             : EXPENSE_CATEGORIES[0]),
       );
       setIncomeSource(initialTransaction?.incomeSource ?? initialIncomeSource);
-      setNote(initialTransaction?.note ?? '');
+      setNote(capitalizeInitialLetter(initialTransaction?.note ?? ''));
       setDate(
         initialTransaction
           ? formatFinanceDate(new Date(initialTransaction.createdAt))
@@ -183,7 +193,7 @@ export function FinanceTransactionDialog({
     setIncomeSource(template.incomeSource ?? 'company');
     setAmount(String(template.amount));
     setCategory(template.category);
-    setNote(template.note);
+    setNote(capitalizeInitialLetter(template.note));
     setError(null);
   }
 
@@ -199,7 +209,14 @@ export function FinanceTransactionDialog({
     }
     try {
       await onSave(
-        { type, incomeSource, amount, category, note, date },
+        {
+          type,
+          incomeSource,
+          amount,
+          category,
+          note: capitalizeInitialLetter(note.trim()),
+          date,
+        },
         initialTransaction?.id,
       );
       setError(null);
@@ -220,11 +237,11 @@ export function FinanceTransactionDialog({
     setPreferenceAction('save-template');
     try {
       await onSaveTemplate({
-        name: templateName,
+        name: capitalizeInitialLetter(templateName.trim()),
         type,
         amount: value,
         category,
-        note: note.trim(),
+        note: capitalizeInitialLetter(note.trim()),
         ...(type === 'income' ? { incomeSource } : {}),
       });
       setTemplateName('');
@@ -257,8 +274,9 @@ export function FinanceTransactionDialog({
     setPreferenceBusy(true);
     setPreferenceAction('save-category');
     try {
-      await onAddCategory(type, newCategory);
-      setCategory(newCategory.trim());
+      const categoryName = capitalizeInitialLetter(newCategory.trim());
+      await onAddCategory(type, categoryName);
+      setCategory(categoryName);
       setNewCategory('');
       setShowCategoryForm(false);
       setError(null);
@@ -394,7 +412,9 @@ export function FinanceTransactionDialog({
                   placeholder="Tên mẫu giao dịch"
                   placeholderTextColor={colors.muted}
                   value={templateName}
-                  onChangeText={setTemplateName}
+                  onChangeText={(value) =>
+                    setTemplateName(capitalizeInitialLetter(value))
+                  }
                   maxLength={50}
                   editable={!preferenceBusy}
                   style={[styles.input, styles.inlineInput]}
@@ -625,7 +645,9 @@ export function FinanceTransactionDialog({
               placeholder="Tên danh mục mới"
               placeholderTextColor={colors.muted}
               value={newCategory}
-              onChangeText={setNewCategory}
+              onChangeText={(value) =>
+                setNewCategory(capitalizeInitialLetter(value))
+              }
               maxLength={50}
               editable={!preferenceBusy}
               style={[styles.input, styles.inlineInput]}
@@ -648,7 +670,7 @@ export function FinanceTransactionDialog({
           }
           placeholderTextColor={colors.muted}
           value={note}
-          onChangeText={setNote}
+          onChangeText={(value) => setNote(capitalizeInitialLetter(value))}
           editable={!busy}
           maxLength={120}
           style={styles.input}
