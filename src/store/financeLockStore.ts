@@ -48,7 +48,7 @@ export const useFinanceLockStore = create<FinanceLockState>((set, get) => {
     try {
       const result = await authenticateFinance(prompt);
       if (!isCurrent(uid) || epoch !== accessEpoch) return false;
-      if (result.success && AppState.currentState === 'active')
+      if (result.success && AppState.currentState !== 'background')
         set({ appActive: true });
       if (!result.success) set({ error: result.message });
       return result.success;
@@ -159,8 +159,13 @@ export const useFinanceLockStore = create<FinanceLockState>((set, get) => {
         await writeFinanceLock(uid, enabled);
         if (isCurrent(uid)) {
           ++accessEpoch;
-          // The setting prompt has already authorized this foreground session.
-          set({ enabled, unlocked: enabled, error: null });
+          // Changing the preference authenticates the setting, not access to Finance.
+          set((state) => ({
+            enabled,
+            unlocked: false,
+            lockVersion: state.lockVersion + 1,
+            error: null,
+          }));
         }
       } catch {
         if (isCurrent(uid))

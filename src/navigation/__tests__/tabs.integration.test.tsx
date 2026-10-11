@@ -256,6 +256,104 @@ it('shows Home Finance and protects the Finance tab with Face ID', async () => {
   expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(3);
 });
 
+it('shows Finance when Face ID succeeds and iOS does not report active again', async () => {
+  jest.mocked(SecureStore.getItemAsync).mockResolvedValue('on');
+  const listeners: ((state: AppStateStatus) => void)[] = [];
+  jest
+    .spyOn(AppState, 'addEventListener')
+    .mockImplementation((_event, callback) => {
+      listeners.push(callback);
+      return { remove: jest.fn() };
+    });
+  let finish!: (value: LocalAuthentication.LocalAuthenticationResult) => void;
+  jest.mocked(LocalAuthentication.authenticateAsync).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+
+  AppState.currentState = 'active';
+  renderApp();
+  pressFinanceTab();
+  await waitFor(() =>
+    expect(LocalAuthentication.authenticateAsync).toHaveBeenCalled(),
+  );
+
+  act(() => {
+    AppState.currentState = 'inactive';
+    listeners.forEach((listener) => listener('inactive'));
+  });
+  await act(async () => finish({ success: true }));
+
+  expect(useFinanceLockStore.getState().unlocked).toBe(true);
+  expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
+});
+
+it('asks for Face ID again when opening Finance after enabling its lock', async () => {
+  renderApp();
+  await waitFor(() =>
+    expect(useFinanceLockStore.getState().enabled).toBe(false),
+  );
+
+  fireEvent.press(screen.getByRole('button', { name: 'Mở menu' }));
+  const financeLockSwitch = await screen.findByRole('switch', {
+    name: 'Yêu cầu xác thực thiết bị để mở tab Tài chính',
+  });
+  fireEvent(financeLockSwitch, 'valueChange', true);
+  await waitFor(() => expect(useFinanceLockStore.getState().enabled).toBe(true));
+  expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(1);
+  expect(useFinanceLockStore.getState().unlocked).toBe(false);
+
+  fireEvent.press(screen.getByRole('button', { name: 'Đóng menu' }));
+  pressFinanceTab();
+  expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
+  expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(2);
+});
+
+it('retries automatic Finance authentication after changing the lock setting', async () => {
+  jest.mocked(SecureStore.getItemAsync).mockResolvedValue('on');
+  jest
+    .mocked(LocalAuthentication.authenticateAsync)
+    .mockResolvedValueOnce({ success: false, error: 'user_cancel' });
+  renderApp();
+
+  await waitFor(() =>
+    expect(useFinanceLockStore.getState().enabled).toBe(true),
+  );
+  pressFinanceTab();
+  expect(await screen.findByText('Đã hủy xác thực.')).toBeTruthy();
+  expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(1);
+
+  fireEvent.press(screen.getByLabelText('Home, tab, 1 of 3'));
+  fireEvent.press(screen.getByRole('button', { name: 'Mở menu' }));
+  fireEvent(
+    screen.getByRole('switch', {
+      name: 'Yêu cầu xác thực thiết bị để mở tab Tài chính',
+    }),
+    'valueChange',
+    false,
+  );
+  await waitFor(() => expect(useFinanceLockStore.getState().enabled).toBe(false));
+
+  fireEvent(
+    screen.getByRole('switch', {
+      name: 'Yêu cầu xác thực thiết bị để mở tab Tài chính',
+    }),
+    'valueChange',
+    true,
+  );
+  await waitFor(() => expect(useFinanceLockStore.getState().enabled).toBe(true));
+  expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(3);
+
+  fireEvent.press(screen.getByRole('button', { name: 'Đóng menu' }));
+  pressFinanceTab();
+  await waitFor(() =>
+    expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(4),
+  );
+  expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
+});
+
 it('preserves an open transaction form across background and Face ID', async () => {
   jest.mocked(SecureStore.getItemAsync).mockResolvedValue('on');
   let changeState!: (state: AppStateStatus) => void;

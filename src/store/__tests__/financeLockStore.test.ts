@@ -94,6 +94,7 @@ it('requires authentication for both enabling and disabling and never changes a 
   expect(authenticateFinance).toHaveBeenCalledTimes(1);
   expect(writeFinanceLock).toHaveBeenCalledWith('u1', true);
   expect(useFinanceLockStore.getState().enabled).toBe(true);
+  expect(useFinanceLockStore.getState().unlocked).toBe(false);
   jest
     .mocked(authenticateFinance)
     .mockResolvedValueOnce({ success: false, message: 'Đã hủy xác thực.' });
