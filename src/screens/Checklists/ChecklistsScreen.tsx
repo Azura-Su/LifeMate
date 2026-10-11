@@ -7,11 +7,12 @@ import {
   Pressable,
   ScrollView,
   Text,
-  TextInput,
+  TextInput as NativeTextInput,
   View,
 } from 'react-native';
 import { DialogCloseButton } from '../../components/DialogCloseButton';
 import { DialogModal } from '../../components/DialogModal';
+import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { Screen } from '../../components/Screen';
 import type { MainTabParams } from '../../navigation/types';
 import { useAuthStore } from '../../store/authStore';
@@ -95,8 +96,8 @@ export function ChecklistsScreen({ navigation, route }: Props) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
-  const newItemNameInput = useRef<TextInput>(null);
-  const newItemQuantityInput = useRef<TextInput>(null);
+  const newItemNameInput = useRef<NativeTextInput>(null);
+  const newItemQuantityInput = useRef<NativeTextInput>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);

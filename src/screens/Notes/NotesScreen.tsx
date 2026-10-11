@@ -7,12 +7,12 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { Button } from '../../components/Button';
 import { DialogModal } from '../../components/DialogModal';
 import { Screen } from '../../components/Screen';
+import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { useNotesAccount } from '../../hooks/useNotesAccount';
 import { colors, layout, typography } from '../../theme';
 import type { LifeNote } from '../../types/note';

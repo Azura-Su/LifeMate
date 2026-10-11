@@ -4,9 +4,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { useState } from 'react';
 import Slider from '@react-native-community/slider';
 import { useAudioPlayerStatus, type AudioPlayer } from 'expo-audio';

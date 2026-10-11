@@ -4,9 +4,9 @@ import {
   Pressable,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { DialogModal } from '../../components/DialogModal';
 import { colors } from '../../theme';
 import {

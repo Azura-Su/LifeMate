@@ -5,10 +5,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
+import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { Button } from '../../components/Button';
 import { DialogCloseButton } from '../../components/DialogCloseButton';
 import { DialogModal } from '../../components/DialogModal';

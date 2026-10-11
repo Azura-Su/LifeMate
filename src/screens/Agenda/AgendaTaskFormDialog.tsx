@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import DateTimePicker, {
   DateTimePickerAndroid,
@@ -7,6 +7,7 @@ import DateTimePicker, {
 import { Button } from '../../components/Button';
 import { DialogCloseButton } from '../../components/DialogCloseButton';
 import { DialogModal } from '../../components/DialogModal';
+import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { colors, typography } from '../../theme';
 import type { AgendaItem } from '../../types/agenda';
 import {

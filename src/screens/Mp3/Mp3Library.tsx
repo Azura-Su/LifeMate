@@ -4,10 +4,10 @@ import {
   Pressable,
   RefreshControl,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
+import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { ModalScreen } from '../../components/ModalScreen';
 import { ModalHeader } from '../../components/ModalHeader';
 import { Button } from '../../components/Button';
@@ -236,6 +236,7 @@ export function Mp3Library({ model, playlist, onClose }: Props) {
             placeholderTextColor={colors.muted}
             value={search}
             onChangeText={setSearch}
+            autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="search"
             style={styles.searchInput}

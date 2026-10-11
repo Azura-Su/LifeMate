@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { DialogCloseButton } from '../../components/DialogCloseButton';
 import { DialogModal } from '../../components/DialogModal';
+import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { colors, typography } from '../../theme';
 import { normalizeAudioTitle } from '../../utils/audio';
 

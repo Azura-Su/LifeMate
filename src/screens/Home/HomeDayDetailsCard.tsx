@@ -1,8 +1,9 @@
 import Feather from '@expo/vector-icons/Feather';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { DialogModal } from '../../components/DialogModal';
+import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { colors, typography } from '../../theme';
 import type { LifeNote } from '../../types/note';
 import type { PrepChecklist } from '../../types/prepChecklist';

@@ -6,9 +6,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { colors } from '../../theme';
 
 export const NOTE_BULLET_MIN_HEIGHT = 96;

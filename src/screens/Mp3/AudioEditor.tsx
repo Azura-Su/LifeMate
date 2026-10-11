@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
+import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { ModalScreen } from '../../components/ModalScreen';
 import { ModalHeader } from '../../components/ModalHeader';
 import { Button } from '../../components/Button';
@@ -111,6 +112,7 @@ export function AudioEditor(props: Props) {
                 editable={!props.job}
                 style={styles.input}
                 keyboardType="numbers-and-punctuation"
+                autoCapitalize="none"
                 selectTextOnFocus
               />
             </View>
@@ -125,6 +127,7 @@ export function AudioEditor(props: Props) {
                 editable={!props.job}
                 style={styles.input}
                 keyboardType="numbers-and-punctuation"
+                autoCapitalize="none"
                 selectTextOnFocus
               />
             </View>

@@ -1,7 +1,8 @@
 import Feather from '@expo/vector-icons/Feather';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { DialogModal } from '../../components/DialogModal';
+import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { MAX_CARD_SCORE_PLAYERS } from '../../utils/cardScore';
 import { colors } from '../../theme';
 import type { CardScorePlayer } from '../../types/cardScore';

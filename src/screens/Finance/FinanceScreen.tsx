@@ -11,10 +11,10 @@ import {
   Alert,
   Pressable,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { Button } from '../../components/Button';
+import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { Screen } from '../../components/Screen';
 import { colors, typography } from '../../theme';
 import {
