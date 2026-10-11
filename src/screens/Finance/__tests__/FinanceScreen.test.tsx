@@ -222,6 +222,45 @@ it('formats the entered amount and can dismiss the form from its header', async 
   expect(screen.queryByLabelText('Số tiền')).toBeNull();
 });
 
+it('shows a Vietnamese date calendar that fits the transaction dialog', async () => {
+  render(<FinanceScreen />);
+  await screen.findByText('Đã lưu trên tài khoản');
+  fireEvent.press(screen.getByRole('button', { name: 'Thêm giao dịch' }));
+
+  const dateInput = screen.getByLabelText('Ngày giao dịch');
+  const [day, month, year] = (dateInput.props.value as string)
+    .split('/')
+    .map(Number);
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Mở lịch chọn ngày giao dịch' }),
+  );
+
+  const picker = within(screen.getByTestId('finance-date-picker'));
+  expect(picker.getByTestId('finance-date-picker-month').props.children).toBe(
+    `tháng ${month} năm ${year}`,
+  );
+  expect(picker.getByText('T2')).toBeTruthy();
+  expect(picker.getByText('CN')).toBeTruthy();
+  expect(
+    picker.getByRole('button', {
+      name: `Chọn ngày ${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`,
+    }).props.accessibilityState.selected,
+  ).toBe(true);
+
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const nextDay = (day % daysInMonth) + 1;
+  fireEvent.press(
+    picker.getByRole('button', {
+      name: `Chọn ngày ${String(nextDay).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`,
+    }),
+  );
+  fireEvent.press(screen.getByRole('button', { name: 'Xong' }));
+
+  expect(screen.getByLabelText('Ngày giao dịch').props.value).toBe(
+    `${String(nextDay).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`,
+  );
+});
+
 it('keeps the delete button beside a newly added finance category', async () => {
   render(<FinanceScreen />);
   await screen.findByText('Đã lưu trên tài khoản');

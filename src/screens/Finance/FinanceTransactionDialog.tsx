@@ -8,9 +8,7 @@ import {
   View,
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
-import DateTimePicker, {
-  DateTimePickerAndroid,
-} from '@react-native-community/datetimepicker';
+import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Button } from '../../components/Button';
 import { DialogCloseButton } from '../../components/DialogCloseButton';
 import { DialogModal } from '../../components/DialogModal';
@@ -31,6 +29,7 @@ import {
   parseFinanceAmount,
   parseFinanceDate,
 } from '../../utils/finance';
+import { FinanceDatePicker } from './FinanceDatePicker';
 import { styles } from './FinanceTransactionDialog.styles';
 
 type Draft = {
@@ -697,19 +696,11 @@ export function FinanceTransactionDialog({
               onPress={() => setDatePickerVisible(false)}
             />
           </View>
-          <DateTimePicker
+          <FinanceDatePicker
             value={pickerValue}
-            mode="date"
-            display="inline"
-            style={styles.datePicker}
-            themeVariant="light"
-            textColor={colors.ink}
-            accentColor={colors.earth}
-            onChange={(event, selectedDate) => {
-              if (event.type === 'set' && selectedDate) {
-                setDate(formatFinanceDate(selectedDate));
-                setError(null);
-              }
+            onChange={(selectedDate) => {
+              setDate(formatFinanceDate(selectedDate));
+              setError(null);
             }}
           />
           <Button title="Xong" onPress={() => setDatePickerVisible(false)} />

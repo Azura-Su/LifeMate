@@ -4,7 +4,7 @@ import { colors, typography } from '../../theme';
 export const styles = StyleSheet.create({
   dialog: { maxHeight: '92%', padding: 0, gap: 0 },
   hidden: { display: 'none' },
-  pickerDialog: { maxHeight: '92%', padding: 20, gap: 16 },
+  pickerDialog: { maxHeight: '92%', padding: 16, gap: 14 },
   pickerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -12,7 +12,6 @@ export const styles = StyleSheet.create({
     gap: 10,
   },
   pickerTitle: { ...typography.heading, color: colors.ink },
-  datePicker: { width: '100%', height: 350 },
   dateField: {
     minHeight: 50,
     flexDirection: 'row',
