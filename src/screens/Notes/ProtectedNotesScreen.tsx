@@ -34,11 +34,11 @@ export function ProtectedNotesScreen({
     async (userId: string) => {
       promptAttempted.current = true;
       const didUnlock = await unlock(userId);
-      // iOS can resume after Face ID without delivering an `active` event to
-      // this screen. Read the current state after authentication so the lock
-      // overlay does not remain over notes that were successfully unlocked.
-      if (didUnlock && AppState.currentState === 'active')
-        setAppState('active');
+      // The system prompt can finish while AppState is still inactive, and
+      // iOS may omit the matching active event. A successful device check is
+      // enough to release this screen; the store rejects results after a
+      // background transition or account change.
+      if (didUnlock) setAppState('active');
     },
     [unlock],
   );
