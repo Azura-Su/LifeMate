@@ -53,6 +53,7 @@ function cardElement(
         error={null}
         canViewFinance
         onOpenFinance={jest.fn()}
+        onUnlockSummary={jest.fn()}
         {...overrides}
       />
     </SafeAreaProvider>
@@ -164,15 +165,19 @@ it('keeps the summary on today when the Home card remains mounted overnight', ()
   expect(screen.getByText('125.000 ₫')).toBeTruthy();
 });
 
-it('does not reveal amounts or activity marks while finance is locked', () => {
+it('hides Home totals behind an unlock button while preserving direct Finance navigation', () => {
   const onOpenFinance = jest.fn();
-  renderCard({ canViewFinance: false, onOpenFinance });
+  const onUnlockSummary = jest.fn();
+  renderCard({ canViewFinance: false, onOpenFinance, onUnlockSummary });
 
   expect(screen.queryByText('300.000 ₫')).toBeNull();
   expect(screen.queryByTestId('home-finance-day-2026-10-11')).toBeNull();
   expect(screen.queryByRole('button', { name: /Chọn ngày/ })).toBeNull();
+  expect(screen.getByText('Tóm tắt trên Home đang ẩn')).toBeTruthy();
   fireEvent.press(
-    screen.getByRole('button', { name: 'Mở Tài chính để xác thực' }),
+    screen.getByRole('button', { name: 'Mở khóa tóm tắt Home' }),
   );
+  expect(onUnlockSummary).toHaveBeenCalledTimes(1);
+  fireEvent.press(screen.getByRole('button', { name: 'Mở sổ Tài chính' }));
   expect(onOpenFinance).toHaveBeenCalledTimes(1);
 });

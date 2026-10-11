@@ -147,6 +147,10 @@ export function HomeScreen({
         }
         dateResetKey={financeDateResetKey}
         onOpenFinance={() => navigation.navigate('Finance')}
+        onUnlockSummary={() => {
+          if (model.privacy.uid)
+            void model.privacy.unlock(model.privacy.uid);
+        }}
       />
       <HomeTodayCard
         date={model.today}

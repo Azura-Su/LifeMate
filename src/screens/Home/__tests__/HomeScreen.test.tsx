@@ -317,7 +317,7 @@ it('shows the finance summary before today’s calendar and tasks', async () => 
   fireEvent.press(screen.getByRole('button', { name: 'Đóng lịch và việc' }));
 });
 
-it('hides Home amounts while locked and opens Finance for authentication', () => {
+it('keeps Home totals private until unlocked and still opens Finance directly', async () => {
   const today = new Date();
   useFinanceStore.setState({
     uid: 'home-user',
@@ -354,9 +354,15 @@ it('hides Home amounts while locked and opens Finance for authentication', () =>
 
   expect(screen.queryByText('900.000 ₫')).toBeNull();
   fireEvent.press(
-    screen.getByRole('button', { name: 'Mở Tài chính để xác thực' }),
+    screen.getByRole('button', { name: 'Mở khóa tóm tắt Home' }),
+  );
+  expect(await screen.findByText('900.000 ₫')).toBeTruthy();
+  expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(1);
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Mở sổ Tài chính' }),
   );
   expect(navigation.navigate).toHaveBeenCalledWith('Finance');
+  expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(1);
 });
 
 it('shows Home amounts only for an unlocked foreground Finance session', () => {

@@ -60,6 +60,7 @@ export function HomeFinanceCard({
   error,
   canViewFinance,
   onOpenFinance,
+  onUnlockSummary,
   dateResetKey = 0,
 }: {
   today: Date;
@@ -68,6 +69,7 @@ export function HomeFinanceCard({
   error: string | null;
   canViewFinance: boolean;
   onOpenFinance: () => void;
+  onUnlockSummary: () => void;
   dateResetKey?: number;
 }) {
   const insets = useSafeAreaInsets();
@@ -216,18 +218,18 @@ export function HomeFinanceCard({
         <View style={styles.locked}>
           <Feather name="lock" size={18} color={colors.earth} />
           <View style={styles.lockedCopy}>
-            <Text style={styles.lockedTitle}>Sổ thu chi đang khóa</Text>
+            <Text style={styles.lockedTitle}>Tóm tắt trên Home đang ẩn</Text>
             <Text style={typography.small}>
-              Mở Tài chính để xác thực và xem theo ngày.
+              Xác thực để xem số liệu tại đây.
             </Text>
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Mở Tài chính để xác thực"
-            onPress={onOpenFinance}
+            accessibilityLabel="Mở khóa tóm tắt Home"
+            onPress={onUnlockSummary}
             style={styles.unlockButton}
           >
-            <Feather name="arrow-right" size={18} color={colors.earth} />
+            <Feather name="unlock" size={18} color={colors.earth} />
           </Pressable>
         </View>
       ) : (

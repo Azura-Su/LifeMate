@@ -35,7 +35,7 @@ export function FinanceLockSetting({
         </View>
         <View style={styles.notificationText}>
           <Text style={[styles.cardTitle, compact && styles.compactCardTitle]}>
-            Face ID cho Tài chính
+            Face ID cho tóm tắt Home
           </Text>
           {!(compact && privacy.enabled === false) && (
             <Text
@@ -49,12 +49,12 @@ export function FinanceLockSetting({
         </View>
         {busy ? (
           <ActivityIndicator
-            accessibilityLabel="Đang xử lý khóa Tài chính"
+            accessibilityLabel="Đang xử lý khóa tóm tắt Home"
             color={colors.earth}
           />
         ) : (
           <Switch
-            accessibilityLabel="Khóa Tài chính bằng xác thực thiết bị"
+            accessibilityLabel="Ẩn tóm tắt tài chính trên Home bằng xác thực thiết bị"
             value={privacy.enabled === true}
             disabled={
               disabled ||
@@ -72,11 +72,11 @@ export function FinanceLockSetting({
       <Text style={[typography.small, compact && styles.compactDescription]}>
         {compact
           ? privacy.ready && !privacy.enabled && !privacy.canEnable
-            ? 'Thiết lập Face ID hoặc vân tay để bật khóa.'
-            : 'Xác thực khi mở ứng dụng hoặc quay lại từ nền.'
+            ? 'Thiết lập Face ID hoặc vân tay để ẩn tóm tắt Home.'
+            : 'Chỉ khóa tóm tắt trên Home. Tab Tài chính luôn mở trực tiếp.'
           : privacy.ready && !privacy.enabled && !privacy.canEnable
-            ? 'Thiết lập Face ID hoặc vân tay trong cài đặt thiết bị để bật khóa.'
-            : 'Xác thực một lần khi mở ứng dụng hoặc quay lại từ nền. Chuyển tab không khóa lại. Áp dụng cho tài khoản này trên thiết bị này.'}
+            ? 'Thiết lập Face ID hoặc vân tay trong cài đặt thiết bị để ẩn tóm tắt Home.'
+            : 'Khóa này chỉ ẩn tóm tắt trên Home. Tab Tài chính luôn mở trực tiếp. Áp dụng cho tài khoản này trên thiết bị này.'}
       </Text>
       {privacy.error && (
         <Text accessibilityRole="alert" style={styles.error}>

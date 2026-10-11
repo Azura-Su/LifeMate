@@ -121,7 +121,7 @@ export const useFinanceLockStore = create<FinanceLockState>((set, get) => {
       if (!get().enabled) return true;
       if (get().unlocked) return true;
       const epoch = accessEpoch;
-      const allowed = await authorize(uid, 'Mở khóa Tài chính');
+      const allowed = await authorize(uid, 'Mở tóm tắt Home');
       if (allowed && isCurrent(uid) && epoch === accessEpoch) {
         set({ unlocked: true });
         return true;
@@ -141,7 +141,7 @@ export const useFinanceLockStore = create<FinanceLockState>((set, get) => {
       if (enabled && !get().canEnable) {
         set({
           error:
-            'Thiết lập Face ID hoặc vân tay trong cài đặt thiết bị để bật khóa.',
+            'Thiết lập Face ID hoặc vân tay trong cài đặt thiết bị để ẩn tóm tắt Home.',
         });
         return;
       }
@@ -151,7 +151,7 @@ export const useFinanceLockStore = create<FinanceLockState>((set, get) => {
         if (
           !(await authorize(
             uid,
-            enabled ? 'Bật khóa Tài chính' : 'Tắt khóa Tài chính',
+            enabled ? 'Bật khóa tóm tắt Home' : 'Tắt khóa tóm tắt Home',
           ))
         )
           return;

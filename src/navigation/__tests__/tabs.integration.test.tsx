@@ -180,7 +180,7 @@ it('shows the configured name, opens all tabs, and returns to Login on logout', 
   expect(screen.queryByText('Cài đặt')).toBeNull();
   expect(screen.queryByText('Ghi chú')).toBeNull();
   fireEvent.press(screen.getByRole('button', { name: 'Mở menu' }));
-  expect(await screen.findByText('Face ID cho Tài chính')).toBeTruthy();
+  expect(await screen.findByText('Face ID cho tóm tắt Home')).toBeTruthy();
   expect(screen.queryByText('Face ID · chưa bật')).toBeNull();
   expect(screen.getByText('Bật thông báo')).toBeTruthy();
   expect(screen.getByText('LifeMate · 1.0.0')).toBeTruthy();
@@ -214,7 +214,7 @@ it('shows the configured name, opens all tabs, and returns to Login on logout', 
   expect(screen.queryByText('Asher')).toBeNull();
 });
 
-it('only prompts for Face ID when Finance is selected on launch or app resume', async () => {
+it('opens Finance without Face ID when the Home summary lock is enabled', async () => {
   jest.mocked(SecureStore.getItemAsync).mockResolvedValue('on');
   let changeState!: (state: AppStateStatus) => void;
   jest
@@ -236,33 +236,17 @@ it('only prompts for Face ID when Finance is selected on launch or app resume', 
 
   pressFinanceTab();
   expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
-  expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText('Sổ thu chi đã khóa')).toBeNull();
+  expect(LocalAuthentication.authenticateAsync).not.toHaveBeenCalled();
 
   act(() => changeState('background'));
-  expect(screen.queryByText('Giao dịch trong tháng')).toBeNull();
+  expect(screen.getByText('Giao dịch trong tháng')).toBeTruthy();
   act(() => changeState('active'));
   expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
-  expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(2);
+  expect(LocalAuthentication.authenticateAsync).not.toHaveBeenCalled();
 });
 
-it('keeps the ledger locked after canceled Face ID, allows retry, and reuses the session across tabs', async () => {
-  jest.mocked(SecureStore.getItemAsync).mockResolvedValue('on');
-  jest
-    .mocked(LocalAuthentication.authenticateAsync)
-    .mockResolvedValueOnce({ success: false, error: 'user_cancel' });
-  renderApp();
-  pressFinanceTab();
-  expect(await screen.findByText('Đã hủy xác thực.')).toBeTruthy();
-  expect(screen.queryByText('Giao dịch trong tháng')).toBeNull();
-  fireEvent.press(screen.getByRole('button', { name: 'Mở khóa' }));
-  expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
-  fireEvent.press(screen.getByText('Home'));
-  pressFinanceTab();
-  expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
-  expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(2);
-});
-
-it('preserves an open transaction form across background and asks once on resume', async () => {
+it('preserves an open transaction form across background without Face ID', async () => {
   jest.mocked(SecureStore.getItemAsync).mockResolvedValue('on');
   let changeState!: (state: AppStateStatus) => void;
   jest
@@ -279,80 +263,14 @@ it('preserves an open transaction form across background and asks once on resume
   fireEvent.changeText(screen.getByLabelText('Số tiền'), '125000');
   fireEvent.changeText(screen.getByLabelText('Ghi chú'), 'Ăn trưa');
   act(() => changeState('background'));
-  expect(screen.queryByLabelText('Số tiền')).toBeNull();
-  expect(screen.queryByText('Giao dịch trong tháng')).toBeNull();
+  expect(screen.getByLabelText('Số tiền').props.value).toBe('125000');
+  expect(screen.getByText('Giao dịch trong tháng')).toBeTruthy();
   act(() => changeState('active'));
   expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
   expect(await screen.findByLabelText('Số tiền')).toBeTruthy();
   expect(screen.getByLabelText('Số tiền').props.value).toBe('125000');
   expect(screen.getByLabelText('Ghi chú').props.value).toBe('Ăn trưa');
-  expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(2);
-});
-
-it('allows a successful Face ID prompt that temporarily makes iOS inactive', async () => {
-  jest.mocked(SecureStore.getItemAsync).mockResolvedValue('on');
-  let changeState!: (state: AppStateStatus) => void;
-  jest
-    .spyOn(AppState, 'addEventListener')
-    .mockImplementation((_event, callback) => {
-      changeState = callback;
-      return { remove: jest.fn() };
-    });
-  let finish!: (value: LocalAuthentication.LocalAuthenticationResult) => void;
-  jest.mocked(LocalAuthentication.authenticateAsync).mockImplementationOnce(
-    () =>
-      new Promise((resolve) => {
-        finish = resolve;
-      }),
-  );
-  renderApp();
-  pressFinanceTab();
-  await waitFor(() =>
-    expect(LocalAuthentication.authenticateAsync).toHaveBeenCalled(),
-  );
-  act(() => {
-    AppState.currentState = 'inactive';
-    changeState('inactive');
-  });
-  await act(async () => finish({ success: true }));
-  expect(screen.queryByText('Giao dịch trong tháng')).toBeNull();
-  act(() => {
-    AppState.currentState = 'active';
-    changeState('active');
-  });
-  expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
-});
-
-it('shows Finance when Face ID succeeds after iOS is active but its event was missed', async () => {
-  jest.mocked(SecureStore.getItemAsync).mockResolvedValue('on');
-  let changeState!: (state: AppStateStatus) => void;
-  jest
-    .spyOn(AppState, 'addEventListener')
-    .mockImplementation((_event, callback) => {
-      changeState = callback;
-      return { remove: jest.fn() };
-    });
-  let finish!: (value: LocalAuthentication.LocalAuthenticationResult) => void;
-  jest.mocked(LocalAuthentication.authenticateAsync).mockImplementationOnce(
-    () =>
-      new Promise((resolve) => {
-        finish = resolve;
-      }),
-  );
-
-  renderApp();
-  pressFinanceTab();
-  await waitFor(() =>
-    expect(LocalAuthentication.authenticateAsync).toHaveBeenCalled(),
-  );
-  act(() => {
-    AppState.currentState = 'inactive';
-    changeState('inactive');
-  });
-  AppState.currentState = 'active';
-  await act(async () => finish({ success: true }));
-
-  expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
+  expect(LocalAuthentication.authenticateAsync).not.toHaveBeenCalled();
 });
 
 it('shows Notes when Face ID succeeds after iOS is active but its event was missed', async () => {
