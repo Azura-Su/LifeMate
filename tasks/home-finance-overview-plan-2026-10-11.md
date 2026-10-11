@@ -9,6 +9,7 @@
 ## Quyết định thiết kế
 
 - Thẻ Tài chính ở đầu Home giữ tiêu đề/lối vào màn Tài chính, một nút ngày đang xem đặt ngay cạnh chữ “Tài chính” và tổng Thu/Chi. Mặc định chỉ hiện nút “Hôm nay”; không có hàng chọn ngày riêng, lưới tháng hoặc dải ngày trên Home.
+- Ngày mặc định bám theo ngày địa phương hiện tại cả khi Home còn được giữ mounted qua nửa đêm; ngày người dùng chọn trong lịch được đặt lại về hôm nay khi Home được mở lại.
 - Chạm nút ngày mở lịch tháng dạng sheet phủ lên Home. Chọn ngày cập nhật tổng rồi đóng sheet; khi xem ngày cũ có nút nhỏ để quay về hôm nay.
 - Dùng cùng định dạng tiền Việt hiện có và đánh dấu ngày có giao dịch bằng chấm thu/chi nhỏ trong lịch popup. Mọi ô ngày có nhãn trợ năng đầy đủ, không dùng màu làm tín hiệu duy nhất.
 - Dùng `useFinanceAccount` để tái sử dụng nạp dữ liệu và cách ly UID hiện có; thao tác kéo để làm mới cũng làm mới sổ thu chi.

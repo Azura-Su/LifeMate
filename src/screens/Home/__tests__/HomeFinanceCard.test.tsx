@@ -36,10 +36,10 @@ const transactions: FinanceTransaction[] = [
   },
 ];
 
-function renderCard(
+function cardElement(
   overrides: Partial<React.ComponentProps<typeof HomeFinanceCard>> = {},
 ) {
-  return render(
+  return (
     <SafeAreaProvider
       initialMetrics={{
         frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -55,8 +55,14 @@ function renderCard(
         onOpenFinance={jest.fn()}
         {...overrides}
       />
-    </SafeAreaProvider>,
+    </SafeAreaProvider>
   );
+}
+
+function renderCard(
+  overrides: Partial<React.ComponentProps<typeof HomeFinanceCard>> = {},
+) {
+  return render(cardElement(overrides));
 }
 
 it('shows both totals for today and updates them when another day is selected', () => {
@@ -127,6 +133,35 @@ it('changes month in the picker and can return to today', () => {
   expect(screen.getByTestId('home-finance-month-label').props.children).toMatch(
     /tháng 3/i,
   );
+});
+
+it('keeps the summary on today when the Home card remains mounted overnight', () => {
+  const view = renderCard({
+    today: new Date(2026, 9, 11, 23, 55),
+    transactions: [],
+  });
+
+  view.rerender(
+    cardElement({
+      today: new Date(2026, 9, 12, 0, 5),
+      transactions: [
+        {
+          id: 'after-midnight-expense',
+          ownerId: 'u1',
+          type: 'expense',
+          amount: 125_000,
+          category: 'Ăn uống',
+          note: 'Ăn khuya',
+          createdAt: new Date(2026, 9, 12, 0, 2).getTime(),
+        },
+      ],
+    }),
+  );
+
+  expect(
+    screen.getByRole('button', { name: 'Chọn ngày, hôm nay' }),
+  ).toBeTruthy();
+  expect(screen.getByText('125.000 ₫')).toBeTruthy();
 });
 
 it('does not reveal amounts or activity marks while finance is locked', () => {

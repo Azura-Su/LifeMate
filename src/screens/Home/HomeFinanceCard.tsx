@@ -1,5 +1,5 @@
 import Feather from '@expo/vector-icons/Feather';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { FinanceTransaction } from '../../types/finance';
@@ -47,6 +47,7 @@ export function HomeFinanceCard({
   error,
   canViewFinance,
   onOpenFinance,
+  dateResetKey = 0,
 }: {
   today: Date;
   transactions: FinanceTransaction[];
@@ -54,17 +55,20 @@ export function HomeFinanceCard({
   error: string | null;
   canViewFinance: boolean;
   onOpenFinance: () => void;
+  dateResetKey?: number;
 }) {
   const insets = useSafeAreaInsets();
-  const [selectedDate, setSelectedDate] = useState(() => today);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [monthDate, setMonthDate] = useState(() => today);
   const [pickerVisible, setPickerVisible] = useState(false);
-  const selectedDateKey = toDateKey(selectedDate);
+  useEffect(() => setSelectedDate(null), [dateResetKey]);
+  const dateBeingViewed = selectedDate ?? today;
+  const selectedDateKey = toDateKey(dateBeingViewed);
   const year = monthDate.getFullYear();
   const monthIndex = monthDate.getMonth();
   const previousMonthDisabled = year <= 1900 && monthIndex === 0;
   const nextMonthDisabled = year >= 9999 && monthIndex === 11;
-  const todayIsSelected = isSameDay(selectedDate, today);
+  const todayIsSelected = selectedDate === null;
   const monthLabel = new Intl.DateTimeFormat('vi-VN', {
     month: 'long',
     year: 'numeric',
@@ -91,12 +95,12 @@ export function HomeFinanceCard({
   );
 
   function selectDate(date: Date) {
-    setSelectedDate(date);
+    setSelectedDate(isSameDay(date, today) ? null : date);
     setMonthDate(date);
   }
 
   function openPicker() {
-    setMonthDate(selectedDate);
+    setMonthDate(dateBeingViewed);
     setPickerVisible(true);
   }
 
@@ -124,12 +128,14 @@ export function HomeFinanceCard({
               <Pressable
                 testID="home-finance-heading-date"
                 accessibilityRole="button"
-                accessibilityLabel={`Chọn ngày, ${todayIsSelected ? 'hôm nay' : formatDay(selectedDate)}`}
+                accessibilityLabel={`Chọn ngày, ${todayIsSelected ? 'hôm nay' : formatDay(dateBeingViewed)}`}
                 onPress={openPicker}
                 style={styles.headerDateButton}
               >
                 <Text numberOfLines={1} style={styles.headerDateText}>
-                  {todayIsSelected ? 'Hôm nay' : formatCompactDay(selectedDate)}
+                  {todayIsSelected
+                    ? 'Hôm nay'
+                    : formatCompactDay(dateBeingViewed)}
                 </Text>
                 <Feather name="chevron-down" size={13} color={colors.earth} />
               </Pressable>
@@ -185,7 +191,7 @@ export function HomeFinanceCard({
                 accessibilityRole="button"
                 accessibilityLabel="Về hôm nay"
                 onPress={() => {
-                  setSelectedDate(today);
+                  setSelectedDate(null);
                   setMonthDate(today);
                 }}
                 style={styles.todayButton}
@@ -302,7 +308,7 @@ export function HomeFinanceCard({
                   {cells.map((date) => {
                     const dateKey = toDateKey(date);
                     const totals = transactionsByDate.get(dateKey);
-                    const selected = isSameDay(date, selectedDate);
+                    const selected = isSameDay(date, dateBeingViewed);
                     const isToday = isSameDay(date, today);
                     const inMonth = date.getMonth() === monthIndex;
                     const dayLabel = new Intl.DateTimeFormat('vi-VN', {

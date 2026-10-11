@@ -30,6 +30,7 @@ export function HomeScreen({
     'calendar' | 'tasks'
   >('calendar');
   const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [financeDateResetKey, setFinanceDateResetKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const refreshInFlight = useRef(false);
   const checklistLoadGeneration = useRef(0);
@@ -73,6 +74,7 @@ export function HomeScreen({
     void refreshChecklists();
     const unsubscribe = navigation.addListener?.('focus', () => {
       void refreshChecklists();
+      setFinanceDateResetKey((key) => key + 1);
     });
     return () => {
       checklistLoadGeneration.current += 1;
@@ -143,6 +145,7 @@ export function HomeScreen({
           (!model.privacy.enabled ||
             (model.privacy.appActive && model.privacy.unlocked))
         }
+        dateResetKey={financeDateResetKey}
         onOpenFinance={() => navigation.navigate('Finance')}
       />
       <HomeTodayCard

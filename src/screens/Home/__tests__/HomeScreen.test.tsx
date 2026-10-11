@@ -63,6 +63,7 @@ jest.mock('../../../services/firebase/messagingService', () => ({
 }));
 
 beforeEach(async () => {
+  homeFocusHandler = null;
   await AsyncStorage.clear();
   resetFirestoreMock();
   useAuthStore.getState().setUser({
@@ -110,7 +111,14 @@ beforeEach(async () => {
   });
 });
 
-const navigation = { navigate: jest.fn() };
+let homeFocusHandler: (() => void) | null = null;
+const navigation = {
+  navigate: jest.fn(),
+  addListener: jest.fn((_event: string, listener: () => void) => {
+    homeFocusHandler = listener;
+    return jest.fn();
+  }),
+};
 function renderHome() {
   return render(
     <SafeAreaProvider
@@ -386,6 +394,62 @@ it('shows Home amounts only for an unlocked foreground Finance session', () => {
   renderHome();
 
   expect(screen.getByText('900.000 ₫')).toBeTruthy();
+});
+
+it('returns the finance summary to today when Home regains focus', () => {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  useFinanceStore.setState({
+    uid: 'home-user',
+    transactions: [
+      {
+        id: 'today-expense',
+        ownerId: 'home-user',
+        type: 'expense',
+        amount: 50_000,
+        category: 'Ăn uống',
+        note: 'Hôm nay',
+        createdAt: new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate(),
+          12,
+        ).getTime(),
+      },
+      {
+        id: 'yesterday-expense',
+        ownerId: 'home-user',
+        type: 'expense',
+        amount: 100_000,
+        category: 'Ăn uống',
+        note: 'Hôm qua',
+        createdAt: new Date(
+          yesterday.getFullYear(),
+          yesterday.getMonth(),
+          yesterday.getDate(),
+          12,
+        ).getTime(),
+      },
+    ],
+    syncStatus: 'synced',
+    loading: false,
+    error: null,
+  });
+  renderHome();
+
+  fireEvent.press(screen.getByRole('button', { name: 'Chọn ngày, hôm nay' }));
+  fireEvent.press(
+    screen.getByTestId(`home-finance-picker-day-${toDateKey(yesterday)}`),
+  );
+  expect(screen.getByText('100.000 ₫')).toBeTruthy();
+
+  act(() => homeFocusHandler?.());
+
+  expect(
+    screen.getByRole('button', { name: 'Chọn ngày, hôm nay' }),
+  ).toBeTruthy();
+  expect(screen.getByText('50.000 ₫')).toBeTruthy();
 });
 
 it('opens the preparation checklist from the drawer', async () => {
