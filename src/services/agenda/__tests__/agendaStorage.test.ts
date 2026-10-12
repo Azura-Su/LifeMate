@@ -89,3 +89,55 @@ it('keeps a deletion pending locally when its cloud write stays pending', async 
   const saved = await AsyncStorage.getItem('lifemate:agenda:v1:u1');
   expect(saved).toMatch(/^lifemate:aes-gcm:v1:/);
 });
+
+it.each([
+  ['save', 'save'],
+  ['save', 'delete'],
+  ['delete', 'save'],
+  ['delete', 'delete'],
+] as const)(
+  'keeps the agenda unsynced when a pending %s remains after another successful %s',
+  async (pendingOperation, nextOperation) => {
+    const pendingTask = { ...task(), id: 'pending-task' };
+    const otherTask = { ...task(), id: 'other-task' };
+    await readAgenda('u1');
+    if (nextOperation === 'delete') await saveAgendaItem('u1', otherTask);
+
+    if (pendingOperation === 'save') {
+      jest.mocked(setDoc).mockRejectedValueOnce(new Error('offline'));
+      expect((await saveAgendaItem('u1', pendingTask)).synced).toBe(false);
+    } else {
+      await saveAgendaItem('u1', pendingTask);
+      jest.mocked(deleteDoc).mockRejectedValueOnce(new Error('offline'));
+      expect((await deleteAgendaItem('u1', pendingTask.id)).synced).toBe(false);
+    }
+
+    const result =
+      nextOperation === 'save'
+        ? await saveAgendaItem('u1', otherTask)
+        : await deleteAgendaItem('u1', otherTask.id);
+
+    expect(result.synced).toBe(false);
+    expect(result.items.some((item) => item.id === pendingTask.id)).toBe(
+      pendingOperation === 'save',
+    );
+    expect(result.items.some((item) => item.id === otherTask.id)).toBe(
+      nextOperation === 'save',
+    );
+    const retried = await readAgenda('u1');
+    expect(retried.synced).toBe(true);
+    expect(retried.items).toEqual(result.items);
+  },
+);
+
+it('keeps the agenda unsynced until legacy tasks have also been migrated', async () => {
+  await AsyncStorage.setItem(
+    'lifemate:agenda:v1:u1',
+    JSON.stringify({ items: [task()], deletedIds: [] }),
+  );
+
+  const saved = await saveAgendaItem('u1', { ...task(), id: 'new-task' });
+
+  expect(saved.synced).toBe(false);
+  expect((await readAgenda('u1')).synced).toBe(true);
+});

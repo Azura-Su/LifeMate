@@ -244,6 +244,14 @@ export function readNotes(uid: string): Promise<NoteStorageResult> {
   return enqueue(uid, () => readNotesInternal(uid));
 }
 
+function cacheIsSynced(cache: Cache) {
+  return (
+    cache.migrationComplete &&
+    cache.pendingIds.length === 0 &&
+    cache.deletedIds.length === 0
+  );
+}
+
 export function saveNote(
   uid: string,
   value: LifeNote,
@@ -263,7 +271,7 @@ export function saveNote(
       await withTimeout(
         setDoc(path(uid, note.id) as ReturnType<typeof doc>, note),
       );
-      await writeCache(uid, {
+      const savedCache = {
         ...nextCache,
         pendingIds: pendingIds.filter((id) => id !== note.id),
         migrationComplete:
@@ -271,8 +279,9 @@ export function saveNote(
           notes
             .filter((item) => item.id !== note.id)
             .every((item) => cache.pendingIds.includes(item.id)),
-      });
-      return { notes: sortNotes(notes), synced: true };
+      };
+      await writeCache(uid, savedCache);
+      return { notes: sortNotes(notes), synced: cacheIsSynced(savedCache) };
     } catch {
       return { notes: sortNotes(notes), synced: false };
     }
@@ -299,14 +308,15 @@ export function deleteNote(
         ),
       );
       await withTimeout(deleteDoc(path(uid, id) as ReturnType<typeof doc>));
-      await writeCache(uid, {
+      const savedCache = {
         ...nextCache,
         deletedIds: deletedIds.filter((value) => value !== id),
         migrationComplete:
           cache.migrationComplete ||
           notes.every((item) => cache.pendingIds.includes(item.id)),
-      });
-      return { notes, synced: true };
+      };
+      await writeCache(uid, savedCache);
+      return { notes, synced: cacheIsSynced(savedCache) };
     } catch {
       return { notes, synced: false };
     }

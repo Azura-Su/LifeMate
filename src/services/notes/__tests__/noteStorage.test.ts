@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { setDoc } from '@react-native-firebase/firestore';
+import { deleteDoc, setDoc } from '@react-native-firebase/firestore';
 import { resetFirestoreMock } from '../../../testing/firestoreMock';
 import type { LifeNote } from '../../../types/note';
-import { readNotes, saveNote } from '../noteStorage';
+import { deleteNote, readNotes, saveNote } from '../noteStorage';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
   jest.requireActual(
@@ -55,4 +55,56 @@ it('keeps a calendar note locally while offline and uploads it on retry', async 
   const retried = await readNotes('u1');
   expect(retried.synced).toBe(true);
   expect(retried.notes).toContainEqual(dateNote);
+});
+
+it.each([
+  ['save', 'save'],
+  ['save', 'delete'],
+  ['delete', 'save'],
+  ['delete', 'delete'],
+] as const)(
+  'keeps notes unsynced when a pending %s remains after another successful %s',
+  async (pendingOperation, nextOperation) => {
+    const pendingNote = { ...dateNote, id: 'pending-note' };
+    const otherNote = { ...dateNote, id: 'other-note', updatedAt: 20 };
+    await readNotes('u1');
+    if (nextOperation === 'delete') await saveNote('u1', otherNote);
+
+    if (pendingOperation === 'save') {
+      jest.mocked(setDoc).mockRejectedValueOnce(new Error('offline'));
+      expect((await saveNote('u1', pendingNote)).synced).toBe(false);
+    } else {
+      await saveNote('u1', pendingNote);
+      jest.mocked(deleteDoc).mockRejectedValueOnce(new Error('offline'));
+      expect((await deleteNote('u1', pendingNote.id)).synced).toBe(false);
+    }
+
+    const result =
+      nextOperation === 'save'
+        ? await saveNote('u1', otherNote)
+        : await deleteNote('u1', otherNote.id);
+
+    expect(result.synced).toBe(false);
+    expect(result.notes.some((note) => note.id === pendingNote.id)).toBe(
+      pendingOperation === 'save',
+    );
+    expect(result.notes.some((note) => note.id === otherNote.id)).toBe(
+      nextOperation === 'save',
+    );
+    const retried = await readNotes('u1');
+    expect(retried.synced).toBe(true);
+    expect(retried.notes).toEqual(result.notes);
+  },
+);
+
+it('keeps notes unsynced until legacy notes have also been migrated', async () => {
+  await AsyncStorage.setItem(
+    'lifemate:notes:v1:u1',
+    JSON.stringify({ notes: [dateNote], deletedIds: [] }),
+  );
+
+  const saved = await saveNote('u1', { ...dateNote, id: 'new-note' });
+
+  expect(saved.synced).toBe(false);
+  expect((await readNotes('u1')).synced).toBe(true);
 });

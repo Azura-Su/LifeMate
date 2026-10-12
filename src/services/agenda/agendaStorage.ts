@@ -259,6 +259,14 @@ export function readAgenda(uid: string): Promise<AgendaStorageResult> {
   return enqueue(uid, () => readAgendaInternal(uid));
 }
 
+function cacheIsSynced(cache: Cache) {
+  return (
+    cache.migrationComplete &&
+    cache.pendingIds.length === 0 &&
+    cache.deletedIds.length === 0
+  );
+}
+
 export function saveAgendaItem(
   uid: string,
   value: AgendaItem,
@@ -281,7 +289,7 @@ export function saveAgendaItem(
       await withCloudTimeout(
         setDoc(path(uid, item.id) as ReturnType<typeof doc>, item),
       );
-      await writeCache(uid, {
+      const savedCache = {
         ...nextCache,
         pendingIds: pendingIds.filter((id) => id !== item.id),
         migrationComplete:
@@ -289,8 +297,9 @@ export function saveAgendaItem(
           items
             .filter((current) => current.id !== item.id)
             .every((current) => cache.pendingIds.includes(current.id)),
-      });
-      return { items: sortItems(items), synced: true };
+      };
+      await writeCache(uid, savedCache);
+      return { items: sortItems(items), synced: cacheIsSynced(savedCache) };
     } catch {
       return { items: sortItems(items), synced: false };
     }
@@ -319,14 +328,15 @@ export function deleteAgendaItem(
       await withCloudTimeout(
         deleteDoc(path(uid, id) as ReturnType<typeof doc>),
       );
-      await writeCache(uid, {
+      const savedCache = {
         ...nextCache,
         deletedIds: deletedIds.filter((value) => value !== id),
         migrationComplete:
           cache.migrationComplete ||
           items.every((item) => cache.pendingIds.includes(item.id)),
-      });
-      return { items, synced: true };
+      };
+      await writeCache(uid, savedCache);
+      return { items, synced: cacheIsSynced(savedCache) };
     } catch {
       return { items, synced: false };
     }
