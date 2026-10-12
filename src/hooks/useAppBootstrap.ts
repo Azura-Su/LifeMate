@@ -7,9 +7,14 @@ import {
   registerPush,
 } from '../services/firebase/messagingService';
 import { cancelAllAgendaReminders } from '../services/agenda/agendaReminders';
+import { cancelAllLoanReminders } from '../services/finance/loanReminders';
+import { resetFinanceCloudState } from '../services/finance/financeStorage';
 import { migrateSensitiveCache } from '../services/security/encryptedLocalStorage';
 import { useAuthStore } from '../store/authStore';
+import { useAgendaStore } from '../store/agendaStore';
 import { useConfigStore } from '../store/configStore';
+import { useFinanceStore } from '../store/financeStore';
+import { useNoteStore } from '../store/noteStore';
 import { useNotificationStore } from '../store/notificationStore';
 
 const PUSH_RECHECK_MS = 30 * 60 * 1000;
@@ -38,8 +43,14 @@ export function useAppBootstrap() {
     () =>
       useAuthStore.subscribe((state, previous) => {
         const previousUid = previous.user?.uid;
-        if (previousUid && previousUid !== state.user?.uid)
+        if (previousUid && previousUid !== state.user?.uid) {
+          void useFinanceStore.getState().load(null);
+          void useAgendaStore.getState().load(null);
+          void useNoteStore.getState().load(null);
+          resetFinanceCloudState(previousUid);
           void cancelAllAgendaReminders(previousUid).catch(() => undefined);
+          void cancelAllLoanReminders(previousUid).catch(() => undefined);
+        }
       }),
     [],
   );

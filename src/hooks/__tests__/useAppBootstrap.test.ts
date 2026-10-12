@@ -9,8 +9,16 @@ import {
   observePush,
   registerPush,
 } from '../../services/firebase/messagingService';
+import { useFinanceStore } from '../../store/financeStore';
+import { useAgendaStore } from '../../store/agendaStore';
+import { useNoteStore } from '../../store/noteStore';
+import { cancelAllLoanReminders } from '../../services/finance/loanReminders';
 import { cancelAllAgendaReminders } from '../../services/agenda/agendaReminders';
 import { migrateSensitiveCache } from '../../services/security/encryptedLocalStorage';
+
+jest.mock('@react-native-firebase/firestore', () =>
+  jest.requireActual('../../testing/firestoreMock'),
+);
 
 jest.mock('../../services/firebase/authService', () => ({
   observeAuth: jest.fn(),
@@ -22,6 +30,9 @@ jest.mock('../../services/firebase/messagingService', () => ({
 }));
 jest.mock('../../services/agenda/agendaReminders', () => ({
   cancelAllAgendaReminders: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('../../services/finance/loanReminders', () => ({
+  cancelAllLoanReminders: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('../../services/security/encryptedLocalStorage', () => ({
   migrateSensitiveCache: jest.fn().mockResolvedValue(undefined),
@@ -75,10 +86,17 @@ describe('session lifecycle', () => {
     await act(async () =>
       authChanged({ uid: 'a', email: 'a@b.co', displayName: null }),
     );
+    useFinanceStore.setState({ uid: 'a' });
+    useAgendaStore.setState({ uid: 'a' });
+    useNoteStore.setState({ uid: 'a' });
     expect(cancelAllAgendaReminders).not.toHaveBeenCalled();
 
     await act(async () => authChanged(null));
     expect(cancelAllAgendaReminders).toHaveBeenCalledWith('a');
+    expect(cancelAllLoanReminders).toHaveBeenCalledWith('a');
+    expect(useFinanceStore.getState().uid).toBeNull();
+    expect(useAgendaStore.getState().uid).toBeNull();
+    expect(useNoteStore.getState().uid).toBeNull();
     unmount();
   });
 });
