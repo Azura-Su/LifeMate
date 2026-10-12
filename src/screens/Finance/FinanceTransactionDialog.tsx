@@ -17,7 +17,7 @@ import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
-  type FinanceIncomeSource,
+  type RegularFinanceIncomeSource,
   type FinanceTransactionType,
   type FinanceTransaction,
 } from '../../types/finance';
@@ -34,7 +34,7 @@ import { styles } from './FinanceTransactionDialog.styles';
 
 type Draft = {
   type: FinanceTransactionType;
-  incomeSource: FinanceIncomeSource;
+  incomeSource: RegularFinanceIncomeSource;
   amount: string;
   category: string;
   note: string;
@@ -45,7 +45,7 @@ type Props = {
   visible: boolean;
   suspended?: boolean;
   initialType?: FinanceTransactionType;
-  initialIncomeSource?: FinanceIncomeSource;
+  initialIncomeSource?: RegularFinanceIncomeSource;
   initialDate?: string;
   initialTransaction?: FinanceTransaction | null;
   incomeCategories?: string[];
@@ -101,8 +101,10 @@ export function FinanceTransactionDialog({
     initialTransaction?.category ??
       (initialType === 'income' ? INCOME_CATEGORIES[0] : EXPENSE_CATEGORIES[0]),
   );
-  const [incomeSource, setIncomeSource] = useState<FinanceIncomeSource>(
-    initialTransaction?.incomeSource ?? initialIncomeSource,
+  const [incomeSource, setIncomeSource] = useState<RegularFinanceIncomeSource>(
+    initialTransaction?.incomeSource === 'other'
+      ? 'other'
+      : initialIncomeSource,
   );
   const [note, setNote] = useState('');
   const [date, setDate] = useState(initialDate);
@@ -145,7 +147,11 @@ export function FinanceTransactionDialog({
             ? INCOME_CATEGORIES[0]
             : EXPENSE_CATEGORIES[0]),
       );
-      setIncomeSource(initialTransaction?.incomeSource ?? initialIncomeSource);
+      setIncomeSource(
+        initialTransaction?.incomeSource === 'other'
+          ? 'other'
+          : initialIncomeSource,
+      );
       setNote(capitalizeInitialLetter(initialTransaction?.note ?? ''));
       setDate(
         initialTransaction
@@ -701,9 +707,9 @@ export function FinanceTransactionDialog({
             onChange={(selectedDate) => {
               setDate(formatFinanceDate(selectedDate));
               setError(null);
+              setDatePickerVisible(false);
             }}
           />
-          <Button title="Xong" onPress={() => setDatePickerVisible(false)} />
         </>
       )}
     </DialogModal>

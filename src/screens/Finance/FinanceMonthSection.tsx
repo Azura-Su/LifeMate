@@ -15,6 +15,7 @@ type Props = {
   balance: number;
   onDelete: (transaction: FinanceTransaction) => void;
   onEdit: (transaction: FinanceTransaction) => void;
+  canDeleteLinkedExpense?: (transaction: FinanceTransaction) => boolean;
   deletingIds?: ReadonlySet<string>;
   onAdd: () => void;
 };
@@ -28,6 +29,7 @@ export function FinanceMonthSection({
   balance,
   onDelete,
   onEdit,
+  canDeleteLinkedExpense,
   deletingIds,
   onAdd,
 }: Props) {
@@ -71,6 +73,7 @@ export function FinanceMonthSection({
             deleting={deletingIds?.has(transaction.id)}
             onDelete={onDelete}
             onEdit={onEdit}
+            canDeleteLinkedExpense={canDeleteLinkedExpense?.(transaction)}
           />
         ))}
       </View>

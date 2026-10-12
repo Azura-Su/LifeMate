@@ -1,7 +1,7 @@
 import Feather from '@expo/vector-icons/Feather';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Button } from '../../components/Button';
+import { DialogCloseButton } from '../../components/DialogCloseButton';
 import { DialogModal } from '../../components/DialogModal';
 import { colors } from '../../theme';
 import { styles } from './FinancePeriodSelector.styles';
@@ -86,9 +86,15 @@ export function FinancePeriodSelector({ year, month, onPeriodChange }: Props) {
         onRequestClose={() => setPickerVisible(false)}
         style={styles.dialog}
       >
-        <Text accessibilityRole="header" style={styles.dialogTitle}>
-          Chọn tháng xem giao dịch
-        </Text>
+        <View style={styles.dialogHeader}>
+          <Text accessibilityRole="header" style={styles.dialogTitle}>
+            Chọn tháng xem giao dịch
+          </Text>
+          <DialogCloseButton
+            accessibilityLabel="Đóng chọn tháng xem giao dịch"
+            onPress={() => setPickerVisible(false)}
+          />
+        </View>
         <View style={styles.yearRow}>
           <Pressable
             accessibilityRole="button"
@@ -152,11 +158,6 @@ export function FinancePeriodSelector({ year, month, onPeriodChange }: Props) {
             <Text style={styles.currentMonthText}>Về tháng hiện tại</Text>
           </Pressable>
         )}
-        <Button
-          title="Đóng"
-          variant="secondary"
-          onPress={() => setPickerVisible(false)}
-        />
       </DialogModal>
     </>
   );

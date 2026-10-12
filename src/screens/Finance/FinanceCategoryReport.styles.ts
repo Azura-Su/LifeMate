@@ -242,7 +242,8 @@ export const categoryReportStyles = StyleSheet.create({
   },
   emptyHint: { ...typography.small, fontSize: 11, textAlign: 'center' },
   dialog: { maxHeight: '84%', padding: 20, gap: 14 },
-  dialogTitle: { ...typography.heading, fontSize: 19, lineHeight: 26 },
+  dialogHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dialogTitle: { flex: 1, ...typography.heading, fontSize: 19, lineHeight: 26 },
   dialogYearRow: {
     flexDirection: 'row',
     alignItems: 'center',

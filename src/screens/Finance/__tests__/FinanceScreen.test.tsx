@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getDocsFromServer, setDoc } from '@react-native-firebase/firestore';
 import * as SecureStore from 'expo-secure-store';
 import { StyleSheet } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   act,
   fireEvent,
@@ -38,6 +39,19 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 jest.mock('@react-native-firebase/firestore', () =>
   jest.requireActual('../../../testing/firestoreMock'),
 );
+
+function renderFinanceScreen() {
+  return render(
+    <SafeAreaProvider
+      initialMetrics={{
+        frame: { x: 0, y: 0, width: 390, height: 844 },
+        insets: { top: 0, right: 0, bottom: 0, left: 0 },
+      }}
+    >
+      <FinanceScreen />
+    </SafeAreaProvider>,
+  );
+}
 
 beforeEach(async () => {
   await AsyncStorage.clear();
@@ -77,7 +91,7 @@ it('shows cloud data and a recovery status when the encrypted cache is unavailab
   const originalGetItem = getItem.getMockImplementation();
   getItem.mockRejectedValue(new Error('Keychain access failed'));
   try {
-    render(<FinanceScreen />);
+    renderFinanceScreen();
 
     expect(
       await screen.findByText('Đã tải từ cloud · cache trên máy chưa đọc được'),
@@ -90,7 +104,7 @@ it('shows cloud data and a recovery status when the encrypted cache is unavailab
 });
 
 it('shows a clear empty state and zero period totals', async () => {
-  render(<FinanceScreen />);
+  renderFinanceScreen();
   expect(await screen.findByText('Chưa có giao dịch nào')).toBeTruthy();
   expect(screen.getByText('Tổng thu')).toBeTruthy();
   expect(screen.getByText('Tổng chi')).toBeTruthy();
@@ -99,7 +113,7 @@ it('shows a clear empty state and zero period totals', async () => {
 });
 
 it('separates fixed report tabs from the title header', async () => {
-  render(<FinanceScreen />);
+  renderFinanceScreen();
   await screen.findByText('Đã lưu trên tài khoản');
   const header = within(screen.getByTestId('screen-fixed-header'));
   const reportMode = within(screen.getByTestId('screen-fixed-content'));
@@ -153,15 +167,30 @@ it('warns when the current records have not reached the account cloud store', as
     financeStorageKey('finance-user'),
     JSON.stringify([localRow]),
   );
-  jest.mocked(getDocsFromServer).mockRejectedValueOnce(new Error('Offline'));
+  const reads = jest.mocked(getDocsFromServer);
+  const read = reads.getMockImplementation()!;
+  let failed = false;
+  reads.mockImplementation((ref) => {
+    const target = ref as unknown as { path: string; filters?: unknown[] };
+    if (
+      !failed &&
+      target.path === 'financeAccounts/finance-user/transactions' &&
+      !target.filters
+    ) {
+      failed = true;
+      return Promise.reject(new Error('Offline'));
+    }
+    return read(ref);
+  });
 
-  render(<FinanceScreen />);
+  renderFinanceScreen();
 
   expect(
     await screen.findByText('Chưa sao lưu · chỉ có trên thiết bị'),
   ).toBeTruthy();
   expect(screen.getByText('Lương chỉ trên máy')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Đồng bộ lại' })).toBeTruthy();
+  reads.mockImplementation(read);
 });
 
 it('marks custom finance preferences unsynced and retries them on refresh', async () => {
@@ -185,7 +214,7 @@ it('marks custom finance preferences unsynced and retries them on refresh', asyn
 
 it('records salary on the selected date and persists it', async () => {
   const year = new Date().getFullYear();
-  render(<FinanceScreen />);
+  renderFinanceScreen();
   fireEvent.press(
     await screen.findByRole('button', { name: 'Chọn tháng xem giao dịch' }),
   );
@@ -213,7 +242,7 @@ it('records salary on the selected date and persists it', async () => {
 });
 
 it('formats the entered amount and can dismiss the form from its header', async () => {
-  render(<FinanceScreen />);
+  renderFinanceScreen();
   await screen.findByText('Đã lưu trên tài khoản');
   fireEvent.press(screen.getByRole('button', { name: 'Thêm giao dịch' }));
   fireEvent.changeText(screen.getByLabelText('Số tiền'), '25000000');
@@ -223,7 +252,7 @@ it('formats the entered amount and can dismiss the form from its header', async 
 });
 
 it('shows a Vietnamese date calendar that fits the transaction dialog', async () => {
-  render(<FinanceScreen />);
+  renderFinanceScreen();
   await screen.findByText('Đã lưu trên tài khoản');
   fireEvent.press(screen.getByRole('button', { name: 'Thêm giao dịch' }));
 
@@ -254,7 +283,9 @@ it('shows a Vietnamese date calendar that fits the transaction dialog', async ()
       name: `Chọn ngày ${String(nextDay).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`,
     }),
   );
-  fireEvent.press(screen.getByRole('button', { name: 'Xong' }));
+  expect(
+    screen.queryByRole('button', { name: 'Đóng chọn ngày giao dịch' }),
+  ).toBeNull();
 
   expect(screen.getByLabelText('Ngày giao dịch').props.value).toBe(
     `${String(nextDay).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`,
@@ -262,7 +293,7 @@ it('shows a Vietnamese date calendar that fits the transaction dialog', async ()
 });
 
 it('keeps the delete button beside a newly added finance category', async () => {
-  render(<FinanceScreen />);
+  renderFinanceScreen();
   await screen.findByText('Đã lưu trên tài khoản');
   fireEvent.press(screen.getByRole('button', { name: 'Thêm giao dịch' }));
   expect(screen.queryByLabelText('Tên danh mục mới')).toBeNull();
@@ -282,7 +313,7 @@ it('keeps the delete button beside a newly added finance category', async () => 
 });
 
 it('shows compact add controls, default categories, and a validity-gated save', async () => {
-  render(<FinanceScreen />);
+  renderFinanceScreen();
   await screen.findByText('Đã lưu trên tài khoản');
   fireEvent.press(screen.getByRole('button', { name: 'Thêm giao dịch' }));
 
@@ -333,7 +364,7 @@ it('keeps transaction templates scoped to their income or expense type', async (
       },
     ],
   });
-  render(<FinanceScreen />);
+  renderFinanceScreen();
   await screen.findByText('Đã lưu trên tài khoản');
   fireEvent.press(screen.getByRole('button', { name: 'Thêm giao dịch' }));
 
@@ -383,15 +414,13 @@ it('allows outside income and keeps company income report separate', async () =>
   seedFirestoreMock('finance-user', companyIncome);
   seedFirestoreMock('finance-user', outsideIncome);
 
-  render(<FinanceScreen />);
+  renderFinanceScreen();
   fireEvent.press(await screen.findByRole('tab', { name: 'Báo cáo thu nhập' }));
   expect(
     await screen.findByLabelText('Thu nhập công ty: 25.000.000 ₫'),
   ).toBeTruthy();
   expect(screen.queryByText('Bán đồ cũ')).toBeNull();
-  fireEvent.press(
-    screen.getAllByRole('button', { name: 'Nguồn thu: Ngoài công ty' })[0],
-  );
+  fireEvent.press(screen.getByRole('button', { name: 'Nguồn thu: Khác' }));
   expect(
     screen.getByLabelText('Thu nhập ngoài công ty: 350.000 ₫'),
   ).toBeTruthy();
@@ -401,7 +430,7 @@ it('allows outside income and keeps company income report separate', async () =>
   fireEvent.press(screen.getByRole('button', { name: 'Thêm khoản thu' }));
   fireEvent.press(screen.getByRole('button', { name: 'Thu nhập' }));
   fireEvent.press(
-    screen.getAllByRole('button', { name: 'Nguồn thu: Ngoài công ty' })[1],
+    screen.getByRole('button', { name: 'Nguồn thu: Ngoài công ty' }),
   );
   expect(screen.queryByTestId('finance-category-Lương')).toBeNull();
   expect(screen.queryByTestId('finance-category-Thưởng')).toBeNull();
@@ -412,7 +441,7 @@ it('allows outside income and keeps company income report separate', async () =>
   expect(screen.getByTestId('finance-category-Lương')).toBeTruthy();
   expect(screen.getByTestId('finance-category-Thưởng')).toBeTruthy();
   fireEvent.press(
-    screen.getAllByRole('button', { name: 'Nguồn thu: Ngoài công ty' })[1],
+    screen.getByRole('button', { name: 'Nguồn thu: Ngoài công ty' }),
   );
   fireEvent.changeText(screen.getByLabelText('Số tiền'), '50000');
   fireEvent.changeText(screen.getByLabelText('Ghi chú'), 'Bán sách');
@@ -456,7 +485,7 @@ it('opens on the current month and excludes transactions from other months', asy
   seedFirestoreMock('finance-user', currentSalary);
   seedFirestoreMock('finance-user', previousMonthExpense);
 
-  render(<FinanceScreen />);
+  renderFinanceScreen();
 
   expect(await screen.findByText('Lương tháng hiện tại')).toBeTruthy();
   expect(screen.getByText(`Tháng ${currentMonth} · ${year}`)).toBeTruthy();
@@ -470,7 +499,7 @@ it('moves one month at a time and can return to the current month', async () => 
   const currentMonth = now.getMonth() + 1;
   const previousDate = new Date(currentYear, currentMonth - 2, 1);
 
-  render(<FinanceScreen />);
+  renderFinanceScreen();
   expect(
     await screen.findByText(`Tháng ${currentMonth} · ${currentYear}`),
   ).toBeTruthy();
@@ -489,12 +518,14 @@ it('moves one month at a time and can return to the current month', async () => 
 
 it('keeps the viewed month when the month picker is cancelled after browsing years', async () => {
   const now = new Date();
-  render(<FinanceScreen />);
+  renderFinanceScreen();
   fireEvent.press(
     await screen.findByRole('button', { name: 'Chọn tháng xem giao dịch' }),
   );
   fireEvent.press(screen.getByRole('button', { name: 'Năm trước' }));
-  fireEvent.press(screen.getByRole('button', { name: 'Đóng' }));
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Đóng chọn tháng xem giao dịch' }),
+  );
 
   expect(
     screen.getByText(`Tháng ${now.getMonth() + 1} · ${now.getFullYear()}`),
@@ -503,12 +534,14 @@ it('keeps the viewed month when the month picker is cancelled after browsing yea
 
 it('keeps the report range when its picker is cancelled after browsing years', async () => {
   const now = new Date();
-  render(<FinanceScreen />);
+  renderFinanceScreen();
   fireEvent.press(await screen.findByRole('tab', { name: 'Báo cáo thu nhập' }));
   fireEvent.press(screen.getByRole('button', { name: 'Tùy chọn tháng' }));
   fireEvent.press(screen.getByRole('button', { name: 'Chọn tháng bắt đầu' }));
   fireEvent.press(screen.getByRole('button', { name: 'Năm trước' }));
-  fireEvent.press(screen.getByRole('button', { name: 'Đóng' }));
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Đóng bộ chọn tháng báo cáo' }),
+  );
 
   expect(
     screen.getByText(
@@ -530,7 +563,7 @@ it('lets the user jump to a month in another year', async () => {
   };
   seedFirestoreMock('finance-user', rent);
 
-  render(<FinanceScreen />);
+  renderFinanceScreen();
   expect(
     await screen.findByText('Chưa có giao dịch trong tháng này'),
   ).toBeTruthy();
@@ -605,7 +638,7 @@ it('shows all income including removed categories and excludes expenses', async 
     seedFirestoreMock('finance-user', row),
   );
 
-  render(<FinanceScreen />);
+  renderFinanceScreen();
   fireEvent.press(await screen.findByRole('tab', { name: 'Báo cáo thu nhập' }));
 
   expect(await screen.findByText('Thu nhập công ty')).toBeTruthy();
@@ -675,7 +708,7 @@ it('shows a separate expenses-only report with category totals', async () => {
     seedFirestoreMock('finance-user', row),
   );
 
-  render(<FinanceScreen />);
+  renderFinanceScreen();
   fireEvent.press(await screen.findByRole('tab', { name: 'Báo cáo chi tiêu' }));
 
   expect(await screen.findByText('Tổng chi tiêu')).toBeTruthy();
@@ -728,7 +761,7 @@ it('lets the income report span a custom range across years', async () => {
   seedFirestoreMock('finance-user', decemberSalary);
   seedFirestoreMock('finance-user', januaryBonus);
 
-  render(<FinanceScreen />);
+  renderFinanceScreen();
   fireEvent.press(await screen.findByRole('tab', { name: 'Báo cáo thu nhập' }));
   fireEvent.press(screen.getByRole('button', { name: 'Tùy chọn tháng' }));
   fireEvent.press(screen.getByRole('button', { name: 'Chọn tháng bắt đầu' }));
@@ -752,7 +785,7 @@ it('lets the income report span a custom range across years', async () => {
 });
 
 it('keeps an empty expense report compact without zero category rows', async () => {
-  render(<FinanceScreen />);
+  renderFinanceScreen();
   await screen.findByText('Đã lưu trên tài khoản');
   fireEvent.press(screen.getByRole('tab', { name: 'Báo cáo chi tiêu' }));
   expect(screen.getByLabelText('Tổng chi tiêu: 0 ₫')).toBeTruthy();
@@ -774,7 +807,7 @@ it('keeps long report categories on one line while retaining their amounts', asy
   };
   seedFirestoreMock('finance-user', transaction);
 
-  render(<FinanceScreen />);
+  renderFinanceScreen();
   fireEvent.press(await screen.findByRole('tab', { name: 'Báo cáo thu nhập' }));
 
   const categoryName = await screen.findByText(category);
@@ -805,7 +838,7 @@ it('allows monthly income and expense totals to wrap instead of clipping', async
   seedFirestoreMock('finance-user', income);
   seedFirestoreMock('finance-user', expense);
 
-  render(<FinanceScreen />);
+  renderFinanceScreen();
 
   const totals = await screen.findByText('Thu 12.500.000 ₫ · Chi 2.500.000 ₫');
   expect(totals.props.numberOfLines).toBe(2);

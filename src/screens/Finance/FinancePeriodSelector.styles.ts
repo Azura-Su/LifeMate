@@ -66,7 +66,8 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
   },
   dialog: { maxHeight: '80%', padding: 20, gap: 14 },
-  dialogTitle: { ...typography.heading, fontSize: 19, lineHeight: 26 },
+  dialogHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dialogTitle: { flex: 1, ...typography.heading, fontSize: 19, lineHeight: 26 },
   monthGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   monthChoice: {
     width: '31%',

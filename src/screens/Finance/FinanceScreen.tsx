@@ -2,17 +2,12 @@ import Feather from '@expo/vector-icons/Feather';
 import {
   useCallback,
   useDeferredValue,
+  useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { Screen } from '../../components/Screen';
@@ -24,9 +19,13 @@ import {
 } from '../../utils/finance';
 import type {
   FinanceIncomeSource,
+  RegularFinanceIncomeSource,
   FinanceTransaction,
   FinanceTransactionType,
 } from '../../types/finance';
+import { isLoanLedgerTransaction } from '../../types/finance';
+import { getLoanStatus } from '../../types/loan';
+import { useLoanLedger } from '../../hooks/useLoanLedger';
 import { FinanceMonthSection } from './FinanceMonthSection';
 import { FinanceTransactionRow } from './FinanceTransactionRow';
 import {
@@ -36,6 +35,7 @@ import {
 } from './FinanceCategoryReport';
 import { FinancePeriodSelector } from './FinancePeriodSelector';
 import { FinanceTransactionDialog } from './FinanceTransactionDialog';
+import { LoanLedgerModal } from './LoanLedgerModal';
 import { styles } from './FinanceScreen.styles';
 import { useFinanceScreen } from './useFinanceScreen';
 
@@ -59,12 +59,30 @@ const reportTabs = [
 
 export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   const model = useFinanceScreen();
+  const loanLedger = useLoanLedger(model.uid);
+  const correctableDeletedLoanIds = useMemo(
+    () => new Set(loanLedger.correctableDeletedLoanIds),
+    [loanLedger.correctableDeletedLoanIds],
+  );
+  const canDeleteLinkedExpense = useCallback(
+    (transaction: FinanceTransaction) =>
+      !loanLedger.loading &&
+      transaction.expenseSource === 'loan_lending' &&
+      !!transaction.loanId &&
+      correctableDeletedLoanIds.has(transaction.loanId),
+    [correctableDeletedLoanIds, loanLedger.loading],
+  );
   const currentDate = new Date();
+  const [loanLedgerVisible, setLoanLedgerVisible] = useState(false);
+  const reloadLoanLedger = loanLedger.load;
+  useEffect(() => {
+    if (loanLedgerVisible && !suspended) void reloadLoanLedger(true);
+  }, [loanLedgerVisible, reloadLoanLedger, suspended]);
   const [dialogVisible, setDialogVisible] = useState(false);
   const [dialogInitialType, setDialogInitialType] =
     useState<FinanceTransactionType>('expense');
   const [dialogInitialIncomeSource, setDialogInitialIncomeSource] =
-    useState<FinanceIncomeSource>('company');
+    useState<RegularFinanceIncomeSource>('company');
   const [dialogInitialDate, setDialogInitialDate] =
     useState(formatFinanceDate());
   const [saving, setSaving] = useState(false);
@@ -93,11 +111,19 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     month: currentDate.getMonth() + 1,
   });
 
+  useEffect(() => {
+    if (suspended) setLoanLedgerVisible(false);
+  }, [suspended]);
+
   function openAddDialog(
     type: FinanceTransactionType,
     period?: FinanceReportPoint,
     incomeSource: FinanceIncomeSource = 'company',
   ) {
+    if (incomeSource === 'loan_repayment') {
+      setLoanLedgerVisible(true);
+      return;
+    }
     setEditTarget(null);
     const today = new Date();
     const isCurrentMonth =
@@ -139,9 +165,12 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   );
 
   function openEditDialog(transaction: FinanceTransaction) {
+    if (isLoanLedgerTransaction(transaction)) return;
     setEditTarget(transaction);
     setDialogInitialType(transaction.type);
-    setDialogInitialIncomeSource(transaction.incomeSource ?? 'company');
+    setDialogInitialIncomeSource(
+      transaction.incomeSource === 'other' ? 'other' : 'company',
+    );
     setDialogInitialDate(formatFinanceDate(new Date(transaction.createdAt)));
     setDialogVisible(true);
   }
@@ -150,7 +179,9 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     if (deletingIdsRef.current.has(transaction.id)) return;
     Alert.alert(
       'Xóa giao dịch?',
-      'Giao dịch này sẽ được xóa khỏi sổ thu chi của tài khoản.',
+      canDeleteLinkedExpense(transaction)
+        ? 'Hồ sơ cho mượn đã xóa. Xóa luôn khoản chi liên kết còn sót trong Tài chính?'
+        : 'Giao dịch này sẽ được xóa khỏi sổ thu chi của tài khoản.',
       [
         { text: 'Hủy', style: 'cancel' },
         {
@@ -247,29 +278,53 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
       }
       fixedHeaderStyle={styles.header}
       fixedContent={
-        <View style={styles.reportMode} accessibilityRole="tablist">
-          {reportTabs.map((tab) => (
-            <Pressable
-              key={tab.value}
-              accessibilityRole="tab"
-              accessibilityLabel={tab.accessibilityLabel}
-              accessibilityState={{ selected: reportMode === tab.value }}
-              onPress={() => setReportMode(tab.value)}
-              style={[
-                styles.reportModeButton,
-                reportMode === tab.value && styles.reportModeSelected,
-              ]}
-            >
-              <Text
+        <View style={styles.fixedActions}>
+          <View style={styles.reportMode} accessibilityRole="tablist">
+            {reportTabs.map((tab) => (
+              <Pressable
+                key={tab.value}
+                accessibilityRole="tab"
+                accessibilityLabel={tab.accessibilityLabel}
+                accessibilityState={{ selected: reportMode === tab.value }}
+                onPress={() => setReportMode(tab.value)}
                 style={[
-                  styles.reportModeText,
-                  reportMode === tab.value && styles.reportModeTextSelected,
+                  styles.reportModeButton,
+                  reportMode === tab.value && styles.reportModeSelected,
                 ]}
               >
-                {tab.label}
+                <Text
+                  style={[
+                    styles.reportModeText,
+                    reportMode === tab.value && styles.reportModeTextSelected,
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          {reportMode === 'overview' && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Mở sổ cho mượn"
+              onPress={() => setLoanLedgerVisible(true)}
+              style={styles.loanLedgerLink}
+            >
+              <View style={styles.loanLedgerIcon}>
+                <Feather name="book-open" size={16} color={colors.sky} />
+              </View>
+              <Text style={styles.loanLedgerText}>Sổ cho mượn</Text>
+              <Text style={styles.loanLedgerMeta}>
+                {
+                  loanLedger.loans.filter(
+                    (loan) => getLoanStatus(loan) === 'open',
+                  ).length
+                }{' '}
+                khoản đang mở
               </Text>
+              <Feather name="chevron-right" size={17} color={colors.muted} />
             </Pressable>
-          ))}
+          )}
         </View>
       }
       fixedContentStyle={styles.reportModeSection}
@@ -374,6 +429,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             transactions={model.transactions}
             onDelete={deleteRow}
             onEdit={editRow}
+            canDeleteLinkedExpense={canDeleteLinkedExpense}
             deletingIds={deletingIds}
             customCategories={
               model.preferences[
@@ -479,6 +535,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
                   deleting={deletingIds.has(transaction.id)}
                   onEdit={editRow}
                   onDelete={deleteRow}
+                  canDeleteLinkedExpense={canDeleteLinkedExpense(transaction)}
                 />
               ))}
               {!model.loading &&
@@ -528,6 +585,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
                   balance={month.balance}
                   onDelete={deleteRow}
                   onEdit={editRow}
+                  canDeleteLinkedExpense={canDeleteLinkedExpense}
                   deletingIds={deletingIds}
                   onAdd={() =>
                     openAddDialog('income', {
@@ -562,6 +620,21 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
           setEditTarget(null);
         }}
         onSave={save}
+      />
+      <LoanLedgerModal
+        visible={loanLedgerVisible && !suspended}
+        uid={model.uid}
+        loans={loanLedger.loans}
+        loading={loanLedger.loading}
+        financeLoading={model.loading}
+        syncStatus={loanLedger.syncStatus}
+        error={loanLedger.error}
+        onClose={() => setLoanLedgerVisible(false)}
+        onRefresh={() => void loanLedger.load(true)}
+        onSave={loanLedger.save}
+        onDeleteLoan={loanLedger.remove}
+        onCorrectPrincipal={loanLedger.correctPrincipal}
+        onRecordRepayment={loanLedger.recordRepayment}
       />
     </Screen>
   );

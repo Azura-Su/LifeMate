@@ -1,7 +1,7 @@
 import Feather from '@expo/vector-icons/Feather';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Button } from '../../components/Button';
+import { DialogCloseButton } from '../../components/DialogCloseButton';
 import { DialogModal } from '../../components/DialogModal';
 import { colors } from '../../theme';
 import type {
@@ -28,6 +28,7 @@ type Props = {
   transactions: FinanceTransaction[];
   onDelete: (transaction: FinanceTransaction) => void;
   onEdit: (transaction: FinanceTransaction) => void;
+  canDeleteLinkedExpense?: (transaction: FinanceTransaction) => boolean;
   deletingIds?: ReadonlySet<string>;
   customCategories?: string[];
   onAdd: (
@@ -63,6 +64,7 @@ export function FinanceCategoryReport({
   transactions,
   onDelete,
   onEdit,
+  canDeleteLinkedExpense,
   deletingIds,
   customCategories,
   onAdd,
@@ -111,7 +113,9 @@ export function FinanceCategoryReport({
       ? 'Thu nhập công ty'
       : incomeSource === 'other'
         ? 'Thu nhập ngoài công ty'
-        : 'Tổng thu nhập'
+        : incomeSource === 'loan_repayment'
+          ? 'Tiền thu hồi cho mượn'
+          : 'Tổng thu nhập'
     : 'Tổng chi tiêu';
   const report = useMemo(() => {
     const getReport = isIncome ? getIncomeReport : getExpenseReport;
@@ -368,7 +372,9 @@ export function FinanceCategoryReport({
               ? 'Lương, thưởng và khoản khác từ công ty'
               : incomeSource === 'other'
                 ? 'Chỉ tính thu nhập ngoài công ty'
-                : 'Tất cả nguồn thu trong kỳ'
+                : incomeSource === 'loan_repayment'
+                  ? 'Các khoản người khác đã trả lại'
+                  : 'Tất cả nguồn thu trong kỳ'
             : 'Chỉ tính các khoản chi tiêu'}
         </Text>
       </View>
@@ -379,7 +385,8 @@ export function FinanceCategoryReport({
             [
               ['all', 'Tất cả'],
               ['company', 'Công ty'],
-              ['other', 'Ngoài công ty'],
+              ['other', 'Khác'],
+              ['loan_repayment', 'Thu hồi'],
             ] as const
           ).map(([value, label]) => {
             const selected = incomeSource === value;
@@ -526,16 +533,20 @@ export function FinanceCategoryReport({
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Thêm khoản ${isIncome ? 'thu' : 'chi'} tháng ${month.month} năm ${month.year}`}
+                    accessibilityLabel={
+                      isIncome && incomeSource === 'loan_repayment'
+                        ? 'Mở sổ cho mượn'
+                        : `Thêm khoản ${isIncome ? 'thu' : 'chi'} tháng ${month.month} năm ${month.year}`
+                    }
                     onPress={() =>
                       onAdd(
                         month.year,
                         month.month,
-                        isIncome
-                          ? incomeSource === 'other'
-                            ? 'other'
-                            : 'company'
-                          : undefined,
+                        isIncome && incomeSource !== 'all'
+                          ? incomeSource
+                          : isIncome
+                            ? 'company'
+                            : undefined,
                       )
                     }
                     style={styles.monthAddButton}
@@ -552,6 +563,7 @@ export function FinanceCategoryReport({
                         deleting={deletingIds?.has(transaction.id)}
                         onDelete={onDelete}
                         onEdit={onEdit}
+                        canDeleteLinkedExpense={canDeleteLinkedExpense?.(transaction)}
                       />
                     ))}
                   </View>
@@ -567,13 +579,19 @@ export function FinanceCategoryReport({
         onRequestClose={() => setPicker(null)}
         style={styles.dialog}
       >
-        <Text accessibilityRole="header" style={styles.dialogTitle}>
-          {picker?.edge === 'start'
-            ? 'Chọn tháng bắt đầu'
-            : picker?.edge === 'end'
-              ? 'Chọn tháng kết thúc'
-              : 'Chọn tháng báo cáo'}
-        </Text>
+        <View style={styles.dialogHeader}>
+          <Text accessibilityRole="header" style={styles.dialogTitle}>
+            {picker?.edge === 'start'
+              ? 'Chọn tháng bắt đầu'
+              : picker?.edge === 'end'
+                ? 'Chọn tháng kết thúc'
+                : 'Chọn tháng báo cáo'}
+          </Text>
+          <DialogCloseButton
+            accessibilityLabel="Đóng bộ chọn tháng báo cáo"
+            onPress={() => setPicker(null)}
+          />
+        </View>
         <View style={styles.dialogYearRow}>
           <Pressable
             accessibilityRole="button"
@@ -619,11 +637,6 @@ export function FinanceCategoryReport({
             );
           })}
         </View>
-        <Button
-          title="Đóng"
-          variant="secondary"
-          onPress={() => setPicker(null)}
-        />
       </DialogModal>
     </View>
   );

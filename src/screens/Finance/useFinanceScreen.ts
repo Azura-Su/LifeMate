@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFinanceAccount } from '../../hooks/useFinanceAccount';
 import { useFinanceStore } from '../../store/financeStore';
 import type {
-  FinanceIncomeSource,
+  RegularFinanceIncomeSource,
   FinanceTransaction,
   FinanceTransactionType,
 } from '../../types/finance';
@@ -21,7 +21,7 @@ import {
 
 type Draft = {
   type: FinanceTransactionType;
-  incomeSource?: FinanceIncomeSource;
+  incomeSource?: RegularFinanceIncomeSource;
   amount: string;
   category: string;
   note: string;
