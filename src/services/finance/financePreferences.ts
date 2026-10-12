@@ -7,7 +7,7 @@ import {
 import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
-  type FinanceIncomeSource,
+  type RegularFinanceIncomeSource,
   type FinanceTransactionType,
 } from '../../types/finance';
 import {
@@ -19,7 +19,7 @@ export type FinanceTransactionTemplate = {
   id: string;
   name: string;
   type: FinanceTransactionType;
-  incomeSource?: FinanceIncomeSource;
+  incomeSource?: RegularFinanceIncomeSource;
   amount: number;
   category: string;
   note: string;

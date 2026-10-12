@@ -4,7 +4,12 @@ type FirestoreRow = {
   id: string;
   value: Record<string, unknown>;
 };
-type FirestoreReference = { path: string; uid: string; id: string | null };
+type FirestoreReference = {
+  path: string;
+  uid: string;
+  id: string | null;
+  filters?: { field: string; value: unknown }[];
+};
 
 const records = new Map<string, FirestoreRow>();
 
@@ -64,6 +69,16 @@ export function getFirestoreMockRows(uid: string) {
 export const getFirestore = jest.fn(() => 'firestore');
 export const collection = jest.fn((...parts: unknown[]) => reference(parts));
 export const doc = jest.fn((...parts: unknown[]) => reference(parts));
+export const where = jest.fn((field: string, _operator: string, value: unknown) => ({
+  field,
+  value,
+}));
+export const query = jest.fn(
+  (ref: FirestoreReference, ...filters: { field: string; value: unknown }[]) => ({
+    ...ref,
+    filters,
+  }),
+);
 export const getDocsFromServer = jest.fn(
   async (collectionRef: FirestoreReference) => ({
     docs: [...records.values()]
@@ -72,7 +87,10 @@ export const getDocsFromServer = jest.fn(
         return (
           entry.uid === collectionRef.uid &&
           entry.path.startsWith(prefix) &&
-          !entry.path.slice(prefix.length).includes('/')
+          !entry.path.slice(prefix.length).includes('/') &&
+          (collectionRef.filters ?? []).every(
+            ({ field, value }) => entry.value[field] === value,
+          )
         );
       })
       .map((entry) => ({ id: entry.id, data: () => entry.value })),
@@ -101,6 +119,7 @@ type TransactionLike = {
     ref: FirestoreReference,
     value: Record<string, unknown>,
   ) => TransactionLike;
+  delete: (ref: FirestoreReference) => TransactionLike;
 };
 export const runTransaction = jest.fn(
   async (
@@ -109,7 +128,7 @@ export const runTransaction = jest.fn(
   ) => {
     const writes: {
       ref: FirestoreReference;
-      value: Record<string, unknown>;
+      value?: Record<string, unknown>;
     }[] = [];
     const transaction: TransactionLike = {
       get: getDocFromServer,
@@ -117,9 +136,16 @@ export const runTransaction = jest.fn(
         writes.push({ ref, value });
         return transaction;
       },
+      delete: (ref) => {
+        writes.push({ ref });
+        return transaction;
+      },
     };
     const result = await updateFunction(transaction);
-    for (const { ref, value } of writes) await setDoc(ref, value);
+    for (const { ref, value } of writes) {
+      if (value) await setDoc(ref, value);
+      else await deleteDoc(ref);
+    }
     return result;
   },
 );

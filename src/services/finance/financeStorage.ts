@@ -10,6 +10,7 @@ import {
   writeBatch,
 } from '@react-native-firebase/firestore';
 import type { FinanceTransaction } from '../../types/finance';
+import { isLoanLedgerTransaction } from '../../types/finance';
 import {
   getEncryptedItem,
   removeEncryptedItem,
@@ -250,7 +251,12 @@ async function readFinanceDataInternal(
     // Upload only what this device added or edited (plus, once, data saved
     // before cloud sync existed). Rows missing from the server were deleted
     // elsewhere and must not be re-created, even if edited here meanwhile.
-    const toUpload = localTransactions.filter(({ id }) => {
+    const toUpload = localTransactions.filter((transaction) => {
+      const { id } = transaction;
+      // Linked loan rows are committed by Firestore transactions only. A
+      // local copy missing from the server was removed deliberately, so a
+      // first-time finance migration must never recreate it.
+      if (isLoanLedgerTransaction(transaction)) return false;
       const change = pending.get(id);
       if (change === 'add') return true;
       // Before the first successful migration, an edited local-only row may
@@ -356,6 +362,21 @@ export function addFinanceTransaction(
   uid: string,
   transaction: FinanceTransaction,
 ): Promise<FinanceStorageResult> {
+  return saveAddedTransaction(uid, transaction, false);
+}
+
+export function cacheCommittedFinanceTransaction(
+  uid: string,
+  transaction: FinanceTransaction,
+): Promise<FinanceStorageResult> {
+  return saveAddedTransaction(uid, transaction, true);
+}
+
+function saveAddedTransaction(
+  uid: string,
+  transaction: FinanceTransaction,
+  alreadyCommitted: boolean,
+): Promise<FinanceStorageResult> {
   requireUid(uid);
   if (transaction.ownerId !== uid)
     return Promise.reject(
@@ -368,10 +389,27 @@ export function addFinanceTransaction(
     !parseFinanceTransaction(transaction, uid)
   )
     return Promise.reject(new Error('Thông tin giao dịch không hợp lệ.'));
+  if (!alreadyCommitted && isLoanLedgerTransaction(transaction))
+    return Promise.reject(
+      new Error('Giao dịch cho mượn chỉ được tạo cùng hồ sơ trong sổ cho mượn.'),
+    );
 
   return enqueue(uid, async () => {
     const current = await readFinanceTransactions(uid);
-    const synced = await pushChange(uid, transaction, 'add');
+    let synced: boolean;
+    if (alreadyCommitted) {
+      const pending = await readPendingChanges(uid);
+      pending.delete(transaction.id);
+      await setEncryptedItem(
+        uid,
+        financePendingKey(uid),
+        JSON.stringify(Object.fromEntries(pending)),
+      );
+      cloudReachable.set(uid, true);
+      synced = pending.size === 0;
+    } else {
+      synced = await pushChange(uid, transaction, 'add');
+    }
     const transactions = upsertTransaction(current, transaction);
     const cacheSaved = await writeFinanceCache(uid, transactions);
     return cacheSaved
@@ -390,6 +428,13 @@ export function deleteFinanceTransaction(
 
   return enqueue(uid, async () => {
     const current = await readFinanceTransactions(uid);
+    const target = current.find((transaction) => transaction.id === id);
+    if (
+      target &&
+      isLoanLedgerTransaction(target) &&
+      target.expenseSource !== 'loan_lending'
+    )
+      throw new Error('Giao dịch cho mượn chỉ sửa được trong sổ cho mượn.');
     // Deleting stays online-only so the row never disappears locally while
     // the cloud copy remains.
     try {
@@ -438,8 +483,10 @@ export function updateFinanceTransaction(
 
   return enqueue(uid, async () => {
     const current = await readFinanceTransactions(uid);
-    if (!current.some(({ id }) => id === transaction.id))
-      throw new Error('Không tìm thấy giao dịch cần sửa.');
+    const original = current.find(({ id }) => id === transaction.id);
+    if (!original) throw new Error('Không tìm thấy giao dịch cần sửa.');
+    if (isLoanLedgerTransaction(original))
+      throw new Error('Giao dịch cho mượn chỉ sửa được trong sổ cho mượn.');
     const synced = await pushChange(uid, transaction, 'edit');
     const transactions = upsertTransaction(current, transaction);
     const cacheSaved = await writeFinanceCache(uid, transactions);

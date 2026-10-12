@@ -27,7 +27,7 @@ dịch đã bị xóa ở thiết bị khác không bị tạo lại. Xóa giao 
 khi Firestore xác nhận xóa; mọi lệnh ghi lên cloud dừng chờ sau 15 giây để không
 treo các thao tác khác.
 
-**Triển khai hiện tại:** rules trong workspace đã qua 38 kiểm tra trên
+**Lịch sử triển khai (08/10/2026):** rules khi đó đã qua bộ kiểm tra trên
 Firestore/Storage emulator. Bản rules trước khi thêm đường dẫn cài đặt tài chính
 được publish lên Firebase project `baseapp-dd227` ngày 08/10/2026. Dữ liệu
 lương lịch sử do người dùng cung cấp đã được nhập vào tài khoản hiện tại gồm 172
@@ -41,11 +41,20 @@ Rule giới hạn cài đặt tài chính theo UID và kích thước danh sách
 project `baseapp-dd227` ngày 09/10/2026 để ứng dụng đồng bộ danh mục và mẫu lên
 cloud.
 
-**Cần publish lại (10/10/2026):** giao dịch thu giờ có trường `incomeSource`
-(`company` | `other`). Rules trong repo đã cho phép trường này, nhưng bản đang
-chạy trên `baseapp-dd227` (09/10) chưa có. Trước khi phát hành, deploy lại
-Firestore rules; nếu không, mọi giao dịch thu mới hoặc vừa sửa sẽ bị từ chối và
-chỉ nằm trên máy ở trạng thái “chưa sao lưu”.
+**Bản sửa ngày 12/10/2026:** rules hỗ trợ giao dịch thu theo `incomeSource`,
+sổ cho mượn, khoản chi liên kết, thu hồi và tombstone chống khôi phục khoản đã xóa.
+Lần nhận tiền đầu tiên và hoàn tất lần trả đang chờ xử lý không còn cắt một danh
+sách rỗng. Bộ emulator có 60 kiểm tra cho quyền sở hữu, dữ liệu tài chính, các
+lần trả và kho âm thanh; kịch bản dịch vụ thực cũng đã chạy qua tạo khoản, sửa
+vốn, nhận tiền, thử lại cùng lần trả và xóa khoản.
+
+Đã phát hành riêng Firestore rules lên `baseapp-dd227` và đọc lại để xác nhận
+nội dung trùng workspace. Ruleset: `18a2ede6-1853-405b-8793-eff1bbf74051`.
+Bản trước để khôi phục khi cần: `88e9c91e-f2a5-4d33-8d5b-700dd21c8365`.
+
+Ứng dụng đối soát mã lần trả đã được xác nhận sau khi mở lại, tải cả Tài chính
+khi làm mới sổ và ngừng tác vụ nhắc hạn của phiên đã đăng xuất. Khoản chưa được
+cloud xác nhận vẫn giữ mã thử lại để tránh ghi nhận hai lần.
 
 Các rule nằm ở `firebase/firestore.rules`, kiểm thử cùng emulator bằng:
 

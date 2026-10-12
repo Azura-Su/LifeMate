@@ -14,6 +14,7 @@ Yêu cầu và kiến trúc: [tasks/plan.md](tasks/plan.md). Ranh giới module:
 - UI tiếng Việt, có trạng thái loading/error/empty; logic nằm ngoài file màn hình.
 - Thư viện audio riêng, nhập video/audio, nghe/cắt/ghép nối tuần tự và đồng bộ: [SPEC-audio.md](SPEC-audio.md).
 - Sổ thu chi theo UID, báo cáo thu nhập/chi tiêu theo năm hoặc khoảng tháng nhiều năm: [SPEC-finance.md](SPEC-finance.md).
+- Sổ cho mượn theo UID, ghi nhận các lần trả vào Tài chính với nguồn riêng: [tasks/loan-ledger-plan-2026-10-11.md](tasks/loan-ledger-plan-2026-10-11.md).
 - Tiện ích tài chính, nghe MP3, ghi chú và lịch/việc: [SPEC-life-utilities.md](SPEC-life-utilities.md).
 
 ## Quy ước

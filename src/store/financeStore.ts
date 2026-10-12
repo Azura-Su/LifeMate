@@ -3,6 +3,7 @@ import type { FinanceTransaction } from '../types/finance';
 import { getFinanceErrorMessage } from '../utils/finance';
 import {
   addFinanceTransaction,
+  cacheCommittedFinanceTransaction,
   deleteFinanceTransaction,
   readFinanceData,
   updateFinanceTransaction,
@@ -17,6 +18,7 @@ type FinanceState = {
   error: string | null;
   load: (uid: string | null) => Promise<void>;
   add: (uid: string, transaction: FinanceTransaction) => Promise<void>;
+  addCommitted: (uid: string, transaction: FinanceTransaction) => Promise<void>;
   remove: (uid: string, id: string) => Promise<void>;
   update: (uid: string, transaction: FinanceTransaction) => Promise<void>;
 };
@@ -81,6 +83,26 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       const message = getFinanceErrorMessage(
         error,
         'Chưa lưu được giao dịch. Hãy thử lại.',
+      );
+      if (get().uid === uid) set({ error: message });
+      throw new Error(message);
+    }
+  },
+  addCommitted: async (uid, transaction) => {
+    if (get().uid !== uid)
+      throw new Error('Tài khoản đã thay đổi. Hãy thử lại.');
+    try {
+      const result = await cacheCommittedFinanceTransaction(uid, transaction);
+      if (get().uid === uid)
+        set({
+          transactions: result.transactions,
+          syncStatus: syncStatusFor(result),
+          error: null,
+        });
+    } catch (error) {
+      const message = getFinanceErrorMessage(
+        error,
+        'Đã ghi nhận giao dịch; chưa cập nhật được danh sách Tài chính trên thiết bị.',
       );
       if (get().uid === uid) set({ error: message });
       throw new Error(message);

@@ -91,7 +91,44 @@ export function parseFinanceTransaction(
   if (
     row.incomeSource !== undefined &&
     row.incomeSource !== 'company' &&
-    row.incomeSource !== 'other'
+    row.incomeSource !== 'other' &&
+    row.incomeSource !== 'loan_repayment'
+  )
+    return null;
+  if (row.expenseSource !== undefined && row.expenseSource !== 'loan_lending')
+    return null;
+  const linkedLoanRepayment = row.incomeSource === 'loan_repayment';
+  const linkedLoanLending = row.expenseSource === 'loan_lending';
+  if (linkedLoanRepayment && linkedLoanLending) return null;
+  if (
+    (linkedLoanRepayment &&
+      (row.type !== 'income' ||
+        typeof row.loanId !== 'string' ||
+        !/^[A-Za-z0-9_-]{1,128}$/.test(row.loanId) ||
+        typeof row.repaymentId !== 'string' ||
+        !/^[A-Za-z0-9_-]{1,128}$/.test(row.repaymentId) ||
+        row.id !== `loan-${row.loanId}-${row.repaymentId}` ||
+        (row.repaymentReceivedAt !== undefined &&
+          (typeof row.repaymentReceivedAt !== 'number' ||
+            !Number.isFinite(row.repaymentReceivedAt) ||
+            row.repaymentReceivedAt < 0 ||
+            row.repaymentReceivedAt > 253402300799999)) ||
+        row.category.trim() !== 'Thu hồi cho mượn')) ||
+    (linkedLoanLending &&
+      (row.type !== 'expense' ||
+        typeof row.loanId !== 'string' ||
+        !/^[A-Za-z0-9_-]{1,128}$/.test(row.loanId) ||
+        row.id !== `loan-lent-${row.loanId}` ||
+        row.category.trim() !== 'Cho mượn' ||
+        row.incomeSource !== undefined ||
+        row.repaymentId !== undefined ||
+        row.repaymentReceivedAt !== undefined)) ||
+    (!linkedLoanRepayment &&
+      !linkedLoanLending &&
+      (row.loanId !== undefined ||
+        row.repaymentId !== undefined ||
+        row.repaymentReceivedAt !== undefined ||
+        row.expenseSource !== undefined))
   )
     return null;
   return {
@@ -105,15 +142,31 @@ export function parseFinanceTransaction(
     ...(row.type === 'income' && row.incomeSource
       ? { incomeSource: row.incomeSource }
       : {}),
+    ...(linkedLoanRepayment
+      ? {
+          loanId: row.loanId,
+          repaymentId: row.repaymentId,
+          ...(row.repaymentReceivedAt !== undefined
+            ? { repaymentReceivedAt: row.repaymentReceivedAt }
+            : {}),
+        }
+      : {}),
+    ...(linkedLoanLending
+      ? { expenseSource: row.expenseSource, loanId: row.loanId }
+      : {}),
   };
 }
 
 export function getFinanceIncomeSource(
   transaction: FinanceTransaction,
 ): FinanceIncomeSource {
-  return transaction.type === 'income' && transaction.incomeSource === 'other'
-    ? 'other'
-    : 'company';
+  if (transaction.type !== 'income') return 'company';
+  if (
+    transaction.incomeSource === 'other' ||
+    transaction.incomeSource === 'loan_repayment'
+  )
+    return transaction.incomeSource;
+  return 'company';
 }
 
 export function getFinanceReport(

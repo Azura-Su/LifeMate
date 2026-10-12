@@ -2,6 +2,155 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function owns(uid) { return request.auth != null && request.auth.uid == uid; }
+    function validLoanRepayment(loanId, repayment) {
+      return repayment is map
+        && repayment.keys().hasAll(['id', 'amount', 'receivedAt', 'financeTransactionId', 'status'])
+        && repayment.keys().hasOnly(['id', 'amount', 'receivedAt', 'financeTransactionId', 'status'])
+        && repayment.id is string
+        && repayment.id.matches('^[A-Za-z0-9_-]{1,128}$')
+        && repayment.amount is number
+        && repayment.amount % 1 == 0
+        && repayment.amount > 0
+        && repayment.amount <= 9007199254740991
+        && repayment.receivedAt is number
+        && repayment.receivedAt >= 0
+        && repayment.receivedAt <= 253402300799999
+        && repayment.financeTransactionId == 'loan-' + loanId + '-' + repayment.id
+        && repayment.status == 'posted';
+    }
+    function hasLinkedLoanFinanceTransaction(uid, loanId, repayment) {
+      let transactionPath = /databases/$(database)/documents/financeAccounts/$(uid)/transactions/$(repayment.financeTransactionId);
+      return existsAfter(transactionPath)
+        && getAfter(transactionPath).data.id == repayment.financeTransactionId
+        && getAfter(transactionPath).data.ownerId == uid
+        && getAfter(transactionPath).data.type == 'income'
+        && getAfter(transactionPath).data.incomeSource == 'loan_repayment'
+        && getAfter(transactionPath).data.loanId == loanId
+        && getAfter(transactionPath).data.repaymentId == repayment.id
+        && getAfter(transactionPath).data.repaymentReceivedAt == repayment.receivedAt
+        && getAfter(transactionPath).data.amount == repayment.amount
+        && getAfter(transactionPath).data.category == 'Thu hồi cho mượn';
+    }
+    function hasLinkedLoanLendingTransaction(uid, loanId, loanData) {
+      let transactionId = 'loan-lent-' + loanId;
+      let transactionPath = /databases/$(database)/documents/financeAccounts/$(uid)/transactions/$(transactionId);
+      return existsAfter(transactionPath)
+        && getAfter(transactionPath).data.id == transactionId
+        && getAfter(transactionPath).data.ownerId == uid
+        && getAfter(transactionPath).data.type == 'expense'
+        && getAfter(transactionPath).data.expenseSource == 'loan_lending'
+        && getAfter(transactionPath).data.loanId == loanId
+        && getAfter(transactionPath).data.amount == loanData.principalAmount
+        && getAfter(transactionPath).data.createdAt == loanData.lentAt
+        && getAfter(transactionPath).data.category == 'Cho mượn';
+    }
+    function linkedLoanRepayment(transactionData) {
+      return {
+        'id': transactionData.repaymentId,
+        'amount': transactionData.amount,
+        'receivedAt': transactionData.repaymentReceivedAt,
+        'financeTransactionId': transactionData.id,
+        'status': 'posted'
+      };
+    }
+    function hasLinkedLoanRecord(uid, transactionData) {
+      let loanPath = /databases/$(database)/documents/financeAccounts/$(uid)/loans/$(transactionData.loanId);
+      let deletedLoanPath = /databases/$(database)/documents/financeAccounts/$(uid)/deletedLoans/$(transactionData.loanId);
+      return transactionData.repaymentReceivedAt is number
+        && ((existsAfter(loanPath)
+          && getAfter(loanPath).data.ownerId == uid
+          && getAfter(loanPath).data.repayments.hasAny([linkedLoanRepayment(transactionData)]))
+        || (existsAfter(deletedLoanPath)
+          && getAfter(deletedLoanPath).data.ownerId == uid
+          && getAfter(deletedLoanPath).data.repayments.hasAny([linkedLoanRepayment(transactionData)])));
+    }
+    function hasLinkedLoanLendingRecord(uid, transactionData) {
+      let loanPath = /databases/$(database)/documents/financeAccounts/$(uid)/loans/$(transactionData.loanId);
+      return existsAfter(loanPath)
+        && getAfter(loanPath).data.id == transactionData.loanId
+        && getAfter(loanPath).data.ownerId == uid
+        && getAfter(loanPath).data.principalAmount == transactionData.amount
+        && getAfter(loanPath).data.lentAt == transactionData.createdAt;
+    }
+    function correctsLinkedLoanPrincipal(uid, previous, next) {
+      let loanPath = /databases/$(database)/documents/financeAccounts/$(uid)/loans/$(next.loanId);
+      return previous.get('expenseSource', '') == 'loan_lending'
+        && next.diff(previous).affectedKeys().hasOnly(['amount'])
+        && exists(loanPath)
+        && existsAfter(loanPath)
+        && get(loanPath).data.ownerId == uid
+        && get(loanPath).data.principalAmount == previous.amount
+        && getAfter(loanPath).data.principalAmount == next.amount
+        && getAfter(loanPath).data.updatedAt > get(loanPath).data.updatedAt;
+    }
+    function deletesMistakenLoanExpense(uid, transactionData) {
+      let loanPath = /databases/$(database)/documents/financeAccounts/$(uid)/loans/$(transactionData.loanId);
+      let deletedPath = /databases/$(database)/documents/financeAccounts/$(uid)/deletedLoans/$(transactionData.loanId);
+      return transactionData.get('expenseSource', '') == 'loan_lending'
+        && transactionData.id == 'loan-lent-' + transactionData.loanId
+        && ((exists(loanPath)
+          && !existsAfter(loanPath)
+          && existsAfter(deletedPath)
+          && get(loanPath).data.repayments.size() == 0
+          && getAfter(deletedPath).data.ownerId == uid
+          && getAfter(deletedPath).data.repayments.size() == 0)
+          || (!exists(loanPath)
+            && exists(deletedPath)
+            && get(deletedPath).data.ownerId == uid
+            && get(deletedPath).data.repayments.size() == 0));
+    }
+    function validLoanData(uid, loanId) {
+      return loanId.matches('^[A-Za-z0-9_-]{1,128}$')
+        && request.resource.data.keys().hasAll(['id', 'ownerId', 'borrowerName', 'principalAmount', 'lentAt', 'dueAt', 'remindOnDueDate', 'note', 'repayments', 'cancelledAt', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['id', 'ownerId', 'borrowerName', 'principalAmount', 'lentAt', 'dueAt', 'remindOnDueDate', 'note', 'repayments', 'cancelledAt', 'updatedAt'])
+        && request.resource.data.id == loanId
+        && request.resource.data.ownerId == uid
+        && request.resource.data.borrowerName is string
+        && request.resource.data.borrowerName.size() > 0
+        && request.resource.data.borrowerName.size() <= 100
+        && request.resource.data.principalAmount is number
+        && request.resource.data.principalAmount % 1 == 0
+        && request.resource.data.principalAmount > 0
+        && request.resource.data.principalAmount <= 9007199254740991
+        && request.resource.data.lentAt is number
+        && request.resource.data.lentAt >= 0
+        && request.resource.data.lentAt <= 253402300799999
+        && (request.resource.data.dueAt == null || (request.resource.data.dueAt is number && request.resource.data.dueAt >= 0 && request.resource.data.dueAt <= 253402300799999))
+        && request.resource.data.remindOnDueDate is bool
+        && (!request.resource.data.remindOnDueDate || request.resource.data.dueAt != null)
+        && request.resource.data.note is string
+        && request.resource.data.note.size() <= 500
+        && request.resource.data.repayments is list
+        && request.resource.data.repayments.size() <= 100
+        && (request.resource.data.cancelledAt == null || (request.resource.data.cancelledAt is number && request.resource.data.cancelledAt >= 0 && request.resource.data.cancelledAt <= 253402300799999))
+        && request.resource.data.updatedAt is number
+        && request.resource.data.updatedAt >= 0
+        && request.resource.data.updatedAt <= 253402300799999;
+    }
+    function appendsValidLoanRepayment(uid, loanId) {
+      let repayments = request.resource.data.repayments;
+      let repayment = repayments.size() > 0 ? repayments[repayments.size() - 1] : {};
+      return repayments.size() == resource.data.repayments.size() + 1
+        && repayments == resource.data.repayments.concat([repayment])
+        && validLoanRepayment(loanId, repayment)
+        && hasLinkedLoanFinanceTransaction(uid, loanId, repayment);
+    }
+    function finalizesPendingTailLoanRepayment(uid, loanId) {
+      let previousList = resource.data.repayments;
+      let nextList = request.resource.data.repayments;
+      let previous = previousList.size() > 0 ? previousList[previousList.size() - 1] : {};
+      let next = nextList.size() > 0 ? nextList[nextList.size() - 1] : {};
+      return previousList.size() > 0
+        && nextList.size() == previousList.size()
+        && (previousList.size() == 1 || nextList[0:nextList.size() - 1] == previousList[0:previousList.size() - 1])
+        && previous.status == 'pending'
+        && next.id == previous.id
+        && next.amount == previous.amount
+        && next.receivedAt == previous.receivedAt
+        && next.financeTransactionId == previous.financeTransactionId
+        && validLoanRepayment(loanId, next)
+        && hasLinkedLoanFinanceTransaction(uid, loanId, next);
+    }
     match /audioLibraries/{uid}/tracks/{trackId} {
       allow read, delete: if owns(uid);
       allow create, update: if owns(uid)
@@ -20,13 +169,73 @@ service cloud.firestore {
         && request.resource.data.source in ['audio', 'video', 'trim', 'merge'];
     }
     match /financeAccounts/{uid}/transactions/{transactionId} {
-      allow read, delete: if owns(uid);
+      allow read: if owns(uid);
+      allow delete: if owns(uid)
+        && ((resource.data.get('incomeSource', '') != 'loan_repayment'
+            && resource.data.get('expenseSource', '') != 'loan_lending')
+          || deletesMistakenLoanExpense(uid, resource.data));
       allow create, update: if owns(uid)
+        && (
+          !exists(/databases/$(database)/documents/financeAccounts/$(uid)/transactions/$(transactionId))
+          || request.resource.data == resource.data
+          || (resource.data.get('incomeSource', '') != 'loan_repayment'
+            && resource.data.get('expenseSource', '') != 'loan_lending')
+          || (resource.data.get('expenseSource', '') == 'loan_lending'
+            && correctsLinkedLoanPrincipal(uid, resource.data, request.resource.data))
+          || (resource.data.get('incomeSource', '') == 'loan_repayment'
+            && !('repaymentReceivedAt' in resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['repaymentReceivedAt'])
+            && hasLinkedLoanRecord(uid, request.resource.data))
+        )
         && request.resource.data.keys().hasAll(['id', 'ownerId', 'type', 'amount', 'category', 'note', 'createdAt'])
-        && request.resource.data.keys().hasOnly(['id', 'ownerId', 'type', 'amount', 'category', 'note', 'createdAt', 'incomeSource'])
-        && (!('incomeSource' in request.resource.data)
-          || (request.resource.data.type == 'income'
-            && request.resource.data.incomeSource in ['company', 'other']))
+        && request.resource.data.keys().hasOnly(['id', 'ownerId', 'type', 'amount', 'category', 'note', 'createdAt', 'incomeSource', 'expenseSource', 'loanId', 'repaymentId', 'repaymentReceivedAt'])
+        && (
+          (
+            !('loanId' in request.resource.data)
+            && !('repaymentId' in request.resource.data)
+            && !('repaymentReceivedAt' in request.resource.data)
+            && !('expenseSource' in request.resource.data)
+            && (!('incomeSource' in request.resource.data)
+              || (request.resource.data.type == 'income'
+                && request.resource.data.incomeSource in ['company', 'other']))
+          )
+          ||
+          (
+            request.resource.data.type == 'income'
+            && request.resource.data.incomeSource == 'loan_repayment'
+            && request.resource.data.keys().hasAll(['loanId', 'repaymentId'])
+            && request.resource.data.loanId.matches('^[A-Za-z0-9_-]{1,128}$')
+            && request.resource.data.repaymentId.matches('^[A-Za-z0-9_-]{1,128}$')
+            && request.resource.data.keys().hasAll(['repaymentReceivedAt'])
+            && request.resource.data.repaymentReceivedAt is number
+            && request.resource.data.repaymentReceivedAt >= 0
+            && request.resource.data.repaymentReceivedAt <= 253402300799999
+            && transactionId == 'loan-' + request.resource.data.loanId + '-' + request.resource.data.repaymentId
+            && request.resource.data.category == 'Thu hồi cho mượn'
+            && (!exists(/databases/$(database)/documents/financeAccounts/$(uid)/transactions/$(transactionId))
+              ? hasLinkedLoanRecord(uid, request.resource.data)
+              : (request.resource.data == resource.data
+                || (resource.data.get('incomeSource', '') == 'loan_repayment'
+                  && !('repaymentReceivedAt' in resource.data)
+                  && hasLinkedLoanRecord(uid, request.resource.data))))
+          )
+          ||
+          (
+            request.resource.data.type == 'expense'
+            && request.resource.data.expenseSource == 'loan_lending'
+            && !('incomeSource' in request.resource.data)
+            && request.resource.data.keys().hasAll(['loanId'])
+            && !('repaymentId' in request.resource.data)
+            && !('repaymentReceivedAt' in request.resource.data)
+            && request.resource.data.loanId.matches('^[A-Za-z0-9_-]{1,128}$')
+            && transactionId == 'loan-lent-' + request.resource.data.loanId
+            && request.resource.data.category == 'Cho mượn'
+            && (!exists(/databases/$(database)/documents/financeAccounts/$(uid)/transactions/$(transactionId))
+              || request.resource.data == resource.data
+              || correctsLinkedLoanPrincipal(uid, resource.data, request.resource.data))
+            && hasLinkedLoanLendingRecord(uid, request.resource.data)
+          )
+        )
         && transactionId.matches('^[A-Za-z0-9_-]{1,128}$')
         && request.resource.data.id == transactionId
         && request.resource.data.ownerId == uid
@@ -140,6 +349,46 @@ service cloud.firestore {
         && request.resource.data.updatedAt >= 0
         && request.resource.data.updatedAt <= 253402300799999;
       allow delete: if false;
+    }
+    function validDeletedLoanData(uid, loanId) {
+      let loanPath = /databases/$(database)/documents/financeAccounts/$(uid)/loans/$(loanId);
+      return loanId.matches('^[A-Za-z0-9_-]{1,128}$')
+        && exists(loanPath)
+        && get(loanPath).data.id == loanId
+        && get(loanPath).data.ownerId == uid
+        && request.resource.data.keys().hasAll(['id', 'ownerId', 'deleted', 'updatedAt', 'repayments'])
+        && request.resource.data.keys().hasOnly(['id', 'ownerId', 'deleted', 'updatedAt', 'repayments'])
+        && request.resource.data.id == loanId
+        && request.resource.data.ownerId == uid
+        && request.resource.data.deleted == true
+        && request.resource.data.updatedAt is number
+        && request.resource.data.updatedAt > get(loanPath).data.updatedAt
+        && request.resource.data.updatedAt <= 253402300799999
+        && request.resource.data.repayments == get(loanPath).data.repayments;
+    }
+    match /financeAccounts/{uid}/deletedLoans/{loanId} {
+      allow read: if owns(uid);
+      allow create: if owns(uid) && validDeletedLoanData(uid, loanId);
+      allow update, delete: if false;
+    }
+    match /financeAccounts/{uid}/loans/{loanId} {
+      allow read: if owns(uid);
+      allow create: if owns(uid)
+        && !exists(/databases/$(database)/documents/financeAccounts/$(uid)/deletedLoans/$(loanId))
+        && validLoanData(uid, loanId)
+        && hasLinkedLoanLendingTransaction(uid, loanId, request.resource.data)
+        && request.resource.data.repayments.size() == 0;
+      allow update: if owns(uid)
+        && !exists(/databases/$(database)/documents/financeAccounts/$(uid)/deletedLoans/$(loanId))
+        && validLoanData(uid, loanId)
+        && hasLinkedLoanLendingTransaction(uid, loanId, request.resource.data)
+        && (
+          request.resource.data.repayments == resource.data.repayments
+          || appendsValidLoanRepayment(uid, loanId)
+          || finalizesPendingTailLoanRepayment(uid, loanId)
+        );
+      allow delete: if owns(uid)
+        && existsAfter(/databases/$(database)/documents/financeAccounts/$(uid)/deletedLoans/$(loanId));
     }
   }
 }
