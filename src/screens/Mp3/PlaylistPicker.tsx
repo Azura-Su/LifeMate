@@ -1,6 +1,6 @@
-import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
-import { Button } from '../../components/Button';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { DialogCloseButton } from '../../components/DialogCloseButton';
 import { DialogModal } from '../../components/DialogModal';
 import { colors, typography } from '../../theme';
 import type { ListeningPlaylist } from './playlistNames';
@@ -22,9 +22,15 @@ export function PlaylistPicker({
 }: Props) {
   return (
     <DialogModal onRequestClose={onClose} style={styles.dialog}>
-      <Text accessibilityRole="header" style={typography.heading}>
-        Chọn danh sách
-      </Text>
+      <View style={styles.header}>
+        <Text accessibilityRole="header" style={styles.title}>
+          Chọn danh sách
+        </Text>
+        <DialogCloseButton
+          accessibilityLabel="Đóng chọn danh sách"
+          onPress={onClose}
+        />
+      </View>
       <Text style={styles.description} numberOfLines={2} ellipsizeMode="tail">
         “{trackTitle}” có thể được thêm vào nhiều danh sách.
       </Text>
@@ -62,13 +68,14 @@ export function PlaylistPicker({
           })
         )}
       </ScrollView>
-      <Button title="Xong" onPress={onClose} />
     </DialogModal>
   );
 }
 
 const styles = StyleSheet.create({
   dialog: { maxHeight: '82%' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  title: { flex: 1, ...typography.heading },
   description: { color: colors.muted, fontSize: 15, lineHeight: 22 },
   empty: { color: colors.muted, fontSize: 15, lineHeight: 22 },
   scroll: { flexGrow: 0 },

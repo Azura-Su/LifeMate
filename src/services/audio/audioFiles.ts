@@ -46,14 +46,16 @@ export async function readAudioIndex(uid: string): Promise<AudioTrack[]> {
 
 function writeAudioIndex(
   uid: string,
-  update: (tracks: AudioTrack[]) => AudioTrack[],
+  update: (tracks: AudioTrack[]) => AudioTrack[] | Promise<AudioTrack[]>,
 ): Promise<AudioTrack[]> {
   const previous = queues.get(uid) ?? Promise.resolve();
   const next = previous
     .catch(() => undefined)
     .then(async () => {
       const tracks = await readAudioIndex(uid);
-      const updated = update(tracks).sort((a, b) => b.createdAt - a.createdAt);
+      const updated = (await update(tracks)).sort(
+        (a, b) => b.createdAt - a.createdAt,
+      );
       await AsyncStorage.setItem(indexKey(uid), JSON.stringify(updated));
       return updated;
     });
@@ -98,11 +100,21 @@ export function mergeAudioIndex(
   uid: string,
   remote: AudioTrack[],
 ): Promise<AudioTrack[]> {
-  return writeAudioIndex(uid, (tracks) => {
-    const remoteIds = new Set(remote.map((track) => track.id));
+  return writeAudioIndex(uid, async (tracks) => {
+    const remoteIds = new Set(
+      remote.filter((track) => track.ownerId === uid).map((track) => track.id),
+    );
     // A cloud-synced entry missing from an authoritative server listing was
     // deleted on another device. A pending local rename must not recreate its
     // metadata document; un-synced local-only tracks are still retained.
+    // Delete while holding the index queue, before dropping the reference.
+    // If deletion fails, keep the index intact so the next sync can retry.
+    for (const track of tracks) {
+      if (track.synced && !remoteIds.has(track.id))
+        await FileSystem.deleteAsync(audioLocalUri(track), {
+          idempotent: true,
+        });
+    }
     const merged = new Map(
       tracks
         .filter((track) => !track.synced || remoteIds.has(track.id))

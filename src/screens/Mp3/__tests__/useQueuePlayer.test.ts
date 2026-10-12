@@ -93,6 +93,8 @@ beforeEach(() => {
   useQueuePlaybackStore.getState().setPlaying(false);
 });
 
+afterEach(() => jest.useRealTimers());
+
 it('keeps a track switch active until the replacement actually starts playing', async () => {
   const { result, rerender } = renderHook(() =>
     useQueuePlayer({ items, repeatId: null, repeatAll: false, prepare }),
@@ -228,4 +230,116 @@ it('forgets the resume point of a track that played to the end', async () => {
       (await readAudioLearningPreferences('u1')).resumePositions.a,
     ).toBeUndefined(),
   );
+});
+
+it('auto-advances after manually resuming playback paused by the sleep timer', async () => {
+  const { result } = renderHook(() =>
+    useQueuePlayer({ items, repeatId: null, repeatAll: false, prepare }),
+  );
+  act(() => result.current.start(items[0]));
+  await waitFor(() => expect(result.current.currentId).toBe('a'));
+  act(() => emitStatus({ isLoaded: true, playing: true }));
+  jest.useFakeTimers();
+  act(() => result.current.setSleepTimer(1));
+  await act(async () => jest.advanceTimersByTimeAsync(60_000));
+  expect(mockPlayer.pause).toHaveBeenCalled();
+  act(() => emitStatus({ playing: false, currentTime: 0.4, duration: 1 }));
+
+  await act(async () => result.current.toggle());
+  act(() => emitStatus({ playing: true }));
+  act(() =>
+    emitStatus({
+      didJustFinish: true,
+      playing: false,
+      currentTime: 1,
+      duration: 1,
+    }),
+  );
+
+  await waitFor(() => expect(result.current.currentId).toBe('b'));
+  expect(mockPlayer.replace).toHaveBeenLastCalledWith({ uri: 'file:///b' });
+});
+
+it.each(['stop', 'logout', 'sleep timer'] as const)(
+  'does not resume stale playback if %s occurs while audio mode is being restored',
+  async (interruption) => {
+    const { result, rerender } = renderHook(
+      ({ uid }: { uid: string | null }) =>
+        useQueuePlayer({
+          uid,
+          items,
+          repeatId: null,
+          repeatAll: false,
+          prepare,
+        }),
+      { initialProps: { uid: 'u1' as string | null } },
+    );
+    act(() => result.current.start(items[0]));
+    await waitFor(() => expect(result.current.currentId).toBe('a'));
+    act(() => emitStatus({ isLoaded: true, playing: true }));
+    act(() => result.current.pause());
+    act(() => emitStatus({ playing: false, currentTime: 0.4, duration: 1 }));
+    mockPlayer.play.mockClear();
+    let releaseAudioMode!: () => void;
+    mockSetAudioMode.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseAudioMode = resolve;
+        }),
+    );
+    let resuming!: Promise<void>;
+    act(() => {
+      resuming = result.current.toggle();
+    });
+
+    if (interruption === 'stop') {
+      act(() => result.current.stop());
+    } else if (interruption === 'logout') {
+      rerender({ uid: null });
+    } else {
+      jest.useFakeTimers();
+      act(() => result.current.setSleepTimer(1));
+      await act(async () => jest.advanceTimersByTimeAsync(60_000));
+    }
+    await act(async () => {
+      releaseAudioMode();
+      await resuming;
+    });
+
+    expect(mockPlayer.play).not.toHaveBeenCalled();
+    if (interruption !== 'sleep timer')
+      expect(result.current.currentId).toBeNull();
+  },
+);
+
+it('does not resume a finished track if stopped while seeking back to its beginning', async () => {
+  const { result } = renderHook(() =>
+    useQueuePlayer({ items, repeatId: null, repeatAll: false, prepare }),
+  );
+  act(() => result.current.start(items[0]));
+  await waitFor(() => expect(result.current.currentId).toBe('a'));
+  act(() => emitStatus({ isLoaded: true, playing: true }));
+  act(() => emitStatus({ playing: false, currentTime: 1, duration: 1 }));
+  mockPlayer.play.mockClear();
+  let releaseSeek!: () => void;
+  mockPlayer.seekTo.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        releaseSeek = resolve;
+      }),
+  );
+  let resuming!: Promise<void>;
+  await act(async () => {
+    resuming = result.current.toggle();
+  });
+  expect(mockPlayer.seekTo).toHaveBeenLastCalledWith(0);
+
+  act(() => result.current.stop());
+  await act(async () => {
+    releaseSeek();
+    await resuming;
+  });
+
+  expect(mockPlayer.play).not.toHaveBeenCalled();
+  expect(result.current.currentId).toBeNull();
 });

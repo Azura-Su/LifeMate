@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { deleteAsync } from 'expo-file-system/legacy';
 import {
   deleteLocalAudioTrack,
   readAudioIndex,
@@ -33,6 +34,7 @@ const item: AudioTrack = {
 };
 beforeEach(async () => {
   await AsyncStorage.clear();
+  jest.mocked(deleteAsync).mockReset().mockResolvedValue(undefined);
 });
 it('keeps imported audio across reloads and isolates accounts', async () => {
   await updateAudioIndex(item);
@@ -102,4 +104,45 @@ it('rejects invalid titles and missing records without losing the original', asy
   );
   await expect(renameAudioTitle('u2', 'a', 'New')).rejects.toThrow();
   expect(await readAudioIndex('u1')).toEqual([item]);
+});
+
+it('removes local files deleted remotely while keeping offline imports and other accounts', async () => {
+  const deleted = { ...item, synced: true, pendingTitle: true };
+  const offline = { ...item, id: 'offline', fileName: 'offline.mp3' };
+  const otherAccount = { ...deleted, ownerId: 'u2' };
+  await updateAudioIndex(deleted);
+  await updateAudioIndex(offline);
+  await updateAudioIndex(otherAccount);
+  const files = new Set([
+    'file:///documents/audio/u1/a.mp3',
+    'file:///documents/audio/u1/offline.mp3',
+    'file:///documents/audio/u2/a.mp3',
+  ]);
+  jest.mocked(deleteAsync).mockImplementation(async (uri) => {
+    files.delete(uri);
+  });
+
+  expect(await mergeAudioIndex('u1', [])).toEqual([offline]);
+
+  expect(files).toEqual(
+    new Set([
+      'file:///documents/audio/u1/offline.mp3',
+      'file:///documents/audio/u2/a.mp3',
+    ]),
+  );
+  expect(await readAudioIndex('u1')).toEqual([offline]);
+  expect(await readAudioIndex('u2')).toEqual([otherAccount]);
+});
+
+it('keeps a remotely deleted track indexed if file cleanup fails so cleanup can retry', async () => {
+  const deleted = { ...item, synced: true };
+  await updateAudioIndex(deleted);
+  jest.mocked(deleteAsync).mockRejectedValueOnce(new Error('file is busy'));
+
+  await mergeAudioIndex('u1', []).catch(() => undefined);
+
+  expect(await readAudioIndex('u1')).toEqual([deleted]);
+  expect(await mergeAudioIndex('u1', [])).toEqual([]);
+  expect(deleteAsync).toHaveBeenCalledTimes(2);
+  expect(await readAudioIndex('u1')).toEqual([]);
 });

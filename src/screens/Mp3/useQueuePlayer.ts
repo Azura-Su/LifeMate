@@ -547,16 +547,30 @@ export function useQueuePlayer({
       player.pause();
       return;
     }
+    const request = ++startRequest.current;
+    const owner = uidRef.current;
+    const generation = sleepExpirationGenerationRef.current;
+    const trackId = currentRef.current;
+    const canResume = () =>
+      request === startRequest.current &&
+      owner === uidRef.current &&
+      trackId === currentRef.current &&
+      generation === sleepExpirationGenerationRef.current;
+    // A deliberate resume starts a new listening session after the timer.
+    // Keep the generation check so an older async resume cannot undo expiry.
+    sleepTimerExpiredRef.current = false;
     try {
       await setAudioModeAsync(BACKGROUND_AUDIO_MODE);
+      if (!canResume()) return;
       if (
         currentStatus.duration > 0 &&
         currentStatus.currentTime >= currentStatus.duration - 0.1
       )
         await player.seekTo(0);
+      if (!canResume()) return;
       player.play();
     } catch {
-      setError('Không phát được bài này.');
+      if (canResume()) setError('Không phát được bài này.');
     }
   }, [player, saveCurrentPosition]);
 
