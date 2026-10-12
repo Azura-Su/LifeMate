@@ -234,7 +234,6 @@ export function AgendaTaskFormDialog({
                 applyPickerValue(pickerMode, selectedDate);
             }}
           />
-          <Button title="Xong" onPress={() => setPickerMode(null)} />
         </>
       ) : (
         <>
