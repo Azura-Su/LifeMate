@@ -45,22 +45,13 @@ type CachedPreferences = {
 const keyFor = (uid: string) =>
   `lifemate:finance-preferences:v1:${encodeURIComponent(uid)}`;
 const queues = new Map<string, Promise<unknown>>();
-const CLOUD_WRITE_TIMEOUT_MS = 15000;
+const CLOUD_TIMEOUT_MS = 15000;
 const SETTINGS_DOC_ID = 'preferences';
 
 const defaultPreferences = (): FinancePreferences => ({
   incomeCategories: [...INCOME_CATEGORIES],
   expenseCategories: [...EXPENSE_CATEGORIES],
-  templates: [
-    {
-      id: 'coffee-default',
-      name: 'Cà phê 30.000đ',
-      type: 'expense',
-      amount: 30000,
-      category: 'Ăn uống',
-      note: 'Cà phê',
-    },
-  ],
+  templates: [],
 });
 
 function enqueue<T>(uid: string, operation: () => Promise<T>): Promise<T> {
@@ -80,7 +71,7 @@ function withTimeout<T>(promise: Promise<T>): Promise<T> {
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
       () => reject(new Error('Chưa kết nối được kho đám mây. Hãy thử lại.')),
-      CLOUD_WRITE_TIMEOUT_MS,
+      CLOUD_TIMEOUT_MS,
     );
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
@@ -125,6 +116,8 @@ function parsePreferences(value: unknown): FinancePreferences {
             typeof item.id === 'string' &&
             item.id.length > 0 &&
             item.id.length <= 128 &&
+            // Ignore the retired built-in template in older caches and cloud data.
+            item.id !== 'coffee-default' &&
             typeof item.name === 'string' &&
             item.name.trim().length > 0 &&
             item.name.length <= 120 &&
@@ -143,10 +136,11 @@ function parsePreferences(value: unknown): FinancePreferences {
     : defaults.templates;
   return {
     incomeCategories: categories(data.incomeCategories, INCOME_CATEGORIES),
-    expenseCategories: categories(data.expenseCategories, EXPENSE_CATEGORIES),
-    templates: templates.some(({ id }) => id === 'coffee-default')
-      ? templates
-      : [defaults.templates[0], ...templates].slice(0, 100),
+    expenseCategories: categories(
+      data.expenseCategories,
+      EXPENSE_CATEGORIES,
+    ).filter((category) => category !== 'Nhà cửa'),
+    templates,
   };
 }
 
@@ -266,7 +260,7 @@ function applyLocalChanges(
   );
   const removedIds = new Set(
     base.templates
-      .filter(({ id }) => id !== 'coffee-default' && !localTemplates.has(id))
+      .filter(({ id }) => !localTemplates.has(id))
       .map(({ id }) => id),
   );
   const changedTemplates = local.templates.filter((item) => {
@@ -394,7 +388,7 @@ export function readFinancePreferences(
         return { preferences, synced: true };
       }
 
-      const snapshot = await getDocFromServer(preferenceRef(uid));
+      const snapshot = await withTimeout(getDocFromServer(preferenceRef(uid)));
       if (snapshot.exists()) {
         const preferences = parsePreferences(snapshot.data());
         await writeCache(uid, preferences, false);

@@ -32,10 +32,10 @@ export const INCOME_CATEGORIES = ['Lương', 'Thưởng', 'Thu nhập khác'] as
 export const EXPENSE_CATEGORIES = [
   'Ăn uống',
   'Di chuyển',
-  'Nhà cửa',
   'Điện nước',
   'Xăng xe',
   'Mua sắm',
   'Sức khỏe',
+  'Vui chơi',
   'Khác',
 ] as const;

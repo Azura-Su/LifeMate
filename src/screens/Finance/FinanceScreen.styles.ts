@@ -9,7 +9,7 @@ export const styles = StyleSheet.create({
   },
   reportModeSection: {
     paddingHorizontal: layout.screenGutter,
-    paddingTop: 20,
+    paddingTop: 12,
     paddingBottom: 12,
     backgroundColor: colors.background,
   },

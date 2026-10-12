@@ -124,6 +124,15 @@ export function FinanceTransactionDialog({
             (value !== INCOME_CATEGORIES[0] && value !== INCOME_CATEGORIES[1]),
         )
       : expenseCategories;
+  const categoriesPerRow = type === 'expense' ? 4 : 3;
+  const categoryRows = Array.from(
+    { length: Math.ceil(categories.length / categoriesPerRow) },
+    (_, index) =>
+      categories.slice(
+        index * categoriesPerRow,
+        (index + 1) * categoriesPerRow,
+      ),
+  );
   const visibleTemplates = templates.filter(
     (template) => template.type === type,
   );
@@ -379,7 +388,7 @@ export function FinanceTransactionDialog({
                     >
                       <Text style={styles.categoryText}>{template.name}</Text>
                     </Pressable>
-                    {template.id !== 'coffee-default' && onRemoveTemplate && (
+                    {onRemoveTemplate && (
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={`Xóa mẫu ${template.name}`}
@@ -591,56 +600,72 @@ export function FinanceTransactionDialog({
             </Pressable>
           )}
         </View>
-        <View style={styles.categoryList}>
-          {categories.map((value) => {
-            const selected = value === category;
-            const builtIns =
-              type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
-            return (
-              <View
-                key={value}
-                testID={`finance-category-${value}`}
-                style={[styles.category, selected && styles.categorySelected]}
-              >
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  onPress={() => setCategory(value)}
-                  style={styles.templateAction}
-                >
-                  <Text
+        <View style={styles.categoryGrid}>
+          {categoryRows.map((row) => (
+            <View key={row[0]} style={styles.categoryRow}>
+              {row.map((value) => {
+                const selected = value === category;
+                const builtIns =
+                  type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+                return (
+                  <View
+                    key={value}
+                    testID={`finance-category-${value}`}
                     style={[
-                      styles.categoryText,
-                      selected && styles.categoryTextSelected,
+                      styles.category,
+                      selected && styles.categorySelected,
                     ]}
                   >
-                    {value}
-                  </Text>
-                </Pressable>
-                {!builtIns.some((builtIn) => builtIn === value) &&
-                  onRemoveCategory && (
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={`Xóa danh mục ${value}`}
-                      accessibilityState={{
-                        disabled: preferenceBusy,
-                        busy: preferenceAction === `remove-category:${value}`,
-                      }}
-                      disabled={preferenceBusy}
-                      hitSlop={6}
-                      onPress={() => void removeCategory(value)}
-                      style={styles.smallAction}
+                      accessibilityState={{ selected }}
+                      onPress={() => setCategory(value)}
+                      style={[
+                        styles.categoryAction,
+                        type === 'expense' && styles.expenseCategoryAction,
+                      ]}
                     >
-                      {preferenceAction === `remove-category:${value}` ? (
-                        <ActivityIndicator size="small" color={colors.earth} />
-                      ) : (
-                        <Feather name="x" size={13} color={colors.muted} />
-                      )}
+                      <Text
+                        style={[
+                          styles.categoryText,
+                          styles.categoryLabel,
+                          type === 'expense' && styles.expenseCategoryText,
+                          selected && styles.categoryTextSelected,
+                        ]}
+                      >
+                        {value}
+                      </Text>
                     </Pressable>
-                  )}
-              </View>
-            );
-          })}
+                    {!builtIns.some((builtIn) => builtIn === value) &&
+                      onRemoveCategory && (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Xóa danh mục ${value}`}
+                          accessibilityState={{
+                            disabled: preferenceBusy,
+                            busy:
+                              preferenceAction === `remove-category:${value}`,
+                          }}
+                          disabled={preferenceBusy}
+                          hitSlop={6}
+                          onPress={() => void removeCategory(value)}
+                          style={styles.smallAction}
+                        >
+                          {preferenceAction === `remove-category:${value}` ? (
+                            <ActivityIndicator
+                              size="small"
+                              color={colors.earth}
+                            />
+                          ) : (
+                            <Feather name="x" size={13} color={colors.muted} />
+                          )}
+                        </Pressable>
+                      )}
+                  </View>
+                );
+              })}
+            </View>
+          ))}
         </View>
         {showCategoryForm && onAddCategory && (
           <View style={styles.inlineForm}>

@@ -7,7 +7,14 @@ import {
   useRef,
   useState,
 } from 'react';
-import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  RefreshControl,
+  Text,
+  View,
+} from 'react-native';
 import { Button } from '../../components/Button';
 import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { Screen } from '../../components/Screen';
@@ -60,6 +67,44 @@ const reportTabs = [
 export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   const model = useFinanceScreen();
   const loanLedger = useLoanLedger(model.uid);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const refreshRequest = useRef<object | null>(null);
+  const feedbackError = refreshError ?? model.error;
+
+  useEffect(() => {
+    refreshRequest.current = null;
+    setRefreshing(false);
+    setRefreshError(null);
+    return () => {
+      refreshRequest.current = null;
+    };
+  }, [model.uid, suspended]);
+
+  async function refreshFinance() {
+    if (refreshRequest.current || !model.uid || suspended || model.loading)
+      return;
+    const request = {};
+    refreshRequest.current = request;
+    setRefreshing(true);
+    setRefreshError(null);
+    try {
+      const results = await Promise.allSettled([
+        model.refresh(),
+        loanLedger.load(),
+      ]);
+      if (results.some(({ status }) => status === 'rejected'))
+        throw new Error('Refresh failed');
+    } catch {
+      if (refreshRequest.current === request)
+        setRefreshError('Chưa đồng bộ được. Kéo xuống để thử lại.');
+    } finally {
+      if (refreshRequest.current === request) {
+        refreshRequest.current = null;
+        setRefreshing(false);
+      }
+    }
+  }
   const correctableDeletedLoanIds = useMemo(
     () => new Set(loanLedger.correctableDeletedLoanIds),
     [loanLedger.correctableDeletedLoanIds],
@@ -279,6 +324,95 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
       fixedHeaderStyle={styles.header}
       fixedContent={
         <View style={styles.fixedActions}>
+          {(!!model.syncStatus || refreshing) && (
+            <View
+              accessibilityRole="summary"
+              accessibilityState={{ busy: refreshing }}
+              accessibilityLiveRegion="polite"
+              style={[
+                styles.syncStatus,
+                !refreshing &&
+                  model.syncStatus === 'local' &&
+                  styles.syncPending,
+                (refreshing || model.syncStatus === 'recovery') &&
+                  styles.syncRecovery,
+              ]}
+            >
+              <Feather
+                name={
+                  !refreshing && model.syncStatus === 'local'
+                    ? 'cloud-off'
+                    : 'cloud'
+                }
+                size={15}
+                color={
+                  refreshing
+                    ? colors.sky
+                    : model.syncStatus === 'local'
+                      ? colors.sunlight
+                      : model.syncStatus === 'recovery'
+                        ? colors.sky
+                        : colors.success
+                }
+              />
+              <Text
+                style={[
+                  styles.syncText,
+                  !refreshing &&
+                    model.syncStatus === 'local' &&
+                    styles.syncPendingText,
+                  (refreshing || model.syncStatus === 'recovery') &&
+                    styles.syncRecoveryText,
+                ]}
+              >
+                {refreshing
+                  ? 'Đang đồng bộ…'
+                  : model.syncStatus === 'synced'
+                    ? 'Đã lưu trên tài khoản'
+                    : model.syncStatus === 'recovery'
+                      ? 'Đã tải từ cloud · cache trên máy chưa đọc được'
+                      : 'Chưa sao lưu · chỉ có trên thiết bị'}
+              </Text>
+              {!refreshing &&
+                model.syncStatus !== 'synced' &&
+                (model.syncStatus === 'recovery' ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Tải lại"
+                    accessibilityHint="Tải lại dữ liệu từ tài khoản."
+                    accessibilityState={{
+                      disabled: model.loading,
+                      busy: model.loading,
+                    }}
+                    hitSlop={4}
+                    disabled={model.loading}
+                    onPress={() => void refreshFinance()}
+                    style={({ pressed }) => [
+                      styles.syncAction,
+                      pressed && styles.syncActionPressed,
+                    ]}
+                  >
+                    {model.loading ? (
+                      <ActivityIndicator size="small" color={colors.earth} />
+                    ) : (
+                      <Feather
+                        name="refresh-cw"
+                        size={17}
+                        color={colors.earth}
+                      />
+                    )}
+                  </Pressable>
+                ) : (
+                  <Button
+                    compact
+                    title="Đồng bộ lại"
+                    variant="secondary"
+                    loading={model.loading || refreshing}
+                    onPress={refreshFinance}
+                  />
+                ))}
+            </View>
+          )}
           <View style={styles.reportMode} accessibilityRole="tablist">
             {reportTabs.map((tab) => (
               <Pressable
@@ -329,6 +463,17 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
       }
       fixedContentStyle={styles.reportModeSection}
       contentStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => void refreshFinance()}
+          enabled={!!model.uid && !suspended}
+          tintColor={colors.earth}
+          colors={[colors.earth]}
+          progressBackgroundColor={colors.surface}
+          accessibilityLabel="Kéo xuống để đồng bộ tài chính"
+        />
+      }
     >
       {reportMode === 'overview' && (
         <FinancePeriodSelector
@@ -338,86 +483,17 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
         />
       )}
 
-      {!!model.syncStatus && (
-        <View
-          accessibilityRole="summary"
-          style={[
-            styles.syncStatus,
-            model.syncStatus === 'local' && styles.syncPending,
-            model.syncStatus === 'recovery' && styles.syncRecovery,
-          ]}
-        >
-          <Feather
-            name={model.syncStatus === 'local' ? 'cloud-off' : 'cloud'}
-            size={15}
-            color={
-              model.syncStatus === 'local'
-                ? colors.sunlight
-                : model.syncStatus === 'recovery'
-                  ? colors.sky
-                  : colors.success
-            }
-          />
-          <Text
-            style={[
-              styles.syncText,
-              model.syncStatus === 'local' && styles.syncPendingText,
-              model.syncStatus === 'recovery' && styles.syncRecoveryText,
-            ]}
-          >
-            {model.syncStatus === 'synced'
-              ? 'Đã lưu trên tài khoản'
-              : model.syncStatus === 'recovery'
-                ? 'Đã tải từ cloud · cache trên máy chưa đọc được'
-                : 'Chưa sao lưu · chỉ có trên thiết bị'}
-          </Text>
-          {model.syncStatus !== 'synced' &&
-            (model.syncStatus === 'recovery' ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Tải lại"
-                accessibilityHint="Tải lại dữ liệu từ tài khoản."
-                accessibilityState={{
-                  disabled: model.loading,
-                  busy: model.loading,
-                }}
-                hitSlop={4}
-                disabled={model.loading}
-                onPress={() => void model.refresh()}
-                style={({ pressed }) => [
-                  styles.syncAction,
-                  pressed && styles.syncActionPressed,
-                ]}
-              >
-                {model.loading ? (
-                  <ActivityIndicator size="small" color={colors.earth} />
-                ) : (
-                  <Feather name="refresh-cw" size={17} color={colors.earth} />
-                )}
-              </Pressable>
-            ) : (
-              <Button
-                compact
-                title="Đồng bộ lại"
-                variant="secondary"
-                loading={model.loading}
-                onPress={model.refresh}
-              />
-            ))}
-        </View>
-      )}
-
-      {reportMode !== 'overview' && !!model.error && (
+      {reportMode !== 'overview' && !!feedbackError && (
         <View>
           <Text accessibilityRole="alert" style={styles.feedback}>
-            {model.error}
+            {feedbackError}
           </Text>
           <Button
             compact
             title="Thử tải lại"
             variant="secondary"
-            loading={model.loading}
-            onPress={model.refresh}
+            loading={model.loading || refreshing}
+            onPress={refreshFinance}
           />
         </View>
       )}
@@ -452,7 +528,9 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             end={reportEnd}
             onEndChange={setReportEnd}
           />
-          {model.loading && <ActivityIndicator color={colors.earth} />}
+          {model.loading && !refreshing && (
+            <ActivityIndicator color={colors.earth} />
+          )}
         </>
       ) : (
         <>
@@ -469,32 +547,20 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             <View style={styles.summary}>
               <View style={styles.balance}>
                 <Text style={styles.balanceLabel}>Còn lại trong kỳ</Text>
-                <Text
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  style={styles.balanceAmount}
-                >
+                <Text style={styles.balanceAmount}>
                   {formatFinanceAmount(model.report.balance)}
                 </Text>
               </View>
               <View style={styles.totals}>
                 <View style={styles.total}>
                   <Text style={styles.totalLabel}>Tổng thu</Text>
-                  <Text
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    style={[styles.totalAmount, styles.income]}
-                  >
+                  <Text style={[styles.totalAmount, styles.income]}>
                     {formatFinanceAmount(model.report.income)}
                   </Text>
                 </View>
                 <View style={styles.total}>
                   <Text style={styles.totalLabel}>Tổng chi</Text>
-                  <Text
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    style={[styles.totalAmount, styles.expense]}
-                  >
+                  <Text style={[styles.totalAmount, styles.expense]}>
                     {formatFinanceAmount(model.report.expense)}
                   </Text>
                 </View>
@@ -508,20 +574,22 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
                 ? 'Kết quả tìm kiếm'
                 : 'Giao dịch trong tháng'}
             </Text>
-            {model.loading && <ActivityIndicator color={colors.earth} />}
+            {model.loading && !refreshing && (
+              <ActivityIndicator color={colors.earth} />
+            )}
           </View>
 
-          {!!model.error && (
+          {!!feedbackError && (
             <View>
               <Text accessibilityRole="alert" style={styles.feedback}>
-                {model.error}
+                {feedbackError}
               </Text>
               <Button
                 compact
                 title="Thử tải lại"
                 variant="secondary"
-                loading={model.loading}
-                onPress={model.refresh}
+                loading={model.loading || refreshing}
+                onPress={refreshFinance}
               />
             </View>
           )}

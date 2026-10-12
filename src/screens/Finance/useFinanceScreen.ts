@@ -31,16 +31,7 @@ type Draft = {
 const EMPTY_PREFERENCES: FinancePreferences = {
   incomeCategories: [...INCOME_CATEGORIES],
   expenseCategories: [...EXPENSE_CATEGORIES],
-  templates: [
-    {
-      id: 'coffee-default',
-      name: 'Cà phê 30.000đ',
-      type: 'expense',
-      amount: 30000,
-      category: 'Ăn uống',
-      note: 'Cà phê',
-    },
-  ],
+  templates: [],
 };
 
 function makeId() {
@@ -193,7 +184,6 @@ export function useFinanceScreen() {
   }
 
   async function removeTemplate(id: string) {
-    if (id === 'coffee-default') return;
     await savePreferences((current) => ({
       ...current,
       templates: current.templates.filter((item) => item.id !== id),
