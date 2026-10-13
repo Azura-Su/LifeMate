@@ -9,6 +9,7 @@ import type {
 } from '../../types/finance';
 import type { LoanRecord } from '../../types/loan';
 import {
+  filterFinanceTransactions,
   formatFinanceAmount,
   getExpenseReport,
   getFinanceIncomeSource,
@@ -16,6 +17,7 @@ import {
   getIncomeReport,
 } from '../../utils/finance';
 import { FinanceTransactionDayGroups } from './FinanceTransactionDayGroups';
+import { FinanceSearchResults } from './FinanceSearchResults';
 import { categoryReportStyles as styles } from './FinanceCategoryReport.styles';
 
 export type FinanceReportPoint = { year: number; month: number };
@@ -43,6 +45,10 @@ type Props = {
   start: FinanceReportPoint;
   end: FinanceReportPoint;
   incomeSource: FinanceIncomeSourceFilter;
+  searchQuery: string;
+  deferredSearchQuery: string;
+  getAdditionalSearchText: (transaction: FinanceTransaction) => string;
+  loading: boolean;
 };
 
 const monthName = (month: number) =>
@@ -71,6 +77,10 @@ export function FinanceCategoryReport({
   start,
   end,
   incomeSource,
+  searchQuery,
+  deferredSearchQuery,
+  getAdditionalSearchText,
+  loading,
 }: Props) {
   const isIncome = kind === 'income';
   const reportTransactions = useMemo(
@@ -162,6 +172,42 @@ export function FinanceCategoryReport({
       : periodMode === 'month'
         ? `Tháng ${month.month}/${month.year}`
         : `${formatPeriodPoint(start)} – ${formatPeriodPoint(end)}`;
+
+  const matchingTransactions = useMemo(
+    () =>
+      deferredSearchQuery
+        ? filterFinanceTransactions(
+            report.months.flatMap((entry) => entry.transactions),
+            deferredSearchQuery,
+            getAdditionalSearchText,
+          )
+        : [],
+    [deferredSearchQuery, getAdditionalSearchText, report],
+  );
+
+  if (searchQuery) {
+    const incomeScope =
+      incomeSource === 'company'
+        ? 'Công ty'
+        : incomeSource === 'other'
+          ? 'Ngoài công ty'
+          : 'Tất cả nguồn thu';
+    return (
+      <FinanceSearchResults
+        transactions={
+          deferredSearchQuery === searchQuery ? matchingTransactions : []
+        }
+        scope={isIncome ? `${periodLabel} · ${incomeScope}` : periodLabel}
+        busy={loading || deferredSearchQuery !== searchQuery}
+        onDelete={onDelete}
+        onEdit={onEdit}
+        onOpenLoan={onOpenLoan}
+        loansById={loansById}
+        canDeleteLinkedExpense={canDeleteLinkedExpense}
+        deletingIds={deletingIds}
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>

@@ -10,6 +10,7 @@ import {
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   Pressable,
   RefreshControl,
   Text,
@@ -35,7 +36,7 @@ import { useLoanLedger } from '../../hooks/useLoanLedger';
 import { useHeldMoneyLedger } from '../../hooks/useHeldMoneyLedger';
 import { useFinanceStore } from '../../store/financeStore';
 import { FinanceMonthSection } from './FinanceMonthSection';
-import { FinanceTransactionRow } from './FinanceTransactionRow';
+import { FinanceSearchResults } from './FinanceSearchResults';
 import {
   FinanceCategoryReport,
   type FinanceIncomeSourceFilter,
@@ -261,6 +262,25 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     year: currentDate.getFullYear(),
     month: currentDate.getMonth() + 1,
   });
+  const reportCustomCategories = useMemo(() => {
+    if (reportMode === 'expense') return model.preferences.expenseCategories;
+    if (reportIncomeSource === 'company')
+      return model.preferences.incomeCategories;
+    if (reportIncomeSource === 'other')
+      return model.preferences.otherIncomeCategories;
+    return [
+      ...new Set([
+        ...model.preferences.incomeCategories,
+        ...model.preferences.otherIncomeCategories,
+      ]),
+    ];
+  }, [
+    model.preferences.expenseCategories,
+    model.preferences.incomeCategories,
+    model.preferences.otherIncomeCategories,
+    reportIncomeSource,
+    reportMode,
+  ]);
 
   useEffect(() => {
     if (reportMode === 'overview') setReportIncomeSource('company');
@@ -292,14 +312,14 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   const deferredQuery = useDeferredValue(searchQuery.trim());
   const searchResults = useMemo(
     () =>
-      deferredQuery
+      reportMode === 'overview' && deferredQuery
         ? filterFinanceTransactions(
             model.transactions,
             deferredQuery,
             getLoanSearchText,
           )
         : [],
-    [deferredQuery, getLoanSearchText, model.transactions],
+    [deferredQuery, getLoanSearchText, model.transactions, reportMode],
   );
   // Stable row callbacks that always call the latest handlers.
   const handlers = useRef({ openEditDialog, confirmDelete });
@@ -458,6 +478,10 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
         accessibilityState={{ selected }}
         hitSlop={{ top: 3, bottom: 3 }}
         onPress={() => {
+          if (!selected) {
+            Keyboard.dismiss();
+            setSearchQuery('');
+          }
           setReportMode(tab.value);
           setLoanLedgerTargetId(null);
         }}
@@ -683,6 +707,36 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
           </View>
         )}
 
+      {(reportMode === 'overview' ||
+        reportMode === 'income' ||
+        reportMode === 'expense') && (
+        <View style={styles.searchField}>
+          <Feather name="search" size={18} color={colors.muted} />
+          <TextInput
+            accessibilityLabel={`Tìm giao dịch ${reportMode === 'income' ? 'thu nhập' : reportMode === 'expense' ? 'chi tiêu' : 'thu chi'}`}
+            placeholder="Ghi chú, danh mục hoặc số tiền"
+            placeholderTextColor={colors.muted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            style={styles.searchInput}
+          />
+          {!!searchQuery && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Xóa từ khóa tìm kiếm"
+              hitSlop={2}
+              onPress={() => setSearchQuery('')}
+              style={styles.searchClear}
+            >
+              <Feather name="x" size={18} color={colors.muted} />
+            </Pressable>
+          )}
+        </View>
+      )}
+
       {reportMode === 'income' || reportMode === 'expense' ? (
         <>
           <FinanceCategoryReport
@@ -694,20 +748,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             loansById={loansById}
             canDeleteLinkedExpense={canDeleteLinkedExpense}
             deletingIds={deletingIds}
-            customCategories={
-              reportMode === 'expense'
-                ? model.preferences.expenseCategories
-                : reportIncomeSource === 'company'
-                  ? model.preferences.incomeCategories
-                  : reportIncomeSource === 'other'
-                    ? model.preferences.otherIncomeCategories
-                    : [
-                        ...new Set([
-                          ...model.preferences.incomeCategories,
-                          ...model.preferences.otherIncomeCategories,
-                        ]),
-                      ]
-            }
+            customCategories={reportCustomCategories}
             onAdd={(year, month, incomeSource) =>
               openAddDialog(reportMode, { year, month }, incomeSource)
             }
@@ -717,8 +758,12 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             start={reportStart}
             end={reportEnd}
             incomeSource={reportIncomeSource}
+            searchQuery={searchQuery.trim()}
+            deferredSearchQuery={deferredQuery}
+            getAdditionalSearchText={getLoanSearchText}
+            loading={model.loading}
           />
-          {model.loading && !refreshing && (
+          {model.loading && !refreshing && !searchQuery.trim() && (
             <ActivityIndicator color={colors.earth} />
           )}
         </>
@@ -730,15 +775,6 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
         />
       ) : reportMode === 'overview' ? (
         <>
-          <TextInput
-            accessibilityLabel="Tìm giao dịch"
-            placeholder="Tìm theo ghi chú, danh mục hoặc số tiền"
-            placeholderTextColor={colors.muted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-            style={styles.searchInput}
-          />
           {!searchQuery.trim() && (
             <View style={styles.summary}>
               <View style={styles.balance}>
@@ -764,16 +800,16 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             </View>
           )}
 
-          <View style={styles.sectionHeader}>
-            <Text accessibilityRole="header" style={styles.sectionTitle}>
-              {searchQuery.trim()
-                ? 'Kết quả tìm kiếm'
-                : 'Giao dịch trong tháng'}
-            </Text>
-            {model.loading && !refreshing && (
-              <ActivityIndicator color={colors.earth} />
-            )}
-          </View>
+          {!searchQuery.trim() && (
+            <View style={styles.sectionHeader}>
+              <Text accessibilityRole="header" style={styles.sectionTitle}>
+                Giao dịch trong tháng
+              </Text>
+              {model.loading && !refreshing && (
+                <ActivityIndicator color={colors.earth} />
+              )}
+            </View>
+          )}
 
           {!!feedbackError && (
             <View>
@@ -791,36 +827,19 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
           )}
 
           {searchQuery.trim() ? (
-            <View style={styles.searchResults}>
-              {searchResults.map((transaction) => (
-                <FinanceTransactionRow
-                  key={transaction.id}
-                  transaction={transaction}
-                  deleting={deletingIds.has(transaction.id)}
-                  onEdit={editRow}
-                  onDelete={deleteRow}
-                  loan={
-                    transaction.loanId
-                      ? loansById.get(transaction.loanId)
-                      : undefined
-                  }
-                  onOpenLoan={openLinkedLoan}
-                  canDeleteLinkedExpense={canDeleteLinkedExpense(transaction)}
-                />
-              ))}
-              {!model.loading &&
-                !!deferredQuery &&
-                searchResults.length === 0 && (
-                  <View style={styles.empty}>
-                    <Text style={styles.emptyTitle}>
-                      Không tìm thấy giao dịch
-                    </Text>
-                    <Text style={typography.small}>
-                      Thử từ khóa khác hoặc xóa nội dung tìm kiếm.
-                    </Text>
-                  </View>
-                )}
-            </View>
+            <FinanceSearchResults
+              transactions={
+                deferredQuery === searchQuery.trim() ? searchResults : []
+              }
+              scope="Toàn bộ lịch sử · Không giới hạn tháng"
+              busy={model.loading || deferredQuery !== searchQuery.trim()}
+              onDelete={deleteRow}
+              onEdit={editRow}
+              onOpenLoan={openLinkedLoan}
+              loansById={loansById}
+              canDeleteLinkedExpense={canDeleteLinkedExpense}
+              deletingIds={deletingIds}
+            />
           ) : null}
 
           {!searchQuery.trim() &&
