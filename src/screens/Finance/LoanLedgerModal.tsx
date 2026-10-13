@@ -830,7 +830,7 @@ export function LoanLedgerModal({
                   />
                 )}
                 {status === 'open' &&
-                  (pending || loan.repayments.length === 0) && (
+                  (pending || (!expanded && loan.repayments.length === 0)) && (
                     <View style={styles.actionRow}>
                       {pending ? (
                         <View style={styles.actionButton}>
@@ -1555,47 +1555,46 @@ function LoanHistory({
           />
         ),
       )}
-      {repayments.length > 0 && (
-        <View style={styles.repaymentHistorySection}>
-          <View style={styles.historyHeader}>
-            <Text style={styles.historyHeading}>Lịch sử nhận lại</Text>
-            {canAddRepayment && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Ghi nhận thêm tiền từ ${loan.borrowerName}`}
-                accessibilityState={{ disabled: repaymentDisabled }}
-                disabled={repaymentDisabled}
-                onPress={onAddRepayment}
-                hitSlop={6}
-                style={({ pressed }) => [
-                  styles.historyAddButton,
-                  pressed &&
-                    !repaymentDisabled &&
-                    styles.historyAddButtonPressed,
-                ]}
-              >
-                {repaymentLoading ? (
-                  <ActivityIndicator size="small" color={colors.earth} />
-                ) : (
-                  <Feather name="plus" size={18} color={colors.earth} />
-                )}
-              </Pressable>
-            )}
-          </View>
-          {repayments.map((repayment) => (
-            <RepaymentRow
-              key={`repay-${repayment.id}`}
-              repayment={repayment}
-              canEdit={canDeleteRepayment}
-              onEdit={() => onEditRepayment(repayment)}
-              canDelete={canDeleteRepayment}
-              deleting={deletingRepaymentId === repayment.id}
-              onDelete={() => onDeleteRepayment(repayment)}
-              onOpenActions={onOpenActions}
-            />
-          ))}
+      <View style={styles.repaymentHistorySection}>
+        <View style={styles.historyHeader}>
+          <Text style={styles.historyHeading}>Lịch sử nhận lại</Text>
+          {canAddRepayment && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Ghi nhận thêm tiền từ ${loan.borrowerName}`}
+              accessibilityState={{ disabled: repaymentDisabled }}
+              disabled={repaymentDisabled}
+              onPress={onAddRepayment}
+              hitSlop={6}
+              style={({ pressed }) => [
+                styles.historyAddButton,
+                pressed && !repaymentDisabled && styles.historyAddButtonPressed,
+              ]}
+            >
+              {repaymentLoading ? (
+                <ActivityIndicator size="small" color={colors.earth} />
+              ) : (
+                <Feather name="plus" size={18} color={colors.earth} />
+              )}
+            </Pressable>
+          )}
         </View>
-      )}
+        {repayments.length === 0 && (
+          <Text style={styles.historyEmpty}>Chưa có lần nhận lại.</Text>
+        )}
+        {repayments.map((repayment) => (
+          <RepaymentRow
+            key={`repay-${repayment.id}`}
+            repayment={repayment}
+            canEdit={canDeleteRepayment}
+            onEdit={() => onEditRepayment(repayment)}
+            canDelete={canDeleteRepayment}
+            deleting={deletingRepaymentId === repayment.id}
+            onDelete={() => onDeleteRepayment(repayment)}
+            onOpenActions={onOpenActions}
+          />
+        ))}
+      </View>
     </View>
   );
 }

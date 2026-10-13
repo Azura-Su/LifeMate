@@ -212,6 +212,7 @@ export const loanStyles = StyleSheet.create({
     color: colors.muted,
     fontWeight: '700',
   },
+  historyEmpty: { ...typography.small, color: colors.muted },
   historyAddButton: {
     width: 32,
     height: 32,
