@@ -534,25 +534,33 @@ export function getFinanceTransactionCategoryLabel(
   return transaction.category.trim();
 }
 
+function normalizeFinanceSearchText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('vi')
+    .replace(/đ/g, 'd')
+    .trim();
+}
+
 export function filterFinanceTransactions(
   transactions: FinanceTransaction[],
   query: string,
   getAdditionalSearchText?: (transaction: FinanceTransaction) => string,
 ) {
-  const normalized = query
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('vi')
-    .trim();
+  const normalized = normalizeFinanceSearchText(query);
   if (!normalized) return transactions;
-  const digits = normalized.replace(/\D/g, '');
+  // A note like "tháng 10" must not also match unrelated amounts containing 10.
+  const amountQuery =
+    /^(?:(?:₫|d|dong|vnd)\s*)?[\d.,\s]+(?:\s*(?:₫|d|dong|vnd))?$/;
+  const digits = amountQuery.test(normalized)
+    ? normalized.replace(/\D/g, '')
+    : '';
   return transactions.filter((transaction) => {
     const additionalText = getAdditionalSearchText?.(transaction) ?? '';
-    const text = [transaction.note, transaction.category, additionalText]
-      .join(' ')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLocaleLowerCase('vi');
+    const text = normalizeFinanceSearchText(
+      [transaction.note, transaction.category, additionalText].join(' '),
+    );
     return (
       text.includes(normalized) ||
       (!!digits && String(transaction.amount).includes(digits))
