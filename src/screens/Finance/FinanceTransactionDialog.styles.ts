@@ -36,8 +36,6 @@ export const styles = StyleSheet.create({
   },
   header: { paddingHorizontal: 12, paddingTop: 12 },
   content: { padding: 22, gap: 12 },
-  amountSummary: { gap: 2 },
-  amountPreview: { fontSize: 14, fontWeight: '600', color: colors.earth },
   typeRow: {
     flexDirection: 'row',
     padding: 4,

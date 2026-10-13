@@ -246,7 +246,10 @@ it('formats the entered amount and can dismiss the form from its header', async 
   await screen.findByText('Đã lưu trên tài khoản');
   fireEvent.press(screen.getByRole('button', { name: 'Thêm giao dịch' }));
   fireEvent.changeText(screen.getByLabelText('Số tiền'), '25000000');
-  expect(screen.getByLabelText('Số tiền đã nhập: 25.000.000 ₫')).toBeTruthy();
+  expect(screen.getByLabelText('Số tiền').props.value).toBe('25.000.000');
+  expect(
+    screen.getByLabelText('Số tiền bằng chữ: Hai mươi lăm triệu đồng'),
+  ).toBeTruthy();
   fireEvent.press(screen.getByRole('button', { name: 'Đóng thêm giao dịch' }));
   expect(screen.queryByLabelText('Số tiền')).toBeNull();
 });

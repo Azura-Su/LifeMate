@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { AppTextInput } from '../../components/AppTextInput';
 import { Button } from '../../components/Button';
+import { FinanceAmountInput } from '../../components/FinanceAmountInput';
 import { DialogModal } from '../../components/DialogModal';
 import { FinanceAmountWords } from '../../components/FinanceAmountWords';
 import { colors } from '../../theme';
@@ -70,13 +71,6 @@ function Field({
   );
 }
 
-function amountDigits(value: string) {
-  return value
-    .replace(/\D/g, '')
-    .replace(/^0+(?=\d)/, '')
-    .slice(0, 16);
-}
-
 function AmountField({
   label,
   value,
@@ -86,23 +80,15 @@ function AmountField({
   value: string;
   onChangeText: (value: string) => void;
 }) {
-  const formatted = amountDigits(value).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <View style={styles.amountInput}>
-        <AppTextInput
-          accessibilityLabel={label}
-          value={formatted}
-          onChangeText={(text) => onChangeText(amountDigits(text))}
-          placeholder="0"
-          placeholderTextColor={colors.muted}
-          keyboardType="number-pad"
-          maxLength={21}
-          style={styles.amountTextInput}
-        />
-        <Text style={styles.amountSuffix}>đ</Text>
-      </View>
+      <FinanceAmountInput
+        accessibilityLabel={label}
+        value={value}
+        onChangeText={onChangeText}
+        compact
+      />
     </View>
   );
 }

@@ -502,11 +502,6 @@ export const loanStyles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   fieldLabel: { ...typography.small, color: colors.ink, fontWeight: '600' },
-  amountPreview: {
-    ...typography.small,
-    color: colors.earth,
-    fontWeight: '700',
-  },
   compactDateField: {
     minHeight: 48,
     flexDirection: 'row',

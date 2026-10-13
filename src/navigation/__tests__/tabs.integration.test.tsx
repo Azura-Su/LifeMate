@@ -301,7 +301,9 @@ it('asks for Face ID again when opening Finance after enabling its lock', async 
     name: 'Yêu cầu xác thực thiết bị để mở tab Tài chính',
   });
   fireEvent(financeLockSwitch, 'valueChange', true);
-  await waitFor(() => expect(useFinanceLockStore.getState().enabled).toBe(true));
+  await waitFor(() =>
+    expect(useFinanceLockStore.getState().enabled).toBe(true),
+  );
   expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(1);
   expect(useFinanceLockStore.getState().unlocked).toBe(false);
 
@@ -334,7 +336,9 @@ it('retries automatic Finance authentication after changing the lock setting', a
     'valueChange',
     false,
   );
-  await waitFor(() => expect(useFinanceLockStore.getState().enabled).toBe(false));
+  await waitFor(() =>
+    expect(useFinanceLockStore.getState().enabled).toBe(false),
+  );
 
   fireEvent(
     screen.getByRole('switch', {
@@ -343,7 +347,9 @@ it('retries automatic Finance authentication after changing the lock setting', a
     'valueChange',
     true,
   );
-  await waitFor(() => expect(useFinanceLockStore.getState().enabled).toBe(true));
+  await waitFor(() =>
+    expect(useFinanceLockStore.getState().enabled).toBe(true),
+  );
   expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(3);
 
   fireEvent.press(screen.getByRole('button', { name: 'Đóng menu' }));
@@ -376,7 +382,10 @@ it('preserves an open transaction form across background and Face ID', async () 
   act(() => changeState('active'));
   expect(await screen.findByText('Giao dịch trong tháng')).toBeTruthy();
   expect(await screen.findByLabelText('Số tiền')).toBeTruthy();
-  expect(screen.getByLabelText('Số tiền').props.value).toBe('125000');
+  expect(screen.getByLabelText('Số tiền').props.value).toBe('125.000');
+  expect(
+    screen.getByLabelText('Số tiền bằng chữ: Một trăm hai mươi lăm nghìn đồng'),
+  ).toBeTruthy();
   expect(screen.getByLabelText('Ghi chú').props.value).toBe('Ăn trưa');
   expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(2);
 });

@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { AppTextInput } from '../../components/AppTextInput';
 import { Button } from '../../components/Button';
+import { FinanceAmountInput } from '../../components/FinanceAmountInput';
 import { FinanceAmountWords } from '../../components/FinanceAmountWords';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme';
@@ -1118,25 +1119,16 @@ function LoanAdvanceDialog({
           <View style={styles.formRow}>
             <View style={[styles.formField, styles.formColumn]}>
               <Text style={styles.fieldLabel}>Số tiền cho vay thêm</Text>
-              <AppTextInput
+              <FinanceAmountInput
                 accessibilityLabel="Số tiền cho vay thêm"
-                placeholder="Ví dụ: 500000"
-                placeholderTextColor={colors.muted}
                 value={amountText}
                 onChangeText={(value) => {
-                  setAmountText(value.replace(/\D/g, ''));
+                  setAmountText(value);
                   setError(null);
                 }}
-                keyboardType="number-pad"
-                maxLength={16}
                 editable={!busy && !restoring && !retrying}
-                style={styles.input}
+                compact
               />
-              {amount !== null && (
-                <Text style={styles.amountPreview}>
-                  {formatFinanceAmount(amount)}
-                </Text>
-              )}
             </View>
             <View style={[styles.formField, styles.formColumn]}>
               <Text style={styles.fieldLabel}>Ngày cho vay</Text>
@@ -1342,25 +1334,16 @@ function LoanAdvanceEditDialog({
             <View style={styles.formRow}>
               <View style={[styles.formField, styles.formColumn]}>
                 <Text style={styles.fieldLabel}>Số tiền</Text>
-                <AppTextInput
+                <FinanceAmountInput
                   accessibilityLabel="Số tiền cho vay thêm"
-                  placeholder="Ví dụ: 500000"
-                  placeholderTextColor={colors.muted}
                   value={amountText}
                   onChangeText={(value) => {
-                    setAmountText(value.replace(/\D/g, ''));
+                    setAmountText(value);
                     setError(null);
                   }}
-                  keyboardType="number-pad"
-                  maxLength={16}
                   editable={!busy}
-                  style={styles.input}
+                  compact
                 />
-                {amount !== null && (
-                  <Text style={styles.amountPreview}>
-                    {formatFinanceAmount(amount)}
-                  </Text>
-                )}
               </View>
               <View style={[styles.formField, styles.formColumn]}>
                 <Text style={styles.fieldLabel}>Ngày cho vay</Text>
@@ -1992,23 +1975,16 @@ function LoanRepaymentEditDialog({
           <View style={styles.formRow}>
             <View style={[styles.formField, styles.formColumn]}>
               <Text style={styles.fieldLabel}>Số tiền đã nhận</Text>
-              <AppTextInput
+              <FinanceAmountInput
                 accessibilityLabel="Số tiền đã nhận"
                 value={amountText}
                 onChangeText={(value) => {
-                  setAmountText(value.replace(/\D/g, ''));
+                  setAmountText(value);
                   setError(null);
                 }}
-                keyboardType="number-pad"
-                maxLength={16}
                 editable={!busy}
-                style={styles.input}
+                compact
               />
-              {amount !== null && (
-                <Text style={styles.amountPreview}>
-                  {formatFinanceAmount(amount)}
-                </Text>
-              )}
             </View>
             <View style={[styles.formField, styles.formColumn]}>
               <Text style={styles.fieldLabel}>Ngày nhận</Text>
@@ -2376,10 +2352,8 @@ function LoanFormDialog({
             <View style={styles.formRow}>
               <View style={[styles.formField, styles.formColumn]}>
                 <Text style={styles.fieldLabel}>{amountLabel}</Text>
-                <AppTextInput
+                <FinanceAmountInput
                   accessibilityLabel={amountLabel}
-                  placeholder="Ví dụ: 500000"
-                  placeholderTextColor={colors.muted}
                   value={amountText}
                   editable={
                     !saving &&
@@ -2387,18 +2361,9 @@ function LoanFormDialog({
                     !retryingLoan &&
                     !retryingAdvance
                   }
-                  onChangeText={(value) =>
-                    setAmountText(value.replace(/\D/g, ''))
-                  }
-                  keyboardType="number-pad"
-                  maxLength={16}
-                  style={styles.input}
+                  onChangeText={setAmountText}
+                  compact
                 />
-                {amountPreview !== null && (
-                  <Text style={styles.amountPreview}>
-                    {formatFinanceAmount(amountPreview)}
-                  </Text>
-                )}
               </View>
               <View style={[styles.formField, styles.formColumn]}>
                 <View style={styles.fieldHeading}>
@@ -2888,19 +2853,15 @@ function RepaymentDialog({
             <Text style={styles.maxButtonText}>Tối đa</Text>
           </Pressable>
         </View>
-        <AppTextInput
+        <FinanceAmountInput
           accessibilityLabel="Số tiền nhận lại"
-          placeholder="Nhập số tiền"
-          placeholderTextColor={colors.muted}
           value={amountText}
           onChangeText={(value) => {
-            setAmountText(value.replace(/\D/g, ''));
+            setAmountText(value);
             setError(null);
           }}
-          keyboardType="number-pad"
-          maxLength={16}
           editable={!busy && available > 0}
-          style={styles.input}
+          compact
         />
         <FinanceAmountWords value={amountText} />
         <Text style={styles.meta}>
@@ -3041,25 +3002,16 @@ function LoanPrincipalEditDialog({
           <View style={styles.formRow}>
             <View style={[styles.formField, styles.formColumn]}>
               <Text style={styles.fieldLabel}>Số tiền ban đầu</Text>
-              <AppTextInput
+              <FinanceAmountInput
                 accessibilityLabel="Số tiền cho vay ban đầu"
-                placeholder="Ví dụ: 500000"
-                placeholderTextColor={colors.muted}
                 value={amountText}
                 onChangeText={(value) => {
-                  setAmountText(value.replace(/\D/g, ''));
+                  setAmountText(value);
                   setError(null);
                 }}
-                keyboardType="number-pad"
-                maxLength={16}
                 editable={!busy}
-                style={styles.input}
+                compact
               />
-              {amount !== null && (
-                <Text style={styles.amountPreview}>
-                  {formatFinanceAmount(amount)}
-                </Text>
-              )}
             </View>
             <View style={[styles.formField, styles.formColumn]}>
               <Text style={styles.fieldLabel}>Ngày cho vay</Text>

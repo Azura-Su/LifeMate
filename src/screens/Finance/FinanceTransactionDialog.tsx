@@ -12,6 +12,7 @@ import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Button } from '../../components/Button';
 import { DialogCloseButton } from '../../components/DialogCloseButton';
 import { DialogModal } from '../../components/DialogModal';
+import { FinanceAmountInput } from '../../components/FinanceAmountInput';
 import { FinanceAmountWords } from '../../components/FinanceAmountWords';
 import { ModalHeader } from '../../components/ModalHeader';
 import { AppTextInput as TextInput } from '../../components/AppTextInput';
@@ -26,7 +27,6 @@ import type { FinanceTransactionTemplate } from '../../services/finance/financeP
 import { colors } from '../../theme';
 import {
   formatFinanceDate,
-  formatFinanceAmount,
   parseFinanceAmount,
   parseFinanceDate,
 } from '../../utils/finance';
@@ -527,30 +527,16 @@ export function FinanceTransactionDialog({
           </View>
         )}
         <Text style={styles.label}>Số tiền</Text>
-        <TextInput
+        <FinanceAmountInput
           accessibilityLabel="Số tiền"
-          placeholder="Ví dụ: 500000"
-          placeholderTextColor={colors.muted}
-          keyboardType="number-pad"
           value={amount}
           onChangeText={(value) => {
-            setAmount(value.replace(/\D/g, ''));
+            setAmount(value);
             setError(null);
           }}
           editable={!busy}
-          style={styles.input}
         />
-        {parsedAmount !== null && (
-          <View style={styles.amountSummary}>
-            <Text
-              accessibilityLabel={`Số tiền đã nhập: ${formatFinanceAmount(parsedAmount)}`}
-              style={styles.amountPreview}
-            >
-              {formatFinanceAmount(parsedAmount)}
-            </Text>
-            <FinanceAmountWords value={amount} />
-          </View>
-        )}
+        <FinanceAmountWords value={amount} />
         <Text style={styles.label}>Ngày giao dịch</Text>
         <View style={styles.dateField}>
           <TextInput
