@@ -14,6 +14,7 @@ import {
   RefreshControl,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { Button } from '../../components/Button';
 import { AppTextInput as TextInput } from '../../components/AppTextInput';
@@ -79,6 +80,7 @@ const reportTabs = [
 ] as const;
 
 export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
+  const { width: screenWidth } = useWindowDimensions();
   const model = useFinanceScreen();
   const loanLedger = useLoanLedger(model.uid);
   const loansById = useMemo(
@@ -448,10 +450,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     openAddDialog(reportMode, period);
   }
 
-  function renderReportTab(
-    tab: (typeof reportTabs)[number],
-    ledgerTab = false,
-  ) {
+  function renderReportTab(tab: (typeof reportTabs)[number]) {
     const selected = reportMode === tab.value;
     return (
       <Pressable
@@ -464,12 +463,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
           setReportMode(tab.value);
           setLoanLedgerTargetId(null);
         }}
-        style={[
-          styles.reportModeButton,
-          ledgerTab && styles.ledgerModeButton,
-          selected &&
-            (ledgerTab ? styles.ledgerModeSelected : styles.reportModeSelected),
-        ]}
+        style={[styles.reportModeButton, selected && styles.reportModeSelected]}
       >
         <Text
           numberOfLines={1}
@@ -480,7 +474,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             selected && styles.reportModeTextSelected,
           ]}
         >
-          {tab.label}
+          {tab.value === 'loans' && screenWidth < 380 ? 'Cho vay' : tab.label}
         </Text>
       </Pressable>
     );
@@ -631,12 +625,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             </View>
           )}
           <View style={styles.reportMode} accessibilityRole="tablist">
-            <View style={styles.reportModeRow}>
-              {reportTabs.slice(0, 3).map((tab) => renderReportTab(tab))}
-            </View>
-            <View style={styles.ledgerModeRow}>
-              {reportTabs.slice(3).map((tab) => renderReportTab(tab, true))}
-            </View>
+            {reportTabs.map(renderReportTab)}
           </View>
           {reportMode === 'overview' ? (
             <FinancePeriodSelector
