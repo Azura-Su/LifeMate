@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { DialogCloseButton } from '../../components/DialogCloseButton';
 import { DialogModal } from '../../components/DialogModal';
+import { Button } from '../../components/Button';
 import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { Screen } from '../../components/Screen';
 import type { MainTabParams } from '../../navigation/types';
@@ -99,6 +100,7 @@ export function ChecklistsScreen({ navigation, route }: Props) {
   const newItemNameInput = useRef<NativeTextInput>(null);
   const newItemQuantityInput = useRef<NativeTextInput>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
@@ -154,7 +156,7 @@ export function ChecklistsScreen({ navigation, route }: Props) {
     return () => {
       current = false;
     };
-  }, [uid]);
+  }, [uid, reloadKey]);
 
   const accountChecklists = useMemo(
     () => (loadedUid === uid ? checklists : []),
@@ -162,6 +164,7 @@ export function ChecklistsScreen({ navigation, route }: Props) {
   );
   const selected =
     accountChecklists.find((item) => item.id === selectedId) ?? null;
+  const loadFailed = !loading && !!uid && loadedUid !== uid;
 
   useEffect(() => {
     const requestedId = route.params?.checklistId;
@@ -455,56 +458,81 @@ export function ChecklistsScreen({ navigation, route }: Props) {
     : 0;
 
   return (
-    <Screen contentStyle={selected ? styles.detailContent : styles.content}>
-      <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={selected ? 'Quay lại danh sách' : 'Quay về Home'}
-          onPress={() =>
-            selected ? returnToOverview() : navigation.navigate('Home')
-          }
-          style={styles.backButton}
-        >
-          <Feather name="arrow-left" size={19} color={colors.earth} />
-        </Pressable>
-        <View style={styles.headerText}>
-          <Text accessibilityRole="header" style={styles.title}>
-            {selected ? selected.title : 'Danh sách chuẩn bị'}
-          </Text>
-          <Text style={styles.subtitle}>
-            {selected
-              ? 'Đánh dấu món đã chuẩn bị'
-              : 'Mua sắm, đi chơi và việc cần mang theo'}
-          </Text>
+    <Screen
+      fixedHeaderStyle={styles.fixedHeader}
+      fixedHeader={
+        <View style={styles.header}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              selected ? 'Quay lại danh sách' : 'Quay về Home'
+            }
+            onPress={() =>
+              selected ? returnToOverview() : navigation.navigate('Home')
+            }
+            style={styles.backButton}
+          >
+            <Feather name="arrow-left" size={19} color={colors.earth} />
+          </Pressable>
+          <View style={styles.headerText}>
+            <Text
+              accessibilityRole="header"
+              numberOfLines={1}
+              style={styles.title}
+            >
+              {selected ? selected.title : 'Danh sách chuẩn bị'}
+            </Text>
+            <Text numberOfLines={1} style={styles.subtitle}>
+              {selected
+                ? 'Đánh dấu món đã chuẩn bị'
+                : 'Mua sắm, đi chơi và việc cần mang theo'}
+            </Text>
+          </View>
+          {!selected && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tạo danh sách mới"
+              accessibilityState={{ disabled: loadFailed }}
+              disabled={loadFailed}
+              onPress={() => openCreate()}
+              style={styles.iconButton}
+            >
+              <Feather name="plus" size={21} color={colors.earth} />
+            </Pressable>
+          )}
+          {selected && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Đổi tên danh sách"
+              onPress={() => openRename(selected)}
+              style={styles.iconButton}
+            >
+              <Feather name="edit-2" size={17} color={colors.earth} />
+            </Pressable>
+          )}
         </View>
-        {!selected && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Tạo danh sách mới"
-            onPress={() => openCreate()}
-            style={styles.iconButton}
-          >
-            <Feather name="plus" size={21} color={colors.earth} />
-          </Pressable>
-        )}
-        {selected && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Đổi tên danh sách"
-            onPress={() => openRename(selected)}
-            style={styles.iconButton}
-          >
-            <Feather name="edit-2" size={17} color={colors.earth} />
-          </Pressable>
-        )}
-      </View>
-
+      }
+      contentStyle={selected ? styles.detailContent : styles.content}
+    >
       {error && (
         <Text accessibilityRole="alert" style={styles.error}>
           {error}
         </Text>
       )}
-      {selected ? (
+      {loadFailed ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>Chưa mở được danh sách</Text>
+          <Text style={styles.emptyText}>
+            Thử tải lại để xem dữ liệu đã lưu trên thiết bị.
+          </Text>
+          <Button
+            compact
+            title="Thử tải lại"
+            variant="secondary"
+            onPress={() => setReloadKey((current) => current + 1)}
+          />
+        </View>
+      ) : selected ? (
         <>
           <View style={styles.progressCard}>
             <View style={styles.progressSummary}>
@@ -579,6 +607,7 @@ export function ChecklistsScreen({ navigation, route }: Props) {
                     checked: item.checked,
                     disabled: busy,
                   }}
+                  hitSlop={9}
                   disabled={busy}
                   onPress={() => void toggleItem(selected, item)}
                   style={[

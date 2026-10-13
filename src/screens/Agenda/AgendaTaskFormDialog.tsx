@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, Text, View } from 'react-native';
+import {
+  Keyboard,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import DateTimePicker, {
   DateTimePickerAndroid,
@@ -137,6 +144,7 @@ export function AgendaTaskFormDialog({
 
   function openPicker(mode: 'date' | 'time') {
     if (busy) return;
+    Keyboard.dismiss();
     if (Platform.OS === 'android') {
       DateTimePickerAndroid.open({
         value: pickerValue,
@@ -166,8 +174,7 @@ export function AgendaTaskFormDialog({
     }
     const conflictingItem = existingItemsRef.current.find(
       (existing) =>
-        existing.id !== item?.id &&
-        isSameLocalMinute(existing.dueAt, dueAt),
+        existing.id !== item?.id && isSameLocalMinute(existing.dueAt, dueAt),
     );
     if (conflictingItem) {
       setError(
@@ -236,7 +243,11 @@ export function AgendaTaskFormDialog({
           />
         </>
       ) : (
-        <>
+        <ScrollView
+          style={styles.dialogScroll}
+          contentContainerStyle={styles.dialogContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.dialogHeader}>
             <Text
               accessibilityRole="header"
@@ -330,7 +341,7 @@ export function AgendaTaskFormDialog({
             loading={busy}
             onPress={() => void submit()}
           />
-        </>
+        </ScrollView>
       )}
     </DialogModal>
   );

@@ -20,6 +20,11 @@ export const styles = StyleSheet.create({
     paddingBottom: 28,
     gap: 13,
   },
+  fixedHeader: {
+    paddingHorizontal: layout.screenGutter,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
   header: {
     minHeight: 54,
     flexDirection: 'row',
@@ -36,7 +41,7 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
   },
-  headerText: { flex: 1, gap: 2 },
+  headerText: { flex: 1, minWidth: 0, gap: 2 },
   title: { fontSize: 22, lineHeight: 29, fontWeight: '700', color: colors.ink },
   subtitle: { fontSize: 13, lineHeight: 19, color: colors.muted },
   iconButton: {
@@ -340,8 +345,8 @@ export const styles = StyleSheet.create({
   itemChecked: { color: colors.muted, textDecorationLine: 'line-through' },
   itemQuantity: { fontSize: 12, lineHeight: 17, color: colors.muted },
   itemAction: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 11,

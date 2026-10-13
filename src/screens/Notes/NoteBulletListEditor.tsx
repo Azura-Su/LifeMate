@@ -81,6 +81,7 @@ export function NoteBulletListEditor({
           );
         }}
         keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
         showsVerticalScrollIndicator={false}
       >
         {items.map((item, index) => (
@@ -184,6 +185,7 @@ function NoteBulletRow({
             accessibilityRole="button"
             accessibilityLabel={`Xóa ý ${index + 1}`}
             accessibilityState={{ disabled }}
+            hitSlop={8}
             disabled={disabled}
             onPress={() => onRemove(item.id)}
             style={[styles.remove, disabled && styles.disabled]}
@@ -193,6 +195,7 @@ function NoteBulletRow({
         )}
         <View
           {...panResponder.panHandlers}
+          hitSlop={6}
           accessible
           accessibilityRole="adjustable"
           accessibilityLabel={`Chiều cao ô nhập ý ${index + 1}`}

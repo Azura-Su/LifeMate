@@ -12,7 +12,7 @@ export const colors = {
   earthLight: '#F1E7DE',
   sky: '#4D7088',
   skySoft: '#E9F0F3',
-  sunlight: '#9C701D',
+  sunlight: '#895F18',
   sunlightSoft: '#FFF9E8',
   sunlightFaint: '#FFFCF5',
   sunlightLine: '#F0E5C5',

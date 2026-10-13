@@ -100,6 +100,7 @@ export function MainTabs() {
         options={{
           tabBarButton: () => null,
           tabBarItemStyle: { display: 'none' },
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tab.Screen

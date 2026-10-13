@@ -65,6 +65,7 @@ export function CardScoreScreen({
     setBusy(value);
   };
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(
     null,
@@ -116,12 +117,13 @@ export function CardScoreScreen({
     return () => {
       current = false;
     };
-  }, [uid]);
+  }, [uid, reloadKey]);
 
   const accountMatches = useMemo(
     () => (loadedUid === uid ? matches : []),
     [loadedUid, matches, uid],
   );
+  const loadFailed = !loading && !!uid && loadedUid !== uid;
   const activeMatches = useMemo(
     () => accountMatches.filter((match) => match.status === 'active'),
     [accountMatches],
@@ -493,6 +495,17 @@ export function CardScoreScreen({
             accessibilityLabel="Đang tải bảng điểm"
             color={colors.earth}
           />
+        ) : loadFailed ? (
+          <View style={styles.emptyMatch}>
+            <Text style={styles.emptyMatchTitle}>Chưa mở được bảng điểm</Text>
+            <Text style={styles.emptyMatchText}>
+              Thử tải lại để xem các bàn chơi đã lưu trên thiết bị.
+            </Text>
+            <Button
+              title="Thử tải lại"
+              onPress={() => setReloadKey((current) => current + 1)}
+            />
+          </View>
         ) : currentMatch ? (
           <View style={styles.section}>
             <View style={styles.activeTablesSection}>
@@ -653,7 +666,7 @@ export function CardScoreScreen({
           </View>
         )}
 
-        {!loading && (
+        {!loading && !loadFailed && (
           <View style={styles.section}>
             <View style={styles.sectionHeading}>
               <View style={styles.headingCopy}>

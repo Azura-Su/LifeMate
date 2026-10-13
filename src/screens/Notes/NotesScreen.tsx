@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -349,49 +350,56 @@ export function NotesScreen({
         onRequestClose={() => !saving && setVisible(false)}
         style={styles.dialog}
       >
-        <View style={styles.dialogHeader}>
-          <Text accessibilityRole="header" style={styles.dialogTitle}>
-            {editing ? 'Sửa ghi chú' : 'Ghi chú mới'}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Đóng ghi chú"
-            accessibilityState={{ disabled: saving }}
+        <ScrollView
+          style={styles.dialogScroll}
+          contentContainerStyle={styles.dialogContent}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
+        >
+          <View style={styles.dialogHeader}>
+            <Text accessibilityRole="header" style={styles.dialogTitle}>
+              {editing ? 'Sửa ghi chú' : 'Ghi chú mới'}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Đóng ghi chú"
+              accessibilityState={{ disabled: saving }}
+              disabled={saving}
+              onPress={() => setVisible(false)}
+              style={[styles.dialogClose, saving && styles.disabledAction]}
+            >
+              <Feather name="x" size={20} color={colors.earth} />
+            </Pressable>
+          </View>
+          <TextInput
+            accessibilityLabel="Tiêu đề ghi chú"
+            placeholder="Tiêu đề"
+            placeholderTextColor={colors.muted}
+            value={title}
+            onChangeText={setTitle}
+            editable={!saving}
+            maxLength={120}
+            style={styles.input}
+          />
+          <NoteBulletListEditor
+            items={bulletItems}
             disabled={saving}
-            onPress={() => setVisible(false)}
-            style={[styles.dialogClose, saving && styles.disabledAction]}
-          >
-            <Feather name="x" size={20} color={colors.earth} />
-          </Pressable>
-        </View>
-        <TextInput
-          accessibilityLabel="Tiêu đề ghi chú"
-          placeholder="Tiêu đề"
-          placeholderTextColor={colors.muted}
-          value={title}
-          onChangeText={setTitle}
-          editable={!saving}
-          maxLength={120}
-          style={styles.input}
-        />
-        <NoteBulletListEditor
-          items={bulletItems}
-          disabled={saving}
-          onAdd={addBullet}
-          onChange={changeBullet}
-          onResize={resizeBullet}
-          onRemove={removeBullet}
-        />
-        {error && (
-          <Text accessibilityRole="alert" style={styles.error}>
-            {error}
-          </Text>
-        )}
-        <Button
-          title={editing ? 'Lưu thay đổi' : 'Tạo ghi chú'}
-          onPress={() => void save()}
-          loading={saving}
-        />
+            onAdd={addBullet}
+            onChange={changeBullet}
+            onResize={resizeBullet}
+            onRemove={removeBullet}
+          />
+          {error && (
+            <Text accessibilityRole="alert" style={styles.error}>
+              {error}
+            </Text>
+          )}
+          <Button
+            title={editing ? 'Lưu thay đổi' : 'Tạo ghi chú'}
+            onPress={() => void save()}
+            loading={saving}
+          />
+        </ScrollView>
       </DialogModal>
     </>
   );
@@ -496,7 +504,9 @@ const styles = StyleSheet.create({
   error: { ...typography.small, color: colors.danger },
   pending: { ...typography.small, fontSize: 11, color: colors.sunlight },
   refreshing: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dialog: { gap: 14, padding: 22, maxHeight: '90%' },
+  dialog: { padding: 22, maxHeight: '90%' },
+  dialogScroll: { flexShrink: 1 },
+  dialogContent: { gap: 14, paddingBottom: 2 },
   dialogHeader: {
     minHeight: 40,
     flexDirection: 'row',
