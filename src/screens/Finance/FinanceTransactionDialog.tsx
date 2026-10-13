@@ -526,45 +526,54 @@ export function FinanceTransactionDialog({
             </View>
           </View>
         )}
-        <Text style={styles.label}>Số tiền</Text>
-        <FinanceAmountInput
-          accessibilityLabel="Số tiền"
-          value={amount}
-          onChangeText={(value) => {
-            setAmount(value);
-            setError(null);
-          }}
-          editable={!busy}
-        />
-        <FinanceAmountWords value={amount} />
-        <Text style={styles.label}>Ngày giao dịch</Text>
-        <View style={styles.dateField}>
-          <TextInput
-            accessibilityLabel="Ngày giao dịch"
-            placeholder="DD/MM/YYYY"
-            placeholderTextColor={colors.muted}
-            value={date}
-            onPressIn={openDatePicker}
-            onChangeText={(value) => {
-              setDate(value);
-              setError(null);
-            }}
-            editable={!busy && !preferenceBusy}
-            showSoftInputOnFocus={false}
-            maxLength={10}
-            style={styles.dateFieldInput}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Mở lịch chọn ngày giao dịch"
-            accessibilityHint="Mở lịch để chọn ngày"
-            accessibilityState={{ disabled: busy || preferenceBusy }}
-            disabled={busy || preferenceBusy}
-            onPress={openDatePicker}
-            style={styles.datePickerAction}
-          >
-            <Feather name="calendar" size={18} color={colors.earth} />
-          </Pressable>
+        <View style={styles.amountDateGroup}>
+          <View style={styles.amountDateRow}>
+            <View style={styles.amountDateColumn}>
+              <Text style={styles.label}>Số tiền</Text>
+              <FinanceAmountInput
+                accessibilityLabel="Số tiền"
+                value={amount}
+                onChangeText={(value) => {
+                  setAmount(value);
+                  setError(null);
+                }}
+                editable={!busy}
+                compact
+              />
+            </View>
+            <View style={styles.amountDateColumn}>
+              <Text style={styles.label}>Ngày giao dịch</Text>
+              <View style={styles.dateField}>
+                <TextInput
+                  accessibilityLabel="Ngày giao dịch"
+                  placeholder="DD/MM/YYYY"
+                  placeholderTextColor={colors.muted}
+                  value={date}
+                  onPressIn={openDatePicker}
+                  onChangeText={(value) => {
+                    setDate(value);
+                    setError(null);
+                  }}
+                  editable={!busy && !preferenceBusy}
+                  showSoftInputOnFocus={false}
+                  maxLength={10}
+                  style={styles.dateFieldInput}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Mở lịch chọn ngày giao dịch"
+                  accessibilityHint="Mở lịch để chọn ngày"
+                  accessibilityState={{ disabled: busy || preferenceBusy }}
+                  disabled={busy || preferenceBusy}
+                  onPress={openDatePicker}
+                  style={styles.datePickerAction}
+                >
+                  <Feather name="calendar" size={14} color={colors.earth} />
+                </Pressable>
+              </View>
+            </View>
+          </View>
+          <FinanceAmountWords value={amount} />
         </View>
         <View style={styles.sectionHeading}>
           <Text style={styles.label}>Danh mục</Text>
