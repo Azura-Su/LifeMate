@@ -4,7 +4,7 @@
 
 - Tiền **cho vay** vẫn là khoản chi `Cho vay` vào ngày đưa tiền.
 - Tiền **nhận lại** giảm khoản chi `Cho vay` vào ngày thực nhận, kể cả khi trả nhiều lần; không tăng bất kỳ tổng hoặc nhóm nào ở tab Thu nhập.
-- `Còn lại = Thu nhập − Chi tiêu ròng` giữ nguyên so với dòng tiền hiện tại. Không thay đổi số dư khoản vay trong Sổ cho vay.
+- `Còn lại = Thu nhập − Chi tiêu ròng` giữ nguyên so với dòng tiền hiện tại. Không thay đổi số dư khoản vay trong mục Cho vay.
 - Trong kỳ chỉ nhận lại tiền của khoản cho vay ở kỳ trước, Chi tiêu hoặc nhóm `Cho vay` có thể là số âm. Hiển thị giá trị âm rõ ràng, không ép về 0 và không hồi tố ngày cho vay.
 
 Ví dụ: cho vay 1.500.000 ₫ và nhận lại 500.000 ₫ cùng kỳ → `Cho vay` còn 1.000.000 ₫ trong Chi tiêu; Thu nhập không tăng; Còn lại không đổi. Nếu nhận lại ở tháng sau, tháng cho vay vẫn ghi chi 1.500.000 ₫ và tháng nhận lại ghi giảm chi 500.000 ₫.
@@ -14,7 +14,7 @@ Ví dụ: cho vay 1.500.000 ₫ và nhận lại 500.000 ₫ cùng kỳ → `Cho
 1. **Dữ liệu giao dịch:** `loanStorage.ts` hiện lưu lần nhận tiền là giao dịch `type: 'income'`, `incomeSource: 'loan_repayment'`, gắn `loanId`/`repaymentId`. Firestore rules bắt buộc cấu trúc này. Giữ nguyên bản ghi, ID, đồng bộ, quyền truy cập và lịch sử; đổi phép phân loại **khi lập báo cáo** để áp dụng cho cả dữ liệu cũ. Chỉ nhận diện bằng marker `incomeSource`, không suy đoán từ tên danh mục.
 2. **Tổng Thu chi:** `getFinanceReport` đang cộng khoản hoàn trả vào Thu. Đổi thành `Thu = các khoản thu thông thường`, `Chi = các khoản chi − tiền hoàn trả` cho cả tổng và từng tháng. Vì `Thu − Chi` không đổi, số `Còn lại` và dòng tiền vẫn khớp.
 3. **Hai tab báo cáo:** `getIncomeReport` loại khoản hoàn trả ở mọi bộ lọc. `getExpenseReport` đưa khoản này vào nhóm `Cho vay` với dấu âm, đúng tháng nhận tiền. Giữ các giao dịch gốc để mở liên kết tới khoản vay; không tạo giao dịch chi âm hay sao chép dòng thu. Báo cáo năm, tháng, khoảng tháng và danh sách theo ngày phải dùng cùng quy tắc.
-4. **Giao diện:** bỏ lựa chọn `Thu hồi` khỏi bộ lọc nguồn của tab Thu nhập; Sổ cho vay vẫn mở được từ tab Thu chi và liên kết giao dịch. Tab Chi tiêu hiển thị dòng “Nhận lại tiền từ …” như khoản giảm chi và tổng `Cho vay` ròng. Cập nhật nhãn/empty state, số lượng khoản, dấu của số tiền, hàng danh mục bằng 0 hoặc âm để không che hoạt động hoàn trả hoặc làm người dùng hiểu nhầm là thu nhập mới.
+4. **Giao diện:** bỏ lựa chọn `Thu hồi` khỏi bộ lọc nguồn của tab Thu nhập; mục Cho vay vẫn mở được từ tab Thu chi và liên kết giao dịch. Tab Chi tiêu hiển thị dòng “Nhận lại tiền từ …” như khoản giảm chi và tổng `Cho vay` ròng. Cập nhật nhãn/empty state, số lượng khoản, dấu của số tiền, hàng danh mục bằng 0 hoặc âm để không che hoạt động hoàn trả hoặc làm người dùng hiểu nhầm là thu nhập mới.
 5. **Tài liệu:** cập nhật mô tả cũ trong `tasks/loan-ledger-plan-2026-10-11.md` và `docs/finance-cloud-storage.md` khi triển khai; hiện chúng còn nói tiền thu hồi cộng vào Thu.
 
 ## Thứ tự triển khai

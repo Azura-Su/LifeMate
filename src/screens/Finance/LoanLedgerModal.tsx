@@ -613,14 +613,14 @@ export function LoanLedgerModal({
             tintColor={colors.earth}
             colors={[colors.earth]}
             progressBackgroundColor={colors.surface}
-            accessibilityLabel="Kéo xuống để đồng bộ sổ cho vay"
+            accessibilityLabel="Kéo xuống để đồng bộ các khoản cho vay"
           />
         }
       >
         {loading && loans.length === 0 ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator color={colors.earth} />
-            <Text style={styles.meta}>Đang tải sổ cho vay…</Text>
+            <Text style={styles.meta}>Đang tải danh sách cho vay…</Text>
           </View>
         ) : visibleLoans.length === 0 ? (
           <View style={styles.empty}>

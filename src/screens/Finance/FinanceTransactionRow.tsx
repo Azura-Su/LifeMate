@@ -107,7 +107,7 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Xem khoản vay của ${loan.borrowerName}`}
-          accessibilityHint="Mở khoản vay liên kết trong sổ cho vay."
+          accessibilityHint="Mở khoản vay liên kết trong mục Cho vay."
           accessibilityState={{ disabled: !onOpenLoan || !transaction.loanId }}
           disabled={!onOpenLoan || !transaction.loanId}
           hitSlop={8}

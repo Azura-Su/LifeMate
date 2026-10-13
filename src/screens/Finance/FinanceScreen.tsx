@@ -14,7 +14,6 @@ import {
   RefreshControl,
   Text,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { Button } from '../../components/Button';
 import { AppTextInput as TextInput } from '../../components/AppTextInput';
@@ -69,8 +68,8 @@ const reportTabs = [
   },
   {
     value: 'loans',
-    label: 'Sổ cho vay',
-    accessibilityLabel: 'Sổ cho vay',
+    label: 'Cho vay',
+    accessibilityLabel: 'Cho vay',
   },
   {
     value: 'held',
@@ -80,7 +79,6 @@ const reportTabs = [
 ] as const;
 
 export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
-  const { width: screenWidth } = useWindowDimensions();
   const model = useFinanceScreen();
   const loanLedger = useLoanLedger(model.uid);
   const loansById = useMemo(
@@ -474,7 +472,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             selected && styles.reportModeTextSelected,
           ]}
         >
-          {tab.value === 'loans' && screenWidth < 380 ? 'Cho vay' : tab.label}
+          {tab.label}
         </Text>
       </Pressable>
     );

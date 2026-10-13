@@ -102,7 +102,8 @@ export function useLoanLedger(uid: string | null) {
         await reconcileLoanReminders(currentUid, result.loans);
         return result.synced && financeSynced;
       } catch {
-        if (isCurrentLoad()) setError('Chưa tải được sổ cho vay. Hãy thử lại.');
+        if (isCurrentLoad())
+          setError('Chưa tải được danh sách cho vay. Hãy thử lại.');
         return false;
       } finally {
         if (isCurrentLoad()) setLoading(false);
