@@ -61,6 +61,8 @@ it('keeps the last valid cached copy when a cloud record is malformed', async ()
         id: record.id,
         data: () => ({
           ...record,
+          remainingAmount: 0,
+          entryIds: ['received-1', 'paid-1'],
           entries: [
             ...record.entries,
             {

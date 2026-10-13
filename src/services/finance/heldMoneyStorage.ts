@@ -149,8 +149,7 @@ export function parseHeldMoneyRecord(
     !Number.isSafeInteger(totals.received) ||
     !Number.isSafeInteger(totals.paid) ||
     !Number.isSafeInteger(totals.returned) ||
-    !Number.isSafeInteger(totals.remaining) ||
-    totals.remaining < 0
+    !Number.isSafeInteger(totals.remaining)
   )
     return null;
   const entryIds = record.entries.map(({ id }) => id);
@@ -170,7 +169,7 @@ export function parseHeldMoneyRecord(
 function assertRecord(value: HeldMoneyRecord, uid: string) {
   const parsed = parseHeldMoneyRecord(value, uid);
   if (!parsed)
-    throw new Error('Số tiền đóng hoặc trả lại không được vượt số đang giữ.');
+    throw new Error('Dữ liệu khoản đóng hộ không hợp lệ.');
   return parsed;
 }
 

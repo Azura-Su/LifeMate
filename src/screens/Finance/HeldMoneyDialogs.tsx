@@ -524,8 +524,8 @@ export function HeldMoneyEntryDialog({
                 multiline
               />
               <Text style={styles.helper}>
-                Hiện còn giữ: {remaining}. Tổng đã đóng và trả lại không thể
-                vượt tổng đã nhận.
+                Số dư hiện tại: {remaining}. Khi chi ra vượt số đã nhận, số dư
+                âm thể hiện phần bạn đã ứng trước.
               </Text>
             </View>
           </ScrollView>

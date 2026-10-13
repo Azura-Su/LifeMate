@@ -16,6 +16,7 @@ export const heldStyles = StyleSheet.create({
     fontWeight: '700',
     color: colors.earth,
   },
+  negativeAmount: { color: colors.danger },
   summaryHint: { ...typography.small, color: colors.muted },
   card: {
     padding: 14,
@@ -60,6 +61,7 @@ export const heldStyles = StyleSheet.create({
   },
   balanceLabel: { fontSize: 11, color: colors.sky },
   balanceAmount: { fontSize: 20, fontWeight: '700', color: colors.earth },
+  balanceHint: { fontSize: 11, color: colors.danger },
   totalsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   totalText: { fontSize: 11, color: colors.muted },
   totalValue: { fontWeight: '700', color: colors.ink },

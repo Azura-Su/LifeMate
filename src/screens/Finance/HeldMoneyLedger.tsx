@@ -229,7 +229,12 @@ export function HeldMoneyLedger({
         (ledger.synced !== null && !ledger.error)) && (
         <View style={styles.summary} accessibilityRole="summary">
           <Text style={styles.summaryLabel}>Tổng tiền đang giữ hộ</Text>
-          <Text style={styles.summaryAmount}>
+          <Text
+            style={[
+              styles.summaryAmount,
+              totalRemaining < 0 && styles.negativeAmount,
+            ]}
+          >
             {formatFinanceAmount(totalRemaining)}
           </Text>
           <Text style={styles.summaryHint}>
@@ -337,9 +342,17 @@ export function HeldMoneyLedger({
               style={styles.balanceBox}
             >
               <Text style={styles.balanceLabel}>Còn giữ để đóng hộ</Text>
-              <Text style={styles.balanceAmount}>
+              <Text
+                style={[
+                  styles.balanceAmount,
+                  totals.remaining < 0 && styles.negativeAmount,
+                ]}
+              >
                 {formatFinanceAmount(totals.remaining)}
               </Text>
+              {totals.remaining < 0 && (
+                <Text style={styles.balanceHint}>Đã ứng trước phần chênh lệch</Text>
+              )}
             </Pressable>
             <View style={styles.totalsRow}>
               <Text style={styles.totalText}>

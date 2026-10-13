@@ -121,10 +121,11 @@ async function main() {
         remainingAmount: 100,
       }),
     );
-    await assertFails(
+    await assertSucceeds(
       fund.set({
         ...base,
-        updatedAt: 102,
+        senderName: 'Bác Trà mới',
+        updatedAt: 103,
         entries: [...base.entries, { ...paid, amount: 140 }],
         entryIds: [...base.entryIds, paid.id],
         remainingAmount: -40,
@@ -133,7 +134,8 @@ async function main() {
     await assertFails(
       fund.set({
         ...base,
-        updatedAt: 102,
+        senderName: 'Bác Trà mới',
+        updatedAt: 104,
         entries: [...base.entries, { ...paid, id: 'received-1' }],
         entryIds: ['received-1', 'received-1'],
         remainingAmount: 60,

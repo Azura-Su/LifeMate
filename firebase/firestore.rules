@@ -897,7 +897,7 @@ service cloud.firestore {
           && request.resource.data.entryIds.toSet().size() == request.resource.data.entryIds.size()
           && request.resource.data.remainingAmount is number
           && request.resource.data.remainingAmount % 1 == 0
-          && request.resource.data.remainingAmount >= 0
+          && request.resource.data.remainingAmount >= -200000000000000
           && request.resource.data.remainingAmount <= 200000000000000;
       }
       allow read, delete: if owns(uid);
