@@ -319,7 +319,14 @@ async function mutate(
           }
           const next = change(current);
           if (next) {
-            const valid = assertRecord(next, uid);
+            const valid = assertRecord(
+              {
+                ...next,
+                remainingAmount: getHeldMoneyTotals(next).remaining,
+                entryIds: next.entries.map(({ id: entryId }) => entryId),
+              },
+              uid,
+            );
             if (valid.id !== id)
               throw new Error('Mã khoản đóng hộ không hợp lệ.');
             if (!current || !sameRecord(current, valid))
