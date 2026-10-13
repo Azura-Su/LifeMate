@@ -2,12 +2,12 @@
 
 ## Objective
 
-Make daily use of LifeMate faster by improving the finance ledger, adding study-oriented MP3 controls, adding a private Notes tab, and showing dated tasks on Home with a path to create a system-calendar event. The app remains Vietnamese-first and uses the existing React Native/Expo, Firebase, Zustand, and theme patterns.
+Make daily use of LifeMate faster by improving the finance ledger, adding study-oriented MP3 controls, opening private Notes from the Home menu, and showing dated tasks on Home with a path to create a system-calendar event. The app remains Vietnamese-first and uses the existing React Native/Expo, Firebase, Zustand, and theme patterns.
 
 ## Assumptions
 
 - These features are for the signed-in individual account already used by Finance and MP3.
-- Finance templates/custom categories and MP3 learning controls are convenience preferences scoped to the device and UID; the underlying finance transactions remain in Firestore.
+- Finance templates/custom categories sync per UID through Firestore with an encrypted device cache. MP3 learning controls remain device preferences scoped to the UID; finance transactions are stored in Firestore.
 - Notes and agenda items are private Firestore data per UID so they survive reinstall and can be used across the account's devices.
 - Agenda reminders are optional, device-local notifications. A task remains useful when notification permission is denied.
 - Adding a calendar event opens the OS event editor with the task details prefilled. LifeMate does not read the user's calendar or create an event without the user's confirmation.
@@ -22,7 +22,7 @@ Make daily use of LifeMate faster by improving the finance ledger, adding study-
 ## Architecture
 
 - Keep transaction mutations in finance service/store; keep search and form drafts in Finance UI. Stable transaction ids are retained on edits.
-- Store finance templates/categories and MP3 learning preferences in UID-keyed AsyncStorage. The native audio player remains the sole playback engine.
+- Store finance templates/categories per UID in Firestore with an encrypted AsyncStorage cache. Keep MP3 learning preferences in UID-keyed device storage. The native audio player remains the sole playback engine.
 - Add UID-owned Firestore paths `noteAccounts/{uid}/notes/{noteId}` and `agendaAccounts/{uid}/items/{itemId}` with matching owner-only rules. Cache note and agenda snapshots per UID in AsyncStorage for offline viewing; write local cache and remote data through services.
 - Store a note's title, body, and update timestamp. Store a task's title, optional details, due timestamp, completion state, optional reminder timestamp, and scheduled local-notification id.
 - Schedule/cancel reminders from agenda actions; recreate a reminder when its task date changes. Do not request notification permission until the user enables a reminder.
@@ -35,7 +35,7 @@ Make daily use of LifeMate faster by improving the finance ledger, adding study-
 
 - User can edit an existing income or expense without changing its id/owner; save validates the amount/date/category and preserves the original until a successful update.
 - User can search all transactions by note/category text or exact/partial formatted amount and clear the search. Empty results explain how to clear the filter.
-- User can save, select, and remove a named transaction template containing type, amount, category, and note. A default “Cà phê 30.000đ” expense template is available.
+- User can save, select, and remove a named transaction template containing type, amount, category, and note.
 - User can create and remove custom income/expense categories; built-in categories cannot be removed. A transaction with a category already in use remains readable if that category is removed.
 
 ### MP3 learning controls
@@ -47,7 +47,7 @@ Make daily use of LifeMate faster by improving the finance ledger, adding study-
 
 ### Notes
 
-- A new Ghi chú tab supports create, edit, delete, and search across title/body.
+- Ghi chú opens from the Home menu and supports create, edit, delete, and search across title/body.
 - Notes have an explicit title, editable body, updated time, loading/error/empty states, and UID isolation in Firestore rules and local cache.
 
 ### Agenda and calendar

@@ -3,8 +3,8 @@ import * as SecureStore from 'expo-secure-store';
 import {
   deleteDoc,
   getDocsFromServer,
+  runTransaction,
   setDoc,
-  updateDoc,
 } from '@react-native-firebase/firestore';
 import {
   addFinanceTransaction,
@@ -13,6 +13,7 @@ import {
   readFinanceData,
   readFinanceTransactions,
   resetFinanceCloudState,
+  resolveFinanceConflict,
   updateFinanceTransaction,
 } from '../financeStorage';
 import type { FinanceTransaction } from '../../../types/finance';
@@ -56,7 +57,7 @@ it('restores account transactions from Firestore without a device cache', async 
 
   const result = await readFinanceData('u1');
 
-  expect(result).toEqual({ transactions: [row], synced: true });
+  expect(result).toEqual({ transactions: [row], synced: true, conflicts: [] });
   expect(await readFinanceTransactions('u1')).toEqual([row]);
 });
 
@@ -66,6 +67,7 @@ it('never reads another account path', async () => {
   await expect(readFinanceData('u1')).resolves.toEqual({
     transactions: [],
     synced: true,
+    conflicts: [],
   });
   await expect(readFinanceData('u2')).resolves.toMatchObject({
     transactions: [{ ownerId: 'u2', id: 'other' }],
@@ -78,7 +80,7 @@ it('migrates existing local transactions to the matching account once', async ()
 
   const result = await readFinanceData('u1');
 
-  expect(result).toEqual({ transactions: [row], synced: true });
+  expect(result).toEqual({ transactions: [row], synced: true, conflicts: [] });
   expect(getFirestoreMockRows('u1')).toEqual([row]);
   expect(getFirestoreMockRows('u2')).toEqual([]);
 
@@ -87,6 +89,7 @@ it('migrates existing local transactions to the matching account once', async ()
   await expect(readFinanceData('u1')).resolves.toEqual({
     transactions: [updated],
     synced: true,
+    conflicts: [],
   });
 });
 
@@ -143,6 +146,77 @@ it('keeps online edits available while preserving an unreadable local cache', as
   } finally {
     if (originalGetItem) getItem.mockImplementation(originalGetItem);
   }
+
+  await expect(readFinanceData('u1')).resolves.toEqual({
+    transactions: [{ ...row, amount: 30000000 }],
+    synced: true,
+    conflicts: [],
+  });
+  expect(await readFinanceTransactions('u1')).toEqual([
+    { ...row, amount: 30000000 },
+  ]);
+});
+
+it('keeps cloud additions and deletions while the cache key is unavailable', async () => {
+  await setEncryptedItem('u1', financeStorageKey('u1'), JSON.stringify([row]));
+  const encryptedCache = await AsyncStorage.getItem(financeStorageKey('u1'));
+  seedFirestoreMock('u1', row);
+  const getItem = jest.mocked(SecureStore.getItemAsync);
+  const originalGetItem = getItem.getMockImplementation();
+  getItem.mockRejectedValue(new Error('Keychain access failed'));
+  const added = { ...row, id: 'bonus-1', createdAt: row.createdAt + 1 };
+  try {
+    await readFinanceData('u1');
+    await expect(addFinanceTransaction('u1', added)).resolves.toMatchObject({
+      transactions: [added, row],
+      cacheNeedsRecovery: true,
+    });
+    await expect(deleteFinanceTransaction('u1', row.id)).resolves.toMatchObject(
+      {
+        transactions: [added],
+        cacheNeedsRecovery: true,
+      },
+    );
+    expect(getFirestoreMockRows('u1')).toEqual([added]);
+    expect(await AsyncStorage.getItem(financeStorageKey('u1'))).toBe(
+      encryptedCache,
+    );
+  } finally {
+    if (originalGetItem) getItem.mockImplementation(originalGetItem);
+  }
+
+  const recovered = await readFinanceData('u1');
+  expect(recovered).toMatchObject({
+    synced: false,
+    conflicts: [{ id: row.id, local: row, remote: null }],
+  });
+  expect(getFirestoreMockRows('u1')).toEqual([added]);
+  await expect(
+    resolveFinanceConflict('u1', recovered.conflicts![0], 'server'),
+  ).resolves.toEqual({
+    transactions: [added],
+    synced: true,
+    conflicts: [],
+  });
+});
+
+it('does not overwrite an unreconciled cache when the cloud is offline', async () => {
+  await setEncryptedItem('u1', financeStorageKey('u1'), JSON.stringify([row]));
+  const encryptedCache = await AsyncStorage.getItem(financeStorageKey('u1'));
+  seedFirestoreMock('u1', row);
+  jest
+    .mocked(SecureStore.getItemAsync)
+    .mockRejectedValueOnce(new Error('Keychain access failed'));
+  await readFinanceData('u1');
+  jest.mocked(getDocsFromServer).mockRejectedValueOnce(new Error('Offline'));
+
+  await expect(
+    addFinanceTransaction('u1', { ...row, id: 'bonus-1' }),
+  ).rejects.toThrow('Cần kết nối mạng để khôi phục sổ thu chi');
+  expect(await AsyncStorage.getItem(financeStorageKey('u1'))).toBe(
+    encryptedCache,
+  );
+  expect(getFirestoreMockRows('u1')).toEqual([row]);
 });
 
 it('falls back to local transactions when the cloud read stays pending', async () => {
@@ -170,6 +244,7 @@ it('uploads local-only additions after cloud connectivity returns', async () => 
   await expect(readFinanceData('u1')).resolves.toEqual({
     transactions: [row],
     synced: true,
+    conflicts: [],
   });
   expect(getFirestoreMockRows('u1')).toEqual([row]);
 });
@@ -196,7 +271,7 @@ it('does not remove a transaction locally before its cloud deletion succeeds', a
 it('keeps an offline edit and pushes it when the cloud is reachable again', async () => {
   seedFirestoreMock('u1', row);
   await readFinanceData('u1');
-  jest.mocked(updateDoc).mockRejectedValueOnce(new Error('Offline'));
+  jest.mocked(runTransaction).mockRejectedValueOnce(new Error('Offline'));
   const edited = { ...row, amount: 30000000 };
 
   await expect(updateFinanceTransaction('u1', edited)).resolves.toEqual({
@@ -206,6 +281,7 @@ it('keeps an offline edit and pushes it when the cloud is reachable again', asyn
   await expect(readFinanceData('u1')).resolves.toEqual({
     transactions: [edited],
     synced: true,
+    conflicts: [],
   });
   expect(getFirestoreMockRows('u1')).toEqual([edited]);
 });
@@ -235,16 +311,18 @@ it('does not re-create a transaction that was deleted on another device', async 
   ).toEqual(['bonus-1', 'salary-1']);
 });
 
-it('drops an unsynced edit when the transaction was deleted on another device', async () => {
+it('keeps an unsynced edit for review when the transaction was deleted on another device', async () => {
   seedFirestoreMock('u1', row);
   await readFinanceData('u1');
-  jest.mocked(updateDoc).mockRejectedValueOnce(new Error('Offline'));
-  await updateFinanceTransaction('u1', { ...row, amount: 1 });
+  jest.mocked(runTransaction).mockRejectedValueOnce(new Error('Offline'));
+  const edited = { ...row, amount: 1 };
+  await updateFinanceTransaction('u1', edited);
   resetFirestoreMock();
 
   await expect(readFinanceData('u1')).resolves.toEqual({
-    transactions: [],
-    synced: true,
+    transactions: [edited],
+    synced: false,
+    conflicts: [{ id: row.id, local: edited, remote: null }],
   });
   expect(getFirestoreMockRows('u1')).toEqual([]);
 });

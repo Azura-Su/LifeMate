@@ -111,8 +111,8 @@ async function writePendingState(
   );
 }
 
-// 'add' = created here; 'edit' = changed here. An unconfirmed edit is dropped
-// if the row was deleted elsewhere meanwhile, instead of re-creating it.
+// 'add' = created here; 'edit' = changed here. A deleted remote row with an
+// unconfirmed local edit is shown as a conflict before either copy is kept.
 type PendingChange = 'add' | 'edit';
 
 async function readPendingChanges(
@@ -305,7 +305,20 @@ async function uploadEditedTransaction(
 async function readFinanceDataInternal(
   uid: string,
 ): Promise<FinanceStorageResult> {
-  const cacheNeedsRecovery = cloudFallbackTransactions.has(uid);
+  const hadCloudFallback = cloudFallbackTransactions.has(uid);
+  let cacheNeedsRecovery = hadCloudFallback;
+  let recoveredCache = false;
+  if (cacheNeedsRecovery) {
+    try {
+      // Once the device key is available again, reconcile the original cache
+      // and its pending edits before replacing it with the cloud snapshot.
+      await getEncryptedItem(uid, financeStorageKey(uid));
+      cacheNeedsRecovery = false;
+      recoveredCache = true;
+    } catch {
+      // Keep the cloud copy visible without changing unreadable local data.
+    }
+  }
   let localTransactions: FinanceTransaction[] | null = null;
   try {
     localTransactions = await readFinanceTransactions(uid);
@@ -344,6 +357,19 @@ async function readFinanceDataInternal(
     );
     const remoteIds = new Set(remoteById.keys());
     const conflicts: FinanceConflict[] = [];
+    if (recoveredCache && !migrated) {
+      // During recovery, a cached row missing from the cloud might be either
+      // an old local row or one deleted while the key was unavailable. Ask the
+      // account owner before restoring it instead of silently resurrecting it.
+      for (const local of localTransactions) {
+        if (
+          !remoteIds.has(local.id) &&
+          !pending.has(local.id) &&
+          !isLoanLedgerTransaction(local)
+        )
+          pending.set(local.id, 'edit');
+      }
+    }
     const localIds = new Set(localTransactions.map(({ id }) => id));
     for (const id of pending.keys()) {
       if (!localIds.has(id)) {
@@ -430,14 +456,17 @@ async function readFinanceDataInternal(
       : { transactions, synced: false, cacheNeedsRecovery: true };
   } catch (error) {
     cloudReachable.set(uid, false);
-    if (localTransactions === null) throw error;
-    return cacheNeedsRecovery
-      ? {
-          transactions: localTransactions,
+    if (hadCloudFallback) {
+      const fallback = cloudFallbackTransactions.get(uid);
+      if (fallback)
+        return {
+          transactions: sortTransactions(fallback),
           synced: false,
           cacheNeedsRecovery: true,
-        }
-      : { transactions: localTransactions, synced: false };
+        };
+    }
+    if (localTransactions === null) throw error;
+    return { transactions: localTransactions, synced: false };
   }
 }
 
@@ -455,6 +484,17 @@ export function resetFinanceCloudState(uid?: string) {
 export function readFinanceData(uid: string): Promise<FinanceStorageResult> {
   requireUid(uid);
   return enqueue(uid, () => readFinanceDataInternal(uid));
+}
+
+async function currentTransactionsForMutation(uid: string) {
+  if (cloudFallbackTransactions.has(uid)) {
+    await readFinanceDataInternal(uid);
+    if (cloudFallbackTransactions.has(uid) && cloudReachable.get(uid) === false)
+      throw new Error(
+        'Cần kết nối mạng để khôi phục sổ thu chi trước khi sửa.',
+      );
+  }
+  return readFinanceTransactions(uid);
 }
 
 function upsertTransaction(
@@ -476,6 +516,7 @@ async function pushChange(
   original?: FinanceTransaction,
 ) {
   if (cloudReachable.get(uid) !== false) {
+    let committed = false;
     try {
       const ref = doc(
         getFirestore(),
@@ -495,6 +536,8 @@ async function pushChange(
         );
         if (result !== 'uploaded') throw new FinanceDataConflictError();
       }
+      committed = true;
+      cloudReachable.set(uid, true);
       const pending = await readPendingChanges(uid);
       const bases = await readPendingBases(uid);
       pending.delete(transaction.id);
@@ -503,6 +546,11 @@ async function pushChange(
       return pending.size === 0;
     } catch (error) {
       if (error instanceof FinanceDataConflictError) throw error;
+      if (committed && cloudFallbackTransactions.has(uid)) {
+        // The cloud write succeeded. An inaccessible device key must not
+        // turn that successful edit into an error or an offline pending edit.
+        return false;
+      }
       // A transient write failure must not disable cloud attempts for all
       // later transactions until the account is reloaded. Keep this change
       // pending, then let the next write retry the cloud independently.
@@ -551,22 +599,24 @@ function saveAddedTransaction(
     return Promise.reject(new Error('Thông tin giao dịch không hợp lệ.'));
   if (!alreadyCommitted && isLoanLedgerTransaction(transaction))
     return Promise.reject(
-      new Error(
-        'Giao dịch cho mượn chỉ được tạo cùng hồ sơ trong sổ cho mượn.',
-      ),
+      new Error('Giao dịch cho vay chỉ được tạo cùng hồ sơ trong sổ cho vay.'),
     );
 
   return enqueue(uid, async () => {
-    const current = await readFinanceTransactions(uid);
+    const current = await currentTransactionsForMutation(uid);
     let synced: boolean;
     if (alreadyCommitted) {
       const pending = await readPendingChanges(uid);
       const bases = await readPendingBases(uid);
       pending.delete(transaction.id);
       bases.delete(transaction.id);
-      await writePendingState(uid, pending, bases);
+      try {
+        await writePendingState(uid, pending, bases);
+      } catch (error) {
+        if (!cloudFallbackTransactions.has(uid)) throw error;
+      }
       cloudReachable.set(uid, true);
-      synced = pending.size === 0;
+      synced = pending.size === 0 && !cloudFallbackTransactions.has(uid);
     } else {
       synced = await pushChange(uid, transaction, 'add');
     }
@@ -587,7 +637,7 @@ export function deleteFinanceTransaction(
     return Promise.reject(new Error('Mã giao dịch không hợp lệ.'));
 
   return enqueue(uid, async () => {
-    const current = await readFinanceTransactions(uid);
+    const current = await currentTransactionsForMutation(uid);
     const pendingBeforeDelete = await readPendingChanges(uid);
     if (pendingBeforeDelete.has(id)) throw new FinanceDataConflictError();
     const target = current.find((transaction) => transaction.id === id);
@@ -596,7 +646,7 @@ export function deleteFinanceTransaction(
       isLoanLedgerTransaction(target) &&
       target.expenseSource !== 'loan_lending'
     )
-      throw new Error('Giao dịch cho mượn chỉ sửa được trong sổ cho mượn.');
+      throw new Error('Giao dịch cho vay chỉ sửa được trong sổ cho vay.');
     // Deleting stays online-only and checks the latest server version.
     await withTimeout(
       runTransaction(getFirestore(), async (transaction) => {
@@ -621,7 +671,11 @@ export function deleteFinanceTransaction(
     const bases = await readPendingBases(uid);
     pending.delete(id);
     bases.delete(id);
-    await writePendingState(uid, pending, bases);
+    try {
+      await writePendingState(uid, pending, bases);
+    } catch (error) {
+      if (!cloudFallbackTransactions.has(uid)) throw error;
+    }
     const transactions = current.filter((transaction) => transaction.id !== id);
     const cacheSaved = await writeFinanceCache(uid, transactions);
     return cacheSaved
@@ -701,11 +755,11 @@ export function updateFinanceTransaction(
     return Promise.reject(new Error('Thông tin giao dịch không hợp lệ.'));
 
   return enqueue(uid, async () => {
-    const current = await readFinanceTransactions(uid);
+    const current = await currentTransactionsForMutation(uid);
     const original = current.find(({ id }) => id === transaction.id);
     if (!original) throw new Error('Không tìm thấy giao dịch cần sửa.');
     if (isLoanLedgerTransaction(original))
-      throw new Error('Giao dịch cho mượn chỉ sửa được trong sổ cho mượn.');
+      throw new Error('Giao dịch cho vay chỉ sửa được trong sổ cho vay.');
     const synced = await pushChange(uid, transaction, 'edit', original);
     const transactions = upsertTransaction(current, transaction);
     const cacheSaved = await writeFinanceCache(uid, transactions);

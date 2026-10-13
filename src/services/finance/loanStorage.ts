@@ -336,7 +336,7 @@ function createLendingTransaction(
   const id = lendingTransactionId(loan.id);
   if (!ID.test(id))
     throw new LoanDataConflictError(
-      'Mã khoản cho mượn quá dài để liên kết với giao dịch Tài chính.',
+      'Mã khoản cho vay quá dài để liên kết với giao dịch Tài chính.',
     );
   return {
     id,
@@ -588,7 +588,7 @@ export function saveLoanData(
   requireUid(uid);
   const parsed = parseLoanRecord(loan, uid);
   if (!parsed)
-    return Promise.reject(new Error('Thông tin khoản cho mượn chưa hợp lệ.'));
+    return Promise.reject(new Error('Thông tin khoản cho vay chưa hợp lệ.'));
   return enqueue(uid, async () => {
     const local = await readLocal(uid);
     const existedLocally = local.some(({ id }) => id === parsed.id);
@@ -606,7 +606,7 @@ export function saveLoanData(
       }
       if (!existedLocally)
         throw new Error(
-          'Cần có kết nối mạng để lưu khoản cho mượn và khoản chi liên kết cùng lúc.',
+          'Cần có kết nối mạng để lưu khoản cho vay và khoản chi liên kết cùng lúc.',
         );
       const loans = mergeByLatest(local, [parsed]);
       await writeLocal(uid, loans);
@@ -632,7 +632,7 @@ export function deleteLoanData(
 ): Promise<LoanStorageResult> {
   requireUid(uid);
   if (!ID.test(loanId))
-    return Promise.reject(new Error('Khoản cho mượn không hợp lệ.'));
+    return Promise.reject(new Error('Khoản cho vay không hợp lệ.'));
   return enqueue(uid, async () => {
     const ref = loanDocument(uid, loanId);
     const lendingRef = financeTransactionDocument(
@@ -659,7 +659,7 @@ export function deleteLoanData(
         const loan = parseLoanRecord(sourceData, uid);
         if (!loan)
           throw new LoanDataConflictError(
-            'Dữ liệu khoản cho mượn không hợp lệ nên không thể xóa.',
+            'Dữ liệu khoản cho vay không hợp lệ nên không thể xóa.',
           );
         const rawRepayments = (
           sourceData as { repayments?: unknown } | undefined
@@ -701,7 +701,7 @@ export function deleteLoanData(
                     )
                   )
                     throw new LoanDataConflictError(
-                      'Khoản chi cho mượn thêm không khớp, chưa thể xóa.',
+                      'Khoản chi cho vay thêm không khớp, chưa thể xóa.',
                     );
                   return { ref: expenseRef, exists: expenseSnapshot.exists() };
                 }),
@@ -758,7 +758,7 @@ export function correctLoanPrincipal(
     note.length > 500
   )
     return Promise.reject(
-      new Error('Thông tin khoản cho mượn ban đầu chưa hợp lệ.'),
+      new Error('Thông tin khoản cho vay ban đầu chưa hợp lệ.'),
     );
   return enqueue(uid, async () => {
     const ref = loanDocument(uid, loanId);
@@ -775,7 +775,7 @@ export function correctLoanPrincipal(
             transaction.get(lendingRef),
           ]);
         if (deletedSnapshot.exists() || !loanSnapshot.exists())
-          throw new LoanDataConflictError('Khoản cho mượn đã được xóa.');
+          throw new LoanDataConflictError('Khoản cho vay đã được xóa.');
         const loan = parseLoanRecord(loanSnapshot.data(), uid);
         if (!loan || loan.updatedAt !== expectedUpdatedAt)
           throw new LoanDataConflictError(
@@ -785,7 +785,7 @@ export function correctLoanPrincipal(
           throw new LoanDataConflictError('Không thể sửa khoản đã hủy.');
         const totalAmount = changes.amount + (loan.additionalAmount ?? 0);
         if (!Number.isSafeInteger(totalAmount))
-          throw new Error('Tổng tiền cho mượn vượt giới hạn cho phép.');
+          throw new Error('Tổng tiền cho vay vượt giới hạn cho phép.');
         if (!canSetLoanTotalAmount(loan, totalAmount))
           throw new Error(
             loan.recordedRepaymentAmount === undefined &&
@@ -860,7 +860,7 @@ async function writeLoanOnline(
       ]);
       if (deletedSnapshot.exists())
         throw new LoanDataConflictError(
-          'Khoản cho mượn này đã bị xóa trên thiết bị khác.',
+          'Khoản cho vay này đã bị xóa trên thiết bị khác.',
         );
       if (!snapshot.exists()) {
         if (
@@ -872,7 +872,7 @@ async function writeLoanOnline(
           );
         if (financeSnapshot.exists())
           throw new LoanDataConflictError(
-            'Mã giao dịch chi cho mượn đã được dùng cho dữ liệu khác.',
+            'Mã giao dịch chi cho vay đã được dùng cho dữ liệu khác.',
           );
         transaction.set(ref, proposed);
         transaction.set(lendingRef, expectedLendingTransaction);
@@ -885,7 +885,7 @@ async function writeLoanOnline(
       const current = parseLoanRecord(snapshot.data(), uid);
       if (!current)
         throw new LoanDataConflictError(
-          'Dữ liệu khoản cho mượn trên máy chủ không hợp lệ.',
+          'Dữ liệu khoản cho vay trên máy chủ không hợp lệ.',
         );
       if (
         proposed.borrowerName !== current.borrowerName ||
@@ -893,7 +893,7 @@ async function writeLoanOnline(
         proposed.lentAt !== current.lentAt
       )
         throw new LoanDataConflictError(
-          'Tên người mượn, số tiền gốc và ngày cho mượn không thể sửa sau khi đã ghi vào Tài chính.',
+          'Tên người vay, số tiền gốc và ngày cho vay không thể sửa sau khi đã ghi vào Tài chính.',
         );
       if (
         JSON.stringify(proposed.repayments) !==
@@ -965,7 +965,7 @@ export function cacheLoanRecord(
   requireUid(uid);
   const parsed = parseLoanRecord(loan, uid);
   if (!parsed)
-    return Promise.reject(new Error('Thông tin khoản cho mượn chưa hợp lệ.'));
+    return Promise.reject(new Error('Thông tin khoản cho vay chưa hợp lệ.'));
   return enqueue(uid, async () => ({
     loans: await replaceLocalRecord(uid, parsed),
     synced: false,
@@ -1096,7 +1096,7 @@ export function getOrCreateAdvanceAttempt(
     note.length > 120
   )
     return Promise.reject(
-      new Error('Số tiền, ngày hoặc nội dung cho mượn thêm không hợp lệ.'),
+      new Error('Số tiền, ngày hoặc nội dung cho vay thêm không hợp lệ.'),
     );
   return enqueue(uid, async () => {
     const attempt = await readAdvanceAttempt(uid, loanId);
@@ -1123,7 +1123,7 @@ export function getOrCreateAdvanceAttempt(
       loanId,
     );
     if (!advance)
-      throw new Error('Mã khoản cho mượn quá dài để tạo lần cho thêm.');
+      throw new Error('Mã khoản cho vay quá dài để tạo lần cho thêm.');
     await setEncryptedItem(
       uid,
       advanceAttemptKey(uid, loanId),
@@ -1149,7 +1149,7 @@ export function recordLoanAdvanceAtomically(
   const advance = parseAdvance(candidate, loanId);
   if (!ID.test(loanId) || !advance)
     return Promise.reject(
-      new Error('Thông tin lần cho mượn thêm không hợp lệ.'),
+      new Error('Thông tin lần cho vay thêm không hợp lệ.'),
     );
   const ref = loanDocument(uid, loanId);
   const financeRef = financeTransactionDocument(
@@ -1165,18 +1165,18 @@ export function recordLoanAdvanceAtomically(
       ]);
       if (deletedSnapshot.exists() || !snapshot.exists())
         throw new LoanDataConflictError(
-          'Khoản cho mượn đã bị xóa hoặc chưa đồng bộ.',
+          'Khoản cho vay đã bị xóa hoặc chưa đồng bộ.',
         );
       const current = parseLoanRecord(snapshot.data(), uid);
       if (!current || current.id !== loanId)
         throw new LoanDataConflictError(
-          'Dữ liệu khoản cho mượn không hợp lệ. Hãy tải lại sổ.',
+          'Dữ liệu khoản cho vay không hợp lệ. Hãy tải lại sổ.',
         );
       const advances = current.advances ?? [];
       const existing = advances.find(({ id }) => id === advance.id);
       if (existing && !hasConfirmedAdvance([existing], advance))
         throw new LoanDataConflictError(
-          'Mã lần cho mượn thêm đã được dùng cho dữ liệu khác.',
+          'Mã lần cho vay thêm đã được dùng cho dữ liệu khác.',
         );
       const expense = createAdvanceTransaction(uid, current, advance);
       if (
@@ -1193,11 +1193,11 @@ export function recordLoanAdvanceAtomically(
           );
         if (getLoanStatus(current) !== 'open')
           throw new LoanDataConflictError(
-            'Chỉ có thể cho mượn thêm khi khoản này chưa trả xong.',
+            'Chỉ có thể cho vay thêm khi khoản này chưa trả xong.',
           );
         if (getLoanPendingAmount(current) > 0)
           throw new LoanDataConflictError(
-            'Hãy đồng bộ lần nhận tiền đang chờ trước khi cho mượn thêm.',
+            'Hãy đồng bộ lần nhận tiền đang chờ trước khi cho vay thêm.',
           );
         if (advances.length >= 50)
           throw new LoanDataConflictError(
@@ -1207,7 +1207,7 @@ export function recordLoanAdvanceAtomically(
           (current.additionalAmount ?? 0) + advance.amount;
         if (!Number.isSafeInteger(current.principalAmount + additionalAmount))
           throw new LoanDataConflictError(
-            'Tổng số tiền cho mượn vượt giới hạn cho phép.',
+            'Tổng số tiền cho vay vượt giới hạn cho phép.',
           );
         const loan: LoanRecord = {
           ...current,
@@ -1246,9 +1246,7 @@ export function updateLoanAdvanceAtomically(
     !note ||
     note.length > 120
   )
-    return Promise.reject(
-      new Error('Thông tin lần cho mượn thêm chưa hợp lệ.'),
-    );
+    return Promise.reject(new Error('Thông tin lần cho vay thêm chưa hợp lệ.'));
 
   return enqueue(uid, async () => {
     const ref = loanDocument(uid, loanId);
@@ -1259,21 +1257,21 @@ export function updateLoanAdvanceAtomically(
           transaction.get(deletedLoanDocument(uid, loanId)),
         ]);
         if (deletedSnapshot.exists() || !loanSnapshot.exists())
-          throw new LoanDataConflictError('Khoản cho mượn đã được xóa.');
+          throw new LoanDataConflictError('Khoản cho vay đã được xóa.');
         const current = parseLoanRecord(loanSnapshot.data(), uid);
         if (!current)
           throw new LoanDataConflictError(
-            'Dữ liệu khoản cho mượn không hợp lệ. Hãy tải lại sổ.',
+            'Dữ liệu khoản cho vay không hợp lệ. Hãy tải lại sổ.',
           );
         if (current.cancelledAt !== null)
           throw new LoanDataConflictError(
-            'Không thể sửa khoản cho mượn đã hủy.',
+            'Không thể sửa khoản cho vay đã hủy.',
           );
         const advances = current.advances ?? [];
         const index = advances.findIndex(({ id }) => id === expected.id);
         if (index < 0)
           throw new LoanDataConflictError(
-            'Không tìm thấy lần cho mượn thêm cần sửa.',
+            'Không tìm thấy lần cho vay thêm cần sửa.',
           );
         const existing = advances[index];
         const updatedAdvance = parseAdvance(
@@ -1286,7 +1284,7 @@ export function updateLoanAdvanceAtomically(
           loanId,
         );
         if (!updatedAdvance)
-          throw new Error('Thông tin lần cho mượn thêm chưa hợp lệ.');
+          throw new Error('Thông tin lần cho vay thêm chưa hợp lệ.');
 
         const previousExpense = createAdvanceTransaction(
           uid,
@@ -1309,7 +1307,7 @@ export function updateLoanAdvanceAtomically(
           !Number.isSafeInteger(additionalAmount) ||
           !Number.isSafeInteger(totalAmount)
         )
-          throw new Error('Tổng tiền cho mượn vượt giới hạn cho phép.');
+          throw new Error('Tổng tiền cho vay vượt giới hạn cho phép.');
         if (!canSetLoanTotalAmount(current, totalAmount))
           throw new Error(
             current.recordedRepaymentAmount === undefined &&
@@ -1339,7 +1337,7 @@ export function updateLoanAdvanceAtomically(
         if (alreadyUpdated) return { loan: current, committedTransactions: [] };
         if (!hasConfirmedAdvance([existing], expected))
           throw new LoanDataConflictError(
-            'Lần cho mượn thêm đã thay đổi. Hãy tải lại trước khi sửa.',
+            'Lần cho vay thêm đã thay đổi. Hãy tải lại trước khi sửa.',
           );
         if (
           existing.amount === updatedAdvance.amount &&
@@ -1399,7 +1397,7 @@ export function recordLoanRepaymentAtomically(
           firestoreTransaction.get(deletedRef),
         ]);
       if (deletedSnapshot.exists())
-        throw new LoanDataConflictError('Khoản cho mượn này đã bị xóa.');
+        throw new LoanDataConflictError('Khoản cho vay này đã bị xóa.');
       const current = loanSnapshot.exists()
         ? parseLoanRecord(loanSnapshot.data(), uid)
         : null;
@@ -1408,7 +1406,7 @@ export function recordLoanRepaymentAtomically(
           'Khoản vay chưa được đồng bộ. Kết nối mạng rồi tải lại sổ trước khi ghi nhận tiền.',
         );
       if (current.cancelledAt !== null)
-        throw new LoanDataConflictError('Khoản cho mượn này đã bị hủy.');
+        throw new LoanDataConflictError('Khoản cho vay này đã bị hủy.');
 
       const existing = current.repayments.find(({ id }) => id === candidate.id);
       if (

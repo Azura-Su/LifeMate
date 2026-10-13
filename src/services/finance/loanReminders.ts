@@ -97,7 +97,7 @@ async function schedule(
     return 'denied';
   const notificationId = await Notifications.scheduleNotificationAsync({
     content: {
-      title: 'Nhắc hạn cho mượn',
+      title: 'Nhắc hạn cho vay',
       body: 'Bạn có một khoản đến hạn cần kiểm tra.',
       data: { loanId },
     },
