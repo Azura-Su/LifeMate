@@ -83,9 +83,9 @@ export function Mp3Library({ model, playlist, onClose }: Props) {
         <ModalHeader
           eyebrow="QUẢN LÝ ÂM THANH"
           title="Thư viện MP3"
-          accessibilityLabel="Quay lại màn hình MP3"
+          accessibilityLabel="Đóng thư viện MP3"
           disabled={!!model.job}
-          onBack={close}
+          onClose={close}
         />
       }
       refreshControl={

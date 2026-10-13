@@ -34,9 +34,9 @@ export function AudioEditor(props: Props) {
       fixedHeader={
         <ModalHeader
           title={merging ? 'Ghép âm thanh' : 'Cắt âm thanh'}
-          accessibilityLabel="Quay lại thư viện MP3"
+          accessibilityLabel="Đóng trình chỉnh sửa âm thanh"
           disabled={!!props.job}
-          onBack={props.onClose}
+          onClose={props.onClose}
         />
       }
       fixedFooter={

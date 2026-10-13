@@ -371,7 +371,7 @@ export function FinanceTransactionDialog({
             initialTransaction ? 'Đóng sửa giao dịch' : 'Đóng thêm giao dịch'
           }
           disabled={busy || preferenceBusy}
-          onBack={onClose}
+          onClose={onClose}
         />
       </View>
       <ScrollView

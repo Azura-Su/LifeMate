@@ -1,13 +1,13 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Feather from '@expo/vector-icons/Feather';
-import { colors, typography } from '../theme';
+import { StyleSheet, Text, View } from 'react-native';
+import { typography } from '../theme';
+import { DialogCloseButton } from './DialogCloseButton';
 
 type Props = {
   title: string;
   eyebrow?: string;
   accessibilityLabel: string;
   disabled?: boolean;
-  onBack: () => void;
+  onClose: () => void;
 };
 
 export function ModalHeader({
@@ -15,25 +15,11 @@ export function ModalHeader({
   eyebrow,
   accessibilityLabel,
   disabled = false,
-  onBack,
+  onClose,
 }: Props) {
   return (
     <View testID="modal-header" style={styles.row}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel}
-        accessibilityHint="Quay lại màn hình trước"
-        disabled={disabled}
-        onPress={onBack}
-        style={[styles.side, disabled && styles.disabled]}
-      >
-        <Feather
-          testID="modal-header-back-icon"
-          name="arrow-left"
-          size={24}
-          color={colors.ink}
-        />
-      </Pressable>
+      <View accessible={false} style={styles.side} />
       <View style={styles.titleContainer}>
         {eyebrow && (
           <Text
@@ -52,7 +38,13 @@ export function ModalHeader({
           {title}
         </Text>
       </View>
-      <View accessible={false} style={styles.side} />
+      <View style={styles.side}>
+        <DialogCloseButton
+          accessibilityLabel={accessibilityLabel}
+          disabled={disabled}
+          onPress={onClose}
+        />
+      </View>
     </View>
   );
 }
@@ -75,5 +67,4 @@ const styles = StyleSheet.create({
   eyebrow: { fontSize: 10, lineHeight: 14, letterSpacing: 1.5 },
   title: { fontSize: 24, lineHeight: 30 },
   center: { width: '100%', flexShrink: 1, textAlign: 'center' },
-  disabled: { opacity: 0.4 },
 });

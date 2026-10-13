@@ -107,7 +107,7 @@ it('uses a back action and centers the editor header title', () => {
 
   const title = screen.getByRole('header');
   expect(StyleSheet.flatten(title.props.style).textAlign).toBe('center');
-  fireEvent.press(screen.getByLabelText('Quay lại thư viện MP3'));
+  fireEvent.press(screen.getByLabelText('Đóng trình chỉnh sửa âm thanh'));
   expect(onClose).toHaveBeenCalledTimes(1);
 });
 

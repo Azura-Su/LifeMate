@@ -4,14 +4,14 @@ import { ModalHeader } from '../ModalHeader';
 
 jest.mock('@expo/vector-icons/Feather', () => 'Feather');
 
-it('centers the title and uses an accessible back arrow action', () => {
-  const onBack = jest.fn();
+it('centers the title and uses an accessible close action', () => {
+  const onClose = jest.fn();
   const view = render(
     <ModalHeader
       eyebrow="QUẢN LÝ ÂM THANH"
       title="Thư viện MP3"
-      accessibilityLabel="Quay lại trang trước"
-      onBack={onBack}
+      accessibilityLabel="Đóng trang hiện tại"
+      onClose={onClose}
     />,
   );
   const title = view.getByRole('header');
@@ -23,9 +23,7 @@ it('centers the title and uses an accessible back arrow action', () => {
   expect(
     StyleSheet.flatten(view.getByTestId('modal-header').props.style).minHeight,
   ).toBe(44);
-  expect(view.getByTestId('modal-header-back-icon').props.name).toBe(
-    'arrow-left',
-  );
-  fireEvent.press(view.getByLabelText('Quay lại trang trước'));
-  expect(onBack).toHaveBeenCalledTimes(1);
+  expect(view.UNSAFE_getByProps({ name: 'x' })).toBeTruthy();
+  fireEvent.press(view.getByLabelText('Đóng trang hiện tại'));
+  expect(onClose).toHaveBeenCalledTimes(1);
 });
