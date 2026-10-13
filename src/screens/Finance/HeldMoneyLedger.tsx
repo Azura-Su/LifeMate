@@ -27,9 +27,7 @@ import {
 import { heldStyles as styles } from './HeldMoneyLedger.styles';
 
 type Ledger = ReturnType<typeof useHeldMoneyLedger>;
-type MenuTarget =
-  | { kind: 'record'; record: HeldMoneyRecord }
-  | { kind: 'entry'; record: HeldMoneyRecord; entry: HeldMoneyEntry };
+type MenuTarget = { record: HeldMoneyRecord; entry: HeldMoneyEntry };
 type EntryTarget = {
   record: HeldMoneyRecord;
   entry: HeldMoneyEntry | null;
@@ -171,29 +169,49 @@ export function HeldMoneyLedger({
     else await ledger.addEntry(entryTarget.record.id, entry);
   }
 
-  function deleteSelected(target: MenuTarget) {
-    setMenuTarget(null);
+  function confirmDeleteRecord(record: HeldMoneyRecord) {
     Alert.alert(
-      target.kind === 'record' ? 'Xóa khoản đóng hộ?' : 'Xóa mục lịch sử?',
-      target.kind === 'record'
-        ? 'Toàn bộ lịch sử nhận và đóng hộ của khoản này sẽ bị xóa.'
-        : 'Số còn giữ sẽ được tính lại sau khi xóa.',
+      'Xóa khoản đóng hộ?',
+      `Xóa khoản của ${record.senderName} và toàn bộ lịch sử nhận, đóng hộ liên quan?`,
       [
         { text: 'Hủy', style: 'cancel' },
         {
           text: 'Xóa',
           style: 'destructive',
           onPress: () => {
-            const operation =
-              target.kind === 'record'
-                ? ledger.removeRecord(target.record)
-                : ledger.removeEntry(target.record.id, target.entry);
-            void operation.catch((cause) =>
-              Alert.alert(
-                'Chưa xóa được',
-                (cause as Error).message || 'Vui lòng thử lại.',
-              ),
-            );
+            void ledger
+              .removeRecord(record)
+              .catch((cause) =>
+                Alert.alert(
+                  'Chưa xóa được',
+                  (cause as Error).message || 'Vui lòng thử lại.',
+                ),
+              );
+          },
+        },
+      ],
+    );
+  }
+
+  function confirmDeleteEntry(target: MenuTarget) {
+    setMenuTarget(null);
+    Alert.alert(
+      'Xóa mục lịch sử?',
+      'Số còn giữ sẽ được tính lại sau khi xóa.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: () => {
+            void ledger
+              .removeEntry(target.record.id, target.entry)
+              .catch((cause) =>
+                Alert.alert(
+                  'Chưa xóa được',
+                  (cause as Error).message || 'Vui lòng thử lại.',
+                ),
+              );
           },
         },
       ],
@@ -286,22 +304,30 @@ export function HeldMoneyLedger({
                 onPress={() => setExpandedId(expanded ? null : record.id)}
                 style={styles.cardTitleGroup}
               >
-                <Text style={styles.cardTitle} numberOfLines={1}>
-                  {record.senderName}
-                </Text>
-                <Text style={styles.purpose} numberOfLines={2}>
-                  {record.purpose}
-                </Text>
+                <View style={styles.cardTitleContent}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {record.senderName}
+                  </Text>
+                  <Text style={styles.purpose} numberOfLines={2}>
+                    {record.purpose}
+                  </Text>
+                </View>
+                <Feather
+                  name={expanded ? 'chevron-up' : 'chevron-down'}
+                  size={17}
+                  color={colors.earth}
+                />
               </Pressable>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Tùy chọn khoản đóng hộ ${record.purpose}`}
+                accessibilityLabel={`Xóa khoản đóng hộ ${record.purpose} của ${record.senderName}`}
                 accessibilityState={{ disabled: ledger.busy }}
                 disabled={ledger.busy}
-                onPress={() => setMenuTarget({ kind: 'record', record })}
-                style={styles.menuButton}
+                hitSlop={8}
+                onPress={() => confirmDeleteRecord(record)}
+                style={styles.deleteAction}
               >
-                <Feather name="more-vertical" size={17} color={colors.earth} />
+                <Feather name="trash-2" size={16} color={colors.danger} />
               </Pressable>
             </View>
             <Pressable
@@ -339,6 +365,20 @@ export function HeldMoneyLedger({
             </View>
             {expanded && (
               <View style={styles.histories}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Sửa thông tin khoản đóng hộ của ${record.senderName}`}
+                  accessibilityState={{ disabled: ledger.busy }}
+                  disabled={ledger.busy}
+                  onPress={() => {
+                    setRecordTarget(record);
+                    setRecordFormVisible(true);
+                  }}
+                  style={styles.editDetailsButton}
+                >
+                  <Feather name="edit-2" size={13} color={colors.earth} />
+                  <Text style={styles.editDetailsText}>Sửa thông tin</Text>
+                </Pressable>
                 <HeldMoneyHistorySection
                   title="Lịch sử gửi thêm"
                   emptyMessage="Chưa có lần nhận tiền."
@@ -346,9 +386,7 @@ export function HeldMoneyLedger({
                   entries={receivedEntries}
                   busy={ledger.busy}
                   onAdd={() => openEntry(record, null, 'received')}
-                  onOpenEntry={(entry) =>
-                    setMenuTarget({ kind: 'entry', record, entry })
-                  }
+                  onOpenEntry={(entry) => setMenuTarget({ record, entry })}
                 />
                 <HeldMoneyHistorySection
                   title="Lịch sử đóng hộ"
@@ -357,9 +395,7 @@ export function HeldMoneyLedger({
                   entries={outgoingEntries}
                   busy={ledger.busy}
                   onAdd={() => openEntry(record, null, 'paid')}
-                  onOpenEntry={(entry) =>
-                    setMenuTarget({ kind: 'entry', record, entry })
-                  }
+                  onOpenEntry={(entry) => setMenuTarget({ record, entry })}
                 />
               </View>
             )}
@@ -392,7 +428,7 @@ export function HeldMoneyLedger({
       >
         <View style={styles.dialogHeader}>
           <Text accessibilityRole="header" style={styles.dialogTitle}>
-            {menuTarget?.kind === 'record' ? 'Khoản đóng hộ' : 'Mục lịch sử'}
+            Mục lịch sử
           </Text>
           <Pressable
             accessibilityRole="button"
@@ -409,10 +445,7 @@ export function HeldMoneyLedger({
             accessibilityLabel="Sửa"
             onPress={() => {
               if (!menuTarget) return;
-              if (menuTarget.kind === 'record') {
-                setRecordTarget(menuTarget.record);
-                setRecordFormVisible(true);
-              } else openEntry(menuTarget.record, menuTarget.entry);
+              openEntry(menuTarget.record, menuTarget.entry);
               setMenuTarget(null);
             }}
             style={styles.actionButton}
@@ -422,7 +455,7 @@ export function HeldMoneyLedger({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Xóa"
-            onPress={() => menuTarget && deleteSelected(menuTarget)}
+            onPress={() => menuTarget && confirmDeleteEntry(menuTarget)}
             style={[styles.actionButton, styles.deleteButton]}
           >
             <Text style={[styles.actionText, styles.deleteText]}>Xóa</Text>
