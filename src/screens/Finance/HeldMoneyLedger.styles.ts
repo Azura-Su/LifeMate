@@ -187,6 +187,8 @@ export const heldStyles = StyleSheet.create({
     color: colors.ink,
   },
   amountSuffix: { paddingRight: 10, fontSize: 13, color: colors.muted },
+  amountDateGroup: { gap: 5 },
+  amountWords: { fontSize: 11, lineHeight: 16, color: colors.earth },
   dateButton: {
     minHeight: 45,
     flexDirection: 'row',
