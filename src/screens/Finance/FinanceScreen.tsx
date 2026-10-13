@@ -225,10 +225,6 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     },
     [loansById],
   );
-  const reloadLoanLedger = loanLedger.load;
-  useEffect(() => {
-    if (reportMode === 'loans' && !suspended) void reloadLoanLedger(true);
-  }, [reportMode, reloadLoanLedger, suspended]);
   const [dialogVisible, setDialogVisible] = useState(false);
   const [dialogInitialType, setDialogInitialType] =
     useState<FinanceTransactionType>('expense');
