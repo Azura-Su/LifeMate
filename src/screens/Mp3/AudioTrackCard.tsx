@@ -28,6 +28,7 @@ type Props = {
 
 export function AudioTrackCard(props: Props) {
   const { track, position, busy } = props;
+  const deleting = track.deletionPending === true;
   const unavailable = track.synced
     ? null
     : audioBackupUnavailable(track.sizeBytes);
@@ -48,11 +49,17 @@ export function AudioTrackCard(props: Props) {
     Alert.alert(
       'Xóa file nghe?',
       track.synced
-        ? `“${track.title}” sẽ bị xóa khỏi thiết bị và bản sao lưu. Bạn không thể khôi phục file này.`
+        ? deleting
+          ? `Tiếp tục xóa “${track.title}” khỏi thiết bị và bản sao lưu?`
+          : `“${track.title}” sẽ bị xóa khỏi thiết bị và bản sao lưu. Bạn không thể khôi phục file này.`
         : `“${track.title}” sẽ bị xóa khỏi thiết bị. Bạn không thể khôi phục file này.`,
       [
         { text: 'Hủy', style: 'cancel' },
-        { text: 'Xóa file', style: 'destructive', onPress: props.onDelete },
+        {
+          text: deleting ? 'Tiếp tục xóa' : 'Xóa file',
+          style: 'destructive',
+          onPress: props.onDelete,
+        },
       ],
       { cancelable: true },
     );
@@ -65,9 +72,12 @@ export function AudioTrackCard(props: Props) {
         <Pressable
           accessibilityRole="checkbox"
           accessibilityLabel={`Chọn ${track.title} để ghép`}
-          accessibilityState={{ checked: position >= 0, disabled: busy }}
+          accessibilityState={{
+            checked: position >= 0,
+            disabled: busy || deleting,
+          }}
           onPress={props.onSelect}
-          disabled={busy}
+          disabled={busy || deleting}
           style={styles.icon}
         >
           {position >= 0 ? (
@@ -87,8 +97,8 @@ export function AudioTrackCard(props: Props) {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Đổi tên ${track.title}`}
-              accessibilityState={{ disabled: busy }}
-              disabled={busy}
+              accessibilityState={{ disabled: busy || deleting }}
+              disabled={busy || deleting}
               onPress={props.onRename}
               style={styles.titleIcon}
               hitSlop={4}
@@ -116,11 +126,13 @@ export function AudioTrackCard(props: Props) {
         <Feather name="trash-2" size={20} color={colors.danger} />
       </Pressable>
       <Text style={styles.sync}>
-        {!track.synced
-          ? '○ Chỉ trên máy'
-          : track.pendingTitle
-            ? '○ Tên mới chờ đồng bộ'
-            : '✓ Đã sao lưu trên đám mây'}
+        {deleting
+          ? '○ Đang chờ hoàn tất xóa bản sao lưu'
+          : !track.synced
+            ? '○ Chỉ trên máy'
+            : track.pendingTitle
+              ? '○ Tên mới chờ đồng bộ'
+              : '✓ Đã sao lưu trên đám mây'}
       </Text>
       <View style={styles.actions}>
         {actions.map((action) => (
@@ -128,7 +140,7 @@ export function AudioTrackCard(props: Props) {
             key={action.title}
             accessibilityRole="button"
             accessibilityLabel={`${props.isPlaying && action.title === 'Nghe' ? 'Đang phát' : action.title} ${track.title}`}
-            disabled={busy}
+            disabled={busy || deleting}
             onPress={action.onPress}
             style={styles.action}
           >
@@ -141,7 +153,7 @@ export function AudioTrackCard(props: Props) {
           </Pressable>
         ))}
       </View>
-      {(!track.synced || track.pendingTitle) && (
+      {!deleting && (!track.synced || track.pendingTitle) && (
         <>
           <Button
             title={track.synced ? 'Đồng bộ tên' : 'Sao lưu miễn phí'}

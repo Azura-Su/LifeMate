@@ -16,6 +16,9 @@ export type HeldMoneyRecord = {
   createdAt: number;
   updatedAt: number;
   entries: HeldMoneyEntry[];
+  // Optional only for records created before balance validation was added.
+  remainingAmount?: number;
+  entryIds?: string[];
 };
 
 export function getHeldMoneyTotals(record: HeldMoneyRecord) {

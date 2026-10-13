@@ -194,3 +194,35 @@ it('opens playlist membership management for the track', () => {
   fireEvent.press(view.getByLabelText('Trong 2 DS Bài muốn xóa'));
   expect(onManagePlaylists).toHaveBeenCalledTimes(1);
 });
+
+it('keeps a pending deletion available for retry without playing or renaming it', () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  const onPlay = jest.fn();
+  const onDelete = jest.fn();
+  const view = render(
+    <AudioTrackCard
+      track={{ ...track, deletionPending: true }}
+      position={-1}
+      busy={false}
+      playlistCount={0}
+      onManagePlaylists={empty}
+      onSelect={empty}
+      onPlay={onPlay}
+      onTrim={empty}
+      onRename={empty}
+      onDelete={onDelete}
+      onSync={empty}
+      titleActive={false}
+      onActivateTitle={empty}
+      isPlaying={false}
+    />,
+  );
+  expect(view.getByText('○ Đang chờ hoàn tất xóa bản sao lưu')).toBeTruthy();
+  fireEvent.press(view.getByLabelText('Nghe Bài muốn xóa'));
+  expect(onPlay).not.toHaveBeenCalled();
+  fireEvent.press(view.getByLabelText('Xóa Bài muốn xóa'));
+  expect(alert.mock.calls[0][2]?.[1].text).toBe('Tiếp tục xóa');
+  alert.mock.calls[0][2]?.[1].onPress?.();
+  expect(onDelete).toHaveBeenCalledTimes(1);
+  alert.mockRestore();
+});

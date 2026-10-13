@@ -43,10 +43,26 @@ export async function fetchCloudTracks(
     15000,
   );
   assertAudioSession(uid, signal);
-  return snapshot.docs.flatMap((document) => {
+  const tracks: AudioTrack[] = [];
+  for (const document of snapshot.docs) {
     const value = parseCloudTrack(document.id, document.data(), uid);
-    return value ? [{ ...value, local: false, synced: true }] : [];
-  });
+    if (!value) continue;
+    const track: AudioTrack = { ...value, local: false, synced: true };
+    if (track.deletionPending) {
+      // A prior attempt can stop after the file is gone but before metadata is
+      // removed. Retain a failed deletion in the local index so refresh cannot
+      // erase the on-device copy before the remote cleanup succeeds.
+      try {
+        await deleteAudioTrackRemote(track, signal);
+      } catch {
+        assertAudioSession(uid, signal);
+        tracks.push(track);
+      }
+      continue;
+    }
+    tracks.push(track);
+  }
+  return tracks;
 }
 
 async function waitForTransfer(
@@ -125,6 +141,20 @@ export async function deleteAudioTrackRemote(
   signal: AbortSignal,
 ) {
   assertAudioSession(track.ownerId, signal);
+  const metadataRef = doc(
+    getFirestore(),
+    'audioLibraries',
+    track.ownerId,
+    'tracks',
+    track.id,
+  );
+  // Make a multi-store delete resumable before touching the audio object.
+  await abortable(
+    updateDoc(metadataRef, { deletionPending: true }),
+    signal,
+    15000,
+  );
+  assertAudioSession(track.ownerId, signal);
   if (track.storageProvider === 'supabase') {
     await deleteFreeAudio(track, signal);
   } else {
@@ -143,13 +173,7 @@ export async function deleteAudioTrackRemote(
     }
   }
   assertAudioSession(track.ownerId, signal);
-  await abortable(
-    deleteDoc(
-      doc(getFirestore(), 'audioLibraries', track.ownerId, 'tracks', track.id),
-    ),
-    signal,
-    15000,
-  );
+  await abortable(deleteDoc(metadataRef), signal, 15000);
   assertAudioSession(track.ownerId, signal);
 }
 

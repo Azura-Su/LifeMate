@@ -498,7 +498,12 @@ service cloud.firestore {
     match /audioLibraries/{uid}/tracks/{trackId} {
       allow read, delete: if owns(uid);
       allow create, update: if owns(uid)
-        && request.resource.data.keys().hasOnly(['id', 'ownerId', 'title', 'fileName', 'mimeType', 'durationMs', 'sizeBytes', 'createdAt', 'source', 'storageProvider'])
+        && request.resource.data.keys().hasOnly(['id', 'ownerId', 'title', 'fileName', 'mimeType', 'durationMs', 'sizeBytes', 'createdAt', 'source', 'storageProvider', 'deletionPending'])
+        && (!('deletionPending' in request.resource.data) || request.resource.data.deletionPending == true)
+        && (!exists(/databases/$(database)/documents/audioLibraries/$(uid)/tracks/$(trackId))
+          || resource.data.get('deletionPending', false) != true
+          || (request.resource.data.deletionPending == true
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletionPending'])))
         && (!('storageProvider' in request.resource.data) || request.resource.data.storageProvider == 'supabase')
         && (!('storageProvider' in request.resource.data) || request.resource.data.sizeBytes <= 52428800)
         && request.resource.data.id == trackId
@@ -807,6 +812,9 @@ service cloud.firestore {
         && existsAfter(/databases/$(database)/documents/financeAccounts/$(uid)/deletedLoans/$(loanId));
     }
     match /financeAccounts/{uid}/heldFunds/{recordId} {
+      function heldContribution(entry) {
+        return entry.kind == 'received' ? entry.amount : -entry.amount;
+      }
       function validHeldEntry(entry) {
         return entry is map
           && entry.keys().hasAll(['id', 'kind', 'amount', 'occurredAt', 'note'])
@@ -830,25 +838,42 @@ service cloud.firestore {
         let after = request.resource.data.entries;
         let removed = before.removeAll(after);
         let added = after.removeAll(before);
+        let previousIds = resource.data.entryIds;
+        let nextIds = request.resource.data.entryIds;
+        let previousBalance = resource.data.remainingAmount;
+        let nextBalance = request.resource.data.remainingAmount;
         return after.toSet().size() == after.size()
           && (after == before
+            && nextIds == previousIds
+            && nextBalance == previousBalance
             || (after.size() == before.size() + 1
               && removed.size() == 0
               && added.size() == 1
-              && validHeldEntry(added[0]))
+              && after == before.concat([added[0]])
+              && validHeldEntry(added[0])
+              && !previousIds.hasAny([added[0].id])
+              && nextIds == previousIds.concat([added[0].id])
+              && nextBalance == previousBalance + heldContribution(added[0]))
             || (after.size() == before.size()
               && removed.size() == 1
               && added.size() == 1
               && added[0].id == removed[0].id
-              && validHeldEntry(added[0]))
+              && validHeldEntry(added[0])
+              && after.removeAll([added[0]]) == before.removeAll([removed[0]])
+              && nextIds == previousIds
+              && nextBalance == previousBalance
+                - heldContribution(removed[0]) + heldContribution(added[0]))
             || (after.size() == before.size() - 1
               && removed.size() == 1
-              && added.size() == 0));
+              && added.size() == 0
+              && after == before.removeAll([removed[0]])
+              && nextIds == previousIds.removeAll([removed[0].id])
+              && nextBalance == previousBalance - heldContribution(removed[0])));
       }
       function validHeldFund() {
         return recordId.matches('^[A-Za-z0-9_-]{1,128}$')
-          && request.resource.data.keys().hasAll(['id', 'ownerId', 'senderName', 'purpose', 'createdAt', 'updatedAt', 'entries'])
-          && request.resource.data.keys().hasOnly(['id', 'ownerId', 'senderName', 'purpose', 'createdAt', 'updatedAt', 'entries'])
+          && request.resource.data.keys().hasAll(['id', 'ownerId', 'senderName', 'purpose', 'createdAt', 'updatedAt', 'entries', 'remainingAmount', 'entryIds'])
+          && request.resource.data.keys().hasOnly(['id', 'ownerId', 'senderName', 'purpose', 'createdAt', 'updatedAt', 'entries', 'remainingAmount', 'entryIds'])
           && request.resource.data.id == recordId
           && request.resource.data.ownerId == uid
           && request.resource.data.senderName is string
@@ -866,17 +891,30 @@ service cloud.firestore {
           && request.resource.data.updatedAt >= request.resource.data.createdAt
           && request.resource.data.updatedAt <= 253402300799999
           && request.resource.data.entries is list
-          && request.resource.data.entries.size() <= 200;
+          && request.resource.data.entries.size() <= 200
+          && request.resource.data.entryIds is list
+          && request.resource.data.entryIds.size() == request.resource.data.entries.size()
+          && request.resource.data.entryIds.toSet().size() == request.resource.data.entryIds.size()
+          && request.resource.data.remainingAmount is number
+          && request.resource.data.remainingAmount % 1 == 0
+          && request.resource.data.remainingAmount >= 0
+          && request.resource.data.remainingAmount <= 200000000000000;
       }
       allow read, delete: if owns(uid);
       allow create: if owns(uid) && validHeldFund()
         && request.resource.data.entries.size() == 1
         && validHeldEntry(request.resource.data.entries[0])
-        && request.resource.data.entries[0].kind == 'received';
+        && request.resource.data.entries[0].kind == 'received'
+        && request.resource.data.entryIds == [request.resource.data.entries[0].id]
+        && request.resource.data.remainingAmount == request.resource.data.entries[0].amount;
       allow update: if owns(uid) && validHeldFund()
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.updatedAt > resource.data.updatedAt
-        && validHeldEntryChange();
+        && (('remainingAmount' in resource.data && 'entryIds' in resource.data)
+          ? (request.resource.data.updatedAt > resource.data.updatedAt
+            && validHeldEntryChange())
+          : (request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['remainingAmount', 'entryIds'])
+            && request.resource.data.entries == resource.data.entries));
     }
   }
 }

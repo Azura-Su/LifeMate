@@ -45,6 +45,7 @@
   },
   "devDependencies": {
     "@expo/metro-runtime": "~55.0.12",
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@testing-library/react-native": "^13.3.3",
     "@types/jest": "^29.5.14",
     "@types/react": "~19.2.2",
@@ -65,6 +66,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "jest --runInBand",
+    "test:rules": "npx --yes firebase-tools@15.33.0 emulators:exec --only firestore --project demo-lifemate 'node firebase/tests/firestore.rules.cjs'",
     "bundle": "expo export --platform android --platform ios",
     "format": "prettier --write App.tsx index.ts src tasks README.md SPEC.md CAPABILITIES.md app.json"
   },

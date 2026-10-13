@@ -153,7 +153,18 @@ export function parseHeldMoneyRecord(
     totals.remaining < 0
   )
     return null;
-  return record;
+  const entryIds = record.entries.map(({ id }) => id);
+  if (
+    (row.remainingAmount === undefined) !== (row.entryIds === undefined) ||
+    (row.remainingAmount !== undefined &&
+      row.remainingAmount !== totals.remaining) ||
+    (row.entryIds !== undefined &&
+      (!Array.isArray(row.entryIds) ||
+        row.entryIds.length !== entryIds.length ||
+        row.entryIds.some((id, index) => id !== entryIds[index])))
+  )
+    return null;
+  return { ...record, remainingAmount: totals.remaining, entryIds };
 }
 
 function assertRecord(value: HeldMoneyRecord, uid: string) {
@@ -225,12 +236,15 @@ async function readRemote(uid: string) {
   );
   const records: HeldMoneyRecord[] = [];
   let invalidCount = 0;
+  const invalidIds = new Set<string>();
   for (const item of snapshot.docs) {
     const record = parseHeldMoneyRecord(item.data(), uid);
-    if (!record || record.id !== item.id) invalidCount += 1;
-    else records.push(record);
+    if (!record || record.id !== item.id) {
+      invalidCount += 1;
+      invalidIds.add(item.id);
+    } else records.push(record);
   }
-  return { records: sorted(records), invalidCount };
+  return { records: sorted(records), invalidCount, invalidIds };
 }
 
 export function readCachedHeldMoney(uid: string) {
@@ -242,18 +256,29 @@ export function readHeldMoney(uid: string): Promise<HeldMoneyReadResult> {
   requireUid(uid);
   return enqueue(uid, async () => {
     try {
-      const { records, invalidCount } = await readRemote(uid);
-      try {
-        await writeCache(uid, records);
-      } catch {
-        // The cloud result is still usable when the device cache cannot be saved.
+      const { records, invalidCount, invalidIds } = await readRemote(uid);
+      let visible = records;
+      if (invalidCount > 0) {
+        const cached = await readCache(uid).catch(() => null);
+        if (cached) {
+          visible = sorted([
+            ...records,
+            ...cached.filter(({ id }) => invalidIds.has(id)),
+          ]);
+        }
+      } else {
+        try {
+          await writeCache(uid, records);
+        } catch {
+          // The cloud result is still usable when the device cache cannot be saved.
+        }
       }
       return {
-        records,
+        records: visible,
         synced: invalidCount === 0,
         warning:
           invalidCount > 0
-            ? `${invalidCount} khoản đóng hộ có dữ liệu lỗi; các khoản hợp lệ vẫn hiển thị.`
+            ? `${invalidCount} khoản đóng hộ trên tài khoản có dữ liệu lỗi. Bản còn lưu trên máy vẫn được giữ để đối chiếu.`
             : undefined,
       };
     } catch (error) {
@@ -272,25 +297,46 @@ async function mutate(
   requireUid(uid);
   if (!ID.test(id)) throw new Error('Mã khoản đóng hộ không hợp lệ.');
   return enqueue(uid, async () => {
-    const result = await runTransaction(getFirestore(), async (transaction) => {
-      const ref = recordPath(uid, id);
-      const snapshot = await transaction.get(ref);
-      const current = snapshot.exists()
-        ? parseHeldMoneyRecord(snapshot.data(), uid)
-        : null;
-      if (snapshot.exists() && !current)
-        throw new Error('Dữ liệu sổ đóng hộ trên tài khoản không hợp lệ.');
-      const next = change(current);
-      if (next) {
-        const valid = assertRecord(next, uid);
-        if (valid.id !== id) throw new Error('Mã khoản đóng hộ không hợp lệ.');
-        if (!current || !sameRecord(current, valid))
-          transaction.set(ref, valid);
-        return valid;
+    let result: HeldMoneyRecord | null = null;
+    let completed = false;
+    for (let attempt = 0; attempt < 3 && !completed; attempt += 1) {
+      const outcome = await runTransaction(
+        getFirestore(),
+        async (transaction) => {
+          const ref = recordPath(uid, id);
+          const snapshot = await transaction.get(ref);
+          const raw = snapshot.exists() ? snapshot.data() : null;
+          const current = raw ? parseHeldMoneyRecord(raw, uid) : null;
+          if (snapshot.exists() && !current)
+            throw new Error('Dữ liệu sổ đóng hộ trên tài khoản không hợp lệ.');
+          if (
+            current &&
+            raw &&
+            !Object.prototype.hasOwnProperty.call(raw, 'remainingAmount')
+          ) {
+            // Upgrade one legacy record without changing its history or revision.
+            transaction.set(ref, current);
+            return { migrated: true as const };
+          }
+          const next = change(current);
+          if (next) {
+            const valid = assertRecord(next, uid);
+            if (valid.id !== id)
+              throw new Error('Mã khoản đóng hộ không hợp lệ.');
+            if (!current || !sameRecord(current, valid))
+              transaction.set(ref, valid);
+            return { migrated: false as const, record: valid };
+          }
+          if (current) transaction.delete(ref);
+          return { migrated: false as const, record: null };
+        },
+      );
+      if (!outcome.migrated) {
+        result = outcome.record;
+        completed = true;
       }
-      if (current) transaction.delete(ref);
-      return null;
-    });
+    }
+    if (!completed) throw new HeldMoneyConflictError();
     try {
       const cached = (await readCache(uid)) ?? [];
       await writeCache(

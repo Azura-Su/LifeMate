@@ -1,7 +1,14 @@
-import { deleteDoc, doc, setDoc, updateDoc } from '@react-native-firebase/firestore';
+import {
+  deleteDoc,
+  doc,
+  getDocsFromServer,
+  setDoc,
+  updateDoc,
+} from '@react-native-firebase/firestore';
 import { deleteObject, putFile, ref } from '@react-native-firebase/storage';
 import {
   deleteAudioTrackRemote,
+  fetchCloudTracks,
   uploadAudioTrack,
 } from '../audioLibraryService';
 import { updateAudioIndex, audioExists } from '../../audio/audioFiles';
@@ -15,6 +22,8 @@ jest.mock('@react-native-firebase/firestore', () => ({
   setDoc: jest.fn(),
   updateDoc: jest.fn(),
   deleteDoc: jest.fn(),
+  getDocsFromServer: jest.fn(),
+  collection: jest.fn(),
 }));
 jest.mock('@react-native-firebase/storage', () => ({
   getStorage: jest.fn(),
@@ -69,9 +78,64 @@ it('removes a Supabase backup before its private Firestore metadata', async () =
     'a',
   );
   expect(deleteDoc).toHaveBeenCalledWith(undefined);
+  expect(updateDoc).toHaveBeenCalledWith(undefined, { deletionPending: true });
+  expect(jest.mocked(updateDoc).mock.invocationCallOrder[0]).toBeLessThan(
+    jest.mocked(deleteFreeAudio).mock.invocationCallOrder[0],
+  );
   expect(jest.mocked(deleteFreeAudio).mock.invocationCallOrder[0]).toBeLessThan(
     jest.mocked(deleteDoc).mock.invocationCallOrder[0],
   );
+});
+it('finishes an interrupted deletion during a cloud refresh', async () => {
+  jest.mocked(getDocsFromServer).mockResolvedValueOnce({
+    docs: [
+      {
+        id: 'a',
+        data: () => ({
+          ...renamed,
+          storageProvider: 'supabase',
+          deletionPending: true,
+        }),
+      },
+    ],
+  } as never);
+  const tracks = await fetchCloudTracks('u1', new AbortController().signal);
+  expect(tracks).toEqual([]);
+  expect(deleteFreeAudio).toHaveBeenCalled();
+  expect(deleteDoc).toHaveBeenCalled();
+});
+it('recovers when metadata deletion fails after the audio object is gone', async () => {
+  const track = { ...renamed, storageProvider: 'supabase' as const };
+  jest.mocked(deleteDoc).mockRejectedValueOnce(new Error('Offline'));
+  await expect(
+    deleteAudioTrackRemote(track, new AbortController().signal),
+  ).rejects.toThrow('Offline');
+  jest.mocked(getDocsFromServer).mockResolvedValueOnce({
+    docs: [{ id: 'a', data: () => ({ ...track, deletionPending: true }) }],
+  } as never);
+  expect(await fetchCloudTracks('u1', new AbortController().signal)).toEqual([]);
+  expect(deleteFreeAudio).toHaveBeenCalledTimes(2);
+  expect(deleteDoc).toHaveBeenCalledTimes(2);
+});
+it('keeps an interrupted deletion visible for retry when cleanup remains offline', async () => {
+  jest.mocked(getDocsFromServer).mockResolvedValueOnce({
+    docs: [
+      {
+        id: 'a',
+        data: () => ({
+          ...renamed,
+          storageProvider: 'supabase',
+          deletionPending: true,
+        }),
+      },
+    ],
+  } as never);
+  jest.mocked(deleteFreeAudio).mockRejectedValueOnce(new Error('Offline'));
+  const tracks = await fetchCloudTracks('u1', new AbortController().signal);
+  expect(tracks).toEqual([
+    expect.objectContaining({ id: 'a', deletionPending: true }),
+  ]);
+  expect(deleteDoc).not.toHaveBeenCalled();
 });
 it('removes legacy Firebase Storage backups before Firestore metadata', async () => {
   const track = { ...renamed, storageProvider: undefined };

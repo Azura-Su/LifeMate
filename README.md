@@ -123,12 +123,15 @@ Thiết lập lưu riêng cho tài khoản trên thiết bị này, không đồ
 npm run typecheck
 npm run lint
 npm test -- --watchman=false
+npm run test:rules
 npm run bundle
 npx expo-doctor
 npm run prebuild -- --no-install
 ```
 
 Tests bao gồm Auth/Remote Config/FCM, lưu thư viện riêng, audio/video import, lỗi cloud, cắt và thứ tự ghép, báo cáo tài chính, lọc tháng và cách ly tài khoản. Bundle command xuất Hermes JS cho cả Android/iOS, không thay cho native build. Xem [rà soát toàn app](docs/app-audit.md), [kết quả kiểm chứng](docs/verification.md) và [cách chạy native/rules tests](docs/audio-library.md).
+
+`test:rules` khởi chạy Firestore Emulator tại máy và kiểm tra quyền cùng các ràng buộc dữ liệu của Cho vay, Đóng hộ và xóa audio. Cần Java 21 trở lên; lệnh này không phát hành rules lên Firebase.
 
 ## Tài liệu quyết định kỹ thuật
 

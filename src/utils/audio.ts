@@ -108,6 +108,7 @@ export function parseCloudTrack(
     t.sizeBytes <= 0 ||
     t.sizeBytes > MAX_AUDIO_BYTES ||
     (t.storageProvider !== undefined && t.storageProvider !== 'supabase') ||
+    (t.deletionPending !== undefined && t.deletionPending !== true) ||
     !Number.isFinite(t.createdAt) ||
     t.createdAt < 0 ||
     !['audio', 'video', 'trim', 'merge'].includes(t.source)
@@ -126,6 +127,7 @@ export function parseCloudTrack(
     ...(t.storageProvider === 'supabase'
       ? { storageProvider: 'supabase' }
       : {}),
+    ...(t.deletionPending === true ? { deletionPending: true as const } : {}),
   };
 }
 

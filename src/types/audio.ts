@@ -11,6 +11,8 @@ export type AudioMetadata = {
   source: AudioSource;
   // Missing on legacy backups stored in Firebase Storage.
   storageProvider?: 'supabase';
+  // The cloud file may be gone while Firestore is finishing a deletion.
+  deletionPending?: true;
 };
 export type AudioTrack = AudioMetadata & {
   synced: boolean;
