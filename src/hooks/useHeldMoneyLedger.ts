@@ -21,6 +21,7 @@ export function useHeldMoneyLedger(uid: string | null, active: boolean) {
   const uidRef = useRef(uid);
   const requestRef = useRef(0);
   const loadedUidRef = useRef<string | null>(null);
+  const initialLoadUidRef = useRef<string | null>(null);
   uidRef.current = uid;
 
   const load = useCallback(
@@ -75,6 +76,7 @@ export function useHeldMoneyLedger(uid: string | null, active: boolean) {
     setRecords([]);
     setRecordsOwner(null);
     loadedUidRef.current = null;
+    initialLoadUidRef.current = null;
     setSynced(null);
     setError(null);
     setLoading(false);
@@ -82,8 +84,10 @@ export function useHeldMoneyLedger(uid: string | null, active: boolean) {
   }, [uid]);
 
   useEffect(() => {
-    if (active) void load(true);
-  }, [active, load]);
+    if (!active || !uid || initialLoadUidRef.current === uid) return;
+    initialLoadUidRef.current = uid;
+    void load(true);
+  }, [active, load, uid]);
 
   const perform = useCallback(
     async (operation: (owner: string) => Promise<HeldMoneyRecord | null>) => {
