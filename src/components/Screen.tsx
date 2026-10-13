@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, layout } from '../theme';
 
 type Props = PropsWithChildren<{
+  scrollable?: boolean;
   refreshControl?: ReactElement<RefreshControlProps>;
   contentStyle?: StyleProp<ViewStyle>;
   fixedHeader?: ReactNode;
@@ -24,6 +25,7 @@ type Props = PropsWithChildren<{
 
 export function Screen({
   children,
+  scrollable = true,
   refreshControl,
   contentStyle,
   fixedHeader,
@@ -62,22 +64,31 @@ export function Screen({
           {fixedContent}
         </View>
       )}
-      <ScrollView
-        testID="screen-scroll-area"
-        style={[styles.scroll, screenColorStyle]}
-        contentContainerStyle={[
-          fixedContent != null ? styles.belowFixedContent : styles.content,
-          fixedHeader != null &&
-            fixedContent == null &&
-            styles.afterFixedHeader,
-          contentStyle,
-          screenColorStyle,
-        ]}
-        keyboardShouldPersistTaps="handled"
-        refreshControl={refreshControl}
-      >
-        {children}
-      </ScrollView>
+      {scrollable ? (
+        <ScrollView
+          testID="screen-scroll-area"
+          style={[styles.scroll, screenColorStyle]}
+          contentContainerStyle={[
+            fixedContent != null ? styles.belowFixedContent : styles.content,
+            fixedHeader != null &&
+              fixedContent == null &&
+              styles.afterFixedHeader,
+            contentStyle,
+            screenColorStyle,
+          ]}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={refreshControl}
+        >
+          {children}
+        </ScrollView>
+      ) : (
+        <View
+          testID="screen-scroll-area"
+          style={[styles.staticBody, screenColorStyle, contentStyle]}
+        >
+          {children}
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -85,6 +96,12 @@ export function Screen({
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   scroll: { flex: 1 },
+  staticBody: {
+    flex: 1,
+    width: '100%',
+    maxWidth: layout.contentMaxWidth,
+    alignSelf: 'center',
+  },
   fixedHeader: {
     width: '100%',
     maxWidth: layout.contentMaxWidth,

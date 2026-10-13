@@ -1,5 +1,35 @@
 # Checklist — Sổ cho mượn tiền
 
+## Chọn người có nhiều khoản từ form tạo — 12/10/2026
+
+- [x] Gợi ý tên và lựa chọn khoản riêng/cộng khoản cũ.
+- [x] Hiển thị và chọn chính xác khoản đang mở của người đó.
+- [x] Dùng lại ghi thêm nguyên tử, preview, khóa khi đang lưu và reset lựa chọn khi đổi tên.
+- [x] TypeScript toàn project, ESLint các file UI thay đổi và whitespace đạt; cập nhật tài liệu. Chưa chạy test hoặc thử trên iPhone trong lượt này.
+
+## Nội dung và ngày cho mượn thêm — 12/10/2026
+
+- [x] Nhập nội dung bắt buộc, lưu vào lịch sử và giao dịch Chi.
+- [x] Chọn ngày bằng lịch, dùng cùng ngày cho giao dịch và lịch sử.
+- [x] Giữ tương thích lịch sử cũ; cập nhật Firestore rules cho lần mới có nội dung.
+- [x] Rules biên dịch và phát hành lên `baseapp-dd227`; đọc lại đúng source. TypeScript, ESLint, whitespace và tài liệu đạt; chưa thử UI trên iPhone.
+
+## Sửa lần cho mượn thêm — 12/10/2026
+
+- [x] Sửa số tiền, ngày và nội dung của từng lần trong lịch sử.
+- [x] Cập nhật khoản vay và giao dịch Chi liên kết nguyên tử; chặn sửa thấp hơn tổng tiền đã nhận.
+- [x] Firestore rules chỉ cho đổi đúng một vị trí lịch sử và giao dịch Chi khớp; phát hành ruleset `1d72f535-816f-425f-a125-3e846a8f85df` lên `baseapp-dd227`.
+- [x] TypeScript, ESLint và `git diff --check` đạt; chưa chạy Jest/emulator hoặc thử UI trên iPhone.
+
+## Cho mượn thêm — 12/10/2026
+
+- [x] Types/parser, tổng gốc và lịch sử thêm tương thích dữ liệu cũ.
+- [x] Ghi thêm + giao dịch chi nguyên tử, retry ổn định, đối soát cache.
+- [x] Xử lý sửa tiền ban đầu/xóa hồ sơ và các khoản chi thêm.
+- [x] Nút, popup, preview dư nợ, lịch sử và bảo vệ phiên tài khoản.
+- [x] Rules append và liên kết giao dịch; compile/phát hành rules lên `baseapp-dd227`.
+- [x] Typecheck, lint, rà diff và tài liệu; chưa chạy Jest/emulator hoặc thử trên iPhone trong lượt này.
+
 - [x] Types, validation và local/cloud store theo UID.
 - [x] Firestore rules cho khoản cho mượn; mở rộng allowlist giao dịch Thu hồi.
 - [x] Tích hợp giao dịch chi `Cho mượn` và giao dịch thu hồi có liên kết, phân loại báo cáo và bảo vệ sửa/xóa.

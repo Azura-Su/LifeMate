@@ -347,7 +347,7 @@ it('keeps transaction templates scoped to their income or expense type', async (
     ],
     templates: [
       {
-        id: 'coffee-default',
+        id: 'coffee-custom',
         name: 'Cà phê 30.000đ',
         type: 'expense',
         amount: 30000,
@@ -575,7 +575,7 @@ it('lets the user jump to a month in another year', async () => {
 
   expect(await screen.findByText('Tiền nhà năm trước')).toBeTruthy();
   expect(screen.getByText(`Tháng 5 · ${year - 1}`)).toBeTruthy();
-  expect(screen.getByText('6.000.000 ₫')).toBeTruthy();
+  expect(screen.getAllByText('6.000.000 ₫').length).toBeGreaterThan(0);
 
   fireEvent.press(
     screen.getByRole('button', {
@@ -816,7 +816,7 @@ it('keeps long report categories on one line while retaining their amounts', asy
   expect(screen.getAllByText('987.654.321 ₫').length).toBeGreaterThan(0);
 });
 
-it('allows monthly income and expense totals to wrap instead of clipping', async () => {
+it('keeps monthly income, expense, and balance readable on one line', async () => {
   const now = new Date();
   const income: FinanceTransaction = {
     id: 'month-income-wrap',
@@ -840,6 +840,10 @@ it('allows monthly income and expense totals to wrap instead of clipping', async
 
   renderFinanceScreen();
 
-  const totals = await screen.findByText('Thu 12.500.000 ₫ · Chi 2.500.000 ₫');
-  expect(totals.props.numberOfLines).toBe(2);
+  const stats = await screen.findByTestId('finance-month-stats');
+  for (const amount of ['12.500.000 ₫', '2.500.000 ₫', '10.000.000 ₫']) {
+    const value = within(stats).getByText(amount);
+    expect(value.props.numberOfLines).toBe(1);
+    expect(value.props.adjustsFontSizeToFit).toBe(true);
+  }
 });

@@ -1,59 +1,54 @@
 import Feather from '@expo/vector-icons/Feather';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { DialogCloseButton } from '../../components/DialogCloseButton';
-import { DialogModal } from '../../components/DialogModal';
 import { colors } from '../../theme';
 import type {
-  FinanceIncomeSource,
   FinanceTransaction,
   FinanceTransactionType,
+  RegularFinanceIncomeSource,
 } from '../../types/finance';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../../types/finance';
+import type { LoanRecord } from '../../types/loan';
 import {
   formatFinanceAmount,
   getExpenseReport,
   getFinanceIncomeSource,
+  getFinanceReportContribution,
   getIncomeReport,
 } from '../../utils/finance';
-import { FinanceTransactionRow } from './FinanceTransactionRow';
+import { FinanceTransactionDayGroups } from './FinanceTransactionDayGroups';
 import { categoryReportStyles as styles } from './FinanceCategoryReport.styles';
 
 export type FinanceReportPoint = { year: number; month: number };
 export type FinancePeriodMode = 'year' | 'month' | 'range';
-type PickerEdge = 'start' | 'end' | 'month';
+export type FinanceIncomeSourceFilter = 'all' | RegularFinanceIncomeSource;
 
 type Props = {
   kind: Extract<FinanceTransactionType, 'income' | 'expense'>;
   transactions: FinanceTransaction[];
   onDelete: (transaction: FinanceTransaction) => void;
   onEdit: (transaction: FinanceTransaction) => void;
+  onOpenLoan: (loanId: string) => void;
+  loansById: ReadonlyMap<string, LoanRecord>;
   canDeleteLinkedExpense?: (transaction: FinanceTransaction) => boolean;
   deletingIds?: ReadonlySet<string>;
   customCategories?: string[];
   onAdd: (
     year: number,
     month: number,
-    incomeSource?: FinanceIncomeSource,
+    incomeSource?: RegularFinanceIncomeSource,
   ) => void;
   periodMode: FinancePeriodMode;
-  onPeriodModeChange: (mode: FinancePeriodMode) => void;
   year: number;
-  onYearChange: (year: number) => void;
   month: FinanceReportPoint;
-  onMonthChange: (point: FinanceReportPoint) => void;
   start: FinanceReportPoint;
-  onStartChange: (point: FinanceReportPoint) => void;
   end: FinanceReportPoint;
-  onEndChange: (point: FinanceReportPoint) => void;
+  incomeSource: FinanceIncomeSourceFilter;
 };
 
 const monthName = (month: number) =>
   new Intl.DateTimeFormat('vi-VN', { month: 'long' }).format(
     new Date(2024, month - 1, 1),
   );
-
-const pointValue = ({ year, month }: FinanceReportPoint) => year * 12 + month;
 
 function formatPeriodPoint({ year, month }: FinanceReportPoint) {
   return `${String(month).padStart(2, '0')}/${year}`;
@@ -64,48 +59,32 @@ export function FinanceCategoryReport({
   transactions,
   onDelete,
   onEdit,
+  onOpenLoan,
+  loansById,
   canDeleteLinkedExpense,
   deletingIds,
   customCategories,
   onAdd,
   periodMode,
-  onPeriodModeChange,
   year,
-  onYearChange,
   month,
-  onMonthChange,
   start,
-  onStartChange,
   end,
-  onEndChange,
+  incomeSource,
 }: Props) {
   const isIncome = kind === 'income';
-  const [incomeSource, setIncomeSource] = useState<'all' | FinanceIncomeSource>(
-    'company',
-  );
   const reportTransactions = useMemo(
     () =>
-      !isIncome || incomeSource === 'all'
-        ? transactions
-        : transactions.filter(
+      isIncome
+        ? transactions.filter(
             (transaction) =>
               transaction.type === 'income' &&
-              getFinanceIncomeSource(transaction) === incomeSource,
-          ),
+              transaction.incomeSource !== 'loan_repayment' &&
+              (incomeSource === 'all' ||
+                getFinanceIncomeSource(transaction) === incomeSource),
+          )
+        : transactions,
     [incomeSource, isIncome, transactions],
-  );
-  const categories = useMemo(
-    () => [
-      ...new Set([
-        ...(customCategories ??
-          (isIncome ? INCOME_CATEGORIES : EXPENSE_CATEGORIES)),
-        ...reportTransactions
-          .filter((transaction) => transaction.type === kind)
-          .map((transaction) => transaction.category.trim())
-          .filter(Boolean),
-      ]),
-    ],
-    [customCategories, isIncome, kind, reportTransactions],
   );
   const categoryLabel = isIncome ? 'khoản thu' : 'khoản chi';
   const totalLabel = isIncome
@@ -113,9 +92,7 @@ export function FinanceCategoryReport({
       ? 'Thu nhập công ty'
       : incomeSource === 'other'
         ? 'Thu nhập ngoài công ty'
-        : incomeSource === 'loan_repayment'
-          ? 'Tiền thu hồi cho mượn'
-          : 'Tổng thu nhập'
+        : 'Tổng thu nhập'
     : 'Tổng chi tiêu';
   const report = useMemo(() => {
     const getReport = isIncome ? getIncomeReport : getExpenseReport;
@@ -150,14 +127,25 @@ export function FinanceCategoryReport({
     end,
     customCategories,
   ]);
-  const [picker, setPicker] = useState<{
-    edge: PickerEdge;
-    point: FinanceReportPoint;
-  } | null>(null);
+  const activeCategories = useMemo(
+    () =>
+      new Set(
+        report.months.flatMap((entry) =>
+          entry.transactions.map((transaction) =>
+            getFinanceReportContribution(
+              transaction,
+            ).category.toLocaleLowerCase('vi-VN'),
+          ),
+        ),
+      ),
+    [report],
+  );
+  const categories = Object.keys(report.categories).filter((category) =>
+    activeCategories.has(category.toLocaleLowerCase('vi-VN')),
+  );
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(
     () => new Set(),
   );
-  const selectedPoint = picker?.point ?? start;
 
   function toggleMonth(key: string) {
     setExpandedMonths((current) => {
@@ -165,41 +153,6 @@ export function FinanceCategoryReport({
       if (next.has(key)) next.delete(key);
       else next.add(key);
       return next;
-    });
-  }
-
-  function changePoint(month: number) {
-    if (!picker) return;
-    const chosen = { ...selectedPoint, month };
-    if (picker.edge === 'month') {
-      onMonthChange(chosen);
-      setPicker(null);
-      return;
-    }
-    if (picker.edge === 'start') {
-      onStartChange(chosen);
-      if (pointValue(chosen) > pointValue(end)) onEndChange(chosen);
-    } else {
-      onEndChange(chosen);
-      if (pointValue(chosen) < pointValue(start)) onStartChange(chosen);
-    }
-    setPicker(null);
-  }
-
-  function changePickerYear(delta: number) {
-    if (!picker) return;
-    const nextYear = Math.min(9999, Math.max(1900, selectedPoint.year + delta));
-    setPicker({ ...picker, point: { ...selectedPoint, year: nextYear } });
-  }
-
-  function moveReportMonth(delta: number) {
-    const monthIndex = Math.min(
-      9999 * 12 + 11,
-      Math.max(1900 * 12, month.year * 12 + month.month - 1 + delta),
-    );
-    onMonthChange({
-      year: Math.floor(monthIndex / 12),
-      month: (monthIndex % 12) + 1,
     });
   }
 
@@ -212,209 +165,6 @@ export function FinanceCategoryReport({
 
   return (
     <View style={styles.container}>
-      <View style={styles.periodCard}>
-        <View style={styles.modeSwitch}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ selected: periodMode === 'year' }}
-            onPress={() => onPeriodModeChange('year')}
-            style={[
-              styles.modeButton,
-              periodMode === 'year' && styles.modeSelected,
-            ]}
-          >
-            <Text
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              style={[
-                styles.modeText,
-                periodMode === 'year' && styles.modeTextSelected,
-              ]}
-            >
-              Cả năm
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ selected: periodMode === 'month' }}
-            onPress={() => onPeriodModeChange('month')}
-            style={[
-              styles.modeButton,
-              periodMode === 'month' && styles.modeSelected,
-            ]}
-          >
-            <Text
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              style={[
-                styles.modeText,
-                periodMode === 'month' && styles.modeTextSelected,
-              ]}
-            >
-              Tháng
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ selected: periodMode === 'range' }}
-            onPress={() => onPeriodModeChange('range')}
-            style={[
-              styles.modeButton,
-              periodMode === 'range' && styles.modeSelected,
-            ]}
-          >
-            <Text
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              style={[
-                styles.modeText,
-                periodMode === 'range' && styles.modeTextSelected,
-              ]}
-            >
-              Tùy chọn tháng
-            </Text>
-          </Pressable>
-        </View>
-
-        {periodMode === 'year' ? (
-          <View style={styles.yearPicker}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Năm báo cáo trước"
-              disabled={year <= 1900}
-              hitSlop={8}
-              onPress={() => onYearChange(Math.max(1900, year - 1))}
-              style={styles.yearArrow}
-            >
-              <Feather name="chevron-left" size={20} color={colors.earth} />
-            </Pressable>
-            <Text accessibilityRole="header" style={styles.yearText}>
-              {year}
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Năm báo cáo sau"
-              disabled={year >= 9999}
-              hitSlop={8}
-              onPress={() => onYearChange(Math.min(9999, year + 1))}
-              style={styles.yearArrow}
-            >
-              <Feather name="chevron-right" size={20} color={colors.earth} />
-            </Pressable>
-          </View>
-        ) : periodMode === 'month' ? (
-          <View style={styles.yearPicker}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Tháng báo cáo trước"
-              disabled={month.year === 1900 && month.month === 1}
-              hitSlop={8}
-              onPress={() => moveReportMonth(-1)}
-              style={styles.yearArrow}
-            >
-              <Feather name="chevron-left" size={20} color={colors.earth} />
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Chọn tháng ${month.month} năm ${month.year}`}
-              onPress={() => setPicker({ edge: 'month', point: { ...month } })}
-              style={styles.selectedMonthButton}
-            >
-              <Text style={styles.selectedMonthText}>
-                Tháng {month.month} năm {month.year}
-              </Text>
-              <Feather name="chevron-down" size={15} color={colors.muted} />
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Tháng báo cáo sau"
-              disabled={month.year === 9999 && month.month === 12}
-              hitSlop={8}
-              onPress={() => moveReportMonth(1)}
-              style={styles.yearArrow}
-            >
-              <Feather name="chevron-right" size={20} color={colors.earth} />
-            </Pressable>
-          </View>
-        ) : (
-          <View style={styles.rangeRow}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Chọn tháng bắt đầu"
-              onPress={() => setPicker({ edge: 'start', point: { ...start } })}
-              style={styles.rangeButton}
-            >
-              <Text style={styles.rangeLabel}>Từ tháng</Text>
-              <View style={styles.rangeValueRow}>
-                <Text style={styles.rangeValue}>
-                  {formatPeriodPoint(start)}
-                </Text>
-                <Feather name="chevron-down" size={15} color={colors.muted} />
-              </View>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Chọn tháng kết thúc"
-              onPress={() => setPicker({ edge: 'end', point: { ...end } })}
-              style={styles.rangeButton}
-            >
-              <Text style={styles.rangeLabel}>Đến tháng</Text>
-              <View style={styles.rangeValueRow}>
-                <Text style={styles.rangeValue}>{formatPeriodPoint(end)}</Text>
-                <Feather name="chevron-down" size={15} color={colors.muted} />
-              </View>
-            </Pressable>
-          </View>
-        )}
-        <Text style={styles.periodHint}>
-          {isIncome
-            ? incomeSource === 'company'
-              ? 'Lương, thưởng và khoản khác từ công ty'
-              : incomeSource === 'other'
-                ? 'Chỉ tính thu nhập ngoài công ty'
-                : incomeSource === 'loan_repayment'
-                  ? 'Các khoản người khác đã trả lại'
-                  : 'Tất cả nguồn thu trong kỳ'
-            : 'Chỉ tính các khoản chi tiêu'}
-        </Text>
-      </View>
-
-      {isIncome && (
-        <View style={styles.sourceSwitch}>
-          {(
-            [
-              ['all', 'Tất cả'],
-              ['company', 'Công ty'],
-              ['other', 'Khác'],
-              ['loan_repayment', 'Thu hồi'],
-            ] as const
-          ).map(([value, label]) => {
-            const selected = incomeSource === value;
-            return (
-              <Pressable
-                key={value}
-                accessibilityRole="button"
-                accessibilityLabel={`Nguồn thu: ${label}`}
-                accessibilityState={{ selected }}
-                onPress={() => setIncomeSource(value)}
-                style={[styles.sourceButton, selected && styles.sourceSelected]}
-              >
-                <Text
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  style={[
-                    styles.sourceText,
-                    selected && styles.sourceTextSelected,
-                  ]}
-                >
-                  {label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-
       <View style={styles.summaryCard}>
         <View style={[styles.totalCard, !isIncome && styles.expenseTotalCard]}>
           <Text style={styles.totalLabel}>{totalLabel}</Text>
@@ -430,37 +180,32 @@ export function FinanceCategoryReport({
             <Text style={styles.periodBadgeText}>{periodLabel}</Text>
           </View>
         </View>
-        {report.total > 0 && (
+        {categories.length > 0 && (
           <View style={styles.categoryTotals}>
-            {categories
-              .filter(
-                (category) =>
-                  (report.categories as Record<string, number>)[category] > 0,
-              )
-              .map((category) => (
-                <View key={category} style={styles.categoryTotalRow}>
-                  <View style={styles.categoryNameRow}>
-                    <View
-                      style={[
-                        styles.categoryDot,
-                        !isIncome && styles.expenseCategoryDot,
-                      ]}
-                    />
-                    <Text numberOfLines={1} style={styles.categoryName}>
-                      {category}
-                    </Text>
-                  </View>
-                  <Text
-                    adjustsFontSizeToFit
-                    numberOfLines={1}
-                    style={styles.categoryAmount}
-                  >
-                    {formatFinanceAmount(
-                      (report.categories as Record<string, number>)[category],
-                    )}
+            {categories.map((category) => (
+              <View key={category} style={styles.categoryTotalRow}>
+                <View style={styles.categoryNameRow}>
+                  <View
+                    style={[
+                      styles.categoryDot,
+                      !isIncome && styles.expenseCategoryDot,
+                    ]}
+                  />
+                  <Text numberOfLines={1} style={styles.categoryName}>
+                    {category}
                   </Text>
                 </View>
-              ))}
+                <Text
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                  style={styles.categoryAmount}
+                >
+                  {formatFinanceAmount(
+                    (report.categories as Record<string, number>)[category],
+                  )}
+                </Text>
+              </View>
+            ))}
           </View>
         )}
       </View>
@@ -472,10 +217,10 @@ export function FinanceCategoryReport({
         <Text style={styles.monthCount}>
           {periodMode === 'month'
             ? report.months.length > 0
-              ? `${report.months[0].transactions.length} khoản ${isIncome ? 'thu' : 'chi'}`
+              ? `${report.months[0].transactions.length} giao dịch`
               : 'Chưa phát sinh'
             : report.months.length > 0
-              ? `${report.months.length} tháng có ${isIncome ? 'thu' : 'chi'}`
+              ? `${report.months.length} tháng có giao dịch`
               : 'Chưa phát sinh'}
         </Text>
       </View>
@@ -533,11 +278,7 @@ export function FinanceCategoryReport({
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={
-                      isIncome && incomeSource === 'loan_repayment'
-                        ? 'Mở sổ cho mượn'
-                        : `Thêm khoản ${isIncome ? 'thu' : 'chi'} tháng ${month.month} năm ${month.year}`
-                    }
+                    accessibilityLabel={`Thêm khoản ${isIncome ? 'thu' : 'chi'} tháng ${month.month} năm ${month.year}`}
                     onPress={() =>
                       onAdd(
                         month.year,
@@ -556,16 +297,15 @@ export function FinanceCategoryReport({
                 </View>
                 {expanded && (
                   <View style={styles.transactionList}>
-                    {month.transactions.map((transaction) => (
-                      <FinanceTransactionRow
-                        key={transaction.id}
-                        transaction={transaction}
-                        deleting={deletingIds?.has(transaction.id)}
-                        onDelete={onDelete}
-                        onEdit={onEdit}
-                        canDeleteLinkedExpense={canDeleteLinkedExpense?.(transaction)}
-                      />
-                    ))}
+                    <FinanceTransactionDayGroups
+                      transactions={month.transactions}
+                      deletingIds={deletingIds}
+                      onDelete={onDelete}
+                      onEdit={onEdit}
+                      loansById={loansById}
+                      onOpenLoan={onOpenLoan}
+                      canDeleteLinkedExpense={canDeleteLinkedExpense}
+                    />
                   </View>
                 )}
               </View>
@@ -573,71 +313,6 @@ export function FinanceCategoryReport({
           })}
         </View>
       )}
-
-      <DialogModal
-        visible={picker !== null}
-        onRequestClose={() => setPicker(null)}
-        style={styles.dialog}
-      >
-        <View style={styles.dialogHeader}>
-          <Text accessibilityRole="header" style={styles.dialogTitle}>
-            {picker?.edge === 'start'
-              ? 'Chọn tháng bắt đầu'
-              : picker?.edge === 'end'
-                ? 'Chọn tháng kết thúc'
-                : 'Chọn tháng báo cáo'}
-          </Text>
-          <DialogCloseButton
-            accessibilityLabel="Đóng bộ chọn tháng báo cáo"
-            onPress={() => setPicker(null)}
-          />
-        </View>
-        <View style={styles.dialogYearRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Năm trước"
-            disabled={selectedPoint.year <= 1900}
-            onPress={() => changePickerYear(-1)}
-            style={styles.dialogYearArrow}
-          >
-            <Feather name="chevron-left" size={20} color={colors.earth} />
-          </Pressable>
-          <Text style={styles.dialogYear}>{selectedPoint.year}</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Năm sau"
-            disabled={selectedPoint.year >= 9999}
-            onPress={() => changePickerYear(1)}
-            style={styles.dialogYearArrow}
-          >
-            <Feather name="chevron-right" size={20} color={colors.earth} />
-          </Pressable>
-        </View>
-        <View style={styles.monthGrid}>
-          {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => {
-            const selected = month === selectedPoint.month;
-            return (
-              <Pressable
-                key={month}
-                accessibilityRole="button"
-                accessibilityLabel={`${monthName(month)} ${selectedPoint.year}`}
-                accessibilityState={{ selected }}
-                onPress={() => changePoint(month)}
-                style={[styles.monthChoice, selected && styles.monthSelected]}
-              >
-                <Text
-                  style={[
-                    styles.monthChoiceText,
-                    selected && styles.monthChoiceTextSelected,
-                  ]}
-                >
-                  {monthName(month)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </DialogModal>
     </View>
   );
 }

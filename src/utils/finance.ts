@@ -103,6 +103,7 @@ export function parseFinanceTransaction(
   if (
     (linkedLoanRepayment &&
       (row.type !== 'income' ||
+        row.advanceId !== undefined ||
         typeof row.loanId !== 'string' ||
         !/^[A-Za-z0-9_-]{1,128}$/.test(row.loanId) ||
         typeof row.repaymentId !== 'string' ||
@@ -118,7 +119,11 @@ export function parseFinanceTransaction(
       (row.type !== 'expense' ||
         typeof row.loanId !== 'string' ||
         !/^[A-Za-z0-9_-]{1,128}$/.test(row.loanId) ||
-        row.id !== `loan-lent-${row.loanId}` ||
+        (row.advanceId !== undefined &&
+          (typeof row.advanceId !== 'string' ||
+            !/^[A-Za-z0-9_-]{1,128}$/.test(row.advanceId))) ||
+        row.id !==
+          `loan-lent-${row.loanId}${row.advanceId ? `-${row.advanceId}` : ''}` ||
         row.category.trim() !== 'Cho mượn' ||
         row.incomeSource !== undefined ||
         row.repaymentId !== undefined ||
@@ -126,6 +131,7 @@ export function parseFinanceTransaction(
     (!linkedLoanRepayment &&
       !linkedLoanLending &&
       (row.loanId !== undefined ||
+        row.advanceId !== undefined ||
         row.repaymentId !== undefined ||
         row.repaymentReceivedAt !== undefined ||
         row.expenseSource !== undefined))
@@ -152,7 +158,11 @@ export function parseFinanceTransaction(
         }
       : {}),
     ...(linkedLoanLending
-      ? { expenseSource: row.expenseSource, loanId: row.loanId }
+      ? {
+          expenseSource: row.expenseSource,
+          loanId: row.loanId,
+          ...(row.advanceId !== undefined ? { advanceId: row.advanceId } : {}),
+        }
       : {}),
   };
 }
@@ -167,6 +177,25 @@ export function getFinanceIncomeSource(
   )
     return transaction.incomeSource;
   return 'company';
+}
+
+// Keep the stored repayment transaction intact; only its report contribution changes.
+export function getFinanceReportContribution(transaction: FinanceTransaction) {
+  if (
+    transaction.type === 'income' &&
+    transaction.incomeSource === 'loan_repayment'
+  ) {
+    return {
+      kind: 'expense' as const,
+      amount: -transaction.amount,
+      category: 'Cho vay',
+    };
+  }
+  return {
+    kind: transaction.type,
+    amount: transaction.amount,
+    category: getFinanceTransactionCategoryLabel(transaction),
+  };
 }
 
 export function getFinanceReport(
@@ -214,16 +243,16 @@ export function getFinanceReport(
       )
       .sort((a, b) => a.createdAt - b.createdAt);
     if (monthlyTransactions.length === 0) continue;
-    const monthlyIncome = monthlyTransactions.reduce(
-      (sum, transaction) =>
-        transaction.type === 'income' ? sum + transaction.amount : sum,
-      0,
+    const monthlyTotals = monthlyTransactions.reduce(
+      (totals, transaction) => {
+        const contribution = getFinanceReportContribution(transaction);
+        totals[contribution.kind] += contribution.amount;
+        return totals;
+      },
+      { income: 0, expense: 0 },
     );
-    const monthlyExpense = monthlyTransactions.reduce(
-      (sum, transaction) =>
-        transaction.type === 'expense' ? sum + transaction.amount : sum,
-      0,
-    );
+    const monthlyIncome = monthlyTotals.income;
+    const monthlyExpense = monthlyTotals.expense;
     income += monthlyIncome;
     expense += monthlyExpense;
     months.push({
@@ -335,12 +364,14 @@ function getCategorizedReport<Category extends string>(
       ...transactions
         .filter(
           (transaction) =>
-            transaction.type === type &&
+            getFinanceReportContribution(transaction).kind === type &&
             transaction.createdAt >=
               new Date(startYear, startMonth - 1, 1).getTime() &&
             transaction.createdAt < new Date(endYear, endMonth, 1).getTime(),
         )
-        .map((transaction) => transaction.category.trim())
+        .map(
+          (transaction) => getFinanceReportContribution(transaction).category,
+        )
         .filter(Boolean),
       ...(fallbackCategory ? [fallbackCategory] : []),
     ]),
@@ -391,8 +422,9 @@ function getCategorizedReport<Category extends string>(
   >();
 
   for (const transaction of transactions) {
+    const contribution = getFinanceReportContribution(transaction);
     if (
-      transaction.type !== type ||
+      contribution.kind !== type ||
       transaction.createdAt < start ||
       transaction.createdAt >= end
     )
@@ -401,7 +433,7 @@ function getCategorizedReport<Category extends string>(
       reportCategories.find(
         (value) =>
           value.toLocaleLowerCase('vi-VN') ===
-          transaction.category.trim().toLocaleLowerCase('vi-VN'),
+          contribution.category.toLocaleLowerCase('vi-VN'),
       ) ?? fallbackCategory;
     if (!category) continue;
 
@@ -416,8 +448,8 @@ function getCategorizedReport<Category extends string>(
       categories: emptyCategories(),
       transactions: [],
     };
-    group.total += transaction.amount;
-    group.categories[category] += transaction.amount;
+    group.total += contribution.amount;
+    group.categories[category] += contribution.amount;
     group.transactions.push(transaction);
     grouped.set(key, group);
   }
@@ -491,9 +523,18 @@ export function formatFinanceAmount(amount: number) {
   return `${amountFormat.format(amount)} ₫`;
 }
 
+export function getFinanceTransactionCategoryLabel(
+  transaction: FinanceTransaction,
+) {
+  if (transaction.expenseSource === 'loan_lending') return 'Cho vay';
+  if (transaction.incomeSource === 'loan_repayment') return 'Thu hồi cho vay';
+  return transaction.category.trim();
+}
+
 export function filterFinanceTransactions(
   transactions: FinanceTransaction[],
   query: string,
+  getAdditionalSearchText?: (transaction: FinanceTransaction) => string,
 ) {
   const normalized = query
     .normalize('NFD')
@@ -503,7 +544,9 @@ export function filterFinanceTransactions(
   if (!normalized) return transactions;
   const digits = normalized.replace(/\D/g, '');
   return transactions.filter((transaction) => {
-    const text = `${transaction.note} ${transaction.category}`
+    const additionalText = getAdditionalSearchText?.(transaction) ?? '';
+    const text = [transaction.note, transaction.category, additionalText]
+      .join(' ')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .toLocaleLowerCase('vi');

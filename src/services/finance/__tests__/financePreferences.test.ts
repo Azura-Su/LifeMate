@@ -25,7 +25,7 @@ const preferences: FinancePreferences = {
   expenseCategories: [...EXPENSE_CATEGORIES, 'Thú cưng'],
   templates: [
     {
-      id: 'coffee-default',
+      id: 'coffee-custom',
       name: 'Cà phê 30.000đ',
       type: 'expense',
       amount: 30000,
@@ -100,7 +100,7 @@ it('keeps same-named expense and income templates separate while syncing', async
   await expect(readFinancePreferences('u1')).resolves.toMatchObject({
     preferences: {
       templates: expect.arrayContaining([
-        expect.objectContaining({ id: 'coffee-default', type: 'expense' }),
+        expect.objectContaining({ id: 'coffee-custom', type: 'expense' }),
         expect.objectContaining({ id: 'coffee-income', type: 'income' }),
       ]),
     },

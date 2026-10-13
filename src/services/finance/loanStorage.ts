@@ -8,10 +8,12 @@ import {
   where,
 } from '@react-native-firebase/firestore';
 import type { FinanceTransaction } from '../../types/finance';
-import type { LoanRecord, LoanRepayment } from '../../types/loan';
+import type { LoanAdvance, LoanRecord, LoanRepayment } from '../../types/loan';
 import {
+  canSetLoanTotalAmount,
   getLoanOutstandingAmount,
   getLoanPendingAmount,
+  getLoanStatus,
 } from '../../types/loan';
 import { parseFinanceTransaction } from '../../utils/finance';
 import {
@@ -28,6 +30,10 @@ const CLOUD_TIMEOUT_MS = 12000;
 const queues = new Map<string, Promise<unknown>>();
 const attemptKey = (uid: string, loanId: string) =>
   `lifemate:loan-repayment-attempt:v1:${encodeURIComponent(uid)}:${encodeURIComponent(loanId)}`;
+const advanceAttemptKey = (uid: string, loanId: string) =>
+  `lifemate:loan-advance-attempt:v1:${encodeURIComponent(uid)}:${encodeURIComponent(loanId)}`;
+const newLoanAttemptKey = (uid: string) =>
+  `lifemate:loan-create-attempt:v1:${encodeURIComponent(uid)}`;
 
 export class LoanDataConflictError extends Error {
   constructor(message: string) {
@@ -55,6 +61,8 @@ type DeletedLoanRecord = {
   deleted: true;
   updatedAt: number;
   repayments: LoanRepayment[];
+  advances?: LoanAdvance[];
+  additionalAmount?: number;
 };
 
 function enqueue<T>(uid: string, operation: () => Promise<T>): Promise<T> {
@@ -108,6 +116,36 @@ function parseRepayment(value: unknown, loanId: string): LoanRepayment | null {
   };
 }
 
+function parseAdvance(value: unknown, loanId: string): LoanAdvance | null {
+  if (!value || typeof value !== 'object') return null;
+  const row = value as Partial<LoanAdvance>;
+  if (
+    typeof row.id !== 'string' ||
+    !ID.test(row.id) ||
+    !Number.isSafeInteger(row.amount) ||
+    (row.amount ?? 0) <= 0 ||
+    typeof row.lentAt !== 'number' ||
+    !Number.isFinite(row.lentAt) ||
+    row.lentAt < 0 ||
+    row.lentAt > MAX_DATE ||
+    typeof row.financeTransactionId !== 'string' ||
+    !ID.test(row.financeTransactionId) ||
+    row.financeTransactionId !== `loan-lent-${loanId}-${row.id}` ||
+    (row.note !== undefined &&
+      (typeof row.note !== 'string' ||
+        !row.note.trim() ||
+        row.note.trim().length > 120))
+  )
+    return null;
+  return {
+    id: row.id,
+    amount: row.amount as number,
+    lentAt: row.lentAt,
+    ...(row.note !== undefined ? { note: row.note.trim() } : {}),
+    financeTransactionId: row.financeTransactionId,
+  };
+}
+
 export function parseLoanRecord(
   value: unknown,
   uid: string,
@@ -155,10 +193,50 @@ export function parseLoanRecord(
   if (repayments.some((repayment) => !repayment)) return null;
   const validRepayments = repayments as LoanRepayment[];
   if (
+    row.advances !== undefined &&
+    (!Array.isArray(row.advances) || row.advances.length > 50)
+  )
+    return null;
+  const advances = (row.advances ?? []).map((item) =>
+    parseAdvance(item, row.id as string),
+  );
+  if (advances.some((item) => item === null)) return null;
+  const validAdvances = advances as LoanAdvance[];
+  const additionalAmount = validAdvances.reduce(
+    (sum, item) => sum + item.amount,
+    0,
+  );
+  const totalAmount = (row.principalAmount as number) + additionalAmount;
+  const repaymentAmount = validRepayments.reduce(
+    (sum, repayment) => sum + repayment.amount,
+    0,
+  );
+  const lastEditedAdvanceIndex = row.lastEditedAdvanceIndex;
+  const lastEditedRepaymentIndex = row.lastEditedRepaymentIndex;
+  if (
+    !Number.isSafeInteger(totalAmount) ||
+    (row.additionalAmount !== undefined &&
+      !Number.isSafeInteger(row.additionalAmount)) ||
+    additionalAmount !== (row.additionalAmount ?? 0) ||
+    (row.recordedRepaymentAmount !== undefined &&
+      (!Number.isSafeInteger(row.recordedRepaymentAmount) ||
+        row.recordedRepaymentAmount !== repaymentAmount)) ||
+    (row.advances === undefined) !== (row.additionalAmount === undefined) ||
+    (lastEditedAdvanceIndex !== undefined &&
+      (!Number.isSafeInteger(lastEditedAdvanceIndex) ||
+        lastEditedAdvanceIndex < 0 ||
+        lastEditedAdvanceIndex >= validAdvances.length)) ||
+    (lastEditedRepaymentIndex !== undefined &&
+      (!Number.isSafeInteger(lastEditedRepaymentIndex) ||
+        lastEditedRepaymentIndex < 0 ||
+        lastEditedRepaymentIndex >= validRepayments.length)) ||
+    new Set(validAdvances.map(({ id }) => id)).size !== validAdvances.length
+  )
+    return null;
+  if (
     new Set(validRepayments.map(({ id }) => id)).size !==
       validRepayments.length ||
-    validRepayments.reduce((sum, repayment) => sum + repayment.amount, 0) >
-      (row.principalAmount as number)
+    repaymentAmount > totalAmount
   )
     return null;
   return {
@@ -166,6 +244,16 @@ export function parseLoanRecord(
     ownerId: row.ownerId,
     borrowerName: row.borrowerName.trim(),
     principalAmount: row.principalAmount as number,
+    ...(row.recordedRepaymentAmount !== undefined
+      ? { recordedRepaymentAmount: row.recordedRepaymentAmount }
+      : {}),
+    ...(row.advances !== undefined
+      ? { advances: validAdvances, additionalAmount }
+      : {}),
+    ...(lastEditedAdvanceIndex !== undefined ? { lastEditedAdvanceIndex } : {}),
+    ...(lastEditedRepaymentIndex !== undefined
+      ? { lastEditedRepaymentIndex }
+      : {}),
     lentAt: row.lentAt,
     dueAt: row.dueAt ?? null,
     remindOnDueDate: row.remindOnDueDate,
@@ -219,6 +307,16 @@ function deletedLoanDocument(uid: string, id: string) {
   return doc(getFirestore(), 'financeAccounts', uid, 'deletedLoans', id);
 }
 
+function deletedRepaymentDocument(uid: string, transactionId: string) {
+  return doc(
+    getFirestore(),
+    'financeAccounts',
+    uid,
+    'deletedLoanRepayments',
+    transactionId,
+  );
+}
+
 function financeTransactionDocument(uid: string, id: string) {
   return doc(getFirestore(), 'financeAccounts', uid, 'transactions', id);
 }
@@ -265,11 +363,31 @@ function matchesLendingTransaction(
     stored.type === expected.type &&
     stored.expenseSource === expected.expenseSource &&
     stored.loanId === expected.loanId &&
+    stored.advanceId === expected.advanceId &&
     stored.amount === expected.amount &&
     stored.category === expected.category &&
     stored.note === expected.note &&
     stored.createdAt === expected.createdAt
   );
+}
+
+function createAdvanceTransaction(
+  uid: string,
+  loan: LoanRecord,
+  advance: LoanAdvance,
+): FinanceTransaction {
+  return {
+    id: advance.financeTransactionId,
+    ownerId: uid,
+    type: 'expense',
+    expenseSource: 'loan_lending',
+    loanId: loan.id,
+    advanceId: advance.id,
+    amount: advance.amount,
+    category: 'Cho mượn',
+    note: advance.note ?? `Cho ${loan.borrowerName} mượn thêm`.slice(0, 120),
+    createdAt: advance.lentAt,
+  };
 }
 
 function mergeByLatest(local: LoanRecord[], remote: LoanRecord[]) {
@@ -279,6 +397,58 @@ function mergeByLatest(local: LoanRecord[], remote: LoanRecord[]) {
     if (!cloud || loan.updatedAt > cloud.updatedAt) merged.set(loan.id, loan);
   }
   return [...merged.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+async function readNewLoanAttempt(uid: string) {
+  const raw = await getEncryptedItem(uid, newLoanAttemptKey(uid));
+  if (!raw) return null;
+  try {
+    const loan = parseLoanRecord(JSON.parse(raw), uid);
+    return loan && loan.repayments.length === 0 && !loan.advances?.length
+      ? loan
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function sameNewLoanInput(first: LoanRecord, second: LoanRecord) {
+  return (
+    first.borrowerName === second.borrowerName &&
+    first.principalAmount === second.principalAmount &&
+    first.dueAt === second.dueAt &&
+    first.remindOnDueDate === second.remindOnDueDate &&
+    first.note === second.note
+  );
+}
+
+export function getPendingNewLoanAttempt(uid: string, confirmed: LoanRecord[]) {
+  requireUid(uid);
+  return enqueue(uid, async () => {
+    const attempt = await readNewLoanAttempt(uid);
+    if (attempt && confirmed.some(({ id }) => id === attempt.id)) {
+      await removeEncryptedItem(newLoanAttemptKey(uid)).catch(() => undefined);
+      return null;
+    }
+    return attempt;
+  });
+}
+
+export function reserveNewLoanAttempt(uid: string, proposed: LoanRecord) {
+  requireUid(uid);
+  const parsed = parseLoanRecord(proposed, uid);
+  if (!parsed) return Promise.reject(new Error('Khoản cho vay chưa hợp lệ.'));
+  return enqueue(uid, async () => {
+    const previous = await readNewLoanAttempt(uid);
+    if (previous) {
+      if (sameNewLoanInput(previous, parsed)) return previous;
+      throw new LoanDataConflictError(
+        'Có khoản cho vay đang chờ xác nhận. Hãy thử lại khoản đó trước khi tạo khoản khác.',
+      );
+    }
+    await setEncryptedItem(uid, newLoanAttemptKey(uid), JSON.stringify(parsed));
+    return parsed;
+  });
 }
 
 export function readLoanData(uid: string): Promise<LoanStorageResult> {
@@ -315,6 +485,15 @@ export function readLoanData(uid: string): Promise<LoanStorageResult> {
         .filter(({ id }) => !deletedIds.has(id))
         .map((item) => parseLoanRecord(item.data(), uid))
         .filter((item): item is LoanRecord => item !== null);
+      const newLoanAttempt = await readNewLoanAttempt(uid);
+      if (
+        newLoanAttempt &&
+        (remote.some(({ id }) => id === newLoanAttempt.id) ||
+          deletedIds.has(newLoanAttempt.id))
+      )
+        await removeEncryptedItem(newLoanAttemptKey(uid)).catch(
+          () => undefined,
+        );
       const linkedExpenses = new Map(
         lendingSnapshot.docs.map((item) => [item.id, item.data()]),
       );
@@ -373,9 +552,23 @@ export function readLoanData(uid: string): Promise<LoanStorageResult> {
         const attempt = await readRepaymentAttempt(uid, loan.id);
         if (attempt && isPostedRepayment(loan.repayments, attempt))
           await removeEncryptedItem(attemptKey(uid, loan.id));
+        const advanceAttempt = await readAdvanceAttempt(uid, loan.id).catch(
+          () => null,
+        );
+        if (
+          advanceAttempt &&
+          loan.advances?.some(({ id }) => id === advanceAttempt.id)
+        )
+          await removeEncryptedItem(advanceAttemptKey(uid, loan.id)).catch(
+            () => undefined,
+          );
       }
-      for (const id of deletedIds)
+      for (const id of deletedIds) {
         await removeEncryptedItem(attemptKey(uid, id));
+        await removeEncryptedItem(advanceAttemptKey(uid, id)).catch(
+          () => undefined,
+        );
+      }
       return {
         loans: merged,
         synced,
@@ -413,6 +606,9 @@ export function saveLoanData(
       return { loans, synced: false, committedTransactions: [] };
     }
     const loans = await replaceLocalRecord(uid, saved.loan);
+    const newLoanAttempt = await readNewLoanAttempt(uid).catch(() => null);
+    if (newLoanAttempt?.id === saved.loan.id)
+      await removeEncryptedItem(newLoanAttemptKey(uid)).catch(() => undefined);
     return {
       loans,
       synced: true,
@@ -473,7 +669,37 @@ export function deleteLoanData(
           // Preserve legacy fields such as repayment.updatedAt. Firestore
           // rules require the tombstone history to exactly match the source.
           repayments: rawRepayments as LoanRepayment[],
+          ...(loan.advances !== undefined
+            ? {
+                advances: loan.advances,
+                additionalAmount: loan.additionalAmount,
+              }
+            : {}),
         };
+        const advanceExpenses =
+          loan.repayments.length === 0
+            ? await Promise.all(
+                (loan.advances ?? []).map(async (advance) => {
+                  const expenseRef = financeTransactionDocument(
+                    uid,
+                    advance.financeTransactionId,
+                  );
+                  const expenseSnapshot = await transaction.get(expenseRef);
+                  if (
+                    expenseSnapshot.exists() &&
+                    !matchesLendingTransaction(
+                      expenseSnapshot.data(),
+                      createAdvanceTransaction(uid, loan, advance),
+                      uid,
+                    )
+                  )
+                    throw new LoanDataConflictError(
+                      'Khoản chi cho mượn thêm không khớp, chưa thể xóa.',
+                    );
+                  return { ref: expenseRef, exists: expenseSnapshot.exists() };
+                }),
+              )
+            : [];
         if (loan.repayments.length === 0 && lendingSnapshot.exists()) {
           const expected = createLendingTransaction(uid, loan);
           if (!matchesLendingTransaction(lendingSnapshot.data(), expected, uid))
@@ -483,11 +709,16 @@ export function deleteLoanData(
         }
         transaction.set(deletedRef, deletedLoan);
         transaction.delete(ref);
+        for (const expense of advanceExpenses) {
+          if (expense.exists) transaction.delete(expense.ref);
+        }
         if (loan.repayments.length === 0 && lendingSnapshot.exists()) {
           transaction.delete(lendingRef);
           return lendingTransactionId(loanId);
         }
-        return undefined;
+        return advanceExpenses.some((expense) => expense.exists)
+          ? lendingTransactionId(loanId)
+          : undefined;
       }),
     );
     const loans = (await readLocal(uid)).filter((loan) => loan.id !== loanId);
@@ -504,12 +735,24 @@ export function deleteLoanData(
 export function correctLoanPrincipal(
   uid: string,
   loanId: string,
-  amount: number,
+  changes: { amount: number; note: string; lentAt: number },
   expectedUpdatedAt: number,
 ): Promise<LoanStorageResult> {
   requireUid(uid);
-  if (!ID.test(loanId) || !Number.isSafeInteger(amount) || amount <= 0)
-    return Promise.reject(new Error('Số tiền cho mượn chưa hợp lệ.'));
+  const note = changes.note.trim();
+  if (
+    !ID.test(loanId) ||
+    !Number.isSafeInteger(changes.amount) ||
+    changes.amount <= 0 ||
+    !Number.isSafeInteger(changes.lentAt) ||
+    changes.lentAt < 0 ||
+    changes.lentAt > MAX_DATE ||
+    note.length === 0 ||
+    note.length > 500
+  )
+    return Promise.reject(
+      new Error('Thông tin khoản cho mượn ban đầu chưa hợp lệ.'),
+    );
   return enqueue(uid, async () => {
     const ref = loanDocument(uid, loanId);
     const lendingRef = financeTransactionDocument(
@@ -533,8 +776,17 @@ export function correctLoanPrincipal(
           );
         if (loan.cancelledAt !== null)
           throw new LoanDataConflictError('Không thể sửa khoản đã hủy.');
-        if (loan.repayments.reduce((sum, row) => sum + row.amount, 0) > amount)
-          throw new Error('Số tiền mới không được thấp hơn số đã nhận lại.');
+        const totalAmount = changes.amount + (loan.additionalAmount ?? 0);
+        if (!Number.isSafeInteger(totalAmount))
+          throw new Error('Tổng tiền cho mượn vượt giới hạn cho phép.');
+        if (!canSetLoanTotalAmount(loan, totalAmount))
+          throw new Error(
+            loan.recordedRepaymentAmount === undefined &&
+              loan.repayments.length > 0 &&
+              totalAmount < loan.principalAmount + (loan.additionalAmount ?? 0)
+              ? 'Khoản cũ đã nhận tiền chưa thể giảm tổng cho vay. Bạn vẫn có thể sửa ngày hoặc nội dung.'
+              : 'Số tiền mới không được thấp hơn số đã nhận lại.',
+          );
         const previousExpense = createLendingTransaction(uid, loan);
         if (
           !financeSnapshot.exists() ||
@@ -547,14 +799,24 @@ export function correctLoanPrincipal(
           throw new LoanDataConflictError(
             'Chưa tìm thấy giao dịch chi liên kết để sửa đồng thời.',
           );
-        if (loan.principalAmount === amount)
+        if (
+          loan.principalAmount === changes.amount &&
+          loan.note === note &&
+          loan.lentAt === changes.lentAt
+        )
           return { loan, committedTransaction: previousExpense };
         const updatedLoan = {
           ...loan,
-          principalAmount: amount,
+          principalAmount: changes.amount,
+          note,
+          lentAt: changes.lentAt,
           updatedAt: nextRevision(loan.updatedAt),
         };
-        const updatedExpense = { ...previousExpense, amount };
+        const updatedExpense = {
+          ...previousExpense,
+          amount: changes.amount,
+          createdAt: changes.lentAt,
+        };
         transaction.set(ref, updatedLoan);
         transaction.set(lendingRef, updatedExpense);
         return { loan: updatedLoan, committedTransaction: updatedExpense };
@@ -594,7 +856,10 @@ async function writeLoanOnline(
           'Khoản cho mượn này đã bị xóa trên thiết bị khác.',
         );
       if (!snapshot.exists()) {
-        if (proposed.repayments.length > 0)
+        if (
+          proposed.repayments.length > 0 ||
+          (proposed.advances?.length ?? 0) > 0
+        )
           throw new LoanDataConflictError(
             'Không thể đồng bộ lịch sử nhận tiền khi khoản vay chưa có trên máy chủ.',
           );
@@ -625,7 +890,10 @@ async function writeLoanOnline(
         );
       if (
         JSON.stringify(proposed.repayments) !==
-        JSON.stringify(current.repayments)
+          JSON.stringify(current.repayments) ||
+        JSON.stringify(proposed.advances ?? []) !==
+          JSON.stringify(current.advances ?? []) ||
+        (proposed.additionalAmount ?? 0) !== (current.additionalAmount ?? 0)
       )
         throw new LoanDataConflictError(
           'Khoản vay vừa thay đổi trên thiết bị khác. Hãy tải lại trước khi tiếp tục.',
@@ -761,6 +1029,339 @@ export function clearRepaymentAttempt(uid: string, loanId: string) {
   return enqueue(uid, () => removeEncryptedItem(attemptKey(uid, loanId)));
 }
 
+async function readAdvanceAttempt(uid: string, loanId: string) {
+  const raw = await getEncryptedItem(uid, advanceAttemptKey(uid, loanId));
+  if (!raw) return null;
+  try {
+    return parseAdvance(JSON.parse(raw), loanId);
+  } catch {
+    return null;
+  }
+}
+
+export async function getPendingAdvanceAttempt(
+  uid: string,
+  loanId: string,
+  confirmedAdvances: LoanAdvance[] = [],
+) {
+  requireUid(uid);
+  if (!ID.test(loanId)) return null;
+  return enqueue(uid, async () => {
+    const attempt = await readAdvanceAttempt(uid, loanId);
+    if (attempt && confirmedAdvances.some(({ id }) => id === attempt.id)) {
+      await removeEncryptedItem(advanceAttemptKey(uid, loanId)).catch(
+        () => undefined,
+      );
+      return null;
+    }
+    return attempt;
+  });
+}
+
+function hasConfirmedAdvance(advances: LoanAdvance[], attempt: LoanAdvance) {
+  return advances.some(
+    (advance) =>
+      advance.id === attempt.id &&
+      advance.amount === attempt.amount &&
+      advance.lentAt === attempt.lentAt &&
+      advance.note === attempt.note &&
+      advance.financeTransactionId === attempt.financeTransactionId,
+  );
+}
+
+export function getOrCreateAdvanceAttempt(
+  uid: string,
+  loanId: string,
+  amount: number,
+  details: { lentAt: number; note: string },
+  confirmedAdvances: LoanAdvance[] = [],
+): Promise<LoanAdvance> {
+  requireUid(uid);
+  const note = details.note.trim();
+  if (
+    !ID.test(loanId) ||
+    !Number.isSafeInteger(amount) ||
+    amount <= 0 ||
+    !Number.isSafeInteger(details.lentAt) ||
+    details.lentAt < 0 ||
+    details.lentAt > MAX_DATE ||
+    !note ||
+    note.length > 120
+  )
+    return Promise.reject(
+      new Error('Số tiền, ngày hoặc nội dung cho mượn thêm không hợp lệ.'),
+    );
+  return enqueue(uid, async () => {
+    const attempt = await readAdvanceAttempt(uid, loanId);
+    if (attempt && !confirmedAdvances.some(({ id }) => id === attempt.id)) {
+      if (
+        attempt.amount !== amount ||
+        attempt.lentAt !== details.lentAt ||
+        attempt.note !== note
+      )
+        throw new LoanDataConflictError(
+          'Lần cho thêm trước đang chờ xác nhận. Hãy tải lại sổ để kiểm tra trước khi nhập lần mới.',
+        );
+      return attempt;
+    }
+    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+    const advance = parseAdvance(
+      {
+        id,
+        amount,
+        lentAt: details.lentAt,
+        note,
+        financeTransactionId: `loan-lent-${loanId}-${id}`,
+      },
+      loanId,
+    );
+    if (!advance)
+      throw new Error('Mã khoản cho mượn quá dài để tạo lần cho thêm.');
+    await setEncryptedItem(
+      uid,
+      advanceAttemptKey(uid, loanId),
+      JSON.stringify(advance),
+    );
+    return advance;
+  });
+}
+
+export function clearAdvanceAttempt(uid: string, loanId: string) {
+  requireUid(uid);
+  return enqueue(uid, () =>
+    removeEncryptedItem(advanceAttemptKey(uid, loanId)),
+  );
+}
+
+export function recordLoanAdvanceAtomically(
+  uid: string,
+  loanId: string,
+  candidate: LoanAdvance,
+): Promise<{ loan: LoanRecord; transaction: FinanceTransaction }> {
+  requireUid(uid);
+  const advance = parseAdvance(candidate, loanId);
+  if (!ID.test(loanId) || !advance)
+    return Promise.reject(
+      new Error('Thông tin lần cho mượn thêm không hợp lệ.'),
+    );
+  const ref = loanDocument(uid, loanId);
+  const financeRef = financeTransactionDocument(
+    uid,
+    advance.financeTransactionId,
+  );
+  return withTimeout(
+    runTransaction(getFirestore(), async (transaction) => {
+      const [snapshot, deletedSnapshot, financeSnapshot] = await Promise.all([
+        transaction.get(ref),
+        transaction.get(deletedLoanDocument(uid, loanId)),
+        transaction.get(financeRef),
+      ]);
+      if (deletedSnapshot.exists() || !snapshot.exists())
+        throw new LoanDataConflictError(
+          'Khoản cho mượn đã bị xóa hoặc chưa đồng bộ.',
+        );
+      const current = parseLoanRecord(snapshot.data(), uid);
+      if (!current || current.id !== loanId)
+        throw new LoanDataConflictError(
+          'Dữ liệu khoản cho mượn không hợp lệ. Hãy tải lại sổ.',
+        );
+      const advances = current.advances ?? [];
+      const existing = advances.find(({ id }) => id === advance.id);
+      if (existing && !hasConfirmedAdvance([existing], advance))
+        throw new LoanDataConflictError(
+          'Mã lần cho mượn thêm đã được dùng cho dữ liệu khác.',
+        );
+      const expense = createAdvanceTransaction(uid, current, advance);
+      if (
+        financeSnapshot.exists() &&
+        !matchesLendingTransaction(financeSnapshot.data(), expense, uid)
+      )
+        throw new LoanDataConflictError(
+          'Khoản chi liên kết không khớp. Hãy tải lại sổ.',
+        );
+      if (!existing) {
+        if (financeSnapshot.exists())
+          throw new LoanDataConflictError(
+            'Giao dịch chi đã tồn tại nhưng thiếu lịch sử cho thêm.',
+          );
+        if (getLoanStatus(current) !== 'open')
+          throw new LoanDataConflictError(
+            'Chỉ có thể cho mượn thêm khi khoản này chưa trả xong.',
+          );
+        if (getLoanPendingAmount(current) > 0)
+          throw new LoanDataConflictError(
+            'Hãy đồng bộ lần nhận tiền đang chờ trước khi cho mượn thêm.',
+          );
+        if (advances.length >= 50)
+          throw new LoanDataConflictError(
+            'Khoản này đã đủ 50 lần cho thêm. Hãy tạo khoản mới.',
+          );
+        const additionalAmount =
+          (current.additionalAmount ?? 0) + advance.amount;
+        if (!Number.isSafeInteger(current.principalAmount + additionalAmount))
+          throw new LoanDataConflictError(
+            'Tổng số tiền cho mượn vượt giới hạn cho phép.',
+          );
+        const loan: LoanRecord = {
+          ...current,
+          advances: [...advances, advance],
+          additionalAmount,
+          updatedAt: nextRevision(current.updatedAt),
+        };
+        transaction.set(ref, loan);
+        transaction.set(financeRef, expense);
+        return { loan, transaction: expense };
+      }
+      // Replay the original intent after an uncertain network result.
+      if (!financeSnapshot.exists()) transaction.set(financeRef, expense);
+      return { loan: current, transaction: expense };
+    }),
+  );
+}
+
+export function updateLoanAdvanceAtomically(
+  uid: string,
+  loanId: string,
+  expectedAdvance: LoanAdvance,
+  changes: { amount: number; note: string; lentAt: number },
+): Promise<LoanStorageResult> {
+  requireUid(uid);
+  const expected = parseAdvance(expectedAdvance, loanId);
+  const note = changes.note.trim();
+  if (
+    !ID.test(loanId) ||
+    !expected ||
+    !Number.isSafeInteger(changes.amount) ||
+    changes.amount <= 0 ||
+    !Number.isSafeInteger(changes.lentAt) ||
+    changes.lentAt < 0 ||
+    changes.lentAt > MAX_DATE ||
+    !note ||
+    note.length > 120
+  )
+    return Promise.reject(
+      new Error('Thông tin lần cho mượn thêm chưa hợp lệ.'),
+    );
+
+  return enqueue(uid, async () => {
+    const ref = loanDocument(uid, loanId);
+    const saved = await withTimeout(
+      runTransaction(getFirestore(), async (transaction) => {
+        const [loanSnapshot, deletedSnapshot] = await Promise.all([
+          transaction.get(ref),
+          transaction.get(deletedLoanDocument(uid, loanId)),
+        ]);
+        if (deletedSnapshot.exists() || !loanSnapshot.exists())
+          throw new LoanDataConflictError('Khoản cho mượn đã được xóa.');
+        const current = parseLoanRecord(loanSnapshot.data(), uid);
+        if (!current)
+          throw new LoanDataConflictError(
+            'Dữ liệu khoản cho mượn không hợp lệ. Hãy tải lại sổ.',
+          );
+        if (current.cancelledAt !== null)
+          throw new LoanDataConflictError(
+            'Không thể sửa khoản cho mượn đã hủy.',
+          );
+        const advances = current.advances ?? [];
+        const index = advances.findIndex(({ id }) => id === expected.id);
+        if (index < 0)
+          throw new LoanDataConflictError(
+            'Không tìm thấy lần cho mượn thêm cần sửa.',
+          );
+        const existing = advances[index];
+        const updatedAdvance = parseAdvance(
+          {
+            ...existing,
+            amount: changes.amount,
+            note,
+            lentAt: changes.lentAt,
+          },
+          loanId,
+        );
+        if (!updatedAdvance)
+          throw new Error('Thông tin lần cho mượn thêm chưa hợp lệ.');
+
+        const previousExpense = createAdvanceTransaction(
+          uid,
+          current,
+          existing,
+        );
+        const financeRef = financeTransactionDocument(
+          uid,
+          existing.financeTransactionId,
+        );
+        const financeSnapshot = await transaction.get(financeRef);
+        const updatedAdvances = [...advances];
+        updatedAdvances[index] = updatedAdvance;
+        const additionalAmount = updatedAdvances.reduce(
+          (total, advance) => total + advance.amount,
+          0,
+        );
+        const totalAmount = current.principalAmount + additionalAmount;
+        if (
+          !Number.isSafeInteger(additionalAmount) ||
+          !Number.isSafeInteger(totalAmount)
+        )
+          throw new Error('Tổng tiền cho mượn vượt giới hạn cho phép.');
+        if (!canSetLoanTotalAmount(current, totalAmount))
+          throw new Error(
+            current.recordedRepaymentAmount === undefined &&
+              current.repayments.length > 0 &&
+              totalAmount <
+                current.principalAmount + (current.additionalAmount ?? 0)
+              ? 'Khoản cũ đã nhận tiền chưa thể giảm tổng cho vay. Bạn vẫn có thể sửa ngày hoặc nội dung.'
+              : 'Số tiền mới không được thấp hơn số đã nhận lại.',
+          );
+
+        const expense = createAdvanceTransaction(uid, current, updatedAdvance);
+        const alreadyUpdated = hasConfirmedAdvance([existing], updatedAdvance);
+        if (!financeSnapshot.exists())
+          throw new LoanDataConflictError(
+            'Chưa tìm thấy giao dịch Chi liên kết để cập nhật.',
+          );
+        if (
+          !matchesLendingTransaction(
+            financeSnapshot.data(),
+            alreadyUpdated ? expense : previousExpense,
+            uid,
+          )
+        )
+          throw new LoanDataConflictError(
+            'Giao dịch Chi đã thay đổi. Hãy đồng bộ sổ trước khi sửa.',
+          );
+        if (alreadyUpdated) return { loan: current, committedTransactions: [] };
+        if (!hasConfirmedAdvance([existing], expected))
+          throw new LoanDataConflictError(
+            'Lần cho mượn thêm đã thay đổi. Hãy tải lại trước khi sửa.',
+          );
+        if (
+          existing.amount === updatedAdvance.amount &&
+          existing.lentAt === updatedAdvance.lentAt &&
+          existing.note === updatedAdvance.note
+        )
+          return { loan: current, committedTransactions: [] };
+
+        const updatedLoan: LoanRecord = {
+          ...current,
+          advances: updatedAdvances,
+          additionalAmount,
+          lastEditedAdvanceIndex: index,
+          updatedAt: nextRevision(current.updatedAt),
+        };
+        transaction.set(ref, updatedLoan);
+        transaction.set(financeRef, expense);
+        return { loan: updatedLoan, committedTransactions: [expense] };
+      }),
+    );
+    const loans = await replaceLocalRecord(uid, saved.loan);
+    return {
+      loans,
+      synced: true,
+      committedTransactions: saved.committedTransactions,
+    };
+  });
+}
+
 export type LoanRepaymentCommit = {
   loan: LoanRecord;
   transaction: FinanceTransaction;
@@ -881,9 +1482,18 @@ export function recordLoanRepaymentAtomically(
 
       let loan = current;
       if (!existing) {
+        const recordedRepaymentAmount =
+          current.recordedRepaymentAmount !== undefined
+            ? current.recordedRepaymentAmount + repayment.amount
+            : current.repayments.length === 0
+              ? repayment.amount
+              : undefined;
         loan = {
           ...current,
           repayments: [...current.repayments, repayment],
+          ...(recordedRepaymentAmount !== undefined
+            ? { recordedRepaymentAmount }
+            : {}),
           updatedAt: nextRevision(current.updatedAt),
         };
         firestoreTransaction.set(loanRef, loan);
@@ -909,4 +1519,437 @@ export function recordLoanRepaymentAtomically(
       return { loan, transaction: financeTransaction };
     }),
   );
+}
+
+export function removeLoanRepaymentAtomically(
+  uid: string,
+  loanId: string,
+  expected: LoanRepayment,
+): Promise<LoanRecord> {
+  requireUid(uid);
+  if (
+    !ID.test(loanId) ||
+    !parseRepayment(expected, loanId) ||
+    expected.status !== 'posted'
+  )
+    return Promise.reject(new Error('Lần nhận tiền không hợp lệ.'));
+
+  const loanRef = loanDocument(uid, loanId);
+  const financeRef = financeTransactionDocument(
+    uid,
+    expected.financeTransactionId,
+  );
+  const deletedRef = deletedLoanDocument(uid, loanId);
+  const correctionRef = deletedRepaymentDocument(
+    uid,
+    expected.financeTransactionId,
+  );
+  return withTimeout(
+    runTransaction(getFirestore(), async (transaction) => {
+      const [
+        loanSnapshot,
+        financeSnapshot,
+        deletedSnapshot,
+        correctionSnapshot,
+      ] = await Promise.all([
+        transaction.get(loanRef),
+        transaction.get(financeRef),
+        transaction.get(deletedRef),
+        transaction.get(correctionRef),
+      ]);
+      if (deletedSnapshot.exists())
+        throw new LoanDataConflictError('Khoản cho vay đã bị xóa.');
+      const current = loanSnapshot.exists()
+        ? parseLoanRecord(loanSnapshot.data(), uid)
+        : null;
+      if (!current || current.id !== loanId)
+        throw new LoanDataConflictError(
+          'Khoản cho vay chưa đồng bộ. Hãy tải lại sổ trước khi xóa lần nhận.',
+        );
+
+      const existing = current.repayments.find(({ id }) => id === expected.id);
+      if (correctionSnapshot.exists()) {
+        const corrected = correctionSnapshot.data() as {
+          ownerId?: string;
+          loanId?: string;
+          repayment?: Partial<LoanRepayment>;
+        };
+        if (
+          corrected.ownerId === uid &&
+          corrected.loanId === loanId &&
+          corrected.repayment?.id === expected.id &&
+          corrected.repayment?.amount === expected.amount &&
+          corrected.repayment?.receivedAt === expected.receivedAt &&
+          corrected.repayment?.financeTransactionId ===
+            expected.financeTransactionId &&
+          !existing &&
+          !financeSnapshot.exists()
+        )
+          return current;
+        throw new LoanDataConflictError(
+          'Lần nhận tiền đã thay đổi. Hãy tải lại sổ.',
+        );
+      }
+      if (
+        !existing ||
+        existing.status !== 'posted' ||
+        existing.amount !== expected.amount ||
+        existing.receivedAt !== expected.receivedAt ||
+        existing.financeTransactionId !== expected.financeTransactionId ||
+        current.repayments.some(({ status }) => status === 'pending')
+      )
+        throw new LoanDataConflictError(
+          'Lần nhận tiền đã thay đổi. Hãy tải lại sổ.',
+        );
+      const finance = financeSnapshot.exists()
+        ? parseFinanceTransaction(financeSnapshot.data(), uid)
+        : null;
+      if (
+        !finance ||
+        finance.id !== expected.financeTransactionId ||
+        finance.type !== 'income' ||
+        finance.incomeSource !== 'loan_repayment' ||
+        finance.loanId !== loanId ||
+        finance.repaymentId !== expected.id ||
+        (finance.repaymentReceivedAt !== undefined &&
+          finance.repaymentReceivedAt !== expected.receivedAt) ||
+        finance.amount !== expected.amount
+      )
+        throw new LoanDataConflictError(
+          'Giao dịch Tài chính liên kết không khớp. Chưa xóa lần nhận tiền.',
+        );
+
+      // Preserve any legacy keys on untouched repayments so the rules can
+      // verify that exactly one element disappeared from the original list.
+      const storedLoan = loanSnapshot.data() as LoanRecord;
+      const rawRepayments = storedLoan.repayments;
+      const removed = rawRepayments.find(({ id }) => id === expected.id);
+      if (!removed)
+        throw new LoanDataConflictError('Lịch sử nhận tiền không khớp.');
+      const loan: LoanRecord = {
+        ...storedLoan,
+        repayments: rawRepayments.filter(({ id }) => id !== expected.id),
+        ...(current.recordedRepaymentAmount !== undefined
+          ? {
+              recordedRepaymentAmount:
+                current.recordedRepaymentAmount - expected.amount,
+            }
+          : {}),
+        updatedAt: nextRevision(current.updatedAt),
+      };
+      delete loan.lastEditedRepaymentIndex;
+      transaction.set(correctionRef, {
+        id: expected.financeTransactionId,
+        ownerId: uid,
+        loanId,
+        repayment: removed,
+        updatedAt: loan.updatedAt,
+      });
+      transaction.set(loanRef, loan);
+      transaction.delete(financeRef);
+      return loan;
+    }),
+  );
+}
+
+export function updateLoanRepaymentAtomically(
+  uid: string,
+  loanId: string,
+  expected: LoanRepayment,
+  changes: { amount: number; receivedAt: number },
+): Promise<{ loan: LoanRecord; transaction: FinanceTransaction }> {
+  requireUid(uid);
+  if (
+    !ID.test(loanId) ||
+    !parseRepayment(expected, loanId) ||
+    expected.status !== 'posted' ||
+    !Number.isSafeInteger(changes.amount) ||
+    changes.amount <= 0 ||
+    !Number.isSafeInteger(changes.receivedAt) ||
+    changes.receivedAt < 0 ||
+    changes.receivedAt > MAX_DATE
+  )
+    return Promise.reject(new Error('Thông tin lần nhận lại không hợp lệ.'));
+
+  return enqueue(uid, async () => {
+    const loanRef = loanDocument(uid, loanId);
+    const financeRef = financeTransactionDocument(
+      uid,
+      expected.financeTransactionId,
+    );
+    const saved = await withTimeout(
+      runTransaction(getFirestore(), async (transaction) => {
+        const [loanSnapshot, financeSnapshot, deletedSnapshot] =
+          await Promise.all([
+            transaction.get(loanRef),
+            transaction.get(financeRef),
+            transaction.get(deletedLoanDocument(uid, loanId)),
+          ]);
+        if (deletedSnapshot.exists() || !loanSnapshot.exists())
+          throw new LoanDataConflictError('Khoản cho vay đã bị xóa.');
+        const current = parseLoanRecord(loanSnapshot.data(), uid);
+        if (!current || current.cancelledAt !== null)
+          throw new LoanDataConflictError(
+            'Khoản cho vay đã thay đổi. Hãy tải lại sổ.',
+          );
+        const index = current.repayments.findIndex(
+          ({ id }) => id === expected.id,
+        );
+        const existing = current.repayments[index];
+        if (
+          !existing ||
+          existing.status !== 'posted' ||
+          existing.amount !== expected.amount ||
+          existing.receivedAt !== expected.receivedAt ||
+          existing.financeTransactionId !== expected.financeTransactionId ||
+          current.repayments.some(({ status }) => status === 'pending')
+        )
+          throw new LoanDataConflictError(
+            'Lần nhận lại đã thay đổi. Hãy tải lại sổ.',
+          );
+        const receivedTotal =
+          current.repayments.reduce((total, item) => total + item.amount, 0) -
+          existing.amount +
+          changes.amount;
+        if (
+          !Number.isSafeInteger(receivedTotal) ||
+          receivedTotal >
+            current.principalAmount + (current.additionalAmount ?? 0)
+        )
+          throw new Error('Tổng đã nhận không được vượt quá tổng đã cho vay.');
+        if (
+          current.recordedRepaymentAmount === undefined &&
+          changes.amount > existing.amount
+        )
+          throw new Error(
+            'Khoản cũ chưa xác minh tổng đã nhận, chỉ có thể giữ nguyên hoặc giảm số tiền.',
+          );
+        const finance = financeSnapshot.exists()
+          ? parseFinanceTransaction(financeSnapshot.data(), uid)
+          : null;
+        if (
+          !finance ||
+          finance.id !== existing.financeTransactionId ||
+          finance.type !== 'income' ||
+          finance.incomeSource !== 'loan_repayment' ||
+          finance.loanId !== loanId ||
+          finance.repaymentId !== existing.id ||
+          (finance.repaymentReceivedAt !== undefined &&
+            finance.repaymentReceivedAt !== existing.receivedAt) ||
+          finance.amount !== existing.amount
+        )
+          throw new LoanDataConflictError(
+            'Giao dịch Tài chính liên kết không khớp. Hãy tải lại sổ.',
+          );
+        if (
+          existing.amount === changes.amount &&
+          existing.receivedAt === changes.receivedAt
+        )
+          return { loan: current, transaction: finance };
+        const updatedRepayment: LoanRepayment = {
+          ...existing,
+          amount: changes.amount,
+          receivedAt: changes.receivedAt,
+        };
+        const transactionDate = new Date(changes.receivedAt);
+        transactionDate.setHours(12, 0, 0, 0);
+        const updatedFinance: FinanceTransaction = {
+          ...finance,
+          amount: changes.amount,
+          repaymentReceivedAt: changes.receivedAt,
+          createdAt: transactionDate.getTime(),
+        };
+        const rawLoan = loanSnapshot.data() as LoanRecord;
+        const repayments = [...rawLoan.repayments];
+        repayments[index] = updatedRepayment;
+        const loan: LoanRecord = {
+          ...rawLoan,
+          repayments,
+          ...(current.recordedRepaymentAmount !== undefined
+            ? { recordedRepaymentAmount: receivedTotal }
+            : {}),
+          lastEditedRepaymentIndex: index,
+          updatedAt: nextRevision(current.updatedAt),
+        };
+        transaction.set(loanRef, loan);
+        transaction.set(financeRef, updatedFinance);
+        return { loan, transaction: updatedFinance };
+      }),
+    );
+    return saved;
+  });
+}
+
+export function removeLoanAdvanceAtomically(
+  uid: string,
+  loanId: string,
+  expectedAdvance: LoanAdvance,
+): Promise<LoanRecord> {
+  requireUid(uid);
+  const expected = parseAdvance(expectedAdvance, loanId);
+  if (!ID.test(loanId) || !expected)
+    return Promise.reject(new Error('Khoản vay thêm không hợp lệ.'));
+
+  return enqueue(uid, async () => {
+    const loanRef = loanDocument(uid, loanId);
+    const financeRef = financeTransactionDocument(
+      uid,
+      expected.financeTransactionId,
+    );
+    const loan = await withTimeout(
+      runTransaction(getFirestore(), async (transaction) => {
+        const [loanSnapshot, financeSnapshot, deletedSnapshot] =
+          await Promise.all([
+            transaction.get(loanRef),
+            transaction.get(financeRef),
+            transaction.get(deletedLoanDocument(uid, loanId)),
+          ]);
+        if (deletedSnapshot.exists() || !loanSnapshot.exists())
+          throw new LoanDataConflictError('Khoản cho vay đã bị xóa.');
+        const current = parseLoanRecord(loanSnapshot.data(), uid);
+        if (!current || current.cancelledAt !== null)
+          throw new LoanDataConflictError(
+            'Khoản cho vay đã thay đổi. Hãy tải lại sổ.',
+          );
+        const existing = current.advances?.find(({ id }) => id === expected.id);
+        if (!existing || !hasConfirmedAdvance([existing], expected))
+          throw new LoanDataConflictError(
+            'Khoản vay thêm đã thay đổi. Hãy tải lại sổ.',
+          );
+        const previousExpense = createAdvanceTransaction(
+          uid,
+          current,
+          existing,
+        );
+        if (
+          !financeSnapshot.exists() ||
+          !matchesLendingTransaction(
+            financeSnapshot.data(),
+            previousExpense,
+            uid,
+          )
+        )
+          throw new LoanDataConflictError(
+            'Giao dịch Chi liên kết không khớp. Hãy tải lại sổ.',
+          );
+        const additionalAmount =
+          (current.additionalAmount ?? 0) - existing.amount;
+        const nextTotal = current.principalAmount + additionalAmount;
+        if (!canSetLoanTotalAmount(current, nextTotal))
+          throw new Error(
+            'Không thể xóa khoản này vì tổng còn lại sẽ thấp hơn số đã nhận, hoặc hồ sơ cũ chưa xác minh tổng nhận lại.',
+          );
+        const updated: LoanRecord = {
+          ...(loanSnapshot.data() as LoanRecord),
+          advances: (loanSnapshot.data() as LoanRecord).advances?.filter(
+            ({ id }) => id !== expected.id,
+          ),
+          additionalAmount,
+          updatedAt: nextRevision(current.updatedAt),
+        };
+        delete updated.lastEditedAdvanceIndex;
+        transaction.set(loanRef, updated);
+        transaction.delete(financeRef);
+        return updated;
+      }),
+    );
+    return loan;
+  });
+}
+
+export function removeInitialLoanEntryAtomically(
+  uid: string,
+  loanId: string,
+  expectedUpdatedAt: number,
+): Promise<{ loan: LoanRecord; transaction: FinanceTransaction }> {
+  requireUid(uid);
+  if (!ID.test(loanId))
+    return Promise.reject(new Error('Khoản vay ban đầu không hợp lệ.'));
+
+  return enqueue(uid, async () => {
+    const loanRef = loanDocument(uid, loanId);
+    const principalRef = financeTransactionDocument(
+      uid,
+      lendingTransactionId(loanId),
+    );
+    const saved = await withTimeout(
+      runTransaction(getFirestore(), async (transaction) => {
+        const [loanSnapshot, principalSnapshot, deletedSnapshot] =
+          await Promise.all([
+            transaction.get(loanRef),
+            transaction.get(principalRef),
+            transaction.get(deletedLoanDocument(uid, loanId)),
+          ]);
+        if (deletedSnapshot.exists() || !loanSnapshot.exists())
+          throw new LoanDataConflictError('Khoản cho vay đã bị xóa.');
+        const current = parseLoanRecord(loanSnapshot.data(), uid);
+        if (
+          !current ||
+          current.updatedAt !== expectedUpdatedAt ||
+          current.cancelledAt !== null
+        )
+          throw new LoanDataConflictError(
+            'Khoản vay đã thay đổi. Hãy tải lại sổ.',
+          );
+        const promoted = current.advances?.[0];
+        if (!promoted)
+          throw new Error('Không có khoản vay thêm để giữ lại làm khoản gốc.');
+        const previousPrincipal = createLendingTransaction(uid, current);
+        if (
+          !principalSnapshot.exists() ||
+          !matchesLendingTransaction(
+            principalSnapshot.data(),
+            previousPrincipal,
+            uid,
+          )
+        )
+          throw new LoanDataConflictError(
+            'Giao dịch Chi ban đầu không khớp. Hãy tải lại sổ.',
+          );
+        const promotedRef = financeTransactionDocument(
+          uid,
+          promoted.financeTransactionId,
+        );
+        const promotedSnapshot = await transaction.get(promotedRef);
+        if (
+          !promotedSnapshot.exists() ||
+          !matchesLendingTransaction(
+            promotedSnapshot.data(),
+            createAdvanceTransaction(uid, current, promoted),
+            uid,
+          )
+        )
+          throw new LoanDataConflictError(
+            'Giao dịch Chi của khoản được giữ lại không khớp.',
+          );
+        const additionalAmount =
+          (current.additionalAmount ?? 0) - promoted.amount;
+        const nextTotal = promoted.amount + additionalAmount;
+        if (!canSetLoanTotalAmount(current, nextTotal))
+          throw new Error(
+            'Không thể xóa khoản ban đầu vì số đã nhận vượt quá các khoản còn lại, hoặc hồ sơ cũ chưa xác minh tổng nhận lại.',
+          );
+        const updated: LoanRecord = {
+          ...(loanSnapshot.data() as LoanRecord),
+          principalAmount: promoted.amount,
+          lentAt: promoted.lentAt,
+          note: promoted.note ?? '',
+          advances: (loanSnapshot.data() as LoanRecord).advances?.slice(1),
+          additionalAmount,
+          updatedAt: nextRevision(current.updatedAt),
+        };
+        delete updated.lastEditedAdvanceIndex;
+        const principal: FinanceTransaction = {
+          ...previousPrincipal,
+          amount: promoted.amount,
+          createdAt: promoted.lentAt,
+        };
+        transaction.set(loanRef, updated);
+        transaction.set(principalRef, principal);
+        transaction.delete(promotedRef);
+        return { loan: updated, transaction: principal };
+      }),
+    );
+    return saved;
+  });
 }

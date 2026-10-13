@@ -13,6 +13,7 @@ export type FinanceTransaction = {
   incomeSource?: FinanceIncomeSource;
   expenseSource?: FinanceExpenseSource;
   loanId?: string;
+  advanceId?: string;
   repaymentId?: string;
   repaymentReceivedAt?: number;
   amount: number;
