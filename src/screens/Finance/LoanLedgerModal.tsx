@@ -165,6 +165,7 @@ export function LoanLedgerModal({
     null,
   );
   const [selectedLoanTab, setSelectedLoanTab] = useState<LoanTab>('open');
+  const [expandedLoanId, setExpandedLoanId] = useState<string | null>(null);
   const focusedLoan = useRef<{ id: string; status: LoanTab } | null>(null);
   const [busyAction, setBusyAction] = useState<{
     loanId: string;
@@ -194,6 +195,7 @@ export function LoanLedgerModal({
     setRepaymentEditTarget(null);
     setPrincipalTarget(null);
     setHistoryActions(null);
+    setExpandedLoanId(null);
   }, [visible]);
   useEffect(() => {
     if (!visible || !initialLoanId) {
@@ -207,6 +209,7 @@ export function LoanLedgerModal({
     if (previouslyFocused?.id !== initialLoanId) {
       focusedLoan.current = { id: initialLoanId, status: targetStatus };
       setSelectedLoanTab(targetStatus);
+      setExpandedLoanId(initialLoanId);
       loanListRef.current?.scrollTo({ y: 0, animated: false });
       return;
     }
@@ -633,6 +636,7 @@ export function LoanLedgerModal({
           </View>
         ) : (
           visibleLoans.map((loan) => {
+            const expanded = expandedLoanId === loan.id;
             const status = getLoanStatus(loan);
             const repaid = getLoanRepaidAmount(loan);
             const outstanding = getLoanOutstandingAmount(loan);
@@ -654,10 +658,23 @@ export function LoanLedgerModal({
             return (
               <View key={loan.id} style={styles.card}>
                 <View style={styles.cardTop}>
-                  <Feather name="user" size={17} color={colors.earth} />
-                  <Text numberOfLines={1} style={styles.borrower}>
-                    {loan.borrowerName}
-                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${expanded ? 'Thu gọn' : 'Xem'} lịch sử khoản vay của ${loan.borrowerName}`}
+                    accessibilityState={{ expanded }}
+                    onPress={() => setExpandedLoanId(expanded ? null : loan.id)}
+                    style={styles.borrowerToggle}
+                  >
+                    <Feather name="user" size={17} color={colors.earth} />
+                    <Text numberOfLines={1} style={styles.borrower}>
+                      {loan.borrowerName}
+                    </Text>
+                    <Feather
+                      name={expanded ? 'chevron-up' : 'chevron-down'}
+                      size={17}
+                      color={colors.earth}
+                    />
+                  </Pressable>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`Xóa khoản cho vay của ${loan.borrowerName}`}
@@ -673,7 +690,11 @@ export function LoanLedgerModal({
                     )}
                   </Pressable>
                 </View>
-                <View
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${primaryAmountLabel} ${formatFinanceAmount(primaryAmount)}. ${expanded ? 'Thu gọn' : 'Xem'} lịch sử khoản vay của ${loan.borrowerName}`}
+                  accessibilityState={{ expanded }}
+                  onPress={() => setExpandedLoanId(expanded ? null : loan.id)}
                   style={[
                     styles.loanSummary,
                     status === 'settled' && styles.loanSummarySettled,
@@ -715,9 +736,15 @@ export function LoanLedgerModal({
                       </Text>
                     </View>
                   )}
-                </View>
+                </Pressable>
                 {status !== 'cancelled' && (
-                  <View style={styles.loanRepaymentDetails}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${expanded ? 'Thu gọn' : 'Xem'} lịch sử khoản vay của ${loan.borrowerName}`}
+                    accessibilityState={{ expanded }}
+                    onPress={() => setExpandedLoanId(expanded ? null : loan.id)}
+                    style={styles.loanRepaymentDetails}
+                  >
                     <View style={styles.loanRepaidRow}>
                       <Text style={styles.amountLabel}>Tổng đã cho vay</Text>
                       <View style={styles.loanPrincipalEdit}>
@@ -732,74 +759,76 @@ export function LoanLedgerModal({
                         {formatFinanceAmount(repaid)}
                       </Text>
                     </View>
-                  </View>
+                  </Pressable>
                 )}
-                <LoanHistory
-                  loan={loan}
-                  canEdit={status !== 'cancelled' && busyAction === null}
-                  showDeleteLending={status !== 'cancelled'}
-                  canDeleteLending={
-                    !financeLoading &&
-                    !loading &&
-                    !pending &&
-                    syncStatus === 'synced' &&
-                    busyAction === null
-                  }
-                  deletingInitial={isActionBusy(loan.id, 'deleteInitial')}
-                  deletingAdvanceId={
-                    isActionBusy(loan.id, 'deleteAdvance')
-                      ? (busyAction?.advanceId ?? null)
-                      : null
-                  }
-                  canDeleteRepayment={
-                    !financeLoading &&
-                    !loading &&
-                    !pending &&
-                    syncStatus === 'synced' &&
-                    busyAction === null
-                  }
-                  deletingRepaymentId={
-                    isActionBusy(loan.id, 'deleteRepayment')
-                      ? (busyAction?.repaymentId ?? null)
-                      : null
-                  }
-                  onDeleteRepayment={(repayment) =>
-                    confirmDeleteRepayment(loan, repayment)
-                  }
-                  onEditRepayment={(repayment) =>
-                    setRepaymentEditTarget({ loan, repayment })
-                  }
-                  canAddAdvance={status === 'open'}
-                  advanceDisabled={
-                    financeLoading ||
-                    busyAction !== null ||
-                    !!pending ||
-                    loading
-                  }
-                  advanceLoading={isActionBusy(loan.id, 'advance')}
-                  onAddAdvance={() => setAdvanceTarget(loan)}
-                  canAddRepayment={status === 'open'}
-                  repaymentDisabled={
-                    financeLoading ||
-                    busyAction !== null ||
-                    !!pending ||
-                    loading
-                  }
-                  repaymentLoading={isActionBusy(loan.id, 'repay')}
-                  onAddRepayment={() => {
-                    setActionError(null);
-                    setRepayTarget(loan);
-                  }}
-                  onEditPrincipal={() => setPrincipalTarget(loan)}
-                  onDeletePrincipal={() => confirmDeleteInitial(loan)}
-                  onEditAdvance={(advance) =>
-                    setAdvanceEditTarget({ loan, advance })
-                  }
-                  onDeleteAdvance={(advance) =>
-                    confirmDeleteAdvance(loan, advance)
-                  }
-                  onOpenActions={setHistoryActions}
-                />
+                {expanded && (
+                  <LoanHistory
+                    loan={loan}
+                    canEdit={status !== 'cancelled' && busyAction === null}
+                    showDeleteLending={status !== 'cancelled'}
+                    canDeleteLending={
+                      !financeLoading &&
+                      !loading &&
+                      !pending &&
+                      syncStatus === 'synced' &&
+                      busyAction === null
+                    }
+                    deletingInitial={isActionBusy(loan.id, 'deleteInitial')}
+                    deletingAdvanceId={
+                      isActionBusy(loan.id, 'deleteAdvance')
+                        ? (busyAction?.advanceId ?? null)
+                        : null
+                    }
+                    canDeleteRepayment={
+                      !financeLoading &&
+                      !loading &&
+                      !pending &&
+                      syncStatus === 'synced' &&
+                      busyAction === null
+                    }
+                    deletingRepaymentId={
+                      isActionBusy(loan.id, 'deleteRepayment')
+                        ? (busyAction?.repaymentId ?? null)
+                        : null
+                    }
+                    onDeleteRepayment={(repayment) =>
+                      confirmDeleteRepayment(loan, repayment)
+                    }
+                    onEditRepayment={(repayment) =>
+                      setRepaymentEditTarget({ loan, repayment })
+                    }
+                    canAddAdvance={status === 'open'}
+                    advanceDisabled={
+                      financeLoading ||
+                      busyAction !== null ||
+                      !!pending ||
+                      loading
+                    }
+                    advanceLoading={isActionBusy(loan.id, 'advance')}
+                    onAddAdvance={() => setAdvanceTarget(loan)}
+                    canAddRepayment={status === 'open'}
+                    repaymentDisabled={
+                      financeLoading ||
+                      busyAction !== null ||
+                      !!pending ||
+                      loading
+                    }
+                    repaymentLoading={isActionBusy(loan.id, 'repay')}
+                    onAddRepayment={() => {
+                      setActionError(null);
+                      setRepayTarget(loan);
+                    }}
+                    onEditPrincipal={() => setPrincipalTarget(loan)}
+                    onDeletePrincipal={() => confirmDeleteInitial(loan)}
+                    onEditAdvance={(advance) =>
+                      setAdvanceEditTarget({ loan, advance })
+                    }
+                    onDeleteAdvance={(advance) =>
+                      confirmDeleteAdvance(loan, advance)
+                    }
+                    onOpenActions={setHistoryActions}
+                  />
+                )}
                 {status === 'open' &&
                   (pending || loan.repayments.length === 0) && (
                     <View style={styles.actionRow}>

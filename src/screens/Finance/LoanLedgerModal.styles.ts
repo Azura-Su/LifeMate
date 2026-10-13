@@ -73,6 +73,13 @@ export const loanStyles = StyleSheet.create({
     gap: 11,
   },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  borrowerToggle: {
+    flex: 1,
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   borrower: {
     flex: 1,
     ...typography.body,
