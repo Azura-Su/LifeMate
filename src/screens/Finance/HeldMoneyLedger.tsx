@@ -249,9 +249,15 @@ export function HeldMoneyLedger({
         !ledger.error && (
           <View style={styles.empty}>
             <Feather name="inbox" size={29} color={colors.sky} />
-            <Text style={styles.emptyTitle}>Chưa có khoản đóng hộ</Text>
+            <Text style={styles.emptyTitle}>
+              {ledger.synced
+                ? 'Chưa có khoản đóng hộ'
+                : 'Chưa có khoản trên thiết bị'}
+            </Text>
             <Text style={styles.emptyText}>
-              Ghi tiền người khác đưa, rồi trừ dần khi bạn thanh toán giúp.
+              {ledger.synced
+                ? 'Ghi tiền người khác đưa, rồi trừ dần khi bạn thanh toán giúp.'
+                : 'Kết nối mạng và tải lại để xem đầy đủ sổ đóng hộ.'}
             </Text>
             <Button compact title="Tạo khoản đóng hộ" onPress={openCreate} />
           </View>

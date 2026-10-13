@@ -22,6 +22,7 @@ const queues = new Map<string, Promise<unknown>>();
 export type HeldMoneyReadResult = {
   records: HeldMoneyRecord[];
   synced: boolean;
+  warning?: string;
 };
 
 export class HeldMoneyConflictError extends Error {
@@ -189,9 +190,9 @@ function sorted(records: HeldMoneyRecord[]) {
   return [...records].sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
-async function readCache(uid: string) {
+async function readCache(uid: string): Promise<HeldMoneyRecord[] | null> {
   const saved = await getEncryptedItem(uid, heldMoneyStorageKey(uid));
-  if (!saved) return [];
+  if (!saved) return null;
   let values: unknown;
   try {
     values = JSON.parse(saved);
@@ -222,30 +223,42 @@ async function readRemote(uid: string) {
       collection(getFirestore(), 'financeAccounts', uid, 'heldFunds'),
     ),
   );
-  return sorted(
-    snapshot.docs.map((item) => {
-      const record = parseHeldMoneyRecord(item.data(), uid);
-      if (!record || record.id !== item.id)
-        throw new Error('Dữ liệu sổ đóng hộ trên tài khoản không hợp lệ.');
-      return record;
-    }),
-  );
+  const records: HeldMoneyRecord[] = [];
+  let invalidCount = 0;
+  for (const item of snapshot.docs) {
+    const record = parseHeldMoneyRecord(item.data(), uid);
+    if (!record || record.id !== item.id) invalidCount += 1;
+    else records.push(record);
+  }
+  return { records: sorted(records), invalidCount };
+}
+
+export function readCachedHeldMoney(uid: string) {
+  requireUid(uid);
+  return readCache(uid);
 }
 
 export function readHeldMoney(uid: string): Promise<HeldMoneyReadResult> {
   requireUid(uid);
   return enqueue(uid, async () => {
     try {
-      const records = await readRemote(uid);
+      const { records, invalidCount } = await readRemote(uid);
       try {
         await writeCache(uid, records);
-        return { records, synced: true };
       } catch {
-        return { records, synced: true };
+        // The cloud result is still usable when the device cache cannot be saved.
       }
+      return {
+        records,
+        synced: invalidCount === 0,
+        warning:
+          invalidCount > 0
+            ? `${invalidCount} khoản đóng hộ có dữ liệu lỗi; các khoản hợp lệ vẫn hiển thị.`
+            : undefined,
+      };
     } catch (error) {
       const records = await readCache(uid);
-      if (records.length === 0 && error instanceof Error) throw error;
+      if (records === null) throw error;
       return { records, synced: false };
     }
   });
@@ -259,30 +272,27 @@ async function mutate(
   requireUid(uid);
   if (!ID.test(id)) throw new Error('Mã khoản đóng hộ không hợp lệ.');
   return enqueue(uid, async () => {
-    const result = await withTimeout(
-      runTransaction(getFirestore(), async (transaction) => {
-        const ref = recordPath(uid, id);
-        const snapshot = await transaction.get(ref);
-        const current = snapshot.exists()
-          ? parseHeldMoneyRecord(snapshot.data(), uid)
-          : null;
-        if (snapshot.exists() && !current)
-          throw new Error('Dữ liệu sổ đóng hộ trên tài khoản không hợp lệ.');
-        const next = change(current);
-        if (next) {
-          const valid = assertRecord(next, uid);
-          if (valid.id !== id)
-            throw new Error('Mã khoản đóng hộ không hợp lệ.');
-          if (!current || !sameRecord(current, valid))
-            transaction.set(ref, valid);
-          return valid;
-        }
-        if (current) transaction.delete(ref);
-        return null;
-      }),
-    );
+    const result = await runTransaction(getFirestore(), async (transaction) => {
+      const ref = recordPath(uid, id);
+      const snapshot = await transaction.get(ref);
+      const current = snapshot.exists()
+        ? parseHeldMoneyRecord(snapshot.data(), uid)
+        : null;
+      if (snapshot.exists() && !current)
+        throw new Error('Dữ liệu sổ đóng hộ trên tài khoản không hợp lệ.');
+      const next = change(current);
+      if (next) {
+        const valid = assertRecord(next, uid);
+        if (valid.id !== id) throw new Error('Mã khoản đóng hộ không hợp lệ.');
+        if (!current || !sameRecord(current, valid))
+          transaction.set(ref, valid);
+        return valid;
+      }
+      if (current) transaction.delete(ref);
+      return null;
+    });
     try {
-      const cached = await readCache(uid);
+      const cached = (await readCache(uid)) ?? [];
       await writeCache(
         uid,
         result

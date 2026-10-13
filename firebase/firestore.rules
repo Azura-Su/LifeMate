@@ -800,6 +800,44 @@ service cloud.firestore {
         && existsAfter(/databases/$(database)/documents/financeAccounts/$(uid)/deletedLoans/$(loanId));
     }
     match /financeAccounts/{uid}/heldFunds/{recordId} {
+      function validHeldEntry(entry) {
+        return entry is map
+          && entry.keys().hasAll(['id', 'kind', 'amount', 'occurredAt', 'note'])
+          && entry.keys().hasOnly(['id', 'kind', 'amount', 'occurredAt', 'note'])
+          && entry.id is string
+          && entry.id.matches('^[A-Za-z0-9_-]{1,128}$')
+          && entry.kind in ['received', 'paid', 'returned']
+          && entry.amount is number
+          && entry.amount % 1 == 0
+          && entry.amount > 0
+          && entry.amount <= 1000000000000
+          && entry.occurredAt is number
+          && entry.occurredAt % 1 == 0
+          && entry.occurredAt >= 0
+          && entry.occurredAt <= 253402300799999
+          && entry.note is string
+          && entry.note.size() <= 500;
+      }
+      function validHeldEntryChange() {
+        let before = resource.data.entries;
+        let after = request.resource.data.entries;
+        let removed = before.removeAll(after);
+        let added = after.removeAll(before);
+        return after.toSet().size() == after.size()
+          && (after == before
+            || (after.size() == before.size() + 1
+              && removed.size() == 0
+              && added.size() == 1
+              && validHeldEntry(added[0]))
+            || (after.size() == before.size()
+              && removed.size() == 1
+              && added.size() == 1
+              && added[0].id == removed[0].id
+              && validHeldEntry(added[0]))
+            || (after.size() == before.size() - 1
+              && removed.size() == 1
+              && added.size() == 0));
+      }
       function validHeldFund() {
         return recordId.matches('^[A-Za-z0-9_-]{1,128}$')
           && request.resource.data.keys().hasAll(['id', 'ownerId', 'senderName', 'purpose', 'createdAt', 'updatedAt', 'entries'])
@@ -813,19 +851,25 @@ service cloud.firestore {
           && request.resource.data.purpose.size() > 0
           && request.resource.data.purpose.size() <= 120
           && request.resource.data.createdAt is number
+          && request.resource.data.createdAt % 1 == 0
           && request.resource.data.createdAt >= 0
+          && request.resource.data.createdAt <= 253402300799999
           && request.resource.data.updatedAt is number
+          && request.resource.data.updatedAt % 1 == 0
           && request.resource.data.updatedAt >= request.resource.data.createdAt
+          && request.resource.data.updatedAt <= 253402300799999
           && request.resource.data.entries is list
           && request.resource.data.entries.size() <= 200;
       }
       allow read, delete: if owns(uid);
       allow create: if owns(uid) && validHeldFund()
         && request.resource.data.entries.size() == 1
+        && validHeldEntry(request.resource.data.entries[0])
         && request.resource.data.entries[0].kind == 'received';
       allow update: if owns(uid) && validHeldFund()
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.updatedAt > resource.data.updatedAt;
+        && request.resource.data.updatedAt > resource.data.updatedAt
+        && validHeldEntryChange();
     }
   }
 }

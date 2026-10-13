@@ -10,8 +10,8 @@ Ghi tiền một người đưa để nhờ thanh toán hộ, theo dõi từng l
 - Tạo hồ sơ cần một khoản nhận ban đầu lớn hơn 0. Có thể thêm nhiều lần nhận hoặc thanh toán.
 - Số còn giữ = tổng nhận − tổng đã đóng − tổng trả lại. Số này luôn không âm. Nếu hóa đơn lớn hơn số còn giữ, cần ghi nhận tiền A đưa thêm trước khi ghi khoản đóng.
 - Mỗi mục có số tiền nguyên dương, ngày và nội dung tùy chọn. Cho phép sửa/xóa mục ghi nhầm nếu toàn bộ lịch sử sau sửa vẫn hợp lệ. Có thể sửa tên người gửi, mục đích hoặc xóa hồ sơ với xác nhận.
-- Dữ liệu riêng theo UID. Mọi thay đổi đọc bản mới nhất trong Firestore transaction rồi kiểm tra số dư và phiên bản mục trước khi ghi. Khi offline, danh sách cache được xem nhưng thao tác ghi yêu cầu kết nối; không hiện thay đổi chưa được server xác nhận.
-- Khi đọc từ cloud thành công, cập nhật cache mã hóa trên thiết bị. Không tạo `FinanceTransaction` cho sổ này.
+- Dữ liệu riêng theo UID. Mọi thay đổi đọc bản mới nhất trong Firestore transaction rồi kiểm tra số dư và phiên bản mục trước khi ghi. Khi offline, danh sách cache hiện ngay nhưng thao tác ghi yêu cầu kết nối; không hiện thay đổi chưa được server xác nhận. Không tự báo thất bại cho một transaction vẫn còn đang chạy.
+- Sau khi ghi, tải lại toàn bộ danh sách trước khi báo đã đồng bộ. Nếu một hồ sơ trên cloud không hợp lệ, vẫn hiển thị các hồ sơ hợp lệ và báo sổ chưa đầy đủ. Cache trên thiết bị được mã hóa. Không tạo `FinanceTransaction` cho sổ này.
 
 ## Giao diện
 

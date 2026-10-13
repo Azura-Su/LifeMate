@@ -545,7 +545,9 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
                       ? 'Đã tải từ cloud · cache trên máy chưa đọc được'
                       : displaySyncStatus === 'local'
                         ? reportMode === 'held'
-                          ? 'Bản sổ trên thiết bị · tải lại khi có mạng'
+                          ? heldLedger.error
+                            ? 'Sổ chưa đầy đủ · tải lại để kiểm tra'
+                            : 'Bản sổ trên thiết bị · tải lại khi có mạng'
                           : 'Chưa sao lưu · chỉ có trên thiết bị'
                         : 'Chưa xác nhận đồng bộ'}
               </Text>

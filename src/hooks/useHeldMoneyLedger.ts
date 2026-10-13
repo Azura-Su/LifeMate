@@ -5,6 +5,7 @@ import {
   createHeldMoneyRecord,
   deleteHeldMoneyEntry,
   deleteHeldMoneyRecord,
+  readCachedHeldMoney,
   readHeldMoney,
   updateHeldMoneyDetails,
   updateHeldMoneyEntry,
@@ -19,41 +20,61 @@ export function useHeldMoneyLedger(uid: string | null, active: boolean) {
   const [error, setError] = useState<string | null>(null);
   const uidRef = useRef(uid);
   const requestRef = useRef(0);
+  const loadedUidRef = useRef<string | null>(null);
   uidRef.current = uid;
 
-  const load = useCallback(async () => {
-    const request = ++requestRef.current;
-    if (!uid) {
-      setRecords([]);
-      setSynced(null);
-      setError(null);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await readHeldMoney(uid);
-      if (request === requestRef.current && uidRef.current === uid) {
-        setRecords(result.records);
-        setRecordsOwner(uid);
-        setSynced(result.synced);
-      }
-    } catch (cause) {
-      if (request === requestRef.current && uidRef.current === uid) {
-        setSynced(false);
-        setError((cause as Error).message || 'Chưa tải được sổ đóng hộ.');
-      }
-    } finally {
-      if (request === requestRef.current && uidRef.current === uid)
+  const load = useCallback(
+    async (previewCache = false) => {
+      const request = ++requestRef.current;
+      if (!uid) {
+        setRecords([]);
+        setRecordsOwner(null);
+        setSynced(null);
+        setError(null);
         setLoading(false);
-    }
-  }, [uid]);
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        if (previewCache && loadedUidRef.current !== uid) {
+          const cached = await readCachedHeldMoney(uid).catch(() => null);
+          if (request !== requestRef.current || uidRef.current !== uid) return;
+          if (cached !== null) {
+            setRecords(cached);
+            setRecordsOwner(uid);
+            setSynced(false);
+            loadedUidRef.current = uid;
+          }
+        }
+        const result = await readHeldMoney(uid);
+        if (request === requestRef.current && uidRef.current === uid) {
+          if (result.synced || result.warning || loadedUidRef.current !== uid) {
+            setRecords(result.records);
+            setRecordsOwner(uid);
+          }
+          setSynced(result.synced);
+          setError(result.warning ?? null);
+          loadedUidRef.current = uid;
+        }
+      } catch (cause) {
+        if (request === requestRef.current && uidRef.current === uid) {
+          setSynced(false);
+          setError((cause as Error).message || 'Chưa tải được sổ đóng hộ.');
+        }
+      } finally {
+        if (request === requestRef.current && uidRef.current === uid)
+          setLoading(false);
+      }
+    },
+    [uid],
+  );
 
   useEffect(() => {
     ++requestRef.current;
     setRecords([]);
     setRecordsOwner(null);
+    loadedUidRef.current = null;
     setSynced(null);
     setError(null);
     setLoading(false);
@@ -61,7 +82,7 @@ export function useHeldMoneyLedger(uid: string | null, active: boolean) {
   }, [uid]);
 
   useEffect(() => {
-    if (active) void load();
+    if (active) void load(true);
   }, [active, load]);
 
   const perform = useCallback(
@@ -73,8 +94,7 @@ export function useHeldMoneyLedger(uid: string | null, active: boolean) {
       setError(null);
       try {
         const record = await operation(uid);
-        if (uidRef.current !== uid)
-          throw new Error('Tài khoản đã thay đổi. Hãy thử lại.');
+        if (uidRef.current !== uid) return record;
         setRecords((current) =>
           record
             ? [
@@ -86,7 +106,9 @@ export function useHeldMoneyLedger(uid: string | null, active: boolean) {
             : current,
         );
         setRecordsOwner(uid);
-        setSynced(true);
+        loadedUidRef.current = uid;
+        setSynced(false);
+        void load();
         return record;
       } catch (cause) {
         const message =
@@ -97,7 +119,7 @@ export function useHeldMoneyLedger(uid: string | null, active: boolean) {
         if (uidRef.current === uid) setBusy(false);
       }
     },
-    [recordsOwner, uid],
+    [load, recordsOwner, uid],
   );
 
   const create = useCallback(
