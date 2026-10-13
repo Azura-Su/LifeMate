@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  getPendingNewLoanAttempt,
   getOrCreateRepaymentAttempt,
   readLoanData,
   recordLoanRepaymentAtomically,
+  reserveNewLoanAttempt,
   saveLoanData,
 } from '../loanStorage';
 import {
@@ -37,6 +39,34 @@ const loan: LoanRecord = {
 beforeEach(async () => {
   await AsyncStorage.clear();
   resetFirestoreMock();
+});
+
+describe('new loan recovery', () => {
+  it('reuses the same loan after an uncertain save and retires it after confirmation', async () => {
+    const first = await reserveNewLoanAttempt('u1', loan);
+    expect(
+      await reserveNewLoanAttempt('u1', { ...loan, id: 'another-id' }),
+    ).toEqual(first);
+    await expect(
+      reserveNewLoanAttempt('u1', { ...loan, principalAmount: 2000 }),
+    ).rejects.toThrow('đang chờ xác nhận');
+
+    await saveLoanData('u1', first);
+    expect(await getPendingNewLoanAttempt('u1', [])).toBeNull();
+  });
+
+  it('releases a retry key after a definitive cloud conflict', async () => {
+    await saveLoanData('u1', loan);
+    const conflicting = {
+      ...loan,
+      borrowerName: 'Bình',
+    };
+    await reserveNewLoanAttempt('u1', conflicting);
+    await expect(saveLoanData('u1', conflicting)).rejects.toThrow(
+      'không thể sửa',
+    );
+    expect(await getPendingNewLoanAttempt('u1', [])).toBeNull();
+  });
 });
 
 describe('loan repayment recovery', () => {

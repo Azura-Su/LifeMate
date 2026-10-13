@@ -596,7 +596,14 @@ export function saveLoanData(
     try {
       saved = await writeLoanOnline(uid, parsed);
     } catch (error) {
-      if (error instanceof LoanDataConflictError) throw error;
+      if (error instanceof LoanDataConflictError) {
+        const attempt = await readNewLoanAttempt(uid).catch(() => null);
+        if (attempt?.id === parsed.id)
+          await removeEncryptedItem(newLoanAttemptKey(uid)).catch(
+            () => undefined,
+          );
+        throw error;
+      }
       if (!existedLocally)
         throw new Error(
           'Cần có kết nối mạng để lưu khoản cho mượn và khoản chi liên kết cùng lúc.',

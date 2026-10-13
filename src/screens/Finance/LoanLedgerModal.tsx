@@ -38,6 +38,7 @@ import { loanStyles as styles } from './LoanLedgerModal.styles';
 import {
   getPendingAdvanceAttempt,
   getPendingNewLoanAttempt,
+  LoanDataConflictError,
   reserveNewLoanAttempt,
 } from '../../services/finance/loanStorage';
 import {
@@ -2248,13 +2249,19 @@ function LoanFormDialog({
     submitting.current = true;
     setSaving(true);
     setError(null);
+    let reserved = false;
     try {
       const loan = await reserveNewLoanAttempt(uid, proposed);
+      reserved = true;
       pendingLoanAttempt.current = loan;
       setRetryingLoan(true);
       await onSave(loan);
       reset();
     } catch (cause) {
+      if (reserved && cause instanceof LoanDataConflictError) {
+        pendingLoanAttempt.current = null;
+        setRetryingLoan(false);
+      }
       setError(
         cause instanceof Error ? cause.message : 'Chưa lưu được khoản cho vay.',
       );
