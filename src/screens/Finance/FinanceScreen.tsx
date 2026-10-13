@@ -21,7 +21,6 @@ import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { Screen } from '../../components/Screen';
 import { colors, typography } from '../../theme';
 import {
-  filterFinanceTransactions,
   formatFinanceAmount,
   formatFinanceDate,
   getFinanceTransactionCategoryLabel,
@@ -36,7 +35,6 @@ import { useLoanLedger } from '../../hooks/useLoanLedger';
 import { useHeldMoneyLedger } from '../../hooks/useHeldMoneyLedger';
 import { useFinanceStore } from '../../store/financeStore';
 import { FinanceMonthSection } from './FinanceMonthSection';
-import { FinanceSearchResults } from './FinanceSearchResults';
 import {
   FinanceCategoryReport,
   type FinanceIncomeSourceFilter,
@@ -310,17 +308,6 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   }
 
   const deferredQuery = useDeferredValue(searchQuery.trim());
-  const searchResults = useMemo(
-    () =>
-      reportMode === 'overview' && deferredQuery
-        ? filterFinanceTransactions(
-            model.transactions,
-            deferredQuery,
-            getLoanSearchText,
-          )
-        : [],
-    [deferredQuery, getLoanSearchText, model.transactions, reportMode],
-  );
   // Stable row callbacks that always call the latest handlers.
   const handlers = useRef({ openEditDialog, confirmDelete });
   handlers.current = { openEditDialog, confirmDelete };
@@ -707,13 +694,11 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
           </View>
         )}
 
-      {(reportMode === 'overview' ||
-        reportMode === 'income' ||
-        reportMode === 'expense') && (
+      {(reportMode === 'income' || reportMode === 'expense') && (
         <View style={styles.searchField}>
           <Feather name="search" size={18} color={colors.muted} />
           <TextInput
-            accessibilityLabel={`Tìm giao dịch ${reportMode === 'income' ? 'thu nhập' : reportMode === 'expense' ? 'chi tiêu' : 'thu chi'}`}
+            accessibilityLabel={`Tìm giao dịch ${reportMode === 'income' ? 'thu nhập' : 'chi tiêu'}`}
             placeholder="Ghi chú, danh mục hoặc số tiền"
             placeholderTextColor={colors.muted}
             value={searchQuery}
@@ -775,41 +760,37 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
         />
       ) : reportMode === 'overview' ? (
         <>
-          {!searchQuery.trim() && (
-            <View style={styles.summary}>
-              <View style={styles.balance}>
-                <Text style={styles.balanceLabel}>Còn lại trong kỳ</Text>
-                <Text style={styles.balanceAmount}>
-                  {formatFinanceAmount(model.report.balance)}
+          <View style={styles.summary}>
+            <View style={styles.balance}>
+              <Text style={styles.balanceLabel}>Còn lại trong kỳ</Text>
+              <Text style={styles.balanceAmount}>
+                {formatFinanceAmount(model.report.balance)}
+              </Text>
+            </View>
+            <View style={styles.totals}>
+              <View style={styles.total}>
+                <Text style={styles.totalLabel}>Tổng thu</Text>
+                <Text style={[styles.totalAmount, styles.income]}>
+                  {formatFinanceAmount(model.report.income)}
                 </Text>
               </View>
-              <View style={styles.totals}>
-                <View style={styles.total}>
-                  <Text style={styles.totalLabel}>Tổng thu</Text>
-                  <Text style={[styles.totalAmount, styles.income]}>
-                    {formatFinanceAmount(model.report.income)}
-                  </Text>
-                </View>
-                <View style={styles.total}>
-                  <Text style={styles.totalLabel}>Tổng chi</Text>
-                  <Text style={[styles.totalAmount, styles.expense]}>
-                    {formatFinanceAmount(model.report.expense)}
-                  </Text>
-                </View>
+              <View style={styles.total}>
+                <Text style={styles.totalLabel}>Tổng chi</Text>
+                <Text style={[styles.totalAmount, styles.expense]}>
+                  {formatFinanceAmount(model.report.expense)}
+                </Text>
               </View>
             </View>
-          )}
+          </View>
 
-          {!searchQuery.trim() && (
-            <View style={styles.sectionHeader}>
-              <Text accessibilityRole="header" style={styles.sectionTitle}>
-                Giao dịch trong tháng
-              </Text>
-              {model.loading && !refreshing && (
-                <ActivityIndicator color={colors.earth} />
-              )}
-            </View>
-          )}
+          <View style={styles.sectionHeader}>
+            <Text accessibilityRole="header" style={styles.sectionTitle}>
+              Giao dịch trong tháng
+            </Text>
+            {model.loading && !refreshing && (
+              <ActivityIndicator color={colors.earth} />
+            )}
+          </View>
 
           {!!feedbackError && (
             <View>
@@ -826,24 +807,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             </View>
           )}
 
-          {searchQuery.trim() ? (
-            <FinanceSearchResults
-              transactions={
-                deferredQuery === searchQuery.trim() ? searchResults : []
-              }
-              scope="Toàn bộ lịch sử · Không giới hạn tháng"
-              busy={model.loading || deferredQuery !== searchQuery.trim()}
-              onDelete={deleteRow}
-              onEdit={editRow}
-              onOpenLoan={openLinkedLoan}
-              loansById={loansById}
-              canDeleteLinkedExpense={canDeleteLinkedExpense}
-              deletingIds={deletingIds}
-            />
-          ) : null}
-
-          {!searchQuery.trim() &&
-            !model.loading &&
+          {!model.loading &&
             model.report.months.length === 0 &&
             !model.error && (
               <View style={styles.empty}>
@@ -861,33 +825,31 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
               </View>
             )}
 
-          {!searchQuery.trim() && (
-            <View style={styles.monthList}>
-              {model.report.months.map((month) => (
-                <FinanceMonthSection
-                  key={month.month}
-                  year={model.year}
-                  month={month.month}
-                  transactions={month.transactions}
-                  income={month.income}
-                  expense={month.expense}
-                  balance={month.balance}
-                  onDelete={deleteRow}
-                  onEdit={editRow}
-                  canDeleteLinkedExpense={canDeleteLinkedExpense}
-                  deletingIds={deletingIds}
-                  loansById={loansById}
-                  onOpenLoan={openLinkedLoan}
-                  onAdd={() =>
-                    openAddDialog('income', {
-                      year: model.year,
-                      month: month.month,
-                    })
-                  }
-                />
-              ))}
-            </View>
-          )}
+          <View style={styles.monthList}>
+            {model.report.months.map((month) => (
+              <FinanceMonthSection
+                key={month.month}
+                year={model.year}
+                month={month.month}
+                transactions={month.transactions}
+                income={month.income}
+                expense={month.expense}
+                balance={month.balance}
+                onDelete={deleteRow}
+                onEdit={editRow}
+                canDeleteLinkedExpense={canDeleteLinkedExpense}
+                deletingIds={deletingIds}
+                loansById={loansById}
+                onOpenLoan={openLinkedLoan}
+                onAdd={() =>
+                  openAddDialog('income', {
+                    year: model.year,
+                    month: month.month,
+                  })
+                }
+              />
+            ))}
+          </View>
         </>
       ) : null}
 
