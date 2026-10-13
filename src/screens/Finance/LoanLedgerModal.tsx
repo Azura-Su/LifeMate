@@ -829,34 +829,19 @@ export function LoanLedgerModal({
                     onOpenActions={setHistoryActions}
                   />
                 )}
-                {status === 'open' &&
-                  (pending || (!expanded && loan.repayments.length === 0)) && (
-                    <View style={styles.actionRow}>
-                      {pending ? (
-                        <View style={styles.actionButton}>
-                          <Button
-                            compact
-                            title="Thử ghi nhận"
-                            loading={isActionBusy(loan.id, 'repay')}
-                            disabled={financeLoading || busyAction !== null}
-                            onPress={() => void record(loan.id, pending.amount)}
-                          />
-                        </View>
-                      ) : (
-                        <View style={styles.actionButton}>
-                          <Button
-                            compact
-                            title="Nhận lại tiền"
-                            disabled={financeLoading || busyAction !== null}
-                            onPress={() => {
-                              setActionError(null);
-                              setRepayTarget(loan);
-                            }}
-                          />
-                        </View>
-                      )}
+                {status === 'open' && pending && (
+                  <View style={styles.actionRow}>
+                    <View style={styles.actionButton}>
+                      <Button
+                        compact
+                        title="Thử ghi nhận"
+                        loading={isActionBusy(loan.id, 'repay')}
+                        disabled={financeLoading || busyAction !== null}
+                        onPress={() => void record(loan.id, pending.amount)}
+                      />
                     </View>
-                  )}
+                  </View>
+                )}
               </View>
             );
           })
