@@ -48,12 +48,14 @@ export const heldStyles = StyleSheet.create({
   totalsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   totalText: { fontSize: 11, color: colors.muted },
   totalValue: { fontWeight: '700', color: colors.ink },
+  histories: { gap: 12 },
   history: {
     gap: 8,
     borderTopWidth: 1,
     borderTopColor: colors.line,
     paddingTop: 11,
   },
+  historyEmpty: { ...typography.small, color: colors.muted },
   historyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -78,6 +80,7 @@ export const heldStyles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: colors.skySoft,
   },
+  entryIncoming: { backgroundColor: colors.successSoft },
   entryIcon: {
     width: 28,
     height: 28,

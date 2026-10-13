@@ -147,11 +147,12 @@ export function HeldMoneyLedger({
   function openEntry(
     record: HeldMoneyRecord,
     entry: HeldMoneyEntry | null = null,
+    kind: HeldMoneyEntryKind = 'paid',
   ) {
     setEntryTarget({
       record,
       entry,
-      kind: entry?.kind ?? 'paid',
+      kind: entry?.kind ?? kind,
       attemptId: entry?.id ?? newHeldMoneyId(),
     });
   }
@@ -266,6 +267,15 @@ export function HeldMoneyLedger({
       {ledger.records.map((record) => {
         const totals = getHeldMoneyTotals(record);
         const expanded = expandedId === record.id;
+        const entries = [...record.entries].sort(
+          (a, b) => b.occurredAt - a.occurredAt,
+        );
+        const receivedEntries = entries.filter(
+          (entry) => entry.kind === 'received',
+        );
+        const outgoingEntries = entries.filter(
+          (entry) => entry.kind !== 'received',
+        );
         return (
           <View key={record.id} style={styles.card}>
             <View style={styles.cardHeader}>
@@ -328,86 +338,29 @@ export function HeldMoneyLedger({
               )}
             </View>
             {expanded && (
-              <View style={styles.history}>
-                <View style={styles.historyHeader}>
-                  <Text accessibilityRole="header" style={styles.historyTitle}>
-                    Lịch sử đóng hộ
-                  </Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Thêm mục cho ${record.purpose}`}
-                    accessibilityState={{ disabled: ledger.busy }}
-                    disabled={ledger.busy}
-                    onPress={() => openEntry(record)}
-                    style={styles.addEntryButton}
-                  >
-                    <Feather name="plus" size={19} color={colors.earth} />
-                  </Pressable>
-                </View>
-                {record.entries.length === 0 && (
-                  <Text style={styles.emptyText}>Chưa có mục lịch sử.</Text>
-                )}
-                {[...record.entries]
-                  .sort((a, b) => b.occurredAt - a.occurredAt)
-                  .map((entry) => (
-                    <View key={entry.id} style={styles.entry}>
-                      <View style={styles.entryIcon}>
-                        <Feather
-                          name={
-                            entry.kind === 'received'
-                              ? 'arrow-down-left'
-                              : entry.kind === 'paid'
-                                ? 'check'
-                                : 'corner-up-right'
-                          }
-                          size={15}
-                          color={
-                            entry.kind === 'received'
-                              ? colors.success
-                              : colors.earth
-                          }
-                        />
-                      </View>
-                      <View style={styles.entryMain}>
-                        <View style={styles.entryTop}>
-                          <Text style={styles.entryTitle}>
-                            {entryLabels[entry.kind]}
-                          </Text>
-                          <Text
-                            numberOfLines={1}
-                            adjustsFontSizeToFit
-                            style={[
-                              styles.entryAmount,
-                              entry.kind === 'received' && styles.entryReceived,
-                            ]}
-                          >
-                            {entry.kind === 'received' ? '+' : '−'}
-                            {formatFinanceAmount(entry.amount)}
-                          </Text>
-                        </View>
-                        <Text numberOfLines={2} style={styles.entryDetail}>
-                          {formatFinanceDate(new Date(entry.occurredAt))}
-                          {entry.note ? ` · ${entry.note}` : ''}
-                        </Text>
-                      </View>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`Tùy chọn mục ${entryLabels[entry.kind]} ${formatFinanceAmount(entry.amount)}`}
-                        accessibilityState={{ disabled: ledger.busy }}
-                        disabled={ledger.busy}
-                        onPress={() =>
-                          setMenuTarget({ kind: 'entry', record, entry })
-                        }
-                        style={styles.entryMenu}
-                      >
-                        <Feather
-                          name="more-vertical"
-                          size={16}
-                          color={colors.earth}
-                        />
-                      </Pressable>
-                    </View>
-                  ))}
+              <View style={styles.histories}>
+                <HeldMoneyHistorySection
+                  title="Lịch sử gửi thêm"
+                  emptyMessage="Chưa có lần nhận tiền."
+                  addLabel={`Ghi nhận tiền ${record.senderName} gửi thêm`}
+                  entries={receivedEntries}
+                  busy={ledger.busy}
+                  onAdd={() => openEntry(record, null, 'received')}
+                  onOpenEntry={(entry) =>
+                    setMenuTarget({ kind: 'entry', record, entry })
+                  }
+                />
+                <HeldMoneyHistorySection
+                  title="Lịch sử đóng hộ"
+                  emptyMessage="Chưa đóng hộ hoặc trả lại tiền."
+                  addLabel={`Ghi nhận đóng hộ hoặc trả lại tiền cho ${record.senderName}`}
+                  entries={outgoingEntries}
+                  busy={ledger.busy}
+                  onAdd={() => openEntry(record, null, 'paid')}
+                  onOpenEntry={(entry) =>
+                    setMenuTarget({ kind: 'entry', record, entry })
+                  }
+                />
               </View>
             )}
           </View>
@@ -476,6 +429,100 @@ export function HeldMoneyLedger({
           </Pressable>
         </View>
       </DialogModal>
+    </View>
+  );
+}
+
+function HeldMoneyHistorySection({
+  title,
+  emptyMessage,
+  addLabel,
+  entries,
+  busy,
+  onAdd,
+  onOpenEntry,
+}: {
+  title: string;
+  emptyMessage: string;
+  addLabel: string;
+  entries: HeldMoneyEntry[];
+  busy: boolean;
+  onAdd: () => void;
+  onOpenEntry: (entry: HeldMoneyEntry) => void;
+}) {
+  return (
+    <View style={styles.history}>
+      <View style={styles.historyHeader}>
+        <Text accessibilityRole="header" style={styles.historyTitle}>
+          {title}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={addLabel}
+          accessibilityState={{ disabled: busy }}
+          disabled={busy}
+          onPress={onAdd}
+          style={styles.addEntryButton}
+        >
+          <Feather name="plus" size={19} color={colors.earth} />
+        </Pressable>
+      </View>
+      {entries.length === 0 && (
+        <Text style={styles.historyEmpty}>{emptyMessage}</Text>
+      )}
+      {entries.map((entry) => (
+        <View
+          key={entry.id}
+          style={[
+            styles.entry,
+            entry.kind === 'received' && styles.entryIncoming,
+          ]}
+        >
+          <View style={styles.entryIcon}>
+            <Feather
+              name={
+                entry.kind === 'received'
+                  ? 'arrow-down-left'
+                  : entry.kind === 'paid'
+                    ? 'check'
+                    : 'corner-up-right'
+              }
+              size={15}
+              color={entry.kind === 'received' ? colors.success : colors.earth}
+            />
+          </View>
+          <View style={styles.entryMain}>
+            <View style={styles.entryTop}>
+              <Text style={styles.entryTitle}>{entryLabels[entry.kind]}</Text>
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                style={[
+                  styles.entryAmount,
+                  entry.kind === 'received' && styles.entryReceived,
+                ]}
+              >
+                {entry.kind === 'received' ? '+' : '−'}
+                {formatFinanceAmount(entry.amount)}
+              </Text>
+            </View>
+            <Text numberOfLines={2} style={styles.entryDetail}>
+              {formatFinanceDate(new Date(entry.occurredAt))}
+              {entry.note ? ` · ${entry.note}` : ''}
+            </Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Tùy chọn mục ${entryLabels[entry.kind]} ${formatFinanceAmount(entry.amount)}`}
+            accessibilityState={{ disabled: busy }}
+            disabled={busy}
+            onPress={() => onOpenEntry(entry)}
+            style={styles.entryMenu}
+          >
+            <Feather name="more-vertical" size={16} color={colors.earth} />
+          </Pressable>
+        </View>
+      ))}
     </View>
   );
 }

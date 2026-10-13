@@ -221,8 +221,8 @@ export function HeldMoneyRecordDialog({
 }
 
 const kinds: { kind: HeldMoneyEntryKind; label: string }[] = [
-  { kind: 'received', label: 'Nhận tiền' },
-  { kind: 'paid', label: 'Đã đóng' },
+  { kind: 'received', label: 'Gửi thêm' },
+  { kind: 'paid', label: 'Đóng hộ' },
   { kind: 'returned', label: 'Trả lại' },
 ];
 
@@ -264,6 +264,19 @@ export function HeldMoneyEntryDialog({
     setError(null);
   }, [initial, initialKind, visible]);
   const disabled = busy || submitting;
+  const availableKinds = initial
+    ? kinds
+    : kinds.filter(({ kind }) =>
+        initialKind === 'received'
+          ? kind === 'received'
+          : kind === 'paid' || kind === 'returned',
+      );
+  const actionLabel =
+    draft.kind === 'received'
+      ? 'gửi thêm'
+      : draft.kind === 'paid'
+        ? 'đóng hộ'
+        : 'trả lại';
   const change = (key: 'amount' | 'date' | 'note') => (value: string) =>
     setDraft((current) => ({ ...current, [key]: value }));
   async function save() {
@@ -286,7 +299,7 @@ export function HeldMoneyEntryDialog({
       style={styles.dialog}
     >
       <FormHeading
-        title={initial ? 'Sửa mục đóng hộ' : 'Ghi nhận tiền đóng hộ'}
+        title={initial ? 'Sửa mục lịch sử' : `Ghi nhận ${actionLabel}`}
         onClose={onClose}
         disabled={disabled}
       />
@@ -296,29 +309,31 @@ export function HeldMoneyEntryDialog({
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.form}>
-          <View style={styles.kindTabs} accessibilityRole="tablist">
-            {kinds.map(({ kind, label }) => (
-              <Pressable
-                key={kind}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: draft.kind === kind }}
-                onPress={() => setDraft((current) => ({ ...current, kind }))}
-                style={[
-                  styles.kindButton,
-                  draft.kind === kind && styles.kindSelected,
-                ]}
-              >
-                <Text
+          {availableKinds.length > 1 && (
+            <View style={styles.kindTabs} accessibilityRole="tablist">
+              {availableKinds.map(({ kind, label }) => (
+                <Pressable
+                  key={kind}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: draft.kind === kind }}
+                  onPress={() => setDraft((current) => ({ ...current, kind }))}
                   style={[
-                    styles.kindText,
-                    draft.kind === kind && styles.kindTextSelected,
+                    styles.kindButton,
+                    draft.kind === kind && styles.kindSelected,
                   ]}
                 >
-                  {label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+                  <Text
+                    style={[
+                      styles.kindText,
+                      draft.kind === kind && styles.kindTextSelected,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
           <View style={styles.twoColumns}>
             <Field
               label="Số tiền"
@@ -357,7 +372,7 @@ export function HeldMoneyEntryDialog({
         </Text>
       )}
       <Button
-        title={initial ? 'Lưu mục lịch sử' : 'Lưu mục đóng hộ'}
+        title={initial ? 'Lưu thay đổi' : `Lưu lần ${actionLabel}`}
         loading={disabled}
         onPress={() => void save()}
       />
