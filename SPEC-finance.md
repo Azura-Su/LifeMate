@@ -48,6 +48,7 @@ Theo cấu trúc screen/hook/styles và component hiện tại; validate dữ li
 ## Success Criteria
 
 - Người dùng có thể ghi giao dịch thu nhập/lương và chi tiêu với số tiền, danh mục, mô tả ngắn.
+- Khi nhập tiền trong giao dịch Thu chi hoặc Sổ cho mượn, form hiện số tiền đã định dạng và cách đọc bằng chữ để dễ đối chiếu trước khi lưu.
 - Thu chi mặc định là tháng hiện tại; người dùng tìm tháng bằng picker năm/tháng hoặc chuyển tháng trước/sau. Giao dịch mới cho chọn ngày phát sinh.
 - Thu nhập cộng mọi khoản thu; Chi tiêu chỉ cộng các khoản chi. Cả hai báo cáo giữ tên và số tiền của danh mục cũ hoặc tự tạo đã xóa để không bỏ sót giao dịch. Mỗi báo cáo mặc định cả năm hiện tại, có thể chọn từ tháng A/năm B đến tháng C/năm D.
 - Báo cáo có tổng kỳ, tổng danh mục có phát sinh và tổng từng tháng; chạm tháng để mở/thu gọn từng khoản. Home không hiển thị số liệu tài chính; tổng tháng xem trong tab Tài chính.

@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { AppTextInput } from '../../components/AppTextInput';
 import { Button } from '../../components/Button';
+import { FinanceAmountWords } from '../../components/FinanceAmountWords';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme';
 import type { LoanAdvance, LoanRecord, LoanRepayment } from '../../types/loan';
@@ -1155,6 +1156,7 @@ function LoanAdvanceDialog({
               </View>
             </View>
           </View>
+          <FinanceAmountWords value={amountText} />
           <LoanNoteInputField
             label="Nội dung"
             accessibilityLabel="Nội dung khoản cho vay thêm"
@@ -1378,6 +1380,7 @@ function LoanAdvanceEditDialog({
                 </View>
               </View>
             </View>
+            <FinanceAmountWords value={amountText} />
             <LoanNoteInputField
               label="Nội dung"
               accessibilityLabel="Nội dung khoản cho vay thêm"
@@ -2025,6 +2028,7 @@ function LoanRepaymentEditDialog({
               </View>
             </View>
           </View>
+          <FinanceAmountWords value={amountText} />
           {amount !== null && !validAmount && (
             <Text accessibilityRole="alert" style={styles.error}>
               {amount > maxAmount
@@ -2448,6 +2452,7 @@ function LoanFormDialog({
                 </View>
               </View>
             </View>
+            <FinanceAmountWords value={amountText} />
             {!addingToExisting && (
               <>
                 <Pressable
@@ -2897,6 +2902,7 @@ function RepaymentDialog({
           editable={!busy && available > 0}
           style={styles.input}
         />
+        <FinanceAmountWords value={amountText} />
         <Text style={styles.meta}>
           Khoản nhận lại sẽ được ghi riêng trong Tài chính.
         </Text>
@@ -3073,6 +3079,7 @@ function LoanPrincipalEditDialog({
               </View>
             </View>
           </View>
+          <FinanceAmountWords value={amountText} />
           <LoanNoteInputField
             label="Nội dung"
             accessibilityLabel="Nội dung khoản cho vay ban đầu"

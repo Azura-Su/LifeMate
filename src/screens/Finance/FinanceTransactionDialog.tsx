@@ -12,6 +12,7 @@ import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Button } from '../../components/Button';
 import { DialogCloseButton } from '../../components/DialogCloseButton';
 import { DialogModal } from '../../components/DialogModal';
+import { FinanceAmountWords } from '../../components/FinanceAmountWords';
 import { ModalHeader } from '../../components/ModalHeader';
 import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import {
@@ -540,12 +541,15 @@ export function FinanceTransactionDialog({
           style={styles.input}
         />
         {parsedAmount !== null && (
-          <Text
-            accessibilityLabel={`Số tiền đã nhập: ${formatFinanceAmount(parsedAmount)}`}
-            style={styles.amountPreview}
-          >
-            {formatFinanceAmount(parsedAmount)}
-          </Text>
+          <View style={styles.amountSummary}>
+            <Text
+              accessibilityLabel={`Số tiền đã nhập: ${formatFinanceAmount(parsedAmount)}`}
+              style={styles.amountPreview}
+            >
+              {formatFinanceAmount(parsedAmount)}
+            </Text>
+            <FinanceAmountWords value={amount} />
+          </View>
         )}
         <Text style={styles.label}>Ngày giao dịch</Text>
         <View style={styles.dateField}>
