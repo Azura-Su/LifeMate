@@ -301,39 +301,55 @@ export function HeldMoneyLedger({
         );
         return (
           <View key={record.id} style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${expanded ? 'Thu gọn' : 'Mở'} khoản đóng hộ ${record.purpose} của ${record.senderName}`}
-                accessibilityState={{ expanded }}
-                onPress={() => setExpandedId(expanded ? null : record.id)}
-                style={styles.cardTitleGroup}
-              >
-                <View style={styles.cardTitleContent}>
+            <View>
+              <View style={styles.cardHeader}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${expanded ? 'Thu gọn' : 'Mở'} khoản đóng hộ ${record.purpose} của ${record.senderName}`}
+                  accessibilityState={{ expanded }}
+                  onPress={() => setExpandedId(expanded ? null : record.id)}
+                  style={styles.cardTitleGroup}
+                >
                   <Text style={styles.cardTitle} numberOfLines={1}>
                     {record.senderName}
                   </Text>
-                  <Text style={styles.purpose} numberOfLines={2}>
-                    {record.purpose}
-                  </Text>
-                </View>
-                <Feather
-                  name={expanded ? 'chevron-up' : 'chevron-down'}
-                  size={17}
-                  color={colors.earth}
-                />
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Xóa khoản đóng hộ ${record.purpose} của ${record.senderName}`}
-                accessibilityState={{ disabled: ledger.busy }}
-                disabled={ledger.busy}
-                hitSlop={8}
-                onPress={() => confirmDeleteRecord(record)}
-                style={styles.deleteAction}
-              >
-                <Feather name="trash-2" size={16} color={colors.danger} />
-              </Pressable>
+                  <Feather
+                    name={expanded ? 'chevron-up' : 'chevron-down'}
+                    size={17}
+                    color={colors.earth}
+                  />
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Xóa khoản đóng hộ ${record.purpose} của ${record.senderName}`}
+                  accessibilityState={{ disabled: ledger.busy }}
+                  disabled={ledger.busy}
+                  hitSlop={8}
+                  onPress={() => confirmDeleteRecord(record)}
+                  style={styles.deleteAction}
+                >
+                  <Feather name="trash-2" size={16} color={colors.danger} />
+                </Pressable>
+              </View>
+              <View style={styles.purposeRow}>
+                <Text style={styles.purpose} numberOfLines={2}>
+                  {record.purpose}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Sửa thông tin khoản đóng hộ của ${record.senderName}`}
+                  accessibilityState={{ disabled: ledger.busy }}
+                  disabled={ledger.busy}
+                  hitSlop={8}
+                  onPress={() => {
+                    setRecordTarget(record);
+                    setRecordFormVisible(true);
+                  }}
+                  style={styles.editDetailsIcon}
+                >
+                  <Feather name="edit-2" size={14} color={colors.earth} />
+                </Pressable>
+              </View>
             </View>
             <Pressable
               accessibilityRole="button"
@@ -378,20 +394,6 @@ export function HeldMoneyLedger({
             </View>
             {expanded && (
               <View style={styles.histories}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Sửa thông tin khoản đóng hộ của ${record.senderName}`}
-                  accessibilityState={{ disabled: ledger.busy }}
-                  disabled={ledger.busy}
-                  onPress={() => {
-                    setRecordTarget(record);
-                    setRecordFormVisible(true);
-                  }}
-                  style={styles.editDetailsButton}
-                >
-                  <Feather name="edit-2" size={13} color={colors.earth} />
-                  <Text style={styles.editDetailsText}>Sửa thông tin</Text>
-                </Pressable>
                 <HeldMoneyHistorySection
                   title="Lịch sử gửi thêm"
                   emptyMessage="Chưa có lần nhận tiền."
