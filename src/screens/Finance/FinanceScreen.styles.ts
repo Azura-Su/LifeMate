@@ -44,24 +44,23 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   searchResults: { gap: 10 },
-  reportMode: {
+  reportMode: { gap: 7 },
+  reportModeRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 4,
     padding: 4,
-    borderRadius: 15,
+    borderRadius: 14,
     backgroundColor: colors.skySoft,
   },
+  ledgerModeRow: { flexDirection: 'row', gap: 7 },
   fixedActions: { gap: 9 },
   reportModeButton: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: '30%',
+    flex: 1,
     minWidth: 0,
-    minHeight: 42,
+    minHeight: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: 10,
   },
   reportModeSelected: {
     backgroundColor: colors.surface,
@@ -69,6 +68,16 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 3,
     elevation: 1,
+  },
+  ledgerModeButton: {
+    minHeight: 38,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.background,
+  },
+  ledgerModeSelected: {
+    borderColor: colors.sunlightLine,
+    backgroundColor: colors.sunlightSoft,
   },
   reportModeText: {
     fontSize: 12,

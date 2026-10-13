@@ -448,6 +448,44 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     openAddDialog(reportMode, period);
   }
 
+  function renderReportTab(
+    tab: (typeof reportTabs)[number],
+    ledgerTab = false,
+  ) {
+    const selected = reportMode === tab.value;
+    return (
+      <Pressable
+        key={tab.value}
+        accessibilityRole="tab"
+        accessibilityLabel={tab.accessibilityLabel}
+        accessibilityState={{ selected }}
+        hitSlop={{ top: 3, bottom: 3 }}
+        onPress={() => {
+          setReportMode(tab.value);
+          setLoanLedgerTargetId(null);
+        }}
+        style={[
+          styles.reportModeButton,
+          ledgerTab && styles.ledgerModeButton,
+          selected &&
+            (ledgerTab ? styles.ledgerModeSelected : styles.reportModeSelected),
+        ]}
+      >
+        <Text
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
+          style={[
+            styles.reportModeText,
+            selected && styles.reportModeTextSelected,
+          ]}
+        >
+          {tab.label}
+        </Text>
+      </Pressable>
+    );
+  }
+
   return (
     <Screen
       fixedHeader={
@@ -593,34 +631,12 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             </View>
           )}
           <View style={styles.reportMode} accessibilityRole="tablist">
-            {reportTabs.map((tab) => (
-              <Pressable
-                key={tab.value}
-                accessibilityRole="tab"
-                accessibilityLabel={tab.accessibilityLabel}
-                accessibilityState={{ selected: reportMode === tab.value }}
-                onPress={() => {
-                  setReportMode(tab.value);
-                  setLoanLedgerTargetId(null);
-                }}
-                style={[
-                  styles.reportModeButton,
-                  reportMode === tab.value && styles.reportModeSelected,
-                ]}
-              >
-                <Text
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.75}
-                  style={[
-                    styles.reportModeText,
-                    reportMode === tab.value && styles.reportModeTextSelected,
-                  ]}
-                >
-                  {tab.label}
-                </Text>
-              </Pressable>
-            ))}
+            <View style={styles.reportModeRow}>
+              {reportTabs.slice(0, 3).map((tab) => renderReportTab(tab))}
+            </View>
+            <View style={styles.ledgerModeRow}>
+              {reportTabs.slice(3).map((tab) => renderReportTab(tab, true))}
+            </View>
           </View>
           {reportMode === 'overview' ? (
             <FinancePeriodSelector
