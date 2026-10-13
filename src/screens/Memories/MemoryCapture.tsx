@@ -254,7 +254,7 @@ export function MemoryCapture({
         <Text style={styles.writeOnlyText}>Viết ký ức không có ảnh</Text>
       </Pressable>
       <Text style={styles.capturePrivacy}>
-        Lưu riêng theo tài khoản trên thiết bị này
+        Mặc định chỉ mình tôi · Có thể chọn chia sẻ khi lưu
       </Text>
     </View>
   );

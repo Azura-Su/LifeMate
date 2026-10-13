@@ -48,6 +48,9 @@ function validEntry(value: unknown, uid: string): value is MemoryEntry {
     (entry.photoFileName === null ||
       (typeof entry.photoFileName === 'string' &&
         PHOTO.test(entry.photoFileName))) &&
+    (entry.visibility === undefined ||
+      entry.visibility === 'private' ||
+      entry.visibility === 'friends') &&
     (!!entry.text.trim() || !!entry.photoFileName) &&
     typeof entry.createdAt === 'number' &&
     Number.isFinite(entry.createdAt) &&
@@ -99,6 +102,8 @@ function validateDraft(draft: MemoryDraft) {
     throw new Error('Nội dung tối đa 2.000 ký tự.');
   if (draft.photoChange === 'replace' && !draft.photoUri)
     throw new Error('Chưa chọn ảnh cho khoảnh khắc.');
+  if (draft.visibility !== 'private' && draft.visibility !== 'friends')
+    throw new Error('Quyền xem ký ức không hợp lệ.');
 }
 
 function extension(uri: string, mimeType: string | null | undefined) {
@@ -168,6 +173,7 @@ export function createMemory(uid: string, draft: MemoryDraft) {
       dateKey: draft.dateKey,
       text: draft.text.trim(),
       photoFileName,
+      visibility: 'private',
       createdAt: now,
       updatedAt: now,
     };
@@ -242,5 +248,21 @@ export function deleteMemory(uid: string, id: string) {
       JSON.stringify(entries.filter((entry) => entry.id !== id)),
     );
     await removePhoto(uid, target.photoFileName).catch(() => undefined);
+  });
+}
+
+export function setMemoryVisibility(
+  uid: string,
+  id: string,
+  visibility: 'private' | 'friends',
+) {
+  requireUid(uid);
+  if (!ID.test(id)) return Promise.reject(new Error('Ký ức không hợp lệ.'));
+  return enqueue(uid, async () => {
+    const entries = await read(uid);
+    const index = entries.findIndex((entry) => entry.id === id);
+    if (index < 0) throw new Error('Không tìm thấy ký ức.');
+    entries[index] = { ...entries[index], visibility };
+    await setEncryptedItem(uid, key(uid), JSON.stringify(entries));
   });
 }

@@ -3,7 +3,7 @@ import DateTimePicker, {
   DateTimePickerAndroid,
 } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Image,
   Keyboard,
@@ -28,6 +28,7 @@ type Props = {
   visible: boolean;
   uid: string;
   entry: MemoryEntry | null;
+  initialVisibility: 'private' | 'friends';
   initialPhoto?: CapturedMemoryPhoto | null;
   busy: boolean;
   onClose: () => void;
@@ -43,6 +44,7 @@ export function MemoryEditor({
   visible,
   uid,
   entry,
+  initialVisibility,
   initialPhoto,
   busy,
   onClose,
@@ -50,6 +52,9 @@ export function MemoryEditor({
 }: Props) {
   const [dateKey, setDateKey] = useState(() => toDateKey(new Date()));
   const [text, setText] = useState('');
+  const [visibility, setVisibility] = useState<'private' | 'friends'>(
+    'private',
+  );
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [photoMimeType, setPhotoMimeType] = useState<string | null>(null);
   const [photoChange, setPhotoChange] =
@@ -57,11 +62,19 @@ export function MemoryEditor({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const initializedFor = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      initializedFor.current = null;
+      return;
+    }
+    const key = `${uid}:${entry?.id ?? 'new'}:${initialPhoto?.uri ?? ''}`;
+    if (initializedFor.current === key) return;
+    initializedFor.current = key;
     setDateKey(entry?.dateKey ?? toDateKey(new Date()));
     setText(entry?.text ?? '');
+    setVisibility(initialVisibility);
     setPhotoUri(
       entry
         ? memoryPhotoUri(uid, entry.photoFileName)
@@ -71,7 +84,7 @@ export function MemoryEditor({
     setPhotoChange(entry ? 'keep' : initialPhoto ? 'replace' : 'keep');
     setPickerOpen(false);
     setError(null);
-  }, [visible, entry, initialPhoto, uid]);
+  }, [visible, entry, initialPhoto, initialVisibility, uid]);
 
   const selectedDate = parseDateKey(dateKey) ?? new Date();
 
@@ -135,7 +148,14 @@ export function MemoryEditor({
     }
     setError(null);
     try {
-      await onSave({ dateKey, text, photoUri, photoMimeType, photoChange });
+      await onSave({
+        dateKey,
+        text,
+        photoUri,
+        photoMimeType,
+        photoChange,
+        visibility,
+      });
       onClose();
     } catch (cause) {
       setError((cause as Error).message || 'Chưa lưu được ký ức.');
@@ -276,6 +296,31 @@ export function MemoryEditor({
             textAlignVertical="top"
             style={styles.textInput}
           />
+          <Text style={styles.fieldLabel}>Ai có thể xem?</Text>
+          <View style={styles.visibilityChoices}>
+            {(
+              [
+                ['private', 'lock', 'Chỉ mình tôi'],
+                ['friends', 'users', 'Bạn bè'],
+              ] as const
+            ).map(([value, icon, label]) => (
+              <Pressable
+                key={value}
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                accessibilityState={{ selected: visibility === value }}
+                disabled={busy || picking}
+                onPress={() => setVisibility(value)}
+                style={[
+                  styles.visibilityChoice,
+                  visibility === value && styles.visibilityChoiceSelected,
+                ]}
+              >
+                <Feather name={icon} size={16} color={colors.earth} />
+                <Text style={styles.visibilityChoiceText}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
           {!!error && (
             <Text accessibilityRole="alert" style={styles.errorText}>
               {error}
@@ -288,7 +333,9 @@ export function MemoryEditor({
             disabled={picking}
           />
           <Text style={styles.editorFootnote}>
-            Lưu riêng theo tài khoản trên thiết bị này.
+            {visibility === 'private'
+              ? 'Chỉ lưu trên thiết bị này. Bạn bè sẽ không thấy.'
+              : 'Ảnh và nội dung sẽ hiển thị cho mọi bạn bè hiện tại và kết bạn sau này.'}
           </Text>
         </ScrollView>
       )}

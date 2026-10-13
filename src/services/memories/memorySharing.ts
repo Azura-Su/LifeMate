@@ -1,0 +1,386 @@
+import { getAuth, getIdToken } from '@react-native-firebase/auth';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system/legacy';
+import { audioCloudApiKey, audioCloudUrl } from '../../config/audioCloud';
+import { useAuthStore } from '../../store/authStore';
+import type { MemoryEntry } from '../../types/memory';
+import { memoryPhotoUri } from './memoryStorage';
+
+const MAX_SHARED_PHOTO_BYTES = 2 * 1024 * 1024;
+const ID = /^[A-Za-z0-9_-]{1,128}$/;
+class MemoryShareNotStartedError extends Error {}
+
+export type MemoryFriend = { uid: string; email: string; name: string };
+export type MemoryPendingInvite = { email: string };
+export type MemoryShareState = {
+  email: string;
+  friends: MemoryFriend[];
+  incoming: MemoryFriend[];
+  outgoing: MemoryPendingInvite[];
+  sharedIds: string[];
+};
+export type FriendMemory = {
+  id: string;
+  ownerId: string;
+  ownerName: string;
+  dateKey: string;
+  text: string;
+  photoUrl: string | null;
+};
+
+function assertSession(uid: string) {
+  if (!ID.test(uid) || useAuthStore.getState().user?.uid !== uid)
+    throw new Error('Phiên tài khoản đã thay đổi. Hãy mở lại Ký ức.');
+  const user = getAuth().currentUser;
+  if (!user || user.uid !== uid)
+    throw new Error('Hãy đăng nhập lại để chia sẻ ký ức.');
+  return user;
+}
+
+function serviceError(status: number, code?: string) {
+  if (code === 'invite-not-found')
+    return new Error('Lời mời này không còn hiệu lực.');
+  if (status === 404)
+    return new MemoryShareNotStartedError('Máy chủ chưa bật tính năng chia sẻ ký ức.');
+  if (status === 401 || status === 403)
+    return new MemoryShareNotStartedError('Phiên đăng nhập chưa hợp lệ. Hãy đăng nhập lại.');
+  if (code === 'self-invite') return new Error('Đây là email của chính bạn.');
+  if (code === 'invalid-email')
+    return new Error('Hãy nhập email tài khoản LifeMate hợp lệ.');
+  if (status === 429)
+    return new MemoryShareNotStartedError('Đã đến giới hạn lời mời hoặc ký ức chia sẻ.');
+  if (code === 'photo-not-ready')
+    return new Error('Ảnh chưa tải lên xong. Hãy thử chia sẻ lại.');
+  if (status === 409)
+    return new Error('Ký ức này đã được chia sẻ. Hãy tải lại danh sách.');
+  return new Error('Chưa kết nối được phần chia sẻ. Hãy thử lại sau.');
+}
+
+export function memoryPublishDefinitelyNotStarted(cause: unknown) {
+  return cause instanceof MemoryShareNotStartedError;
+}
+
+async function requestMemoryAction(
+  uid: string,
+  displayName: string,
+  input: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const user = assertSession(uid);
+  const origin = audioCloudUrl();
+  const apiKey = audioCloudApiKey();
+  if (!origin || !apiKey)
+    throw new MemoryShareNotStartedError(
+      'Chia sẻ ký ức chưa được kết nối. Ký ức riêng vẫn dùng được.',
+    );
+  const token = await getIdToken(user);
+  assertSession(uid);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
+  try {
+    const response = await fetch(`${origin}/functions/v1/memory-access`, {
+      method: 'POST',
+      redirect: 'error',
+      signal: controller.signal,
+      headers: {
+        apikey: apiKey,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...input,
+        displayName: displayName.trim().slice(0, 60) || 'Người dùng',
+      }),
+    });
+    const value: unknown = await response.json().catch(() => ({}));
+    assertSession(uid);
+    const data =
+      value && typeof value === 'object' && !Array.isArray(value)
+        ? (value as Record<string, unknown>)
+        : {};
+    if (!response.ok)
+      throw serviceError(
+        response.status,
+        typeof data.code === 'string' ? data.code : undefined,
+      );
+    return data;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError')
+      throw new Error('Kết nối chia sẻ quá lâu. Hãy thử lại.');
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+    controller.abort();
+  }
+}
+
+function person(value: unknown): MemoryFriend | null {
+  if (!value || typeof value !== 'object') return null;
+  const row = value as Partial<MemoryFriend>;
+  return typeof row.uid === 'string' &&
+    ID.test(row.uid) &&
+    typeof row.email === 'string' &&
+    row.email.length <= 254 &&
+    typeof row.name === 'string' &&
+    row.name.length <= 60
+    ? { uid: row.uid, email: row.email, name: row.name }
+    : null;
+}
+
+export async function getMemoryShareState(
+  uid: string,
+  displayName: string,
+): Promise<MemoryShareState> {
+  const data = await requestMemoryAction(uid, displayName, { action: 'state' });
+  const people = (key: 'friends' | 'incoming' | 'outgoing') =>
+    Array.isArray(data[key])
+      ? data[key].map(person).filter((item): item is MemoryFriend => !!item)
+      : [];
+  if (typeof data.email !== 'string' || !Array.isArray(data.sharedIds))
+    throw new Error('Chưa đọc được danh sách chia sẻ.');
+  return {
+    email: data.email,
+    friends: people('friends'),
+    incoming: people('incoming'),
+    outgoing: Array.isArray(data.outgoing)
+      ? data.outgoing.flatMap((value): MemoryPendingInvite[] =>
+          value &&
+          typeof value === 'object' &&
+          typeof (value as { email?: unknown }).email === 'string' &&
+          (value as { email: string }).email.length <= 254
+            ? [{ email: (value as { email: string }).email }]
+            : [],
+        )
+      : [],
+    sharedIds: data.sharedIds.filter(
+      (id): id is string => typeof id === 'string' && ID.test(id),
+    ),
+  };
+}
+
+export async function sendMemoryFriendInvite(
+  uid: string,
+  name: string,
+  email: string,
+) {
+  const result = await requestMemoryAction(uid, name, {
+    action: 'invite',
+    email: email.trim().toLowerCase(),
+  });
+  if (result.sent !== true) throw new Error('Chưa gửi được lời mời.');
+}
+
+export async function changeMemoryFriend(
+  uid: string,
+  name: string,
+  action: 'accept' | 'decline' | 'remove-friend',
+  friendUid: string,
+) {
+  if (!ID.test(friendUid)) throw new Error('Bạn bè không hợp lệ.');
+  const result = await requestMemoryAction(uid, name, {
+    action,
+    uid: friendUid,
+  });
+  if (result.done !== true && result.accepted !== true)
+    throw new Error('Chưa cập nhật được lời mời.');
+}
+
+export async function cancelMemoryFriendInvite(
+  uid: string,
+  name: string,
+  email: string,
+) {
+  const result = await requestMemoryAction(uid, name, {
+    action: 'cancel',
+    email,
+  });
+  if (result.done !== true) throw new Error('Chưa hủy được lời mời.');
+}
+
+function signedImageUrl(
+  value: unknown,
+  ownerId: string,
+  id: string,
+): string | null {
+  if (value === null) return null;
+  if (typeof value !== 'string')
+    throw new Error('Địa chỉ ảnh chia sẻ không hợp lệ.');
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error('Địa chỉ ảnh chia sẻ không hợp lệ.');
+  }
+  if (
+    url.origin !== audioCloudUrl() ||
+    url.pathname !==
+      `/storage/v1/object/sign/lifemate-memories/shared/${ownerId}/${id}/photo.jpg` ||
+    !url.searchParams.get('token') ||
+    url.username ||
+    url.password ||
+    url.hash
+  )
+    throw new Error('Địa chỉ ảnh chia sẻ không hợp lệ.');
+  return url.toString();
+}
+
+export async function getFriendMemories(
+  uid: string,
+  name: string,
+): Promise<FriendMemory[]> {
+  const data = await requestMemoryAction(uid, name, { action: 'feed' });
+  if (!Array.isArray(data.items))
+    throw new Error('Chưa đọc được ký ức của bạn bè.');
+  return data.items.flatMap((value) => {
+    if (!value || typeof value !== 'object') return [];
+    const row = value as Record<string, unknown>;
+    if (
+      typeof row.id !== 'string' ||
+      !ID.test(row.id) ||
+      typeof row.ownerId !== 'string' ||
+      !ID.test(row.ownerId) ||
+      typeof row.ownerName !== 'string' ||
+      row.ownerName.length > 60 ||
+      typeof row.dateKey !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(row.dateKey) ||
+      typeof row.text !== 'string' ||
+      row.text.length > 2000
+    )
+      return [];
+    return [
+      {
+        id: row.id,
+        ownerId: row.ownerId,
+        ownerName: row.ownerName,
+        dateKey: row.dateKey,
+        text: row.text,
+        photoUrl: signedImageUrl(row.photoUrl, row.ownerId, row.id),
+      },
+    ];
+  });
+}
+
+async function resizeForSharing(uri: string) {
+  for (const [width, quality] of [
+    [1024, 0.72],
+    [760, 0.52],
+  ] as const) {
+    const context = ImageManipulator.manipulate(uri);
+    let image: Awaited<ReturnType<typeof context.renderAsync>> | null = null;
+    try {
+      context.resize({ width });
+      image = await context.renderAsync();
+      const saved = await image.saveAsync({
+        format: SaveFormat.JPEG,
+        compress: quality,
+      });
+      const info = await FileSystem.getInfoAsync(saved.uri);
+      if (
+        info.exists &&
+        !info.isDirectory &&
+        info.size &&
+        info.size <= MAX_SHARED_PHOTO_BYTES
+      )
+        return { uri: saved.uri, sizeBytes: info.size };
+      await FileSystem.deleteAsync(saved.uri, { idempotent: true }).catch(
+        () => undefined,
+      );
+    } finally {
+      image?.release();
+      context.release();
+    }
+  }
+  throw new Error('Ảnh quá lớn để chia sẻ. Hãy chọn ảnh khác.');
+}
+
+export async function publishMemory(
+  uid: string,
+  name: string,
+  entry: MemoryEntry,
+) {
+  assertSession(uid);
+  const photoUri = memoryPhotoUri(uid, entry.photoFileName);
+  const prepared = photoUri ? await resizeForSharing(photoUri) : null;
+  try {
+    const result = await requestMemoryAction(uid, name, {
+      action: 'publish',
+      id: entry.id,
+      dateKey: entry.dateKey,
+      text: entry.text,
+      hasPhoto: !!prepared,
+      ...(prepared ? { sizeBytes: prepared.sizeBytes } : {}),
+    });
+    if (!prepared) {
+      if (result.shared !== true) throw new Error('Chưa chia sẻ được ký ức.');
+      return;
+    }
+    let uploadUrl: URL;
+    try {
+      uploadUrl = new URL(String(result.uploadUrl));
+    } catch {
+      throw new Error('Địa chỉ tải ảnh lên không hợp lệ.');
+    }
+    if (
+      uploadUrl.origin !== audioCloudUrl() ||
+      uploadUrl.pathname !==
+        `/storage/v1/object/upload/sign/lifemate-memories/shared/${uid}/${entry.id}/photo.jpg` ||
+      !uploadUrl.searchParams.get('token') ||
+      uploadUrl.username ||
+      uploadUrl.password ||
+      uploadUrl.hash
+    )
+      throw new Error('Địa chỉ tải ảnh lên không hợp lệ.');
+    const task = FileSystem.createUploadTask(
+      uploadUrl.toString(),
+      prepared.uri,
+      {
+        httpMethod: 'PUT',
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        sessionType: FileSystem.FileSystemSessionType.FOREGROUND,
+        headers: {
+          'Content-Type': 'image/jpeg',
+          'x-upsert': 'true',
+          'Cache-Control': 'max-age=0',
+        },
+      },
+    );
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const uploaded = await Promise.race([
+      task.uploadAsync(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          void task.cancelAsync().catch(() => undefined);
+          reject(
+            new Error('Tải ảnh lên quá lâu. Bản trên máy vẫn được giữ riêng.'),
+          );
+        }, 90000);
+      }),
+    ]).finally(() => {
+      if (timer) clearTimeout(timer);
+    });
+    assertSession(uid);
+    if (!uploaded || uploaded.status < 200 || uploaded.status >= 300)
+      throw new Error(
+        'Ảnh chưa tải lên được. Bản trên máy vẫn được giữ riêng.',
+      );
+    const confirmed = await requestMemoryAction(uid, name, {
+      action: 'confirm',
+      id: entry.id,
+    });
+    if (confirmed.shared !== true)
+      throw new Error('Chưa xác nhận được ảnh đã chia sẻ.');
+  } finally {
+    if (prepared)
+      await FileSystem.deleteAsync(prepared.uri, { idempotent: true }).catch(
+        () => undefined,
+      );
+  }
+}
+
+export async function unshareMemory(uid: string, name: string, id: string) {
+  const result = await requestMemoryAction(uid, name, {
+    action: 'unshare',
+    id,
+  });
+  if (result.shared !== false)
+    throw new Error('Chưa khóa được ký ức cho riêng bạn.');
+}
