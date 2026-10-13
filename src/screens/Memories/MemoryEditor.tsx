@@ -21,12 +21,14 @@ import { memoryPhotoUri } from '../../services/memories/memoryStorage';
 import { colors } from '../../theme';
 import type { MemoryDraft, MemoryEntry } from '../../types/memory';
 import { parseDateKey, toDateKey } from '../../utils/vietnameseCalendar';
+import type { CapturedMemoryPhoto } from './MemoryCapture';
 import { styles } from './MemoryScreen.styles';
 
 type Props = {
   visible: boolean;
   uid: string;
   entry: MemoryEntry | null;
+  initialPhoto?: CapturedMemoryPhoto | null;
   busy: boolean;
   onClose: () => void;
   onSave: (draft: MemoryDraft) => Promise<void>;
@@ -41,6 +43,7 @@ export function MemoryEditor({
   visible,
   uid,
   entry,
+  initialPhoto,
   busy,
   onClose,
   onSave,
@@ -59,12 +62,16 @@ export function MemoryEditor({
     if (!visible) return;
     setDateKey(entry?.dateKey ?? toDateKey(new Date()));
     setText(entry?.text ?? '');
-    setPhotoUri(entry ? memoryPhotoUri(uid, entry.photoFileName) : null);
-    setPhotoMimeType(null);
-    setPhotoChange('keep');
+    setPhotoUri(
+      entry
+        ? memoryPhotoUri(uid, entry.photoFileName)
+        : (initialPhoto?.uri ?? null),
+    );
+    setPhotoMimeType(entry ? null : (initialPhoto?.mimeType ?? null));
+    setPhotoChange(entry ? 'keep' : initialPhoto ? 'replace' : 'keep');
     setPickerOpen(false);
     setError(null);
-  }, [visible, entry, uid]);
+  }, [visible, entry, initialPhoto, uid]);
 
   const selectedDate = parseDateKey(dateKey) ?? new Date();
 

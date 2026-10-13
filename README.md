@@ -10,9 +10,9 @@ Tab Ghi chú lưu tiêu đề/nội dung theo tài khoản, cho sửa, xóa và 
 
 **Danh sách chuẩn bị** mở từ menu bên Home. Tạo checklist trống hoặc từ mẫu Mua sắm, Đi du lịch, Về quê; thêm tên món/việc và số lượng tùy chọn, đánh dấu hoàn tất, sửa/xóa mục và dùng lại danh sách bằng một bản mới. Nội dung được lưu mã hóa cục bộ theo tài khoản nên dùng được offline; module này chưa đồng bộ cloud hay sang thiết bị khác. Xem [đặc tả](SPEC-checklists.md) và [kế hoạch triển khai](tasks/checklists-plan-2026-10-11.md).
 
-Tab **Ký ức** ghi lại ảnh chụp hoặc ảnh trong thư viện, nội dung và ngày của từng khoảnh khắc; hiển thị theo tháng, cho sửa và xóa. Mỗi mục cần có ảnh hoặc nội dung. Dữ liệu riêng theo tài khoản: metadata được mã hóa trong kho cục bộ, ảnh nằm trong thư mục tài liệu của app. Hiện chưa sao lưu ảnh hay ký ức lên cloud; gỡ app hoặc đổi thiết bị sẽ không khôi phục được mục này. Camera chỉ xin quyền khi chọn chụp. Xem [kế hoạch triển khai](tasks/memory-timeline-plan-2026-10-13.md).
+Tab **Ký ức** mở ở màn chụp ảnh vuông: chụp nhanh, đổi camera trước/sau, hoặc chọn ảnh từ thư viện rồi thêm nội dung và ngày. Nút **Xem ký ức** mở dòng ảnh theo tháng, cho sửa và xóa; vẫn có thể lưu một mục chỉ có chữ. Dữ liệu riêng theo tài khoản: metadata được mã hóa trong kho cục bộ, ảnh nằm trong thư mục tài liệu của app. Hiện chưa sao lưu ảnh hay ký ức lên cloud; gỡ app hoặc đổi thiết bị sẽ không khôi phục được mục này. Camera chỉ xin quyền khi người dùng bấm **Bật máy ảnh**. Xem [kế hoạch triển khai](tasks/memory-timeline-plan-2026-10-13.md).
 
-Sau khi cập nhật app có quyền camera mới, cần build và cài lại development build iOS/Android; chỉ tải lại JavaScript sẽ không cập nhật quyền native của bản cũ.
+Sau khi thêm `expo-camera` hoặc cập nhật quyền camera, cần build và cài lại development build iOS/Android; chỉ tải lại JavaScript sẽ không cập nhật module hay quyền native của bản cũ.
 
 ## Chạy ứng dụng
 

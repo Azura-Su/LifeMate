@@ -82,6 +82,14 @@
       ],
       "expo-font",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "LifeMate dùng máy ảnh khi bạn chọn chụp khoảnh khắc cho Dòng ký ức.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": false
+        }
+      ],
+      [
         "@react-native-firebase/analytics",
         {
           "ios": {

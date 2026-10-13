@@ -1,4 +1,5 @@
 import Feather from '@expo/vector-icons/Feather';
+import { useIsFocused } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -22,6 +23,7 @@ import { colors } from '../../theme';
 import type { MemoryDraft, MemoryEntry } from '../../types/memory';
 import { parseDateKey } from '../../utils/vietnameseCalendar';
 import { MemoryEditor } from './MemoryEditor';
+import { MemoryCapture, type CapturedMemoryPhoto } from './MemoryCapture';
 import { styles } from './MemoryScreen.styles';
 
 function monthLabel(monthKey: string) {
@@ -41,6 +43,8 @@ function dayLabel(dateKey: string) {
 
 export function MemoryScreen() {
   const uid = useAuthStore((state) => state.user?.uid);
+  const isFocused = useIsFocused();
+  const [viewMode, setViewMode] = useState<'capture' | 'timeline'>('capture');
   const [items, setItems] = useState<MemoryEntry[]>([]);
   const [loadedUid, setLoadedUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,6 +53,9 @@ export function MemoryScreen() {
   const [error, setError] = useState<string | null>(null);
   const [editorVisible, setEditorVisible] = useState(false);
   const [editing, setEditing] = useState<MemoryEntry | null>(null);
+  const [initialPhoto, setInitialPhoto] = useState<CapturedMemoryPhoto | null>(
+    null,
+  );
   const operationInFlight = useRef(false);
   const loadGeneration = useRef(0);
 
@@ -78,10 +85,15 @@ export function MemoryScreen() {
   }, []);
 
   useEffect(() => {
+    if (isFocused) setViewMode('capture');
+  }, [isFocused]);
+
+  useEffect(() => {
     setItems([]);
     setLoadedUid(null);
     setEditorVisible(false);
     setEditing(null);
+    setInitialPhoto(null);
     if (uid) void load(uid);
     else setLoading(false);
     return () => {
@@ -93,6 +105,7 @@ export function MemoryScreen() {
     () => (loadedUid === uid ? items : []),
     [items, loadedUid, uid],
   );
+  const latestPhoto = accountItems.find((item) => item.photoFileName);
   const groups = useMemo(() => {
     const result: { month: string; entries: MemoryEntry[] }[] = [];
     for (const item of accountItems) {
@@ -103,6 +116,12 @@ export function MemoryScreen() {
     }
     return result;
   }, [accountItems]);
+
+  function openEditor(photo: CapturedMemoryPhoto | null = null) {
+    setEditing(null);
+    setInitialPhoto(photo);
+    setEditorVisible(true);
+  }
 
   async function save(draft: MemoryDraft) {
     if (!uid || operationInFlight.current) return;
@@ -161,54 +180,46 @@ export function MemoryScreen() {
                 Dòng ký ức
               </Text>
               <Text style={styles.headerSubtitle}>
-                Giữ lại những ngày đáng nhớ
+                {viewMode === 'capture'
+                  ? 'Chụp và giữ cho riêng mình'
+                  : 'Những ngày đáng nhớ'}
               </Text>
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Thêm khoảnh khắc"
+              accessibilityLabel={
+                viewMode === 'capture' ? 'Xem dòng ký ức' : 'Mở máy ảnh'
+              }
               accessibilityState={{
-                disabled: !uid || loading || busy || loadedUid !== uid,
+                disabled: !uid || busy,
               }}
-              disabled={!uid || loading || busy || loadedUid !== uid}
-              onPress={() => {
-                setEditing(null);
-                setEditorVisible(true);
-              }}
+              disabled={!uid || busy}
+              onPress={() =>
+                setViewMode(viewMode === 'capture' ? 'timeline' : 'capture')
+              }
               style={styles.headerAdd}
             >
-              <Feather name="plus" size={22} color={colors.earth} />
+              <Feather
+                name={viewMode === 'capture' ? 'grid' : 'camera'}
+                size={20}
+                color={colors.earth}
+              />
             </Pressable>
           </View>
         }
-        contentStyle={styles.content}
+        contentStyle={
+          viewMode === 'capture' ? styles.captureContent : styles.content
+        }
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => uid && void load(uid, true)}
-            tintColor={colors.earth}
-          />
+          viewMode === 'timeline' ? (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => uid && void load(uid, true)}
+              tintColor={colors.earth}
+            />
+          ) : undefined
         }
       >
-        <View style={styles.introCard}>
-          <View style={styles.introIcon}>
-            <Feather name="camera" size={24} color={colors.earth} />
-          </View>
-          <View style={styles.introText}>
-            <Text style={styles.introCount}>
-              {accountItems.length} khoảnh khắc
-            </Text>
-            <Text style={styles.introDescription}>
-              Một bức ảnh, vài dòng chữ, cả một ngày để nhớ.
-            </Text>
-          </View>
-        </View>
-        <View style={styles.localNotice}>
-          <Feather name="smartphone" size={14} color={colors.success} />
-          <Text style={styles.localNoticeText}>
-            Lưu riêng trên thiết bị này
-          </Text>
-        </View>
         {!!error && (
           <View style={styles.errorBox}>
             <Text accessibilityRole="alert" style={styles.errorText}>
@@ -225,112 +236,138 @@ export function MemoryScreen() {
             )}
           </View>
         )}
-        {loading && !accountItems.length ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator color={colors.earth} />
-            <Text style={styles.mutedText}>Đang mở dòng ký ức…</Text>
-          </View>
-        ) : !accountItems.length && loadedUid === uid ? (
-          <View style={styles.emptyCard}>
-            <View style={styles.emptyIcon}>
-              <Feather name="image" size={28} color={colors.sky} />
-            </View>
-            <Text style={styles.emptyTitle}>Bắt đầu từ hôm nay</Text>
-            <Text style={styles.emptyDescription}>
-              Chụp một khoảnh khắc hoặc viết lại điều bạn muốn giữ.
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Ghi khoảnh khắc đầu tiên"
-              disabled={busy}
-              onPress={() => {
-                setEditing(null);
-                setEditorVisible(true);
-              }}
-              style={styles.emptyAction}
-            >
-              <Feather name="plus" size={16} color={colors.earth} />
-              <Text style={styles.emptyActionText}>
-                Ghi khoảnh khắc đầu tiên
-              </Text>
-            </Pressable>
-          </View>
+        {viewMode === 'capture' ? (
+          <MemoryCapture
+            active={isFocused && !editorVisible}
+            latestPhotoUri={
+              latestPhoto
+                ? memoryPhotoUri(latestPhoto.ownerId, latestPhoto.photoFileName)
+                : null
+            }
+            onPhoto={(photo) => openEditor(photo)}
+            onWriteOnly={() => openEditor()}
+            onShowTimeline={() => setViewMode('timeline')}
+            memoryCount={accountItems.length}
+          />
         ) : (
-          groups.map((group) => (
-            <View key={group.month} style={styles.monthGroup}>
-              <View style={styles.monthHeader}>
-                <View style={styles.monthDot} />
-                <Text style={styles.monthTitle}>{monthLabel(group.month)}</Text>
-                <Text style={styles.monthCount}>{group.entries.length}</Text>
+          <>
+            <View style={styles.timelineIntro}>
+              <Text style={styles.timelineCount}>
+                {accountItems.length} khoảnh khắc
+              </Text>
+              <Text style={styles.timelineHint}>
+                Lưu riêng trên thiết bị này
+              </Text>
+            </View>
+            {loading && !accountItems.length ? (
+              <View style={styles.loadingBox}>
+                <ActivityIndicator color={colors.earth} />
+                <Text style={styles.mutedText}>Đang mở dòng ký ức…</Text>
               </View>
-              {group.entries.map((item) => {
-                const photoUri = memoryPhotoUri(
-                  item.ownerId,
-                  item.photoFileName,
-                );
-                return (
-                  <View key={item.id} style={styles.entryCard}>
-                    {photoUri && (
-                      <Image
-                        source={{ uri: photoUri }}
-                        style={styles.entryPhoto}
-                        resizeMode="cover"
-                        accessibilityLabel={`Ảnh ký ức ngày ${dayLabel(item.dateKey)}`}
-                      />
-                    )}
-                    <View style={styles.entryBody}>
-                      <View style={styles.entryTopRow}>
-                        <View style={styles.dateChip}>
-                          <Feather
-                            name="calendar"
-                            size={13}
-                            color={colors.earth}
+            ) : !accountItems.length && loadedUid === uid ? (
+              <View style={styles.emptyCard}>
+                <View style={styles.emptyIcon}>
+                  <Feather name="image" size={28} color={colors.sky} />
+                </View>
+                <Text style={styles.emptyTitle}>Bắt đầu từ hôm nay</Text>
+                <Text style={styles.emptyDescription}>
+                  Chụp một khoảnh khắc hoặc viết lại điều bạn muốn giữ.
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Chụp khoảnh khắc đầu tiên"
+                  disabled={busy}
+                  onPress={() => setViewMode('capture')}
+                  style={styles.emptyAction}
+                >
+                  <Feather name="plus" size={16} color={colors.earth} />
+                  <Text style={styles.emptyActionText}>
+                    Chụp khoảnh khắc đầu tiên
+                  </Text>
+                </Pressable>
+              </View>
+            ) : (
+              groups.map((group) => (
+                <View key={group.month} style={styles.monthGroup}>
+                  <View style={styles.monthHeader}>
+                    <View style={styles.monthDot} />
+                    <Text style={styles.monthTitle}>
+                      {monthLabel(group.month)}
+                    </Text>
+                    <Text style={styles.monthCount}>
+                      {group.entries.length}
+                    </Text>
+                  </View>
+                  {group.entries.map((item) => {
+                    const photoUri = memoryPhotoUri(
+                      item.ownerId,
+                      item.photoFileName,
+                    );
+                    return (
+                      <View key={item.id} style={styles.entryCard}>
+                        {photoUri && (
+                          <Image
+                            source={{ uri: photoUri }}
+                            style={styles.entryPhoto}
+                            resizeMode="cover"
+                            accessibilityLabel={`Ảnh ký ức ngày ${dayLabel(item.dateKey)}`}
                           />
-                          <Text style={styles.dateChipText}>
-                            {dayLabel(item.dateKey)}
-                          </Text>
-                        </View>
-                        <View style={styles.entryActions}>
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={`Sửa ký ức ngày ${dayLabel(item.dateKey)}`}
-                            disabled={busy}
-                            onPress={() => {
-                              setEditing(item);
-                              setEditorVisible(true);
-                            }}
-                            style={styles.entryAction}
-                          >
-                            <Feather
-                              name="edit-2"
-                              size={16}
-                              color={colors.earth}
-                            />
-                          </Pressable>
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={`Xóa ký ức ngày ${dayLabel(item.dateKey)}`}
-                            disabled={busy}
-                            onPress={() => confirmDelete(item)}
-                            style={styles.entryAction}
-                          >
-                            <Feather
-                              name="trash-2"
-                              size={16}
-                              color={colors.danger}
-                            />
-                          </Pressable>
+                        )}
+                        <View style={styles.entryBody}>
+                          <View style={styles.entryTopRow}>
+                            <View style={styles.dateChip}>
+                              <Feather
+                                name="calendar"
+                                size={13}
+                                color={colors.earth}
+                              />
+                              <Text style={styles.dateChipText}>
+                                {dayLabel(item.dateKey)}
+                              </Text>
+                            </View>
+                            <View style={styles.entryActions}>
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={`Sửa ký ức ngày ${dayLabel(item.dateKey)}`}
+                                disabled={busy}
+                                onPress={() => {
+                                  setEditing(item);
+                                  setEditorVisible(true);
+                                }}
+                                style={styles.entryAction}
+                              >
+                                <Feather
+                                  name="edit-2"
+                                  size={16}
+                                  color={colors.earth}
+                                />
+                              </Pressable>
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={`Xóa ký ức ngày ${dayLabel(item.dateKey)}`}
+                                disabled={busy}
+                                onPress={() => confirmDelete(item)}
+                                style={styles.entryAction}
+                              >
+                                <Feather
+                                  name="trash-2"
+                                  size={16}
+                                  color={colors.danger}
+                                />
+                              </Pressable>
+                            </View>
+                          </View>
+                          {!!item.text && (
+                            <Text style={styles.entryText}>{item.text}</Text>
+                          )}
                         </View>
                       </View>
-                      {!!item.text && (
-                        <Text style={styles.entryText}>{item.text}</Text>
-                      )}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          ))
+                    );
+                  })}
+                </View>
+              ))
+            )}
+          </>
         )}
       </Screen>
       {uid && (
@@ -338,8 +375,12 @@ export function MemoryScreen() {
           visible={editorVisible}
           uid={uid}
           entry={editing}
+          initialPhoto={initialPhoto}
           busy={busy}
-          onClose={() => setEditorVisible(false)}
+          onClose={() => {
+            setEditorVisible(false);
+            setInitialPhoto(null);
+          }}
           onSave={save}
         />
       )}

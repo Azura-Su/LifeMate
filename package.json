@@ -21,6 +21,7 @@
     "expo-audio": "~55.0.18",
     "expo-build-properties": "~55.0.18",
     "expo-calendar": "~55.0.19",
+    "expo-camera": "~55.0.23",
     "expo-clipboard": "~55.0.17",
     "expo-crypto": "~55.0.19",
     "expo-dev-client": "~55.0.40",
