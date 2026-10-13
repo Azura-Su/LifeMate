@@ -30,6 +30,7 @@ type Draft = {
 
 const EMPTY_PREFERENCES: FinancePreferences = {
   incomeCategories: [...INCOME_CATEGORIES],
+  otherIncomeCategories: [INCOME_CATEGORIES[2]],
   expenseCategories: [...EXPENSE_CATEGORIES],
   templates: [],
 };
@@ -190,12 +191,21 @@ export function useFinanceScreen() {
     }));
   }
 
-  async function addCategory(type: FinanceTransactionType, value: string) {
+  async function addCategory(
+    type: FinanceTransactionType,
+    value: string,
+    incomeSource: RegularFinanceIncomeSource = 'company',
+  ) {
     await preferencesLoad.current;
     const category = value.trim();
     if (!category || category.length > 50)
       throw new Error('Tên danh mục từ 1 đến 50 ký tự.');
-    const key = type === 'income' ? 'incomeCategories' : 'expenseCategories';
+    const key =
+      type === 'expense'
+        ? 'expenseCategories'
+        : incomeSource === 'other'
+          ? 'otherIncomeCategories'
+          : 'incomeCategories';
     const values = preferencesRef.current[key];
     if (values.length >= 30)
       throw new Error('Mỗi loại có thể có tối đa 30 danh mục.');
@@ -212,10 +222,19 @@ export function useFinanceScreen() {
     }));
   }
 
-  async function removeCategory(type: FinanceTransactionType, value: string) {
+  async function removeCategory(
+    type: FinanceTransactionType,
+    value: string,
+    incomeSource: RegularFinanceIncomeSource = 'company',
+  ) {
     const builtIn = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
     if (builtIn.some((category) => category === value)) return;
-    const key = type === 'income' ? 'incomeCategories' : 'expenseCategories';
+    const key =
+      type === 'expense'
+        ? 'expenseCategories'
+        : incomeSource === 'other'
+          ? 'otherIncomeCategories'
+          : 'incomeCategories';
     await savePreferences((current) => ({
       ...current,
       [key]: current[key].filter((item) => item !== value),

@@ -27,6 +27,7 @@ export type FinanceTransactionTemplate = {
 
 export type FinancePreferences = {
   incomeCategories: string[];
+  otherIncomeCategories: string[];
   expenseCategories: string[];
   templates: FinanceTransactionTemplate[];
 };
@@ -50,6 +51,7 @@ const SETTINGS_DOC_ID = 'preferences';
 
 const defaultPreferences = (): FinancePreferences => ({
   incomeCategories: [...INCOME_CATEGORIES],
+  otherIncomeCategories: [INCOME_CATEGORIES[2]],
   expenseCategories: [...EXPENSE_CATEGORIES],
   templates: [],
 });
@@ -134,8 +136,23 @@ function parsePreferences(value: unknown): FinancePreferences {
         )
         .slice(0, 100)
     : defaults.templates;
+  const legacyIncomeCategories = categories(
+    data.incomeCategories,
+    INCOME_CATEGORIES,
+  );
+  const hasSeparateIncomeCategories = Array.isArray(data.otherIncomeCategories);
   return {
-    incomeCategories: categories(data.incomeCategories, INCOME_CATEGORIES),
+    incomeCategories: hasSeparateIncomeCategories
+      ? legacyIncomeCategories
+      : [...INCOME_CATEGORIES],
+    otherIncomeCategories: categories(
+      hasSeparateIncomeCategories
+        ? data.otherIncomeCategories
+        : legacyIncomeCategories.filter(
+            (item) => !INCOME_CATEGORIES.some((builtIn) => builtIn === item),
+          ),
+      [INCOME_CATEGORIES[2]],
+    ),
     expenseCategories: categories(
       data.expenseCategories,
       EXPENSE_CATEGORIES,
@@ -290,6 +307,11 @@ function applyLocalChanges(
       local.incomeCategories,
       cloud.incomeCategories,
     ),
+    otherIncomeCategories: mergeCategories(
+      base.otherIncomeCategories,
+      local.otherIncomeCategories,
+      cloud.otherIncomeCategories,
+    ),
     expenseCategories: mergeCategories(
       base.expenseCategories,
       local.expenseCategories,
@@ -335,6 +357,10 @@ function mergeLegacyPreferences(
     incomeCategories: mergeCategories(
       cloud.incomeCategories,
       local.incomeCategories,
+    ),
+    otherIncomeCategories: mergeCategories(
+      cloud.otherIncomeCategories,
+      local.otherIncomeCategories,
     ),
     expenseCategories: mergeCategories(
       cloud.expenseCategories,

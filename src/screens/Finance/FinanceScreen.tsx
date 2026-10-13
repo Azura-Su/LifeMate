@@ -695,11 +695,18 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             canDeleteLinkedExpense={canDeleteLinkedExpense}
             deletingIds={deletingIds}
             customCategories={
-              model.preferences[
-                reportMode === 'income'
-                  ? 'incomeCategories'
-                  : 'expenseCategories'
-              ]
+              reportMode === 'expense'
+                ? model.preferences.expenseCategories
+                : reportIncomeSource === 'company'
+                  ? model.preferences.incomeCategories
+                  : reportIncomeSource === 'other'
+                    ? model.preferences.otherIncomeCategories
+                    : [
+                        ...new Set([
+                          ...model.preferences.incomeCategories,
+                          ...model.preferences.otherIncomeCategories,
+                        ]),
+                      ]
             }
             onAdd={(year, month, incomeSource) =>
               openAddDialog(reportMode, { year, month }, incomeSource)
@@ -873,6 +880,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
         initialIncomeSource={dialogInitialIncomeSource}
         initialDate={dialogInitialDate}
         incomeCategories={model.preferences.incomeCategories}
+        otherIncomeCategories={model.preferences.otherIncomeCategories}
         expenseCategories={model.preferences.expenseCategories}
         templates={model.preferences.templates}
         onSaveTemplate={model.addTemplate}

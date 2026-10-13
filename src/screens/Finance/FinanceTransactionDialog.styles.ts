@@ -128,8 +128,7 @@ export const styles = StyleSheet.create({
   sourceText: { fontSize: 13, fontWeight: '600', color: colors.muted },
   sourceTextSelected: { color: colors.earth },
   category: {
-    flexGrow: 1,
-    flexShrink: 1,
+    flex: 1,
     minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
@@ -140,6 +139,7 @@ export const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: colors.surface,
   },
+  categorySpacer: { flex: 1, minWidth: 0 },
   categorySelected: {
     borderColor: colors.primaryBorder,
     backgroundColor: colors.primarySoft,

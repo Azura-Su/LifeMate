@@ -616,9 +616,16 @@ service cloud.firestore {
       allow create, update: if owns(uid)
         && settingsId == 'preferences'
         && request.resource.data.keys().hasAll(['incomeCategories', 'expenseCategories', 'templates'])
-        && request.resource.data.keys().hasOnly(['incomeCategories', 'expenseCategories', 'templates'])
+        && request.resource.data.keys().hasOnly(['incomeCategories', 'otherIncomeCategories', 'expenseCategories', 'templates'])
         && request.resource.data.incomeCategories is list
         && request.resource.data.incomeCategories.size() <= 30
+        && (
+          !request.resource.data.keys().hasAny(['otherIncomeCategories'])
+          || (
+            request.resource.data.otherIncomeCategories is list
+            && request.resource.data.otherIncomeCategories.size() <= 30
+          )
+        )
         && request.resource.data.expenseCategories is list
         && request.resource.data.expenseCategories.size() <= 30
         && request.resource.data.templates is list

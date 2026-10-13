@@ -21,7 +21,8 @@ jest.mock('@react-native-firebase/firestore', () =>
 );
 
 const preferences: FinancePreferences = {
-  incomeCategories: [...INCOME_CATEGORIES, 'Làm thêm'],
+  incomeCategories: [...INCOME_CATEGORIES],
+  otherIncomeCategories: [INCOME_CATEGORIES[2], 'Làm thêm'],
   expenseCategories: [...EXPENSE_CATEGORIES, 'Thú cưng'],
   templates: [
     {
@@ -149,7 +150,7 @@ it('replays offline additions over settings changed on another device', async ()
   const result = await readFinancePreferences('u1');
 
   expect(result.synced).toBe(true);
-  expect(result.preferences.incomeCategories).toContain('Đầu tư');
+  expect(result.preferences.otherIncomeCategories).toContain('Đầu tư');
   expect(result.preferences.expenseCategories).toContain('Thú cưng');
   expect(result.preferences.templates).toEqual(
     expect.arrayContaining([
@@ -181,8 +182,8 @@ it('merges old device settings with settings already stored in the cloud', async
   const result = await readFinancePreferences('u1');
 
   expect(result.synced).toBe(true);
-  expect(result.preferences.incomeCategories).toContain('Đầu tư');
-  expect(result.preferences.incomeCategories).toContain('Làm thêm');
+  expect(result.preferences.otherIncomeCategories).toContain('Đầu tư');
+  expect(result.preferences.otherIncomeCategories).toContain('Làm thêm');
   expect(result.preferences.expenseCategories).toContain('Thú cưng');
   expect(result.preferences.templates).toContainEqual(
     expect.objectContaining({ id: 'pet-food' }),

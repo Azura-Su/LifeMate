@@ -50,6 +50,7 @@ type Props = {
   initialDate?: string;
   initialTransaction?: FinanceTransaction | null;
   incomeCategories?: string[];
+  otherIncomeCategories?: string[];
   expenseCategories?: string[];
   templates?: FinanceTransactionTemplate[];
   busy?: boolean;
@@ -58,10 +59,15 @@ type Props = {
   onSaveTemplate?: (
     template: Omit<FinanceTransactionTemplate, 'id'>,
   ) => Promise<void>;
-  onAddCategory?: (type: FinanceTransactionType, name: string) => Promise<void>;
+  onAddCategory?: (
+    type: FinanceTransactionType,
+    name: string,
+    incomeSource: RegularFinanceIncomeSource,
+  ) => Promise<void>;
   onRemoveCategory?: (
     type: FinanceTransactionType,
     name: string,
+    incomeSource: RegularFinanceIncomeSource,
   ) => Promise<void>;
   onRemoveTemplate?: (id: string) => Promise<void>;
 };
@@ -84,6 +90,7 @@ export function FinanceTransactionDialog({
   initialDate = formatFinanceDate(),
   initialTransaction = null,
   incomeCategories = [...INCOME_CATEGORIES],
+  otherIncomeCategories = [INCOME_CATEGORIES[2]],
   expenseCategories = [...EXPENSE_CATEGORIES],
   templates = [],
   busy = false,
@@ -100,7 +107,11 @@ export function FinanceTransactionDialog({
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<string>(
     initialTransaction?.category ??
-      (initialType === 'income' ? INCOME_CATEGORIES[0] : EXPENSE_CATEGORIES[0]),
+      (initialType === 'income'
+        ? initialIncomeSource === 'other'
+          ? INCOME_CATEGORIES[2]
+          : INCOME_CATEGORIES[0]
+        : EXPENSE_CATEGORIES[0]),
   );
   const [incomeSource, setIncomeSource] = useState<RegularFinanceIncomeSource>(
     initialTransaction?.incomeSource === 'other'
@@ -117,14 +128,23 @@ export function FinanceTransactionDialog({
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [preferenceBusy, setPreferenceBusy] = useState(false);
   const [preferenceAction, setPreferenceAction] = useState<string | null>(null);
+  const sourceCategories =
+    type === 'expense'
+      ? expenseCategories
+      : incomeSource === 'other'
+        ? otherIncomeCategories
+        : incomeCategories;
+  const editingOriginalSource =
+    initialTransaction?.type === type &&
+    (type === 'expense' ||
+      (initialTransaction.incomeSource === 'other' ? 'other' : 'company') ===
+        incomeSource);
   const categories =
-    type === 'income'
-      ? incomeCategories.filter(
-          (value) =>
-            incomeSource !== 'other' ||
-            (value !== INCOME_CATEGORIES[0] && value !== INCOME_CATEGORIES[1]),
-        )
-      : expenseCategories;
+    editingOriginalSource &&
+    initialTransaction &&
+    !sourceCategories.includes(initialTransaction.category)
+      ? [...sourceCategories, initialTransaction.category]
+      : sourceCategories;
   const categoriesPerRow = type === 'expense' ? 4 : 3;
   const categoryRows = Array.from(
     { length: Math.ceil(categories.length / categoriesPerRow) },
@@ -135,7 +155,10 @@ export function FinanceTransactionDialog({
       ),
   );
   const visibleTemplates = templates.filter(
-    (template) => template.type === type,
+    (template) =>
+      template.type === type &&
+      (type !== 'income' ||
+        (template.incomeSource ?? 'company') === incomeSource),
   );
   const parsedAmount = parseFinanceAmount(amount);
   const canSave =
@@ -154,7 +177,9 @@ export function FinanceTransactionDialog({
       setCategory(
         initialTransaction?.category ??
           (initialType === 'income'
-            ? INCOME_CATEGORIES[0]
+            ? initialIncomeSource === 'other'
+              ? INCOME_CATEGORIES[2]
+              : INCOME_CATEGORIES[0]
             : EXPENSE_CATEGORIES[0]),
       );
       setIncomeSource(
@@ -289,7 +314,7 @@ export function FinanceTransactionDialog({
     setPreferenceAction('save-category');
     try {
       const categoryName = capitalizeInitialLetter(newCategory.trim());
-      await onAddCategory(type, categoryName);
+      await onAddCategory(type, categoryName, incomeSource);
       setCategory(categoryName);
       setNewCategory('');
       setShowCategoryForm(false);
@@ -309,7 +334,7 @@ export function FinanceTransactionDialog({
     setPreferenceBusy(true);
     setPreferenceAction(`remove-category:${value}`);
     try {
-      await onRemoveCategory(type, value);
+      await onRemoveCategory(type, value, incomeSource);
       if (category === value) setCategory(builtIns[0]);
       setError(null);
     } catch (cause) {
@@ -635,7 +660,8 @@ export function FinanceTransactionDialog({
                         {value}
                       </Text>
                     </Pressable>
-                    {!builtIns.some((builtIn) => builtIn === value) &&
+                    {sourceCategories.includes(value) &&
+                      !builtIns.some((builtIn) => builtIn === value) &&
                       onRemoveCategory && (
                         <Pressable
                           accessibilityRole="button"
@@ -663,6 +689,7 @@ export function FinanceTransactionDialog({
                   </View>
                 );
               })}
+              {row.length === 1 && <View style={styles.categorySpacer} />}
             </View>
           ))}
         </View>
