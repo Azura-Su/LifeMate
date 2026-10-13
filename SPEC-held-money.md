@@ -17,7 +17,7 @@ Ghi tiền một người đưa để nhờ thanh toán hộ, theo dõi từng l
 
 - Tab `Đóng hộ` đứng sau `Cho vay` trong Tài chính. Đầu tab có tổng số đang giữ hộ và số hồ sơ, sau đó là thẻ theo từng hồ sơ.
 - Thẻ có người gửi, mục đích, tổng nhận, tổng đóng, số còn giữ. Mở thẻ để xem riêng lịch sử gửi thêm và lịch sử đóng hộ; mỗi phần có nút thêm phù hợp. Khoản trả lại được ghi rõ trong lịch sử đóng hộ.
-- Mỗi mục lịch sử có ngày, nội dung, số tiền và menu sửa/xóa. Form có số tiền và ngày cùng một hàng, nội dung ở dưới.
+- Mỗi mục lịch sử có ngày, nội dung, số tiền và menu sửa/xóa. Form có số tiền và ngày cùng một hàng, nội dung ở dưới; tiền được định dạng theo hàng nghìn khi nhập và ngày được chọn bằng lịch.
 - Trạng thái trống hướng dẫn tạo khoản đầu tiên. Trạng thái mất mạng và lỗi lưu có lời giải thích, nút tải lại.
 
 ## Kỹ thuật và kiểm chứng

@@ -1,6 +1,14 @@
 import Feather from '@expo/vector-icons/Feather';
+import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  Keyboard,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { AppTextInput } from '../../components/AppTextInput';
 import { Button } from '../../components/Button';
 import { DialogModal } from '../../components/DialogModal';
@@ -10,7 +18,8 @@ import type {
   HeldMoneyEntryKind,
   HeldMoneyRecord,
 } from '../../types/heldMoney';
-import { formatFinanceDate } from '../../utils/finance';
+import { formatFinanceDate, parseFinanceDate } from '../../utils/finance';
+import { FinanceDatePicker } from './FinanceDatePicker';
 import { heldStyles as styles } from './HeldMoneyLedger.styles';
 
 export type HeldMoneyRecordDraft = {
@@ -34,7 +43,6 @@ function Field({
   onChangeText,
   placeholder,
   maxLength,
-  numeric = false,
   multiline = false,
 }: {
   label: string;
@@ -42,7 +50,6 @@ function Field({
   onChangeText: (value: string) => void;
   placeholder: string;
   maxLength: number;
-  numeric?: boolean;
   multiline?: boolean;
 }) {
   return (
@@ -55,11 +62,122 @@ function Field({
         placeholder={placeholder}
         placeholderTextColor={colors.muted}
         maxLength={maxLength}
-        keyboardType={numeric ? 'numbers-and-punctuation' : 'default'}
         multiline={multiline}
         style={[styles.input, multiline && styles.noteInput]}
       />
     </View>
+  );
+}
+
+function amountDigits(value: string) {
+  return value
+    .replace(/\D/g, '')
+    .replace(/^0+(?=\d)/, '')
+    .slice(0, 16);
+}
+
+function AmountField({
+  label,
+  value,
+  onChangeText,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (value: string) => void;
+}) {
+  const formatted = amountDigits(value).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      <View style={styles.amountInput}>
+        <AppTextInput
+          accessibilityLabel={label}
+          value={formatted}
+          onChangeText={(text) => onChangeText(amountDigits(text))}
+          placeholder="0"
+          placeholderTextColor={colors.muted}
+          keyboardType="number-pad"
+          maxLength={21}
+          style={styles.amountTextInput}
+        />
+        <Text style={styles.amountSuffix}>đ</Text>
+      </View>
+    </View>
+  );
+}
+
+function DateField({
+  label,
+  value,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label} ${value}`}
+        accessibilityHint="Mở lịch để chọn ngày"
+        accessibilityState={{ disabled }}
+        disabled={disabled}
+        onPress={onPress}
+        style={styles.dateButton}
+      >
+        <Text numberOfLines={1} style={styles.dateValue}>
+          {value}
+        </Text>
+        <Feather name="calendar" size={14} color={colors.earth} />
+      </Pressable>
+    </View>
+  );
+}
+
+function openDatePicker(
+  value: string,
+  onSelect: (value: string) => void,
+  onShow: () => void,
+) {
+  Keyboard.dismiss();
+  if (Platform.OS === 'android') {
+    DateTimePickerAndroid.open({
+      value: new Date(parseFinanceDate(value) ?? Date.now()),
+      mode: 'date',
+      display: 'calendar',
+      onChange: (event, selectedDate) => {
+        if (event.type === 'set' && selectedDate)
+          onSelect(formatFinanceDate(selectedDate));
+      },
+    });
+    return;
+  }
+  onShow();
+}
+
+function CalendarView({
+  title,
+  value,
+  onClose,
+  onSelect,
+}: {
+  title: string;
+  value: string;
+  onClose: () => void;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <>
+      <FormHeading title={title} onClose={onClose} disabled={false} />
+      <FinanceDatePicker
+        value={new Date(parseFinanceDate(value) ?? Date.now())}
+        onChange={(date) => onSelect(formatFinanceDate(date))}
+      />
+    </>
   );
 }
 
@@ -113,6 +231,7 @@ export function HeldMoneyRecordDialog({
   });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
   useEffect(() => {
     if (!visible) return;
     setDraft({
@@ -123,10 +242,16 @@ export function HeldMoneyRecordDialog({
       note: '',
     });
     setError(null);
+    setDatePickerVisible(false);
   }, [initial, visible]);
   const disabled = busy || submitting;
   const change = (key: keyof HeldMoneyRecordDraft) => (value: string) =>
     setDraft((current) => ({ ...current, [key]: value }));
+  function selectDate(value: string) {
+    change('date')(value);
+    setError(null);
+    setDatePickerVisible(false);
+  }
   async function save() {
     if (disabled) return;
     setSubmitting(true);
@@ -143,79 +268,95 @@ export function HeldMoneyRecordDialog({
   return (
     <DialogModal
       visible={visible}
-      onRequestClose={disabled ? undefined : onClose}
+      onRequestClose={
+        disabled
+          ? undefined
+          : datePickerVisible
+            ? () => setDatePickerVisible(false)
+            : onClose
+      }
       style={styles.dialog}
     >
-      <FormHeading
-        title={initial ? 'Sửa khoản đóng hộ' : 'Khoản đóng hộ mới'}
-        onClose={onClose}
-        disabled={disabled}
-      />
-      <ScrollView
-        style={styles.dialogScroll}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.form}>
-          <Field
-            label="Người đưa tiền"
-            value={draft.senderName}
-            onChangeText={change('senderName')}
-            placeholder="Ví dụ: Anh A"
-            maxLength={80}
+      {datePickerVisible ? (
+        <CalendarView
+          title="Chọn ngày nhận"
+          value={draft.date}
+          onClose={() => setDatePickerVisible(false)}
+          onSelect={selectDate}
+        />
+      ) : (
+        <>
+          <FormHeading
+            title={initial ? 'Sửa khoản đóng hộ' : 'Khoản đóng hộ mới'}
+            onClose={onClose}
+            disabled={disabled}
           />
-          <Field
-            label="Nội dung đóng hộ"
-            value={draft.purpose}
-            onChangeText={change('purpose')}
-            placeholder="Ví dụ: Điện nước tháng 10"
-            maxLength={120}
-          />
-          {!initial && (
-            <>
-              <View style={styles.twoColumns}>
-                <Field
-                  label="Số tiền đã nhận"
-                  value={draft.amount}
-                  onChangeText={change('amount')}
-                  placeholder="Ví dụ: 500000"
-                  maxLength={16}
-                  numeric
-                />
-                <Field
-                  label="Ngày nhận"
-                  value={draft.date}
-                  onChangeText={change('date')}
-                  placeholder="DD/MM/YYYY"
-                  maxLength={10}
-                  numeric
-                />
-              </View>
+          <ScrollView
+            style={styles.dialogScroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.form}>
               <Field
-                label="Nội dung lần nhận · không bắt buộc"
-                value={draft.note}
-                onChangeText={change('note')}
-                placeholder="Ghi chú nếu cần"
-                maxLength={500}
-                multiline
+                label="Người đưa tiền"
+                value={draft.senderName}
+                onChangeText={change('senderName')}
+                placeholder="Ví dụ: Anh A"
+                maxLength={80}
               />
-            </>
+              <Field
+                label="Nội dung đóng hộ"
+                value={draft.purpose}
+                onChangeText={change('purpose')}
+                placeholder="Ví dụ: Điện nước tháng 10"
+                maxLength={120}
+              />
+              {!initial && (
+                <>
+                  <View style={styles.twoColumns}>
+                    <AmountField
+                      label="Số tiền đã nhận"
+                      value={draft.amount}
+                      onChangeText={change('amount')}
+                    />
+                    <DateField
+                      label="Ngày nhận"
+                      value={draft.date}
+                      disabled={disabled}
+                      onPress={() =>
+                        openDatePicker(draft.date, selectDate, () =>
+                          setDatePickerVisible(true),
+                        )
+                      }
+                    />
+                  </View>
+                  <Field
+                    label="Nội dung lần nhận · không bắt buộc"
+                    value={draft.note}
+                    onChangeText={change('note')}
+                    placeholder="Ghi chú nếu cần"
+                    maxLength={500}
+                    multiline
+                  />
+                </>
+              )}
+              <Text style={styles.helper}>
+                Tiền giữ hộ được theo dõi riêng, không tính vào thu chi cá nhân.
+              </Text>
+            </View>
+          </ScrollView>
+          {!!error && (
+            <Text accessibilityRole="alert" style={styles.error}>
+              {error}
+            </Text>
           )}
-          <Text style={styles.helper}>
-            Tiền giữ hộ được theo dõi riêng, không tính vào thu chi cá nhân.
-          </Text>
-        </View>
-      </ScrollView>
-      {!!error && (
-        <Text accessibilityRole="alert" style={styles.error}>
-          {error}
-        </Text>
+          <Button
+            title={initial ? 'Lưu thông tin' : 'Tạo khoản đóng hộ'}
+            loading={disabled}
+            onPress={() => void save()}
+          />
+        </>
       )}
-      <Button
-        title={initial ? 'Lưu thông tin' : 'Tạo khoản đóng hộ'}
-        loading={disabled}
-        onPress={() => void save()}
-      />
     </DialogModal>
   );
 }
@@ -251,6 +392,7 @@ export function HeldMoneyEntryDialog({
   });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
   useEffect(() => {
     if (!visible) return;
     setDraft({
@@ -262,6 +404,7 @@ export function HeldMoneyEntryDialog({
       note: initial?.note ?? '',
     });
     setError(null);
+    setDatePickerVisible(false);
   }, [initial, initialKind, visible]);
   const disabled = busy || submitting;
   const availableKinds = initial
@@ -277,8 +420,19 @@ export function HeldMoneyEntryDialog({
       : draft.kind === 'paid'
         ? 'đóng hộ'
         : 'trả lại';
+  const dateLabel =
+    draft.kind === 'received'
+      ? 'Ngày nhận'
+      : draft.kind === 'paid'
+        ? 'Ngày đóng'
+        : 'Ngày trả lại';
   const change = (key: 'amount' | 'date' | 'note') => (value: string) =>
     setDraft((current) => ({ ...current, [key]: value }));
+  function selectDate(value: string) {
+    change('date')(value);
+    setError(null);
+    setDatePickerVisible(false);
+  }
   async function save() {
     if (disabled) return;
     setSubmitting(true);
@@ -295,87 +449,105 @@ export function HeldMoneyEntryDialog({
   return (
     <DialogModal
       visible={visible}
-      onRequestClose={disabled ? undefined : onClose}
+      onRequestClose={
+        disabled
+          ? undefined
+          : datePickerVisible
+            ? () => setDatePickerVisible(false)
+            : onClose
+      }
       style={styles.dialog}
     >
-      <FormHeading
-        title={initial ? 'Sửa mục lịch sử' : `Ghi nhận ${actionLabel}`}
-        onClose={onClose}
-        disabled={disabled}
-      />
-      <ScrollView
-        style={styles.dialogScroll}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.form}>
-          {availableKinds.length > 1 && (
-            <View style={styles.kindTabs} accessibilityRole="tablist">
-              {availableKinds.map(({ kind, label }) => (
-                <Pressable
-                  key={kind}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: draft.kind === kind }}
-                  onPress={() => setDraft((current) => ({ ...current, kind }))}
-                  style={[
-                    styles.kindButton,
-                    draft.kind === kind && styles.kindSelected,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.kindText,
-                      draft.kind === kind && styles.kindTextSelected,
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
-          <View style={styles.twoColumns}>
-            <Field
-              label="Số tiền"
-              value={draft.amount}
-              onChangeText={change('amount')}
-              placeholder="Ví dụ: 300000"
-              maxLength={16}
-              numeric
-            />
-            <Field
-              label="Ngày"
-              value={draft.date}
-              onChangeText={change('date')}
-              placeholder="DD/MM/YYYY"
-              maxLength={10}
-              numeric
-            />
-          </View>
-          <Field
-            label="Nội dung · không bắt buộc"
-            value={draft.note}
-            onChangeText={change('note')}
-            placeholder="Ví dụ: Hóa đơn điện"
-            maxLength={500}
-            multiline
+      {datePickerVisible ? (
+        <CalendarView
+          title={`Chọn ${dateLabel.toLowerCase()}`}
+          value={draft.date}
+          onClose={() => setDatePickerVisible(false)}
+          onSelect={selectDate}
+        />
+      ) : (
+        <>
+          <FormHeading
+            title={initial ? 'Sửa mục lịch sử' : `Ghi nhận ${actionLabel}`}
+            onClose={onClose}
+            disabled={disabled}
           />
-          <Text style={styles.helper}>
-            Hiện còn giữ: {remaining}. Tổng đã đóng và trả lại không thể vượt
-            tổng đã nhận.
-          </Text>
-        </View>
-      </ScrollView>
-      {!!error && (
-        <Text accessibilityRole="alert" style={styles.error}>
-          {error}
-        </Text>
+          <ScrollView
+            style={styles.dialogScroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.form}>
+              {availableKinds.length > 1 && (
+                <View style={styles.kindTabs} accessibilityRole="tablist">
+                  {availableKinds.map(({ kind, label }) => (
+                    <Pressable
+                      key={kind}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: draft.kind === kind }}
+                      onPress={() =>
+                        setDraft((current) => ({ ...current, kind }))
+                      }
+                      style={[
+                        styles.kindButton,
+                        draft.kind === kind && styles.kindSelected,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.kindText,
+                          draft.kind === kind && styles.kindTextSelected,
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+              <View style={styles.twoColumns}>
+                <AmountField
+                  label="Số tiền"
+                  value={draft.amount}
+                  onChangeText={change('amount')}
+                />
+                <DateField
+                  label={dateLabel}
+                  value={draft.date}
+                  disabled={disabled}
+                  onPress={() =>
+                    openDatePicker(draft.date, selectDate, () =>
+                      setDatePickerVisible(true),
+                    )
+                  }
+                />
+              </View>
+              <Field
+                label="Nội dung · không bắt buộc"
+                value={draft.note}
+                onChangeText={change('note')}
+                placeholder="Ví dụ: Hóa đơn điện"
+                maxLength={500}
+                multiline
+              />
+              <Text style={styles.helper}>
+                Hiện còn giữ: {remaining}. Tổng đã đóng và trả lại không thể
+                vượt tổng đã nhận.
+              </Text>
+            </View>
+          </ScrollView>
+          {!!error && (
+            <Text accessibilityRole="alert" style={styles.error}>
+              {error}
+            </Text>
+          )}
+          <Button
+            title={initial ? 'Lưu thay đổi' : `Lưu lần ${actionLabel}`}
+            loading={disabled}
+            onPress={() => void save()}
+          />
+        </>
       )}
-      <Button
-        title={initial ? 'Lưu thay đổi' : `Lưu lần ${actionLabel}`}
-        loading={disabled}
-        onPress={() => void save()}
-      />
     </DialogModal>
   );
 }
