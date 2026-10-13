@@ -13,6 +13,21 @@ const playlistKey = (uid: string) => `lifemate-audio-playlists-v1-${uid}`;
 const legacyPlaylistKey = (uid: string) => `lifemate-audio-playlist-${uid}`;
 const defaultPlaylistId = 'default';
 const emptyTrackIds: string[] = [];
+const playlistWrites = new Map<string, Promise<void>>();
+
+function persistPlaylist(uid: string, value: string) {
+  const previous = playlistWrites.get(uid) ?? Promise.resolve();
+  const next = previous
+    .catch(() => undefined)
+    .then(() => AsyncStorage.setItem(playlistKey(uid), value));
+  playlistWrites.set(uid, next);
+  void next
+    .finally(() => {
+      if (playlistWrites.get(uid) === next) playlistWrites.delete(uid);
+    })
+    .catch(() => undefined);
+  return next;
+}
 
 type PlaylistState = {
   version: 1;
@@ -146,7 +161,11 @@ function createId() {
 export function usePlaylist(uid: string | undefined, tracks: AudioTrack[]) {
   const [state, setState] = useState<PlaylistState>(defaultState);
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const stateRef = useRef(state);
+  const uidRef = useRef(uid);
+  uidRef.current = uid;
 
   useEffect(() => {
     let active = true;
@@ -154,15 +173,20 @@ export function usePlaylist(uid: string | undefined, tracks: AudioTrack[]) {
     stateRef.current = empty;
     setState(empty);
     setReady(false);
+    setError(null);
     if (!uid) {
       setReady(true);
       return;
     }
 
-    Promise.all([
-      AsyncStorage.getItem(playlistKey(uid)),
-      AsyncStorage.getItem(legacyPlaylistKey(uid)),
-    ])
+    (playlistWrites.get(uid) ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(() =>
+        Promise.all([
+          AsyncStorage.getItem(playlistKey(uid)),
+          AsyncStorage.getItem(legacyPlaylistKey(uid)),
+        ]),
+      )
       .then(([saved, legacy]) => {
         if (!active) return;
         const migrated = !saved ? parseLegacyPlaylist(legacy) : null;
@@ -170,35 +194,56 @@ export function usePlaylist(uid: string | undefined, tracks: AudioTrack[]) {
         stateRef.current = next;
         setState(next);
         if (migrated) {
-          void AsyncStorage.setItem(
-            playlistKey(uid),
-            JSON.stringify(next),
-          ).catch(() => undefined);
+          void persistPlaylist(uid, JSON.stringify(next)).catch(() => {
+            if (active) setError('Chưa lưu được danh sách nghe trên thiết bị.');
+          });
         }
+        setReady(true);
       })
-      .catch(() => undefined)
-      .finally(() => {
-        if (active) setReady(true);
+      .catch(() => {
+        if (active) setError('Chưa đọc được danh sách nghe trên thiết bị.');
       });
     return () => {
       active = false;
     };
-  }, [uid]);
+  }, [uid, reloadKey]);
 
   const update = useCallback(
     (change: (current: PlaylistState) => PlaylistState) => {
+      if (!ready) return;
       const next = change(stateRef.current);
       if (next === stateRef.current) return;
       stateRef.current = next;
       setState(next);
       if (uid) {
-        void AsyncStorage.setItem(playlistKey(uid), JSON.stringify(next)).catch(
-          () => undefined,
-        );
+        void persistPlaylist(uid, JSON.stringify(next))
+          .then(() => {
+            if (uidRef.current === uid) setError(null);
+          })
+          .catch(() => {
+            if (uidRef.current === uid)
+              setError('Chưa lưu được danh sách nghe trên thiết bị.');
+          });
       }
     },
-    [uid],
+    [ready, uid],
   );
+
+  const retry = useCallback(() => {
+    if (!ready) {
+      setReloadKey((value) => value + 1);
+      return;
+    }
+    if (!uid) return;
+    void persistPlaylist(uid, JSON.stringify(stateRef.current))
+      .then(() => {
+        if (uidRef.current === uid) setError(null);
+      })
+      .catch(() => {
+        if (uidRef.current === uid)
+          setError('Chưa lưu được danh sách nghe trên thiết bị.');
+      });
+  }, [ready, uid]);
 
   const selectedPlaylist = useMemo(
     () =>
@@ -348,6 +393,8 @@ export function usePlaylist(uid: string | undefined, tracks: AudioTrack[]) {
 
   return {
     ready,
+    error,
+    retry,
     playlists: state.playlists,
     selectedPlaylist,
     selectedPlaylistId: selectedPlaylist?.id ?? '',

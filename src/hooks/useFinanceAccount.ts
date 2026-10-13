@@ -9,6 +9,8 @@ export function useFinanceAccount() {
   const uid = useAuthStore((state) => state.user?.uid ?? null);
   const storeUid = useFinanceStore((state) => state.uid);
   const transactions = useFinanceStore((state) => state.transactions);
+  const conflicts = useFinanceStore((state) => state.conflicts);
+  const resolveConflict = useFinanceStore((state) => state.resolveConflict);
   const syncStatus = useFinanceStore((state) => state.syncStatus);
   const loading = useFinanceStore((state) => state.loading);
   const error = useFinanceStore((state) => state.error);
@@ -22,6 +24,8 @@ export function useFinanceAccount() {
   return {
     uid,
     transactions: matchesAccount ? transactions : emptyTransactions,
+    conflicts: matchesAccount ? conflicts : [],
+    resolveConflict,
     syncStatus: matchesAccount ? syncStatus : null,
     loading: !!uid && (!matchesAccount || loading),
     error: matchesAccount ? error : null,

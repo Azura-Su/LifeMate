@@ -22,6 +22,9 @@ export function getFinanceErrorMessage(cause: unknown, fallback: string) {
     'Số tiền phải là số nguyên lớn hơn 0.',
     'Thông tin giao dịch không hợp lệ.',
     'Mã giao dịch không hợp lệ.',
+    'Giao dịch đã thay đổi trên tài khoản. Tải lại để chọn bản cần giữ.',
+    'Xung đột đã được xử lý. Hãy tải lại danh sách.',
+    'Giao dịch trên thiết bị đã thay đổi. Hãy tải lại.',
   ];
   return cause instanceof Error && localMessages.includes(cause.message)
     ? cause.message

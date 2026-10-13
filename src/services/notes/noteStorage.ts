@@ -4,9 +4,11 @@ import {
   doc,
   getDocsFromServer,
   getFirestore,
+  runTransaction,
   setDoc,
 } from '@react-native-firebase/firestore';
 import type { LifeNote } from '../../types/note';
+import { offlineConflictId, offlineConflictTitle } from '../offlineConflict';
 import {
   getEncryptedItem,
   setEncryptedItem,
@@ -16,6 +18,7 @@ type Cache = {
   notes: LifeNote[];
   deletedIds: string[];
   pendingIds: string[];
+  pendingBase?: Record<string, LifeNote | null>;
   migrationComplete: boolean;
 };
 export type NoteStorageResult = { notes: LifeNote[]; synced: boolean };
@@ -115,6 +118,18 @@ async function readCache(uid: string): Promise<Cache> {
         : [],
       deletedIds: ids(cache.deletedIds),
       pendingIds: ids(cache.pendingIds),
+      pendingBase:
+        cache.pendingBase && typeof cache.pendingBase === 'object'
+          ? Object.fromEntries(
+              Object.entries(cache.pendingBase).flatMap(([id, value]) => {
+                const note = value === null ? null : parseNote(value, uid);
+                return ID.test(id) &&
+                  (note === null ? value === null : note.id === id)
+                  ? [[id, note]]
+                  : [];
+              }),
+            )
+          : {},
       migrationComplete: cache.migrationComplete === true,
     };
   } catch {
@@ -153,6 +168,38 @@ function sortNotes(notes: LifeNote[]) {
   return [...notes].sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+function sameNote(a: LifeNote, b: LifeNote) {
+  return (
+    a.id === b.id &&
+    a.ownerId === b.ownerId &&
+    a.title === b.title &&
+    a.body === b.body &&
+    a.updatedAt === b.updatedAt
+  );
+}
+
+async function uploadIfUnchanged(
+  uid: string,
+  note: LifeNote,
+  expected: LifeNote | null,
+) {
+  return withTimeout(
+    runTransaction(getFirestore(), async (transaction) => {
+      const ref = path(uid, note.id) as ReturnType<typeof doc>;
+      const snapshot = await transaction.get(ref);
+      const remote = snapshot.exists() ? parseNote(snapshot.data(), uid) : null;
+      if (remote && sameNote(remote, note)) return true;
+      if (
+        (remote === null) !== (expected === null) ||
+        (remote && expected && !sameNote(remote, expected))
+      )
+        return false;
+      transaction.set(ref, note);
+      return true;
+    }),
+  );
+}
+
 async function readNotesInternal(uid: string): Promise<NoteStorageResult> {
   const cache = await readCache(uid);
   try {
@@ -181,9 +228,36 @@ async function readNotesInternal(uid: string): Promise<NoteStorageResult> {
     const pendingIds = new Set(cache.pendingIds);
     const toUpload: LifeNote[] = [];
     for (const local of cache.notes) {
-      if (deletedIds.has(local.id)) continue;
       const remote = merged.get(local.id);
       const pending = pendingIds.has(local.id);
+      const base = cache.pendingBase?.[local.id];
+      const remoteDeleted = deletedIds.has(local.id) || (!!base && !remote);
+      const diverged =
+        !!remote &&
+        (remote.title !== local.title || remote.body !== local.body);
+      const remoteChangedSinceEdit =
+        !!remote &&
+        diverged &&
+        (base
+          ? remote.title !== base.title || remote.body !== base.body
+          : base === null || diverged);
+      if (pending && (remoteDeleted || remoteChangedSinceEdit)) {
+        const copy: LifeNote = {
+          ...local,
+          id: offlineConflictId(
+            local.id,
+            local.updatedAt,
+            `${local.title}\u0000${local.body}`,
+          ),
+          title: offlineConflictTitle(local.title),
+        };
+        if (!deletedIds.has(copy.id) && !merged.has(copy.id)) {
+          toUpload.push(copy);
+          merged.set(copy.id, copy);
+        }
+        continue;
+      }
+      if (remoteDeleted) continue;
       const isLegacyChange =
         !cache.migrationComplete &&
         (!remote || local.updatedAt > remote.updatedAt);
@@ -192,10 +266,19 @@ async function readNotesInternal(uid: string): Promise<NoteStorageResult> {
         merged.set(local.id, local);
       }
     }
+    const remoteById = new Map(
+      rows.flatMap((row) => {
+        const note = parseNote(row, uid);
+        return note ? [[note.id, note] as const] : [];
+      }),
+    );
     await Promise.all(
-      toUpload.map((note) =>
-        withTimeout(setDoc(path(uid, note.id) as ReturnType<typeof doc>, note)),
-      ),
+      toUpload.map(async (note) => {
+        if (
+          !(await uploadIfUnchanged(uid, note, remoteById.get(note.id) ?? null))
+        )
+          throw new Error('Ghi chú thay đổi trong lúc đồng bộ.');
+      }),
     );
     const pendingDeletes = cache.deletedIds.filter(
       (id) => !remoteDeletedIds.has(id),
@@ -232,6 +315,7 @@ async function readNotesInternal(uid: string): Promise<NoteStorageResult> {
       notes,
       deletedIds: [],
       pendingIds: [],
+      pendingBase: {},
       migrationComplete: true,
     });
     return { notes, synced: true };
@@ -265,15 +349,21 @@ export function saveNote(
     const notes = [note, ...cache.notes.filter((item) => item.id !== note.id)];
     const deletedIds = cache.deletedIds.filter((id) => id !== note.id);
     const pendingIds = [...new Set([...cache.pendingIds, note.id])];
-    const nextCache = { ...cache, notes, deletedIds, pendingIds };
+    const pendingBase = { ...cache.pendingBase };
+    if (!cache.pendingIds.includes(note.id))
+      pendingBase[note.id] =
+        cache.notes.find((item) => item.id === note.id) ?? null;
+    const nextCache = { ...cache, notes, deletedIds, pendingIds, pendingBase };
     await writeCache(uid, nextCache);
     try {
-      await withTimeout(
-        setDoc(path(uid, note.id) as ReturnType<typeof doc>, note),
-      );
+      if (!(await uploadIfUnchanged(uid, note, pendingBase[note.id] ?? null)))
+        return readNotesInternal(uid);
+      const savedPendingBase = { ...pendingBase };
+      delete savedPendingBase[note.id];
       const savedCache = {
         ...nextCache,
         pendingIds: pendingIds.filter((id) => id !== note.id),
+        pendingBase: savedPendingBase,
         migrationComplete:
           cache.migrationComplete ||
           notes
@@ -298,7 +388,9 @@ export function deleteNote(
     const notes = cache.notes.filter((item) => item.id !== id);
     const deletedIds = [...new Set([...cache.deletedIds, id])];
     const pendingIds = cache.pendingIds.filter((value) => value !== id);
-    const nextCache = { ...cache, notes, deletedIds, pendingIds };
+    const pendingBase = { ...cache.pendingBase };
+    delete pendingBase[id];
+    const nextCache = { ...cache, notes, deletedIds, pendingIds, pendingBase };
     await writeCache(uid, nextCache);
     try {
       await withTimeout(

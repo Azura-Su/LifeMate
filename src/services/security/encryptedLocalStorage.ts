@@ -131,6 +131,7 @@ export async function migrateSensitiveCache(uid: string) {
     `lifemate:finance:v1:${encodedUid}`,
     `lifemate:finance:cloud-migration:v1:${encodedUid}`,
     `lifemate:finance:pending:v1:${encodedUid}`,
+    `lifemate:finance:pending-base:v1:${encodedUid}`,
     `lifemate:finance-preferences:v1:${encodedUid}`,
     `lifemate:notes:v1:${encodedUid}`,
     `lifemate:agenda:v1:${encodedUid}`,

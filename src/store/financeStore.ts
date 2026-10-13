@@ -6,13 +6,16 @@ import {
   cacheCommittedFinanceTransaction,
   deleteFinanceTransaction,
   readFinanceData,
+  resolveFinanceConflict,
   updateFinanceTransaction,
+  type FinanceConflict,
   type FinanceStorageResult,
 } from '../services/finance/financeStorage';
 
 type FinanceState = {
   uid: string | null;
   transactions: FinanceTransaction[];
+  conflicts: FinanceConflict[];
   syncStatus: 'synced' | 'local' | 'recovery' | null;
   loading: boolean;
   error: string | null;
@@ -21,6 +24,11 @@ type FinanceState = {
   addCommitted: (uid: string, transaction: FinanceTransaction) => Promise<void>;
   remove: (uid: string, id: string) => Promise<void>;
   update: (uid: string, transaction: FinanceTransaction) => Promise<void>;
+  resolveConflict: (
+    uid: string,
+    conflict: FinanceConflict,
+    choice: 'local' | 'server',
+  ) => Promise<void>;
 };
 
 let loadRequest = 0;
@@ -33,6 +41,7 @@ function syncStatusFor(result: FinanceStorageResult) {
 export const useFinanceStore = create<FinanceState>((set, get) => ({
   uid: null,
   transactions: [],
+  conflicts: [],
   syncStatus: null,
   loading: false,
   error: null,
@@ -42,6 +51,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     set({
       uid,
       transactions: sameAccount ? get().transactions : [],
+      conflicts: sameAccount ? get().conflicts : [],
       syncStatus: sameAccount ? get().syncStatus : null,
       loading: !!uid,
       error: null,
@@ -52,6 +62,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       if (request === loadRequest && get().uid === uid)
         set({
           transactions: result.transactions,
+          conflicts: result.conflicts ?? [],
           syncStatus: syncStatusFor(result),
           loading: false,
           error: null,
@@ -143,6 +154,27 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       const message = getFinanceErrorMessage(
         error,
         'Chưa sửa được giao dịch. Hãy thử lại.',
+      );
+      if (get().uid === uid) set({ error: message });
+      throw new Error(message);
+    }
+  },
+  resolveConflict: async (uid, conflict, choice) => {
+    if (get().uid !== uid)
+      throw new Error('Tài khoản đã thay đổi. Hãy thử lại.');
+    try {
+      const result = await resolveFinanceConflict(uid, conflict, choice);
+      if (get().uid === uid)
+        set({
+          transactions: result.transactions,
+          conflicts: result.conflicts ?? [],
+          syncStatus: syncStatusFor(result),
+          error: null,
+        });
+    } catch (error) {
+      const message = getFinanceErrorMessage(
+        error,
+        'Chưa xử lý được xung đột.',
       );
       if (get().uid === uid) set({ error: message });
       throw new Error(message);

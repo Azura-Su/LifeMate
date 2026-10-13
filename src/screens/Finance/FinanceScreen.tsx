@@ -124,6 +124,35 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
       }
     }
   }
+
+  function openFinanceConflict() {
+    const conflict = model.conflicts[0];
+    if (!conflict || !model.uid) return;
+    const uid = model.uid;
+    const describe = (item: FinanceTransaction) =>
+      `${item.category} · ${formatFinanceAmount(item.amount)} · ${formatFinanceDate(new Date(item.createdAt))}${item.note ? `\n${item.note}` : ''}`;
+    Alert.alert(
+      'Giao dịch thay đổi ở hai nơi',
+      `Trên thiết bị:\n${describe(conflict.local)}\n\nTrên tài khoản:\n${conflict.remote ? describe(conflict.remote) : 'Đã xóa'}\n\nChọn bản muốn giữ.`,
+      [
+        { text: 'Để sau', style: 'cancel' },
+        {
+          text: 'Giữ bản tài khoản',
+          onPress: () =>
+            void model
+              .resolveConflict(uid, conflict, 'server')
+              .catch(() => undefined),
+        },
+        {
+          text: 'Giữ bản thiết bị',
+          onPress: () =>
+            void model
+              .resolveConflict(uid, conflict, 'local')
+              .catch(() => undefined),
+        },
+      ],
+    );
+  }
   const correctableDeletedLoanIds = useMemo(
     () => new Set(loanLedger.correctableDeletedLoanIds),
     [loanLedger.correctableDeletedLoanIds],
@@ -406,6 +435,20 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
       fixedHeaderStyle={styles.header}
       fixedContent={
         <View style={styles.fixedActions}>
+          {model.conflicts.length > 0 && (
+            <View style={styles.syncStatus} accessibilityRole="alert">
+              <Feather name="alert-circle" size={15} color={colors.sunlight} />
+              <Text style={styles.syncText}>
+                {model.conflicts.length} giao dịch cần chọn bản lưu
+              </Text>
+              <Button
+                compact
+                title="Xử lý"
+                variant="secondary"
+                onPress={openFinanceConflict}
+              />
+            </View>
+          )}
           {(!!displaySyncStatus || syncBusy || reportMode === 'loans') && (
             <View
               accessibilityRole="summary"

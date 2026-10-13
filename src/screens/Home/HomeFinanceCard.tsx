@@ -4,7 +4,10 @@ import { ActivityIndicator, Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { FinanceTransaction } from '../../types/finance';
 import { colors, typography } from '../../theme';
-import { formatFinanceAmount } from '../../utils/finance';
+import {
+  formatFinanceAmount,
+  getFinanceReportContribution,
+} from '../../utils/finance';
 import {
   getMonthGrid,
   isSameDay,
@@ -100,7 +103,8 @@ export function HomeFinanceCard({
     for (const transaction of transactions) {
       const dateKey = toDateKey(new Date(transaction.createdAt));
       const day = totals.get(dateKey) ?? { income: 0, expense: 0 };
-      day[transaction.type] += transaction.amount;
+      const contribution = getFinanceReportContribution(transaction);
+      day[contribution.kind] += contribution.amount;
       totals.set(dateKey, day);
     }
     return totals;
@@ -358,7 +362,9 @@ export function HomeFinanceCard({
                         testID={`home-finance-picker-year-${candidateYear}`}
                         accessibilityRole="button"
                         accessibilityLabel={`Chọn năm ${candidateYear}`}
-                        accessibilityState={{ selected: candidateYear === year }}
+                        accessibilityState={{
+                          selected: candidateYear === year,
+                        }}
                         onPress={() => selectYear(candidateYear)}
                         style={[
                           styles.yearOption,
@@ -421,7 +427,7 @@ export function HomeFinanceCard({
                               {totals.income > 0 && (
                                 <View style={[styles.dot, styles.incomeDot]} />
                               )}
-                              {totals.expense > 0 && (
+                              {totals.expense !== 0 && (
                                 <View style={[styles.dot, styles.expenseDot]} />
                               )}
                             </View>

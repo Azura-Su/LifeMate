@@ -100,6 +100,7 @@ export function Mp3Screen() {
     playlistRef.current.remove(id);
   }, []);
   const openLibrary = () => {
+    if (!playlist.ready) return;
     queue.pause();
     setLibraryOpen(true);
   };
@@ -137,6 +138,8 @@ export function Mp3Screen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Mở thư viện để thêm, cắt, ghép âm thanh"
+              accessibilityState={{ disabled: !playlist.ready }}
+              disabled={!playlist.ready}
               onPress={openLibrary}
               style={styles.libraryIconButton}
             >
@@ -155,6 +158,19 @@ export function Mp3Screen() {
                 onRename={renamePlaylist}
                 onDelete={deletePlaylist}
               />
+            )}
+            {playlist.error && (
+              <View style={styles.row} accessibilityRole="alert">
+                <Text style={[styles.error, styles.flex]}>
+                  {playlist.error}
+                </Text>
+                <Button
+                  compact
+                  title="Thử lại"
+                  variant="secondary"
+                  onPress={playlist.retry}
+                />
+              </View>
             )}
             {model.job && !libraryOpen && (
               <AudioJobStatus job={model.job} onCancel={model.cancel} />
@@ -183,12 +199,12 @@ export function Mp3Screen() {
                 }
               />
             )}
-            {model.loading || !playlist.ready ? (
+            {model.loading || (!playlist.ready && !playlist.error) ? (
               <ActivityIndicator
                 accessibilityLabel="Đang mở danh sách nghe"
                 color={colors.earth}
               />
-            ) : playlist.items.length === 0 ? (
+            ) : !playlist.ready ? null : playlist.items.length === 0 ? (
               <View style={styles.empty}>
                 <Feather name="headphones" size={44} color={colors.earth} />
                 <Text style={typography.heading}>

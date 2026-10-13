@@ -10,6 +10,7 @@ import type { LoanRecord } from '../../types/loan';
 import {
   formatFinanceAmount,
   formatFinanceDate,
+  getFinanceReportContribution,
   getFinanceTransactionCategoryLabel,
 } from '../../utils/finance';
 import { styles } from './FinanceScreen.styles';
@@ -35,7 +36,10 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
   canDeleteLinkedExpense = false,
   deleting = false,
 }: Props) {
-  const income = transaction.type === 'income';
+  const contribution = getFinanceReportContribution(transaction);
+  const income = contribution.kind === 'income';
+  const isRepayment = transaction.incomeSource === 'loan_repayment';
+  const incoming = income || isRepayment;
   const linkedLoanTransaction = isLoanLedgerTransaction(transaction);
   const linkedLoanLending = transaction.expenseSource === 'loan_lending';
   const advanceNote = transaction.advanceId
@@ -56,7 +60,7 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
       : transaction.note || transaction.category;
   const category =
     transaction.incomeSource === 'loan_repayment'
-      ? 'Giảm chi Cho vay'
+      ? 'Cho vay'
       : getFinanceTransactionCategoryLabel(transaction);
   const date = formatFinanceDate(new Date(transaction.createdAt));
   const metadata =
@@ -66,13 +70,13 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
       <View
         style={[
           styles.transactionIcon,
-          income ? styles.incomeIcon : styles.expenseIcon,
+          incoming ? styles.incomeIcon : styles.expenseIcon,
         ]}
       >
         <Feather
-          name={income ? 'arrow-down-left' : 'arrow-up-right'}
+          name={incoming ? 'arrow-down-left' : 'arrow-up-right'}
           size={18}
-          color={income ? colors.success : colors.sunlight}
+          color={incoming ? colors.success : colors.sunlight}
         />
       </View>
       <View style={styles.transactionText}>
@@ -95,7 +99,7 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
             income ? styles.income : styles.expense,
           ]}
         >
-          {income ? '+' : '−'}
+          {isRepayment ? 'Giảm chi ' : income ? '+' : '−'}
           {formatFinanceAmount(transaction.amount)}
         </Text>
       </View>

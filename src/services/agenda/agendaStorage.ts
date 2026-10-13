@@ -4,9 +4,11 @@ import {
   doc,
   getDocsFromServer,
   getFirestore,
+  runTransaction,
   setDoc,
 } from '@react-native-firebase/firestore';
 import type { AgendaItem } from '../../types/agenda';
+import { offlineConflictId, offlineConflictTitle } from '../offlineConflict';
 import {
   getEncryptedItem,
   setEncryptedItem,
@@ -16,6 +18,7 @@ type Cache = {
   items: AgendaItem[];
   deletedIds: string[];
   pendingIds: string[];
+  pendingBase?: Record<string, AgendaItem | null>;
   migrationComplete: boolean;
 };
 export type AgendaStorageResult = { items: AgendaItem[]; synced: boolean };
@@ -128,6 +131,18 @@ async function readCache(uid: string): Promise<Cache> {
         : [],
       deletedIds: ids(cache.deletedIds),
       pendingIds: ids(cache.pendingIds),
+      pendingBase:
+        cache.pendingBase && typeof cache.pendingBase === 'object'
+          ? Object.fromEntries(
+              Object.entries(cache.pendingBase).flatMap(([id, value]) => {
+                const item = value === null ? null : parseItem(value, uid);
+                return ID.test(id) &&
+                  (item === null ? value === null : item.id === id)
+                  ? [[id, item]]
+                  : [];
+              }),
+            )
+          : {},
       migrationComplete: cache.migrationComplete === true,
     };
   } catch {
@@ -166,6 +181,41 @@ function sortItems(items: AgendaItem[]) {
   return [...items].sort((a, b) => a.dueAt - b.dueAt);
 }
 
+function sameItem(a: AgendaItem, b: AgendaItem) {
+  return (
+    a.id === b.id &&
+    a.ownerId === b.ownerId &&
+    a.title === b.title &&
+    a.details === b.details &&
+    a.dueAt === b.dueAt &&
+    a.completed === b.completed &&
+    a.reminderAt === b.reminderAt &&
+    a.updatedAt === b.updatedAt
+  );
+}
+
+async function uploadIfUnchanged(
+  uid: string,
+  item: AgendaItem,
+  expected: AgendaItem | null,
+) {
+  return withCloudTimeout(
+    runTransaction(getFirestore(), async (transaction) => {
+      const ref = path(uid, item.id) as ReturnType<typeof doc>;
+      const snapshot = await transaction.get(ref);
+      const remote = snapshot.exists() ? parseItem(snapshot.data(), uid) : null;
+      if (remote && sameItem(remote, item)) return true;
+      if (
+        (remote === null) !== (expected === null) ||
+        (remote && expected && !sameItem(remote, expected))
+      )
+        return false;
+      transaction.set(ref, item);
+      return true;
+    }),
+  );
+}
+
 async function readAgendaInternal(uid: string): Promise<AgendaStorageResult> {
   const cache = await readCache(uid);
   try {
@@ -194,9 +244,50 @@ async function readAgendaInternal(uid: string): Promise<AgendaStorageResult> {
     const pendingIds = new Set(cache.pendingIds);
     const toUpload: AgendaItem[] = [];
     for (const local of cache.items) {
-      if (deletedIds.has(local.id)) continue;
       const remote = merged.get(local.id);
       const pending = pendingIds.has(local.id);
+      const base = cache.pendingBase?.[local.id];
+      const remoteDeleted = deletedIds.has(local.id) || (!!base && !remote);
+      const diverged =
+        !!remote &&
+        (remote.title !== local.title ||
+          remote.details !== local.details ||
+          remote.dueAt !== local.dueAt ||
+          remote.completed !== local.completed ||
+          remote.reminderAt !== local.reminderAt);
+      const remoteChangedSinceEdit =
+        !!remote &&
+        diverged &&
+        (base
+          ? remote.title !== base.title ||
+            remote.details !== base.details ||
+            remote.dueAt !== base.dueAt ||
+            remote.completed !== base.completed ||
+            remote.reminderAt !== base.reminderAt
+          : base === null || diverged);
+      if (pending && (remoteDeleted || remoteChangedSinceEdit)) {
+        const copy: AgendaItem = {
+          ...local,
+          id: offlineConflictId(
+            local.id,
+            local.updatedAt,
+            JSON.stringify([
+              local.title,
+              local.details,
+              local.dueAt,
+              local.completed,
+              local.reminderAt,
+            ]),
+          ),
+          title: offlineConflictTitle(local.title),
+        };
+        if (!deletedIds.has(copy.id) && !merged.has(copy.id)) {
+          toUpload.push(copy);
+          merged.set(copy.id, copy);
+        }
+        continue;
+      }
+      if (remoteDeleted) continue;
       const isLegacyChange =
         !cache.migrationComplete &&
         (!remote || local.updatedAt > remote.updatedAt);
@@ -205,12 +296,19 @@ async function readAgendaInternal(uid: string): Promise<AgendaStorageResult> {
         merged.set(local.id, local);
       }
     }
+    const remoteById = new Map(
+      rows.flatMap((row) => {
+        const item = parseItem(row, uid);
+        return item ? [[item.id, item] as const] : [];
+      }),
+    );
     await Promise.all(
-      toUpload.map((item) =>
-        withCloudTimeout(
-          setDoc(path(uid, item.id) as ReturnType<typeof doc>, item),
-        ),
-      ),
+      toUpload.map(async (item) => {
+        if (
+          !(await uploadIfUnchanged(uid, item, remoteById.get(item.id) ?? null))
+        )
+          throw new Error('Công việc thay đổi trong lúc đồng bộ.');
+      }),
     );
     const pendingDeletes = cache.deletedIds.filter(
       (id) => !remoteDeletedIds.has(id),
@@ -247,6 +345,7 @@ async function readAgendaInternal(uid: string): Promise<AgendaStorageResult> {
       items,
       deletedIds: [],
       pendingIds: [],
+      pendingBase: {},
       migrationComplete: true,
     });
     return { items, synced: true };
@@ -283,15 +382,21 @@ export function saveAgendaItem(
     ];
     const deletedIds = cache.deletedIds.filter((id) => id !== item.id);
     const pendingIds = [...new Set([...cache.pendingIds, item.id])];
-    const nextCache = { ...cache, items, deletedIds, pendingIds };
+    const pendingBase = { ...cache.pendingBase };
+    if (!cache.pendingIds.includes(item.id))
+      pendingBase[item.id] =
+        cache.items.find((current) => current.id === item.id) ?? null;
+    const nextCache = { ...cache, items, deletedIds, pendingIds, pendingBase };
     await writeCache(uid, nextCache);
     try {
-      await withCloudTimeout(
-        setDoc(path(uid, item.id) as ReturnType<typeof doc>, item),
-      );
+      if (!(await uploadIfUnchanged(uid, item, pendingBase[item.id] ?? null)))
+        return readAgendaInternal(uid);
+      const savedPendingBase = { ...pendingBase };
+      delete savedPendingBase[item.id];
       const savedCache = {
         ...nextCache,
         pendingIds: pendingIds.filter((id) => id !== item.id),
+        pendingBase: savedPendingBase,
         migrationComplete:
           cache.migrationComplete ||
           items
@@ -316,7 +421,9 @@ export function deleteAgendaItem(
     const items = cache.items.filter((item) => item.id !== id);
     const deletedIds = [...new Set([...cache.deletedIds, id])];
     const pendingIds = cache.pendingIds.filter((value) => value !== id);
-    const nextCache = { ...cache, items, deletedIds, pendingIds };
+    const pendingBase = { ...cache.pendingBase };
+    delete pendingBase[id];
+    const nextCache = { ...cache, items, deletedIds, pendingIds, pendingBase };
     await writeCache(uid, nextCache);
     try {
       await withCloudTimeout(
