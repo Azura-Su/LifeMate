@@ -32,6 +32,7 @@ import type {
 } from '../../types/finance';
 import { isLoanLedgerTransaction } from '../../types/finance';
 import { useLoanLedger } from '../../hooks/useLoanLedger';
+import { useHeldMoneyLedger } from '../../hooks/useHeldMoneyLedger';
 import { useFinanceStore } from '../../store/financeStore';
 import { FinanceMonthSection } from './FinanceMonthSection';
 import { FinanceTransactionRow } from './FinanceTransactionRow';
@@ -45,6 +46,7 @@ import { FinanceCategoryReportControls } from './FinanceCategoryReportControls';
 import { FinancePeriodSelector } from './FinancePeriodSelector';
 import { FinanceTransactionDialog } from './FinanceTransactionDialog';
 import { LoanLedgerModal } from './LoanLedgerModal';
+import { HeldMoneyLedger } from './HeldMoneyLedger';
 import { styles } from './FinanceScreen.styles';
 import { useFinanceScreen } from './useFinanceScreen';
 
@@ -68,6 +70,11 @@ const reportTabs = [
     value: 'loans',
     label: 'Sổ cho vay',
     accessibilityLabel: 'Sổ cho vay',
+  },
+  {
+    value: 'held',
+    label: 'Đóng hộ',
+    accessibilityLabel: 'Sổ đóng hộ',
   },
 ] as const;
 
@@ -93,13 +100,22 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   }, [model.uid, suspended]);
 
   async function refreshFinance() {
-    if (refreshRequest.current || !model.uid || suspended || model.loading)
+    if (
+      refreshRequest.current ||
+      !model.uid ||
+      suspended ||
+      (reportMode !== 'held' && model.loading)
+    )
       return;
     const request = {};
     refreshRequest.current = request;
     setRefreshing(true);
     setRefreshError(null);
     try {
+      if (reportMode === 'held') {
+        await heldLedger.load();
+        return;
+      }
       const [financeResult, loanResult] = await Promise.allSettled([
         model.refresh(),
         loanLedger.load(),
@@ -167,8 +183,13 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   );
   const currentDate = new Date();
   const [reportMode, setReportMode] = useState<
-    'overview' | 'income' | 'expense' | 'loans'
+    'overview' | 'income' | 'expense' | 'loans' | 'held'
   >('overview');
+  const heldLedger = useHeldMoneyLedger(
+    model.uid,
+    reportMode === 'held' && !suspended,
+  );
+  const [addHeldRequestId, setAddHeldRequestId] = useState(0);
   const [loanLedgerTargetId, setLoanLedgerTargetId] = useState<string | null>(
     null,
   );
@@ -364,7 +385,9 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
         ? 'Thêm khoản thu'
         : reportMode === 'expense'
           ? 'Thêm khoản chi'
-          : 'Thêm khoản cho vay';
+          : reportMode === 'loans'
+            ? 'Thêm khoản cho vay'
+            : 'Thêm khoản đóng hộ';
   const loanSyncStatus =
     model.syncStatus === 'recovery'
       ? 'recovery'
@@ -374,10 +397,34 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
           ? 'synced'
           : null;
   const displaySyncStatus =
-    reportMode === 'loans' ? loanSyncStatus : model.syncStatus;
-  const syncBusy = refreshing || (reportMode === 'loans' && loanLedger.loading);
+    reportMode === 'loans'
+      ? loanSyncStatus
+      : reportMode === 'held'
+        ? heldLedger.synced === true
+          ? 'synced'
+          : heldLedger.synced === false
+            ? 'local'
+            : null
+        : model.syncStatus;
+  const syncBusy =
+    refreshing ||
+    (reportMode === 'loans' && loanLedger.loading) ||
+    (reportMode === 'held' && (heldLedger.loading || heldLedger.busy));
+  const addBusy =
+    saving ||
+    (reportMode === 'held'
+      ? heldLedger.loading || heldLedger.busy
+      : model.loading || (reportMode === 'loans' && loanLedger.loading));
+  const syncActionBusy =
+    reportMode === 'held'
+      ? heldLedger.loading
+      : model.loading || loanLedger.loading;
 
   function addInViewedPeriod() {
+    if (reportMode === 'held') {
+      setAddHeldRequestId((current) => current + 1);
+      return;
+    }
     if (reportMode === 'loans') {
       setAddLoanRequestId((current) => current + 1);
       return;
@@ -415,16 +462,9 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             accessibilityRole="button"
             accessibilityLabel={addLabel}
             accessibilityState={{
-              disabled:
-                model.loading ||
-                saving ||
-                (reportMode === 'loans' && loanLedger.loading),
+              disabled: addBusy,
             }}
-            disabled={
-              model.loading ||
-              saving ||
-              (reportMode === 'loans' && loanLedger.loading)
-            }
+            disabled={addBusy}
             onPress={addInViewedPeriod}
             style={styles.addButton}
           >
@@ -449,7 +489,10 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
               />
             </View>
           )}
-          {(!!displaySyncStatus || syncBusy || reportMode === 'loans') && (
+          {(!!displaySyncStatus ||
+            syncBusy ||
+            reportMode === 'loans' ||
+            reportMode === 'held') && (
             <View
               accessibilityRole="summary"
               accessibilityState={{ busy: syncBusy }}
@@ -501,7 +544,9 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
                     : displaySyncStatus === 'recovery'
                       ? 'Đã tải từ cloud · cache trên máy chưa đọc được'
                       : displaySyncStatus === 'local'
-                        ? 'Chưa sao lưu · chỉ có trên thiết bị'
+                        ? reportMode === 'held'
+                          ? 'Bản sổ trên thiết bị · tải lại khi có mạng'
+                          : 'Chưa sao lưu · chỉ có trên thiết bị'
                         : 'Chưa xác nhận đồng bộ'}
               </Text>
               {!syncBusy &&
@@ -513,18 +558,18 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
                     accessibilityLabel="Tải lại"
                     accessibilityHint="Tải lại dữ liệu từ tài khoản."
                     accessibilityState={{
-                      disabled: model.loading || loanLedger.loading,
-                      busy: model.loading || loanLedger.loading,
+                      disabled: syncActionBusy,
+                      busy: syncActionBusy,
                     }}
                     hitSlop={4}
-                    disabled={model.loading || loanLedger.loading}
+                    disabled={syncActionBusy}
                     onPress={() => void refreshFinance()}
                     style={({ pressed }) => [
                       styles.syncAction,
                       pressed && styles.syncActionPressed,
                     ]}
                   >
-                    {model.loading || loanLedger.loading ? (
+                    {syncActionBusy ? (
                       <ActivityIndicator size="small" color={colors.earth} />
                     ) : (
                       <Feather
@@ -539,7 +584,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
                     compact
                     title="Đồng bộ lại"
                     variant="secondary"
-                    loading={model.loading || loanLedger.loading || refreshing}
+                    loading={syncActionBusy || refreshing}
                     onPress={refreshFinance}
                   />
                 ))}
@@ -581,7 +626,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
               month={model.month}
               onPeriodChange={model.setPeriod}
             />
-          ) : reportMode !== 'loans' ? (
+          ) : reportMode !== 'loans' && reportMode !== 'held' ? (
             <FinanceCategoryReportControls
               kind={reportMode}
               incomeSource={reportIncomeSource}
@@ -617,6 +662,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     >
       {reportMode !== 'overview' &&
         reportMode !== 'loans' &&
+        reportMode !== 'held' &&
         !!feedbackError && (
           <View>
             <Text accessibilityRole="alert" style={styles.feedback}>
@@ -664,6 +710,12 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             <ActivityIndicator color={colors.earth} />
           )}
         </>
+      ) : reportMode === 'held' ? (
+        <HeldMoneyLedger
+          uid={model.uid}
+          ledger={heldLedger}
+          addRequestId={addHeldRequestId}
+        />
       ) : reportMode === 'overview' ? (
         <>
           <TextInput

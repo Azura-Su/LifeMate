@@ -46,13 +46,17 @@ export const styles = StyleSheet.create({
   searchResults: { gap: 10 },
   reportMode: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
     padding: 4,
     borderRadius: 15,
     backgroundColor: colors.skySoft,
   },
   fixedActions: { gap: 9 },
   reportModeButton: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: '30%',
     minWidth: 0,
     minHeight: 42,
     alignItems: 'center',

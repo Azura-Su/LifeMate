@@ -799,5 +799,33 @@ service cloud.firestore {
       allow delete: if owns(uid)
         && existsAfter(/databases/$(database)/documents/financeAccounts/$(uid)/deletedLoans/$(loanId));
     }
+    match /financeAccounts/{uid}/heldFunds/{recordId} {
+      function validHeldFund() {
+        return recordId.matches('^[A-Za-z0-9_-]{1,128}$')
+          && request.resource.data.keys().hasAll(['id', 'ownerId', 'senderName', 'purpose', 'createdAt', 'updatedAt', 'entries'])
+          && request.resource.data.keys().hasOnly(['id', 'ownerId', 'senderName', 'purpose', 'createdAt', 'updatedAt', 'entries'])
+          && request.resource.data.id == recordId
+          && request.resource.data.ownerId == uid
+          && request.resource.data.senderName is string
+          && request.resource.data.senderName.size() > 0
+          && request.resource.data.senderName.size() <= 80
+          && request.resource.data.purpose is string
+          && request.resource.data.purpose.size() > 0
+          && request.resource.data.purpose.size() <= 120
+          && request.resource.data.createdAt is number
+          && request.resource.data.createdAt >= 0
+          && request.resource.data.updatedAt is number
+          && request.resource.data.updatedAt >= request.resource.data.createdAt
+          && request.resource.data.entries is list
+          && request.resource.data.entries.size() <= 200;
+      }
+      allow read, delete: if owns(uid);
+      allow create: if owns(uid) && validHeldFund()
+        && request.resource.data.entries.size() == 1
+        && request.resource.data.entries[0].kind == 'received';
+      allow update: if owns(uid) && validHeldFund()
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt > resource.data.updatedAt;
+    }
   }
 }
