@@ -7,6 +7,7 @@ import { AppState } from 'react-native';
 import { useFinancePrivacy } from '../hooks/useFinancePrivacy';
 import { useNotesLockStore } from '../store/notesLockStore';
 import { Mp3Screen } from '../screens/Mp3/Mp3Screen';
+import { MemoryScreen } from '../screens/Memories/MemoryScreen';
 import { ProtectedNotesScreen } from '../screens/Notes/ProtectedNotesScreen';
 import { AgendaScreen } from '../screens/Agenda/AgendaScreen';
 import { CardScoreScreen } from '../screens/CardScore/CardScoreScreen';
@@ -18,6 +19,7 @@ const Tab = createBottomTabNavigator<MainTabParams>();
 const icons = {
   Home: 'home',
   Finance: 'pie-chart',
+  Memories: 'camera',
   MP3: 'headphones',
   Notes: 'edit-3',
   Agenda: 'calendar',
@@ -66,24 +68,32 @@ export function MainTabs() {
         ),
       })}
     >
-      {/* Hidden routes stay reachable from Home; label only the 3 visible tabs. */}
+      {/* Hidden routes stay reachable from Home; label only the 4 visible tabs. */}
       <Tab.Screen
         name="Home"
         component={HomeScreen}
-        options={{ tabBarAccessibilityLabel: 'Home, tab, 1 of 3' }}
+        options={{ tabBarAccessibilityLabel: 'Home, tab, 1 of 4' }}
       />
       <Tab.Screen
         name="Finance"
         component={ProtectedFinanceScreen}
         options={{
           tabBarLabel: 'Tài chính',
-          tabBarAccessibilityLabel: 'Tài chính, tab, 2 of 3',
+          tabBarAccessibilityLabel: 'Tài chính, tab, 2 of 4',
+        }}
+      />
+      <Tab.Screen
+        name="Memories"
+        component={MemoryScreen}
+        options={{
+          tabBarLabel: 'Ký ức',
+          tabBarAccessibilityLabel: 'Ký ức, tab, 3 of 4',
         }}
       />
       <Tab.Screen
         name="MP3"
         component={Mp3Screen}
-        options={{ tabBarAccessibilityLabel: 'MP3, tab, 3 of 3' }}
+        options={{ tabBarAccessibilityLabel: 'MP3, tab, 4 of 4' }}
       />
       <Tab.Screen
         name="Notes"

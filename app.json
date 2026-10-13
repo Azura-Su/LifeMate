@@ -26,7 +26,10 @@
     "android": {
       "package": "vn.mobifone.vnsteel",
       "googleServicesFile": "./firebase/google-services.json",
-      "permissions": ["android.permission.POST_NOTIFICATIONS"],
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.CAMERA"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#F7FAFC"
@@ -98,8 +101,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "LifeMate cần truy cập album để bạn chọn video và tách âm thanh.",
-          "cameraPermission": false,
+          "photosPermission": "LifeMate dùng album để bạn chọn ảnh cho Dòng ký ức và chọn video để tách âm thanh.",
+          "cameraPermission": "LifeMate dùng máy ảnh khi bạn chọn chụp khoảnh khắc cho Dòng ký ức.",
           "microphonePermission": false
         }
       ],
@@ -114,7 +117,8 @@
         {
           "faceIDPermission": "LifeMate dùng Face ID để bảo vệ ghi chú và sổ thu chi của bạn."
         }
-      ]
+      ],
+      "./plugins/withMemoryCameraPermission"
     ]
   }
 }
