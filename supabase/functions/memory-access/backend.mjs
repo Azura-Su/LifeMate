@@ -64,7 +64,7 @@ export function createMemoryBackend(projectUrl, serviceKey, request = fetch) {
           'Content-Type': 'application/json',
           ...(action === 'upload' ? { 'x-upsert': 'true' } : {}),
         },
-        body: JSON.stringify(action === 'upload' ? {} : { expiresIn: 60 }),
+        body: JSON.stringify(action === 'upload' ? {} : { expiresIn: 600 }),
       },
     );
     if (!response.ok) throw new Error('Image signing failed');

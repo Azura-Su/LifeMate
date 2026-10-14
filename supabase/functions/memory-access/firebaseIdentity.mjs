@@ -32,6 +32,10 @@ export function createFirebaseIdentityVerifier(projectId, jwks = keys) {
       payload.auth_time > now
     )
       throw new Error('Invalid Firebase identity');
-    return { uid: payload.sub, email };
+    return {
+      uid: payload.sub,
+      email,
+      emailVerified: payload.email_verified === true,
+    };
   };
 }

@@ -4,9 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Image,
   Pressable,
   RefreshControl,
+  SectionList,
   Text,
   View,
 } from 'react-native';
@@ -17,8 +19,12 @@ import {
   changeMemoryFriend,
   getFriendMemories,
   getMemoryShareState,
+  memoryEmailVerificationNeeded,
   memoryPublishDefinitelyNotStarted,
   publishMemory,
+  refreshMemoryVerification,
+  renewFriendMemoryPhoto,
+  sendMemoryVerificationEmail,
   sendMemoryFriendInvite,
   unshareMemory,
   type FriendMemory,
@@ -56,6 +62,132 @@ function dayLabel(dateKey: string) {
   }).format(date);
 }
 
+function FriendMemoryCard({
+  item,
+  onPhotoError,
+}: {
+  item: FriendMemory;
+  onPhotoError: () => void;
+}) {
+  const photoRetry = useRef(false);
+  return (
+    <View style={styles.entryCard}>
+      {item.photoUrl && (
+        <Image
+          source={{ uri: item.photoUrl }}
+          style={styles.entryPhoto}
+          resizeMode="cover"
+          accessibilityLabel={`Ảnh ký ức của ${item.ownerName}`}
+          onError={() => {
+            if (photoRetry.current) return;
+            photoRetry.current = true;
+            onPhotoError();
+          }}
+        />
+      )}
+      <View style={styles.entryBody}>
+        <Text style={styles.friendName}>{item.ownerName}</Text>
+        <Text style={styles.dateChipText}>{dayLabel(item.dateKey)}</Text>
+        {!!item.text && <Text style={styles.entryText}>{item.text}</Text>}
+      </View>
+    </View>
+  );
+}
+
+function OwnMemoryCard({
+  item,
+  shared,
+  shareStateKnown,
+  busy,
+  onEdit,
+  onDelete,
+  onVisibility,
+}: {
+  item: MemoryEntry;
+  shared: boolean;
+  shareStateKnown: boolean;
+  busy: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+  onVisibility: () => void;
+}) {
+  const photoUri = memoryPhotoUri(item.ownerId, item.photoFileName);
+  const verifying = !shareStateKnown && item.visibility === 'friends';
+  return (
+    <View style={styles.entryCard}>
+      {photoUri && (
+        <Image
+          source={{ uri: photoUri }}
+          style={styles.entryPhoto}
+          resizeMode="cover"
+          accessibilityLabel={`Ảnh ký ức ngày ${dayLabel(item.dateKey)}`}
+        />
+      )}
+      <View style={styles.entryBody}>
+        <View style={styles.entryTopRow}>
+          <View style={styles.dateChip}>
+            <Feather name="calendar" size={13} color={colors.earth} />
+            <Text style={styles.dateChipText}>{dayLabel(item.dateKey)}</Text>
+          </View>
+          <View style={styles.entryActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Sửa ký ức ngày ${dayLabel(item.dateKey)}`}
+              disabled={busy}
+              onPress={onEdit}
+              style={styles.entryAction}
+            >
+              <Feather name="edit-2" size={16} color={colors.earth} />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Xóa ký ức ngày ${dayLabel(item.dateKey)}`}
+              disabled={busy}
+              onPress={onDelete}
+              style={styles.entryAction}
+            >
+              <Feather name="trash-2" size={16} color={colors.danger} />
+            </Pressable>
+          </View>
+        </View>
+        {!!item.text && <Text style={styles.entryText}>{item.text}</Text>}
+        <View style={styles.visibilityRow}>
+          <Feather
+            name={shareStateKnown && shared ? 'users' : 'lock'}
+            size={13}
+            color={colors.muted}
+          />
+          <Text style={styles.visibilityLabel}>
+            {shareStateKnown && shared
+              ? 'Bạn bè'
+              : verifying
+                ? 'Đang kiểm tra quyền xem'
+                : 'Chỉ mình tôi'}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              shared ? 'Khóa ký ức chỉ mình tôi' : 'Chia sẻ ký ức với bạn bè'
+            }
+            disabled={busy || verifying}
+            onPress={onVisibility}
+            style={styles.shareAction}
+          >
+            <Feather
+              name={shared ? 'lock' : 'share-2'}
+              size={13}
+              color={colors.earth}
+            />
+            <Text style={styles.shareActionText}>
+              {shared ? 'Chỉ mình tôi' : 'Chia sẻ'}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export function MemoryScreen() {
   const uid = useAuthStore((state) => state.user?.uid);
   const { name } = useProfile();
@@ -65,8 +197,11 @@ export function MemoryScreen() {
   const [friendsVisible, setFriendsVisible] = useState(false);
   const [shareState, setShareState] = useState<MemoryShareState | null>(null);
   const [friendItems, setFriendItems] = useState<FriendMemory[]>([]);
+  const [friendNextOffset, setFriendNextOffset] = useState<number | null>(null);
+  const [loadingMoreFriends, setLoadingMoreFriends] = useState(false);
   const [cloudLoading, setCloudLoading] = useState(false);
   const [cloudError, setCloudError] = useState<string | null>(null);
+  const [emailVerificationNeeded, setEmailVerificationNeeded] = useState(false);
   const [items, setItems] = useState<MemoryEntry[]>([]);
   const [loadedUid, setLoadedUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -79,6 +214,7 @@ export function MemoryScreen() {
     null,
   );
   const operationInFlight = useRef(false);
+  const moreFriendsInFlight = useRef(false);
   const loadGeneration = useRef(0);
   const cloudGeneration = useRef(0);
 
@@ -112,8 +248,10 @@ export function MemoryScreen() {
       const generation = ++cloudGeneration.current;
       setCloudLoading(true);
       setCloudError(null);
+      setEmailVerificationNeeded(false);
       setShareState(null);
       setFriendItems([]);
+      setFriendNextOffset(null);
       try {
         const state = await getMemoryShareState(accountId, displayName);
         if (
@@ -127,8 +265,10 @@ export function MemoryScreen() {
           if (
             generation === cloudGeneration.current &&
             useAuthStore.getState().user?.uid === accountId
-          )
-            setFriendItems(feed);
+          ) {
+            setFriendItems(feed.items);
+            setFriendNextOffset(feed.nextOffset);
+          }
         }
       } catch (cause) {
         if (
@@ -138,6 +278,7 @@ export function MemoryScreen() {
           setCloudError(
             (cause as Error).message || 'Chưa tải được phần chia sẻ.',
           );
+          setEmailVerificationNeeded(memoryEmailVerificationNeeded(cause));
         }
       } finally {
         if (generation === cloudGeneration.current) setCloudLoading(false);
@@ -145,6 +286,73 @@ export function MemoryScreen() {
     },
     [],
   );
+
+  async function loadMoreFriends() {
+    if (
+      !uid ||
+      friendNextOffset === null ||
+      cloudLoading ||
+      moreFriendsInFlight.current
+    )
+      return;
+    const generation = cloudGeneration.current;
+    moreFriendsInFlight.current = true;
+    setLoadingMoreFriends(true);
+    setCloudError(null);
+    try {
+      const page = await getFriendMemories(uid, name, friendNextOffset);
+      if (
+        generation === cloudGeneration.current &&
+        useAuthStore.getState().user?.uid === uid
+      ) {
+        setFriendItems((previous) => {
+          const seen = new Set(
+            previous.map((item) => `${item.ownerId}:${item.id}`),
+          );
+          return [
+            ...previous,
+            ...page.items.filter(
+              (item) => !seen.has(`${item.ownerId}:${item.id}`),
+            ),
+          ];
+        });
+        setFriendNextOffset(page.nextOffset);
+      }
+    } catch (cause) {
+      if (generation === cloudGeneration.current)
+        setCloudError((cause as Error).message || 'Chưa tải thêm ký ức.');
+    } finally {
+      moreFriendsInFlight.current = false;
+      setLoadingMoreFriends(false);
+    }
+  }
+
+  async function renewFriendPhoto(item: FriendMemory) {
+    if (!uid) return;
+    const generation = cloudGeneration.current;
+    try {
+      const photoUrl = await renewFriendMemoryPhoto(
+        uid,
+        name,
+        item.ownerId,
+        item.id,
+      );
+      if (
+        generation === cloudGeneration.current &&
+        useAuthStore.getState().user?.uid === uid
+      )
+        setFriendItems((previous) =>
+          previous.map((entry) =>
+            entry.ownerId === item.ownerId && entry.id === item.id
+              ? { ...entry, photoUrl }
+              : entry,
+          ),
+        );
+    } catch {
+      if (generation === cloudGeneration.current)
+        setCloudError('Không tải lại được ảnh. Kéo xuống để thử lại.');
+    }
+  }
 
   useEffect(() => {
     if (isFocused) setViewMode('capture');
@@ -158,7 +366,9 @@ export function MemoryScreen() {
     setItems([]);
     setShareState(null);
     setFriendItems([]);
+    setFriendNextOffset(null);
     setCloudError(null);
+    setEmailVerificationNeeded(false);
     setTimelineTab('mine');
     setFriendsVisible(false);
     setLoadedUid(null);
@@ -194,6 +404,10 @@ export function MemoryScreen() {
     }
     return result;
   }, [accountItems]);
+  const sections = useMemo(
+    () => groups.map((group) => ({ title: group.month, data: group.entries })),
+    [groups],
+  );
 
   function openEditor(photo: CapturedMemoryPhoto | null = null) {
     setEditing(null);
@@ -231,7 +445,9 @@ export function MemoryScreen() {
             try {
               await unshareMemory(uid, name, saved.id);
             } catch {
-              await setMemoryVisibility(uid, saved.id, 'friends').catch(() => undefined);
+              await setMemoryVisibility(uid, saved.id, 'friends').catch(
+                () => undefined,
+              );
               setEditing({ ...saved, visibility: 'friends' });
               throw new Error(
                 'Ký ức đã lưu trên máy nhưng chưa xác nhận được quyền xem. Hãy kết nối và tải lại trước khi rời màn này.',
@@ -272,7 +488,9 @@ export function MemoryScreen() {
             try {
               await unshareMemory(uid, name, item.id);
             } catch {
-              await setMemoryVisibility(uid, item.id, 'friends').catch(() => undefined);
+              await setMemoryVisibility(uid, item.id, 'friends').catch(
+                () => undefined,
+              );
               throw new Error(
                 'Chưa xác nhận được quyền xem. Hãy kết nối và tải lại ký ức.',
               );
@@ -334,6 +552,12 @@ export function MemoryScreen() {
     }
   }
 
+  async function checkVerifiedEmail() {
+    if (!uid) return;
+    await refreshMemoryVerification(uid);
+    await loadCloud(uid, name);
+  }
+
   function confirmDelete(item: MemoryEntry) {
     if (!uid || operationInFlight.current) return;
     Alert.alert(
@@ -372,6 +596,122 @@ export function MemoryScreen() {
     );
   }
 
+  const localErrorNotice = error ? (
+    <View style={styles.errorBox}>
+      <Text accessibilityRole="alert" style={styles.errorText}>
+        {error}
+      </Text>
+      {uid && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Tải lại ký ức"
+          onPress={() => {
+            void load(uid);
+            if (viewMode === 'timeline') void loadCloud(uid, name);
+          }}
+        >
+          <Text style={styles.retryText}>Tải lại</Text>
+        </Pressable>
+      )}
+    </View>
+  ) : null;
+
+  const timelineHeader = (
+    <View style={styles.timelineHeader}>
+      {localErrorNotice}
+      <View style={styles.timelineTabs}>
+        {(
+          [
+            ['mine', 'Của tôi'],
+            ['friends', 'Bạn bè'],
+          ] as const
+        ).map(([value, label]) => (
+          <Pressable
+            key={value}
+            accessibilityRole="button"
+            accessibilityLabel={'Xem ký ức ' + label}
+            accessibilityState={{ selected: timelineTab === value }}
+            onPress={() => setTimelineTab(value)}
+            style={[
+              styles.timelineTab,
+              timelineTab === value && styles.timelineTabSelected,
+            ]}
+          >
+            <Text
+              style={[
+                styles.timelineTabText,
+                timelineTab === value && styles.timelineTabTextSelected,
+              ]}
+            >
+              {label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Quản lý bạn bè"
+        onPress={() => setFriendsVisible(true)}
+        style={styles.friendsButton}
+      >
+        <Feather name="users" size={14} color={colors.earth} />
+        <Text style={styles.friendsButtonText}>
+          Bạn bè · {shareState?.friends.length ?? 0}
+        </Text>
+        {!!shareState?.incoming.length && (
+          <Text style={styles.friendsButtonText}>
+            · {shareState.incoming.length} lời mời
+          </Text>
+        )}
+      </Pressable>
+      {!!cloudError && (
+        <View style={styles.errorBox}>
+          <Text accessibilityRole="alert" style={styles.errorText}>
+            {cloudError}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              emailVerificationNeeded
+                ? 'Mở xác minh email'
+                : 'Thử kết nối chia sẻ'
+            }
+            onPress={() => {
+              if (emailVerificationNeeded) setFriendsVisible(true);
+              else if (uid) void loadCloud(uid, name);
+            }}
+          >
+            <Text style={styles.retryText}>
+              {emailVerificationNeeded ? 'Xác minh email' : 'Thử lại'}
+            </Text>
+          </Pressable>
+        </View>
+      )}
+      {timelineTab === 'mine' && (
+        <View style={styles.timelineIntro}>
+          <Text style={styles.timelineCount}>
+            {accountItems.length} khoảnh khắc
+          </Text>
+          <Text style={styles.timelineHint}>
+            Chỉ bạn chọn mục nào được chia sẻ
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+
+  const timelineRefresh = (
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={() => {
+        if (!uid) return;
+        void load(uid, true);
+        void loadCloud(uid, name);
+      }}
+      tintColor={colors.earth}
+    />
+  );
+
   return (
     <>
       <Screen
@@ -393,9 +733,7 @@ export function MemoryScreen() {
               accessibilityLabel={
                 viewMode === 'capture' ? 'Xem dòng ký ức' : 'Mở máy ảnh'
               }
-              accessibilityState={{
-                disabled: !uid || busy,
-              }}
+              accessibilityState={{ disabled: !uid || busy }}
               disabled={!uid || busy}
               onPress={() =>
                 setViewMode(viewMode === 'capture' ? 'timeline' : 'capture')
@@ -410,148 +748,52 @@ export function MemoryScreen() {
             </Pressable>
           </View>
         }
+        scrollable={viewMode === 'capture'}
         contentStyle={
-          viewMode === 'capture' ? styles.captureContent : styles.content
-        }
-        refreshControl={
-          viewMode === 'timeline' ? (
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                if (uid) {
-                  void load(uid, true);
-                  void loadCloud(uid, name);
-                }
-              }}
-              tintColor={colors.earth}
-            />
-          ) : undefined
+          viewMode === 'capture' ? styles.captureContent : undefined
         }
       >
-        {!!error && (
-          <View style={styles.errorBox}>
-            <Text accessibilityRole="alert" style={styles.errorText}>
-              {error}
-            </Text>
-            {uid && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Tải lại ký ức"
-                onPress={() => {
-                  void load(uid);
-                  if (viewMode === 'timeline') void loadCloud(uid, name);
-                }}
-              >
-                <Text style={styles.retryText}>Tải lại</Text>
-              </Pressable>
-            )}
-          </View>
-        )}
         {viewMode === 'capture' ? (
-          <MemoryCapture
-            active={isFocused && !editorVisible}
-            latestPhotoUri={
-              latestPhoto
-                ? memoryPhotoUri(latestPhoto.ownerId, latestPhoto.photoFileName)
-                : null
-            }
-            onPhoto={(photo) => openEditor(photo)}
-            onWriteOnly={() => openEditor()}
-            onShowTimeline={() => setViewMode('timeline')}
-            memoryCount={accountItems.length}
-          />
-        ) : (
           <>
-            <View style={styles.timelineTabs}>
-              {(
-                [
-                  ['mine', 'Của tôi'],
-                  ['friends', 'Bạn bè'],
-                ] as const
-              ).map(([value, label]) => (
-                <Pressable
-                  key={value}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Xem ký ức ${label}`}
-                  accessibilityState={{ selected: timelineTab === value }}
-                  onPress={() => setTimelineTab(value)}
-                  style={[
-                    styles.timelineTab,
-                    timelineTab === value && styles.timelineTabSelected,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.timelineTabText,
-                      timelineTab === value && styles.timelineTabTextSelected,
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Quản lý bạn bè"
-              onPress={() => setFriendsVisible(true)}
-              style={styles.friendsButton}
-            >
-              <Feather name="users" size={14} color={colors.earth} />
-              <Text style={styles.friendsButtonText}>
-                Bạn bè · {shareState?.friends.length ?? 0}
-              </Text>
-              {!!shareState?.incoming.length && (
-                <Text style={styles.friendsButtonText}>
-                  · {shareState.incoming.length} lời mời
-                </Text>
-              )}
-            </Pressable>
-            {!!cloudError && (
-              <View style={styles.errorBox}>
-                <Text accessibilityRole="alert" style={styles.errorText}>
-                  {cloudError}
-                </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Thử kết nối chia sẻ"
-                  onPress={() => uid && void loadCloud(uid, name)}
-                >
-                  <Text style={styles.retryText}>Thử lại</Text>
-                </Pressable>
+            {localErrorNotice}
+            <MemoryCapture
+              active={isFocused && !editorVisible}
+              latestPhotoUri={
+                latestPhoto
+                  ? memoryPhotoUri(
+                      latestPhoto.ownerId,
+                      latestPhoto.photoFileName,
+                    )
+                  : null
+              }
+              onPhoto={(photo) => openEditor(photo)}
+              onWriteOnly={() => openEditor()}
+              onShowTimeline={() => setViewMode('timeline')}
+              memoryCount={accountItems.length}
+            />
+          </>
+        ) : timelineTab === 'friends' ? (
+          <FlatList
+            key="friends"
+            style={styles.timelineList}
+            contentContainerStyle={styles.timelineListContent}
+            data={friendItems}
+            keyExtractor={(item) => item.ownerId + ':' + item.id}
+            renderItem={({ item }) => (
+              <View style={styles.timelineItem}>
+                <FriendMemoryCard
+                  item={item}
+                  onPhotoError={() => void renewFriendPhoto(item)}
+                />
               </View>
             )}
-            {timelineTab === 'friends' ? (
+            ListHeaderComponent={timelineHeader}
+            ListEmptyComponent={
               cloudLoading && !shareState ? (
                 <View style={styles.loadingBox}>
                   <ActivityIndicator color={colors.earth} />
                 </View>
-              ) : friendItems.length ? (
-                friendItems.map((item) => (
-                  <View
-                    key={`${item.ownerId}:${item.id}`}
-                    style={styles.entryCard}
-                  >
-                    {item.photoUrl && (
-                      <Image
-                        source={{ uri: item.photoUrl }}
-                        style={styles.entryPhoto}
-                        resizeMode="cover"
-                        accessibilityLabel={`Ảnh ký ức của ${item.ownerName}`}
-                      />
-                    )}
-                    <View style={styles.entryBody}>
-                      <Text style={styles.friendName}>{item.ownerName}</Text>
-                      <Text style={styles.dateChipText}>
-                        {dayLabel(item.dateKey)}
-                      </Text>
-                      {!!item.text && (
-                        <Text style={styles.entryText}>{item.text}</Text>
-                      )}
-                    </View>
-                  </View>
-                ))
-              ) : (
+              ) : !cloudError ? (
                 <View style={styles.emptyCard}>
                   <Feather name="users" size={28} color={colors.sky} />
                   <Text style={styles.emptyTitle}>Chưa có ký ức từ bạn bè</Text>
@@ -559,175 +801,99 @@ export function MemoryScreen() {
                     Kết bạn bằng email để xem những khoảnh khắc họ chọn chia sẻ.
                   </Text>
                 </View>
-              )
-            ) : (
-              <>
-                <View style={styles.timelineIntro}>
-                  <Text style={styles.timelineCount}>
-                    {accountItems.length} khoảnh khắc
-                  </Text>
-                  <Text style={styles.timelineHint}>
-                    Chỉ bạn chọn mục nào được chia sẻ
-                  </Text>
-                </View>
-                {loading && !accountItems.length ? (
-                  <View style={styles.loadingBox}>
+              ) : null
+            }
+            ListFooterComponent={
+              friendNextOffset !== null ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Xem thêm ký ức của bạn bè"
+                  disabled={loadingMoreFriends}
+                  onPress={() => void loadMoreFriends()}
+                  style={styles.viewTimelineButton}
+                >
+                  {loadingMoreFriends ? (
                     <ActivityIndicator color={colors.earth} />
-                    <Text style={styles.mutedText}>Đang mở dòng ký ức…</Text>
-                  </View>
-                ) : !accountItems.length && loadedUid === uid ? (
-                  <View style={styles.emptyCard}>
-                    <View style={styles.emptyIcon}>
-                      <Feather name="image" size={28} color={colors.sky} />
-                    </View>
-                    <Text style={styles.emptyTitle}>Bắt đầu từ hôm nay</Text>
-                    <Text style={styles.emptyDescription}>
-                      Chụp một khoảnh khắc hoặc viết lại điều bạn muốn giữ.
-                    </Text>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Chụp khoảnh khắc đầu tiên"
-                      disabled={busy}
-                      onPress={() => setViewMode('capture')}
-                      style={styles.emptyAction}
-                    >
-                      <Feather name="plus" size={16} color={colors.earth} />
-                      <Text style={styles.emptyActionText}>
-                        Chụp khoảnh khắc đầu tiên
-                      </Text>
-                    </Pressable>
-                  </View>
-                ) : (
-                  groups.map((group) => (
-                    <View key={group.month} style={styles.monthGroup}>
-                      <View style={styles.monthHeader}>
-                        <View style={styles.monthDot} />
-                        <Text style={styles.monthTitle}>
-                          {monthLabel(group.month)}
-                        </Text>
-                        <Text style={styles.monthCount}>
-                          {group.entries.length}
-                        </Text>
-                      </View>
-                      {group.entries.map((item) => {
-                        const photoUri = memoryPhotoUri(
-                          item.ownerId,
-                          item.photoFileName,
-                        );
-                        return (
-                          <View key={item.id} style={styles.entryCard}>
-                            {photoUri && (
-                              <Image
-                                source={{ uri: photoUri }}
-                                style={styles.entryPhoto}
-                                resizeMode="cover"
-                                accessibilityLabel={`Ảnh ký ức ngày ${dayLabel(item.dateKey)}`}
-                              />
-                            )}
-                            <View style={styles.entryBody}>
-                              <View style={styles.entryTopRow}>
-                                <View style={styles.dateChip}>
-                                  <Feather
-                                    name="calendar"
-                                    size={13}
-                                    color={colors.earth}
-                                  />
-                                  <Text style={styles.dateChipText}>
-                                    {dayLabel(item.dateKey)}
-                                  </Text>
-                                </View>
-                                <View style={styles.entryActions}>
-                                  <Pressable
-                                    accessibilityRole="button"
-                                    accessibilityLabel={`Sửa ký ức ngày ${dayLabel(item.dateKey)}`}
-                                    disabled={busy}
-                                    onPress={() => {
-                                      setEditing(item);
-                                      setEditorVisible(true);
-                                    }}
-                                    style={styles.entryAction}
-                                  >
-                                    <Feather
-                                      name="edit-2"
-                                      size={16}
-                                      color={colors.earth}
-                                    />
-                                  </Pressable>
-                                  <Pressable
-                                    accessibilityRole="button"
-                                    accessibilityLabel={`Xóa ký ức ngày ${dayLabel(item.dateKey)}`}
-                                    disabled={busy}
-                                    onPress={() => confirmDelete(item)}
-                                    style={styles.entryAction}
-                                  >
-                                    <Feather
-                                      name="trash-2"
-                                      size={16}
-                                      color={colors.danger}
-                                    />
-                                  </Pressable>
-                                </View>
-                              </View>
-                              {!!item.text && (
-                                <Text style={styles.entryText}>
-                                  {item.text}
-                                </Text>
-                              )}
-                              <View style={styles.visibilityRow}>
-                                <Feather
-                                  name={
-                                    shareState && isShared(item)
-                                      ? 'users'
-                                      : 'lock'
-                                  }
-                                  size={13}
-                                  color={colors.muted}
-                                />
-                                <Text style={styles.visibilityLabel}>
-                                  {shareState && isShared(item)
-                                    ? 'Bạn bè'
-                                    : !shareState &&
-                                        item.visibility === 'friends'
-                                      ? 'Đang kiểm tra quyền xem'
-                                      : 'Chỉ mình tôi'}
-                                </Text>
-                                <Pressable
-                                  accessibilityRole="button"
-                                  accessibilityLabel={
-                                    isShared(item)
-                                      ? 'Khóa ký ức chỉ mình tôi'
-                                      : 'Chia sẻ ký ức với bạn bè'
-                                  }
-                                  disabled={
-                                    busy ||
-                                    (!shareState &&
-                                      item.visibility === 'friends')
-                                  }
-                                  onPress={() => void changeVisibility(item)}
-                                  style={styles.shareAction}
-                                >
-                                  <Feather
-                                    name={isShared(item) ? 'lock' : 'share-2'}
-                                    size={13}
-                                    color={colors.earth}
-                                  />
-                                  <Text style={styles.shareActionText}>
-                                    {isShared(item)
-                                      ? 'Chỉ mình tôi'
-                                      : 'Chia sẻ'}
-                                  </Text>
-                                </Pressable>
-                              </View>
-                            </View>
-                          </View>
-                        );
-                      })}
-                    </View>
-                  ))
-                )}
-              </>
+                  ) : (
+                    <Text style={styles.viewTimelineText}>Xem thêm</Text>
+                  )}
+                </Pressable>
+              ) : null
+            }
+            refreshControl={timelineRefresh}
+            initialNumToRender={6}
+            maxToRenderPerBatch={6}
+            windowSize={5}
+          />
+        ) : (
+          <SectionList
+            key="mine"
+            style={styles.timelineList}
+            contentContainerStyle={styles.timelineListContent}
+            sections={sections}
+            keyExtractor={(item) => item.id}
+            renderSectionHeader={({ section }) => (
+              <View style={[styles.monthHeader, styles.timelineSectionHeader]}>
+                <View style={styles.monthDot} />
+                <Text style={styles.monthTitle}>
+                  {monthLabel(section.title)}
+                </Text>
+                <Text style={styles.monthCount}>{section.data.length}</Text>
+              </View>
             )}
-          </>
+            renderItem={({ item }) => (
+              <View style={styles.timelineItem}>
+                <OwnMemoryCard
+                  item={item}
+                  shared={isShared(item)}
+                  shareStateKnown={!!shareState}
+                  busy={busy}
+                  onEdit={() => {
+                    setEditing(item);
+                    setEditorVisible(true);
+                  }}
+                  onDelete={() => confirmDelete(item)}
+                  onVisibility={() => void changeVisibility(item)}
+                />
+              </View>
+            )}
+            ListHeaderComponent={timelineHeader}
+            ListEmptyComponent={
+              loading && !accountItems.length ? (
+                <View style={styles.loadingBox}>
+                  <ActivityIndicator color={colors.earth} />
+                  <Text style={styles.mutedText}>Đang mở dòng ký ức…</Text>
+                </View>
+              ) : !accountItems.length && loadedUid === uid ? (
+                <View style={styles.emptyCard}>
+                  <View style={styles.emptyIcon}>
+                    <Feather name="image" size={28} color={colors.sky} />
+                  </View>
+                  <Text style={styles.emptyTitle}>Bắt đầu từ hôm nay</Text>
+                  <Text style={styles.emptyDescription}>
+                    Chụp một khoảnh khắc hoặc viết lại điều bạn muốn giữ.
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Chụp khoảnh khắc đầu tiên"
+                    disabled={busy}
+                    onPress={() => setViewMode('capture')}
+                    style={styles.emptyAction}
+                  >
+                    <Feather name="plus" size={16} color={colors.earth} />
+                    <Text style={styles.emptyActionText}>
+                      Chụp khoảnh khắc đầu tiên
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null
+            }
+            refreshControl={timelineRefresh}
+            stickySectionHeadersEnabled={false}
+            initialNumToRender={6}
+            maxToRenderPerBatch={6}
+            windowSize={5}
+          />
         )}
       </Screen>
       {uid && (
@@ -752,8 +918,14 @@ export function MemoryScreen() {
         state={shareState}
         loading={cloudLoading}
         error={cloudError}
+        emailVerificationNeeded={emailVerificationNeeded}
         onClose={() => setFriendsVisible(false)}
         onRetry={() => uid && void loadCloud(uid, name)}
+        onSendVerification={() => {
+          if (!uid) throw new Error('Hãy đăng nhập lại.');
+          return sendMemoryVerificationEmail(uid);
+        }}
+        onCheckVerification={checkVerifiedEmail}
         onInvite={inviteFriend}
         onChange={updateFriend}
         onCancel={cancelInvite}

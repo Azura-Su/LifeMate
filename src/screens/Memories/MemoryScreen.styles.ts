@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors, typography } from '../../theme';
+import { colors, layout, typography } from '../../theme';
 
 export const styles = StyleSheet.create({
   fixedHeader: { paddingTop: 10, paddingBottom: 12 },
@@ -23,6 +23,16 @@ export const styles = StyleSheet.create({
     borderColor: colors.sunlightLine,
   },
   content: { gap: 14, paddingTop: 16 },
+  timelineList: { flex: 1 },
+  timelineListContent: {
+    flexGrow: 1,
+    paddingHorizontal: layout.screenGutter,
+    paddingTop: 16,
+    paddingBottom: 32,
+  },
+  timelineHeader: { gap: 14, marginBottom: 14 },
+  timelineItem: { marginBottom: 12 },
+  timelineSectionHeader: { marginBottom: 11 },
   captureContent: { gap: 0, paddingTop: 12, paddingBottom: 20 },
   capturePage: { gap: 16 },
   captureHeading: { gap: 3, paddingHorizontal: 2 },

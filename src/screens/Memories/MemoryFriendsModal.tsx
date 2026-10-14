@@ -16,8 +16,11 @@ type Props = {
   state: MemoryShareState | null;
   loading: boolean;
   error: string | null;
+  emailVerificationNeeded: boolean;
   onClose: () => void;
   onRetry: () => void;
+  onSendVerification: () => Promise<void>;
+  onCheckVerification: () => Promise<void>;
   onInvite: (email: string) => Promise<void>;
   onChange: (
     action: 'accept' | 'decline' | 'remove-friend',
@@ -66,8 +69,11 @@ export function MemoryFriendsModal({
   state,
   loading,
   error,
+  emailVerificationNeeded,
   onClose,
   onRetry,
+  onSendVerification,
+  onCheckVerification,
   onInvite,
   onChange,
   onCancel,
@@ -75,6 +81,7 @@ export function MemoryFriendsModal({
   const [email, setEmail] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [verificationBusy, setVerificationBusy] = useState(false);
   useEffect(() => {
     if (visible) return;
     setEmail('');
@@ -117,10 +124,27 @@ export function MemoryFriendsModal({
     }
   }
 
+  async function verifyEmail(action: 'send' | 'check') {
+    if (verificationBusy) return;
+    setVerificationBusy(true);
+    setLocalError(null);
+    setNotice(null);
+    try {
+      if (action === 'send') {
+        await onSendVerification();
+        setNotice('Đã gửi thư xác minh. Hãy mở email rồi quay lại kiểm tra.');
+      } else await onCheckVerification();
+    } catch (cause) {
+      setLocalError((cause as Error).message || 'Chưa kiểm tra được email.');
+    } finally {
+      setVerificationBusy(false);
+    }
+  }
+
   return (
     <DialogModal
       visible={visible}
-      onRequestClose={loading ? undefined : onClose}
+      onRequestClose={loading || verificationBusy ? undefined : onClose}
       style={styles.dialog}
     >
       <ScrollView
@@ -140,7 +164,7 @@ export function MemoryFriendsModal({
           <DialogCloseButton
             accessibilityLabel="Đóng bạn bè"
             onPress={onClose}
-            disabled={loading}
+            disabled={loading || verificationBusy}
           />
         </View>
         {state ? (
@@ -240,6 +264,25 @@ export function MemoryFriendsModal({
               </View>
             )}
           </>
+        ) : emailVerificationNeeded ? (
+          <View style={styles.section}>
+            <Text style={styles.empty}>
+              Xác minh email tài khoản để kết bạn và chia sẻ ký ức. Ký ức riêng
+              trên máy vẫn dùng được.
+            </Text>
+            <Button
+              title="Gửi email xác minh"
+              compact
+              disabled={loading || verificationBusy}
+              onPress={() => void verifyEmail('send')}
+            />
+            <Button
+              title="Tôi đã xác minh"
+              compact
+              disabled={loading || verificationBusy}
+              onPress={() => void verifyEmail('check')}
+            />
+          </View>
         ) : (
           <Button
             title={loading ? 'Đang tải…' : 'Tải lại'}

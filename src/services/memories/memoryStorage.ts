@@ -79,7 +79,15 @@ async function read(uid: string): Promise<MemoryEntry[]> {
   }
   if (!Array.isArray(value))
     throw new Error('Dữ liệu dòng ký ức không hợp lệ.');
-  return sortEntries(value.filter((item) => validEntry(item, uid)));
+  const entries: MemoryEntry[] = [];
+  for (const item of value) {
+    if (!validEntry(item, uid))
+      throw new Error(
+        'Một ký ức trên thiết bị không hợp lệ. Dữ liệu gốc được giữ nguyên để khôi phục.',
+      );
+    entries.push(item);
+  }
+  return sortEntries(entries);
 }
 
 function enqueue<T>(uid: string, action: () => Promise<T>): Promise<T> {

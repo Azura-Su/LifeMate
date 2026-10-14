@@ -46,7 +46,8 @@ async function readInput(request) {
     decline: ['action', 'displayName', 'uid'],
     cancel: ['action', 'displayName', 'email'],
     'remove-friend': ['action', 'displayName', 'uid'],
-    feed: ['action', 'displayName'],
+    feed: ['action', 'displayName', 'offset'],
+    photo: ['action', 'displayName', 'ownerUid', 'id'],
     publish: [
       'action',
       'displayName',
@@ -369,21 +370,26 @@ export function createHandler({ verifyIdentity, database, storage }) {
       return json(200, { done: true });
     }
     if (input.action === 'feed') {
+      const offset = input.offset === undefined ? 0 : input.offset;
+      if (!Number.isSafeInteger(offset) || offset < 0 || offset > 10000)
+        return json(400, { code: 'invalid-page' });
       const people = await relationships(uid);
-      if (!people.friends.length) return json(200, { items: [] });
+      if (!people.friends.length)
+        return json(200, { items: [], nextOffset: null });
       const friendUids = people.friends.map((person) => person.uid);
       const rows = await database(MEMORIES, 'GET', {
         owner_uid: `in.(${friendUids.join(',')})`,
         status: 'eq.active',
         select: 'id,owner_uid,date_key,body,photo_path,created_at',
-        order: 'date_key.desc,created_at.desc',
-        limit: 30,
+        order: 'date_key.desc,created_at.desc,owner_uid.asc,id.asc',
+        limit: 31,
+        offset,
       });
       const byUid = new Map(
         people.friends.map((person) => [person.uid, person]),
       );
       const items = await Promise.all(
-        rows.map(async (row) => ({
+        rows.slice(0, 30).map(async (row) => ({
           id: row.id,
           ownerId: row.owner_uid,
           ownerName: byUid.get(row.owner_uid)?.name ?? 'Người dùng',
@@ -394,7 +400,39 @@ export function createHandler({ verifyIdentity, database, storage }) {
             : null,
         })),
       );
-      return json(200, { items });
+      return json(200, {
+        items,
+        nextOffset: rows.length > 30 ? offset + 30 : null,
+      });
+    }
+    if (input.action === 'photo') {
+      if (
+        typeof input.ownerUid !== 'string' ||
+        !ID.test(input.ownerUid) ||
+        input.ownerUid === uid ||
+        typeof input.id !== 'string' ||
+        !ID.test(input.id)
+      )
+        return json(400, { code: 'invalid-memory' });
+      const pair = friendPair(uid, input.ownerUid);
+      const friendship = await database(FRIENDS, 'GET', {
+        left_uid: `eq.${pair.left_uid}`,
+        right_uid: `eq.${pair.right_uid}`,
+        select: 'left_uid',
+        limit: 1,
+      });
+      if (!friendship.length) return json(404, { code: 'photo-not-found' });
+      const memory = await database(MEMORIES, 'GET', {
+        owner_uid: `eq.${input.ownerUid}`,
+        id: `eq.${input.id}`,
+        status: 'eq.active',
+        select: 'photo_path',
+        limit: 1,
+      });
+      if (!memory[0]?.photo_path) return json(404, { code: 'photo-not-found' });
+      return json(200, {
+        photoUrl: await storage('download', memory[0].photo_path),
+      });
     }
     if (input.action === 'publish') {
       if (
@@ -496,6 +534,8 @@ export function createHandler({ verifyIdentity, database, storage }) {
     } catch {
       return json(401, { code: 'unauthenticated' });
     }
+    if (identity.emailVerified !== true)
+      return json(403, { code: 'email-not-verified' });
     let input;
     try {
       input = await readInput(request);

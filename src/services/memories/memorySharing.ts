@@ -1,4 +1,8 @@
-import { getAuth, getIdToken } from '@react-native-firebase/auth';
+import {
+  getAuth,
+  getIdToken,
+  sendEmailVerification,
+} from '@react-native-firebase/auth';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 import { audioCloudApiKey, audioCloudUrl } from '../../config/audioCloud';
@@ -9,6 +13,7 @@ import { memoryPhotoUri } from './memoryStorage';
 const MAX_SHARED_PHOTO_BYTES = 2 * 1024 * 1024;
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
 class MemoryShareNotStartedError extends Error {}
+class MemoryEmailNotVerifiedError extends MemoryShareNotStartedError {}
 
 export type MemoryFriend = { uid: string; email: string; name: string };
 export type MemoryPendingInvite = { email: string };
@@ -27,6 +32,10 @@ export type FriendMemory = {
   text: string;
   photoUrl: string | null;
 };
+export type FriendMemoryPage = {
+  items: FriendMemory[];
+  nextOffset: number | null;
+};
 
 function assertSession(uid: string) {
   if (!ID.test(uid) || useAuthStore.getState().user?.uid !== uid)
@@ -38,17 +47,27 @@ function assertSession(uid: string) {
 }
 
 function serviceError(status: number, code?: string) {
+  if (code === 'email-not-verified')
+    return new MemoryEmailNotVerifiedError(
+      'Hãy xác minh email LifeMate để chia sẻ ký ức.',
+    );
   if (code === 'invite-not-found')
     return new Error('Lời mời này không còn hiệu lực.');
   if (status === 404)
-    return new MemoryShareNotStartedError('Máy chủ chưa bật tính năng chia sẻ ký ức.');
+    return new MemoryShareNotStartedError(
+      'Máy chủ chưa bật tính năng chia sẻ ký ức.',
+    );
   if (status === 401 || status === 403)
-    return new MemoryShareNotStartedError('Phiên đăng nhập chưa hợp lệ. Hãy đăng nhập lại.');
+    return new MemoryShareNotStartedError(
+      'Phiên đăng nhập chưa hợp lệ. Hãy đăng nhập lại.',
+    );
   if (code === 'self-invite') return new Error('Đây là email của chính bạn.');
   if (code === 'invalid-email')
     return new Error('Hãy nhập email tài khoản LifeMate hợp lệ.');
   if (status === 429)
-    return new MemoryShareNotStartedError('Đã đến giới hạn lời mời hoặc ký ức chia sẻ.');
+    return new MemoryShareNotStartedError(
+      'Đã đến giới hạn lời mời hoặc ký ức chia sẻ.',
+    );
   if (code === 'photo-not-ready')
     return new Error('Ảnh chưa tải lên xong. Hãy thử chia sẻ lại.');
   if (status === 409)
@@ -58,6 +77,26 @@ function serviceError(status: number, code?: string) {
 
 export function memoryPublishDefinitelyNotStarted(cause: unknown) {
   return cause instanceof MemoryShareNotStartedError;
+}
+
+export function memoryEmailVerificationNeeded(cause: unknown) {
+  return cause instanceof MemoryEmailNotVerifiedError;
+}
+
+export async function sendMemoryVerificationEmail(uid: string) {
+  try {
+    await sendEmailVerification(assertSession(uid));
+  } catch {
+    throw new Error('Chưa gửi được email xác minh. Hãy thử lại sau.');
+  }
+}
+
+export async function refreshMemoryVerification(uid: string) {
+  try {
+    await getIdToken(assertSession(uid), true);
+  } catch {
+    throw new Error('Chưa kiểm tra được email. Hãy thử lại sau.');
+  }
 }
 
 async function requestMemoryAction(
@@ -226,11 +265,18 @@ function signedImageUrl(
 export async function getFriendMemories(
   uid: string,
   name: string,
-): Promise<FriendMemory[]> {
-  const data = await requestMemoryAction(uid, name, { action: 'feed' });
-  if (!Array.isArray(data.items))
+  offset = 0,
+): Promise<FriendMemoryPage> {
+  const data = await requestMemoryAction(uid, name, { action: 'feed', offset });
+  if (
+    !Array.isArray(data.items) ||
+    (data.nextOffset !== null &&
+      (typeof data.nextOffset !== 'number' ||
+        !Number.isSafeInteger(data.nextOffset) ||
+        (data.nextOffset as number) <= offset))
+  )
     throw new Error('Chưa đọc được ký ức của bạn bè.');
-  return data.items.flatMap((value) => {
+  const items = data.items.flatMap((value) => {
     if (!value || typeof value !== 'object') return [];
     const row = value as Record<string, unknown>;
     if (
@@ -257,6 +303,25 @@ export async function getFriendMemories(
       },
     ];
   });
+  return { items, nextOffset: data.nextOffset as number | null };
+}
+
+export async function renewFriendMemoryPhoto(
+  uid: string,
+  name: string,
+  ownerId: string,
+  id: string,
+) {
+  if (!ID.test(ownerId) || !ID.test(id))
+    throw new Error('Ký ức của bạn bè không hợp lệ.');
+  const data = await requestMemoryAction(uid, name, {
+    action: 'photo',
+    ownerUid: ownerId,
+    id,
+  });
+  const url = signedImageUrl(data.photoUrl, ownerId, id);
+  if (!url) throw new Error('Ảnh ký ức không còn khả dụng.');
+  return url;
 }
 
 async function resizeForSharing(uri: string) {
