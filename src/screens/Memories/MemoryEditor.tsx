@@ -222,12 +222,12 @@ export function MemoryEditor({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Ai có thể xem? ${visibility === 'private' ? 'Chỉ mình tôi' : 'Bạn bè'}`}
+            accessibilityHint="Mở danh sách chọn quyền xem ký ức"
             accessibilityState={{ expanded: visibilityOpen }}
             disabled={busy || picking}
             onPress={() => setVisibilityOpen((open) => !open)}
             style={styles.visibilityDropdown}
           >
-            <Text style={styles.fieldLabel}>Ai có thể xem?</Text>
             <View style={styles.visibilitySelected}>
               <Feather
                 name={visibility === 'private' ? 'lock' : 'users'}
@@ -248,14 +248,24 @@ export function MemoryEditor({
             <View style={styles.visibilityMenu}>
               {(
                 [
-                  ['private', 'lock', 'Chỉ mình tôi'],
-                  ['friends', 'users', 'Bạn bè'],
+                  [
+                    'private',
+                    'lock',
+                    'Chỉ mình tôi',
+                    'Chỉ lưu trên thiết bị này',
+                  ],
+                  [
+                    'friends',
+                    'users',
+                    'Bạn bè',
+                    'Bạn bè hiện tại và sau này có thể xem',
+                  ],
                 ] as const
-              ).map(([value, icon, label], index) => (
+              ).map(([value, icon, label, description], index) => (
                 <Pressable
                   key={value}
                   accessibilityRole="button"
-                  accessibilityLabel={`Chọn ${label}`}
+                  accessibilityLabel={`Chọn ${label}. ${description}`}
                   accessibilityState={{ selected: visibility === value }}
                   disabled={busy || picking}
                   onPress={() => {
@@ -268,7 +278,12 @@ export function MemoryEditor({
                   ]}
                 >
                   <Feather name={icon} size={15} color={colors.earth} />
-                  <Text style={styles.visibilityOptionText}>{label}</Text>
+                  <View style={styles.visibilityOptionCopy}>
+                    <Text style={styles.visibilityOptionText}>{label}</Text>
+                    <Text style={styles.visibilityOptionDescription}>
+                      {description}
+                    </Text>
+                  </View>
                   {visibility === value && (
                     <Feather name="check" size={15} color={colors.success} />
                   )}
@@ -276,11 +291,6 @@ export function MemoryEditor({
               ))}
             </View>
           )}
-          <Text style={styles.visibilityHint}>
-            {visibility === 'private'
-              ? 'Chỉ lưu trên thiết bị này.'
-              : 'Bạn bè hiện tại và sau này có thể xem ký ức này.'}
-          </Text>
         </View>
         <View style={styles.textLabelRow}>
           <Text style={styles.fieldLabel}>Nội dung</Text>
