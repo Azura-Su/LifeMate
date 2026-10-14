@@ -4,6 +4,7 @@ import {
   reload,
   sendEmailVerification,
 } from '@react-native-firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 import { audioCloudApiKey, audioCloudUrl } from '../../config/audioCloud';
@@ -230,10 +231,28 @@ export async function migrateLegacyMemoryPhotos(
   name: string,
   ids: string[],
 ) {
-  for (const id of ids.slice(0, 10)) {
+  if (!ids.length) return 0;
+  const cursorKey = `lifemate:memory-r2-migration-cursor:v1:${uid}`;
+  const storedCursor = Number(await AsyncStorage.getItem(cursorKey));
+  const start =
+    Number.isSafeInteger(storedCursor) && storedCursor >= 0
+      ? storedCursor % ids.length
+      : 0;
+  const batch = [...ids.slice(start), ...ids.slice(0, start)].slice(0, 10);
+  await AsyncStorage.setItem(
+    cursorKey,
+    String((start + batch.length) % ids.length),
+  );
+  let failed = 0;
+  for (const id of batch) {
     assertSession(uid);
-    await requestMemoryAction(uid, name, { action: 'migrate', id });
+    try {
+      await requestMemoryAction(uid, name, { action: 'migrate', id });
+    } catch {
+      failed += 1;
+    }
   }
+  return failed;
 }
 
 export async function sendMemoryFriendInvite(

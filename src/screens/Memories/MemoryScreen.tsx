@@ -269,7 +269,25 @@ export function MemoryScreen() {
               displayName,
               state.legacyIds,
             )
-              .catch(() => undefined)
+              .then((failed) => {
+                if (
+                  failed > 0 &&
+                  generation === cloudGeneration.current &&
+                  useAuthStore.getState().user?.uid === accountId
+                )
+                  setCloudError(
+                    'Một số ảnh chia sẻ cũ chưa chuyển được sang R2. Kéo xuống để thử lại.',
+                  );
+              })
+              .catch(() => {
+                if (
+                  generation === cloudGeneration.current &&
+                  useAuthStore.getState().user?.uid === accountId
+                )
+                  setCloudError(
+                    'Chưa chuyển được ảnh cũ. Kéo xuống để thử lại.',
+                  );
+              })
               .finally(() => {
                 migrationInFlight.current = false;
               });

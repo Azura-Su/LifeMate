@@ -15,9 +15,10 @@ của Edge Function.
 2. Tạo R2 API token giới hạn **Object Read & Write** cho đúng bucket này. Lưu
    Access Key ID và Secret Access Key vào nơi quản lý secrets; không đặt trong
    `.env` của Expo hoặc Git.
-3. Áp dụng migration
-   `supabase/migrations/202610140001_memory_r2.sql` vào project Supabase.
-   Migration chỉ thêm cột và giữ ảnh cũ ở Supabase Storage.
+3. Áp dụng hai migration `202610140001_memory_r2.sql` và
+   `202610140002_memory_r2_cleanup.sql` theo thứ tự trong
+   `supabase/migrations/`. Chúng thêm cột và giữ ảnh cũ ở Supabase Storage
+   cho đến khi bản R2 được xác minh.
 4. Đặt các secret cho Supabase Edge Function `memory-access`:
 
    | Secret                 | Giá trị                     |
@@ -36,11 +37,16 @@ của Edge Function.
 ## Chuyển ảnh cũ
 
 Các hàng đã chia sẻ trước đây có `photo_backend = 'supabase'`. Khi chủ sở hữu
-mở tab Ký ức, app yêu cầu function chuyển tối đa 10 ảnh cũ mỗi lần. Function
+mở dòng ký ức, app yêu cầu function xử lý tối đa 10 ảnh cũ mỗi lần và xoay
+vòng qua danh sách để một ảnh lỗi không chặn các ảnh sau. Function
 đọc bản cũ, kiểm tra JPEG và kích thước, ghi sang R2, xác minh bản R2, đổi
-`photo_backend`, sau đó mới xóa bản Supabase. Cho đến khi chuyển xong, ảnh
-cũ tiếp tục được đọc từ Supabase. Không xóa bucket cũ trước khi truy vấn
-`photo_backend = 'supabase'` trả về 0 và đã kiểm tra các object còn sót.
+`photo_backend`, sau đó mới xóa bản Supabase. Cột `supabase_cleanup_pending`
+giữ dấu dọn ảnh gốc cho tới khi xóa thành công; nếu xóa lỗi, lần mở sau sẽ
+thử lại. Migration `202610140002_memory_r2_cleanup.sql` đánh dấu kiểm tra
+lại cả ảnh R2 đã được chuyển trong lần triển khai đầu. Cho đến khi chuyển
+xong, ảnh cũ tiếp tục được đọc từ Supabase. Không xóa bucket cũ trước khi
+truy vấn `photo_backend = 'supabase'` và `supabase_cleanup_pending = true`
+đều trả về 0, đồng thời đã kiểm tra các object còn sót.
 
 ## Quyền truy cập và giới hạn
 

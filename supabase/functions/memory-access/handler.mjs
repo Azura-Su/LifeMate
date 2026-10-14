@@ -92,6 +92,21 @@ function friendPair(a, b) {
 export function createHandler({ verifyIdentity, database, storage, r2 }) {
   const photoStorage = (backend, action, path, sizeBytes) =>
     backend === 'r2' ? r2(action, path, sizeBytes) : storage(action, path);
+  async function finishSupabaseCleanup(uid, id, path) {
+    await storage('delete', path);
+    await database(
+      MEMORIES,
+      'PATCH',
+      {
+        owner_uid: `eq.${uid}`,
+        id: `eq.${id}`,
+        photo_backend: 'eq.r2',
+        photo_path: `eq.${path}`,
+        supabase_cleanup_pending: 'eq.true',
+      },
+      { supabase_cleanup_pending: false },
+    );
+  }
   async function profile(identity, displayName) {
     const found = await database(PROFILES, 'GET', {
       uid: `eq.${identity.uid}`,
@@ -203,17 +218,24 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
         relationships(uid),
         database(MEMORIES, 'GET', {
           owner_uid: `eq.${uid}`,
-          status: 'eq.active',
-          select: 'id,photo_backend,photo_path',
+          select: 'id,status,photo_backend,photo_path,supabase_cleanup_pending',
+          order: 'id.asc',
           limit: 101,
         }),
       ]);
       return json(200, {
         email: identity.email,
         ...people,
-        sharedIds: shares.map((row) => row.id),
+        sharedIds: shares
+          .filter((row) => row.status === 'active')
+          .map((row) => row.id),
         legacyIds: shares
-          .filter((row) => row.photo_path && row.photo_backend === 'supabase')
+          .filter(
+            (row) =>
+              row.photo_path &&
+              ((row.status === 'active' && row.photo_backend === 'supabase') ||
+                row.supabase_cleanup_pending),
+          )
           .map((row) => row.id),
       });
     }
@@ -464,11 +486,20 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
       const existing = await database(MEMORIES, 'GET', {
         owner_uid: `eq.${uid}`,
         id: `eq.${input.id}`,
-        select: 'id,status,photo_backend',
+        select: 'id,status,photo_path,photo_backend,supabase_cleanup_pending',
         limit: 1,
       });
       if (existing[0]?.status === 'active')
         return json(409, { code: 'already-shared' });
+      if (existing[0]?.status === 'pending' && existing[0].photo_path) {
+        await photoStorage(
+          existing[0].photo_backend,
+          'delete',
+          existing[0].photo_path,
+        );
+        if (existing[0].supabase_cleanup_pending)
+          await storage('delete', existing[0].photo_path);
+      }
       if (!existing.length) {
         const total = await database(MEMORIES, 'GET', {
           owner_uid: `eq.${uid}`,
@@ -488,6 +519,7 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
         photo_path: photoPath,
         photo_backend: 'r2',
         photo_size_bytes: input.hasPhoto ? input.sizeBytes : null,
+        supabase_cleanup_pending: false,
         status: input.hasPhoto ? 'pending' : 'active',
         updated_at: new Date().toISOString(),
       };
@@ -515,13 +547,21 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
       const rows = await database(MEMORIES, 'GET', {
         owner_uid: `eq.${uid}`,
         id: `eq.${input.id}`,
-        status: 'eq.active',
-        photo_backend: 'eq.supabase',
-        select: 'photo_path',
+        select: 'status,photo_path,photo_backend,supabase_cleanup_pending',
         limit: 1,
       });
-      const path = rows[0]?.photo_path;
+      const row = rows[0];
+      const path = row?.photo_path;
       if (!path) return json(200, { migrated: false });
+      if (row.photo_backend === 'r2') {
+        if (!row.supabase_cleanup_pending)
+          return json(200, { migrated: false });
+        await finishSupabaseCleanup(uid, input.id, path);
+        return json(200, { migrated: true });
+      }
+      if (row.status !== 'active') return json(200, { migrated: false });
+      if (row.photo_backend !== 'supabase')
+        return json(409, { code: 'invalid-memory' });
       const source = await storage('download', path);
       const sizeBytes = await r2('copy', path, source);
       const verified = await r2('head', path);
@@ -530,7 +570,6 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
         verified.sizeBytes !== sizeBytes ||
         verified.contentType !== 'image/jpeg'
       ) {
-        await r2('delete', path);
         return json(503, { code: 'photo-not-ready' });
       }
       const changed = await database(
@@ -543,24 +582,28 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
           photo_backend: 'eq.supabase',
           photo_path: `eq.${path}`,
         },
-        { photo_backend: 'r2', photo_size_bytes: sizeBytes },
+        {
+          photo_backend: 'r2',
+          photo_size_bytes: sizeBytes,
+          supabase_cleanup_pending: true,
+        },
       );
       if (!changed.length) {
         const current = await database(MEMORIES, 'GET', {
           owner_uid: `eq.${uid}`,
           id: `eq.${input.id}`,
-          select: 'photo_backend,photo_path,status',
+          select: 'photo_backend,photo_path,supabase_cleanup_pending',
           limit: 1,
         });
         if (
-          current[0]?.photo_backend !== 'r2' ||
-          current[0]?.photo_path !== path ||
-          current[0]?.status !== 'active'
+          current[0]?.photo_backend === 'r2' &&
+          current[0]?.photo_path === path &&
+          current[0]?.supabase_cleanup_pending
         )
-          await r2('delete', path);
+          await finishSupabaseCleanup(uid, input.id, path);
         return json(200, { migrated: false });
       }
-      await storage('delete', path).catch(() => undefined);
+      await finishSupabaseCleanup(uid, input.id, path);
       return json(200, { migrated: true });
     }
     if (input.action === 'confirm' || input.action === 'unshare') {
@@ -569,7 +612,8 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
       const rows = await database(MEMORIES, 'GET', {
         owner_uid: `eq.${uid}`,
         id: `eq.${input.id}`,
-        select: 'photo_path,photo_backend,photo_size_bytes,status',
+        select:
+          'photo_path,photo_backend,photo_size_bytes,supabase_cleanup_pending,status',
         limit: 1,
       });
       const row = rows[0];
@@ -634,6 +678,8 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
           'delete',
           deleting.photo_path,
         );
+      if (deleting?.supabase_cleanup_pending)
+        await storage('delete', deleting.photo_path);
       await database(MEMORIES, 'DELETE', {
         owner_uid: `eq.${uid}`,
         id: `eq.${input.id}`,
