@@ -49,7 +49,7 @@ function assertSession(uid: string) {
 function serviceError(status: number, code?: string) {
   if (code === 'email-not-verified')
     return new MemoryEmailNotVerifiedError(
-      'Hãy xác minh email LifeMate để chia sẻ ký ức.',
+      'Email đăng nhập chưa được xác nhận để kết bạn và chia sẻ ký ức.',
     );
   if (code === 'invite-not-found')
     return new Error('Lời mời này không còn hiệu lực.');
@@ -87,7 +87,7 @@ export async function sendMemoryVerificationEmail(uid: string) {
   try {
     await sendEmailVerification(assertSession(uid));
   } catch {
-    throw new Error('Chưa gửi được email xác minh. Hãy thử lại sau.');
+    throw new Error('Chưa gửi được thư xác nhận. Hãy thử lại sau.');
   }
 }
 
@@ -95,7 +95,7 @@ export async function refreshMemoryVerification(uid: string) {
   try {
     await getIdToken(assertSession(uid), true);
   } catch {
-    throw new Error('Chưa kiểm tra được email. Hãy thử lại sau.');
+    throw new Error('Chưa kiểm tra được trạng thái email. Hãy thử lại sau.');
   }
 }
 

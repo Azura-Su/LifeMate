@@ -190,6 +190,7 @@ function OwnMemoryCard({
 
 export function MemoryScreen() {
   const uid = useAuthStore((state) => state.user?.uid);
+  const accountEmail = useAuthStore((state) => state.user?.email);
   const { name } = useProfile();
   const isFocused = useIsFocused();
   const [viewMode, setViewMode] = useState<'capture' | 'timeline'>('capture');
@@ -664,7 +665,7 @@ export function MemoryScreen() {
           </Text>
         )}
       </Pressable>
-      {!!cloudError && (
+      {timelineTab === 'friends' && !!cloudError && (
         <View style={styles.errorBox}>
           <Text accessibilityRole="alert" style={styles.errorText}>
             {cloudError}
@@ -673,7 +674,7 @@ export function MemoryScreen() {
             accessibilityRole="button"
             accessibilityLabel={
               emailVerificationNeeded
-                ? 'Mở xác minh email'
+                ? 'Mở Bạn bè để xác nhận email'
                 : 'Thử kết nối chia sẻ'
             }
             onPress={() => {
@@ -682,7 +683,7 @@ export function MemoryScreen() {
             }}
           >
             <Text style={styles.retryText}>
-              {emailVerificationNeeded ? 'Xác minh email' : 'Thử lại'}
+              {emailVerificationNeeded ? 'Mở Bạn bè' : 'Thử lại'}
             </Text>
           </Pressable>
         </View>
@@ -916,6 +917,7 @@ export function MemoryScreen() {
       <MemoryFriendsModal
         visible={friendsVisible}
         state={shareState}
+        accountEmail={accountEmail}
         loading={cloudLoading}
         error={cloudError}
         emailVerificationNeeded={emailVerificationNeeded}

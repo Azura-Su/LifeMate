@@ -14,6 +14,7 @@ import { colors, typography } from '../../theme';
 type Props = {
   visible: boolean;
   state: MemoryShareState | null;
+  accountEmail: string | null | undefined;
   loading: boolean;
   error: string | null;
   emailVerificationNeeded: boolean;
@@ -67,6 +68,7 @@ function FriendRow({
 export function MemoryFriendsModal({
   visible,
   state,
+  accountEmail,
   loading,
   error,
   emailVerificationNeeded,
@@ -132,7 +134,7 @@ export function MemoryFriendsModal({
     try {
       if (action === 'send') {
         await onSendVerification();
-        setNotice('Đã gửi thư xác minh. Hãy mở email rồi quay lại kiểm tra.');
+        setNotice('Đã gửi thư đến email đăng nhập ở trên. Mở thư, xác nhận rồi quay lại kiểm tra.');
       } else await onCheckVerification();
     } catch (cause) {
       setLocalError((cause as Error).message || 'Chưa kiểm tra được email.');
@@ -167,12 +169,16 @@ export function MemoryFriendsModal({
             disabled={loading || verificationBusy}
           />
         </View>
+        {!!(state?.email || accountEmail) && (
+          <View style={styles.emailBox}>
+            <Feather name="mail" size={16} color={colors.sky} />
+            <Text style={styles.emailText}>
+              Email đăng nhập: {state?.email || accountEmail}
+            </Text>
+          </View>
+        )}
         {state ? (
           <>
-            <View style={styles.emailBox}>
-              <Feather name="mail" size={16} color={colors.sky} />
-              <Text style={styles.emailText}>{state.email}</Text>
-            </View>
             <Text style={styles.sectionTitle}>Thêm bạn bằng email</Text>
             <AppTextInput
               accessibilityLabel="Email bạn bè"
@@ -267,17 +273,18 @@ export function MemoryFriendsModal({
         ) : emailVerificationNeeded ? (
           <View style={styles.section}>
             <Text style={styles.empty}>
-              Xác minh email tài khoản để kết bạn và chia sẻ ký ức. Ký ức riêng
-              trên máy vẫn dùng được.
+              Đây là email bạn dùng để đăng nhập. Đăng nhập bằng mật khẩu chưa
+              xác nhận bạn sở hữu hộp thư này. Hãy xác nhận một lần qua thư gửi
+              đến địa chỉ ở trên để kết bạn và chia sẻ ký ức.
             </Text>
             <Button
-              title="Gửi email xác minh"
+              title="Gửi thư xác nhận"
               compact
               disabled={loading || verificationBusy}
               onPress={() => void verifyEmail('send')}
             />
             <Button
-              title="Tôi đã xác minh"
+              title="Tôi đã xác nhận"
               compact
               disabled={loading || verificationBusy}
               onPress={() => void verifyEmail('check')}
@@ -296,7 +303,7 @@ export function MemoryFriendsModal({
             {notice}
           </Text>
         )}
-        {!!(localError || error) && (
+        {!!(localError || (!emailVerificationNeeded && error)) && (
           <Text accessibilityRole="alert" style={styles.error}>
             {localError || error}
           </Text>
