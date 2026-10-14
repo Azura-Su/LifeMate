@@ -83,13 +83,33 @@ export function MemoryFriendsModal({
   const [email, setEmail] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [verificationBusy, setVerificationBusy] = useState(false);
+  const [verificationAction, setVerificationAction] = useState<
+    'send' | 'check' | null
+  >(null);
+  const [resendAt, setResendAt] = useState(0);
+  const [now, setNow] = useState(Date.now());
+  const verificationBusy = verificationAction !== null;
+  const resendSeconds = Math.max(0, Math.ceil((resendAt - now) / 1000));
   useEffect(() => {
     if (visible) return;
     setEmail('');
     setNotice(null);
     setLocalError(null);
   }, [visible]);
+  useEffect(() => {
+    setResendAt(0);
+  }, [accountEmail]);
+  useEffect(() => {
+    if (!visible) return;
+    setNow(Date.now());
+    if (resendAt <= Date.now()) return;
+    const interval = setInterval(() => {
+      const current = Date.now();
+      setNow(current);
+      if (current >= resendAt) clearInterval(interval);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [visible, resendAt]);
 
   async function invite() {
     setNotice(null);
@@ -128,18 +148,24 @@ export function MemoryFriendsModal({
 
   async function verifyEmail(action: 'send' | 'check') {
     if (verificationBusy) return;
-    setVerificationBusy(true);
+    setVerificationAction(action);
     setLocalError(null);
     setNotice(null);
     try {
       if (action === 'send') {
         await onSendVerification();
-        setNotice('Đã gửi thư đến email đăng nhập ở trên. Mở thư, xác nhận rồi quay lại kiểm tra.');
-      } else await onCheckVerification();
+        const current = Date.now();
+        setNow(current);
+        setResendAt(current + 60000);
+        setNotice('Yêu cầu gửi thư đã được tiếp nhận.');
+      } else {
+        await onCheckVerification();
+        setNotice('Email đã được xác nhận.');
+      }
     } catch (cause) {
       setLocalError((cause as Error).message || 'Chưa kiểm tra được email.');
     } finally {
-      setVerificationBusy(false);
+      setVerificationAction(null);
     }
   }
 
@@ -156,11 +182,12 @@ export function MemoryFriendsModal({
         <View style={styles.header}>
           <View style={styles.heading}>
             <Text accessibilityRole="header" style={styles.title}>
-              Bạn bè
+              {emailVerificationNeeded && !state ? 'Xác nhận email' : 'Bạn bè'}
             </Text>
             <Text style={styles.subtitle}>
-              Bạn bè hiện tại và kết bạn sau này đều xem được ký ức bạn chọn
-              chia sẻ.
+              {emailVerificationNeeded && !state
+                ? 'Dùng email đăng nhập để kết nối với bạn bè.'
+                : 'Bạn bè hiện tại và kết bạn sau này đều xem được ký ức bạn chọn chia sẻ.'}
             </Text>
           </View>
           <DialogCloseButton
@@ -171,10 +198,15 @@ export function MemoryFriendsModal({
         </View>
         {!!(state?.email || accountEmail) && (
           <View style={styles.emailBox}>
-            <Feather name="mail" size={16} color={colors.sky} />
-            <Text style={styles.emailText}>
-              Email đăng nhập: {state?.email || accountEmail}
-            </Text>
+            <View style={styles.emailIcon}>
+              <Feather name="mail" size={17} color={colors.sky} />
+            </View>
+            <View style={styles.emailDetails}>
+              <Text style={styles.emailLabel}>Email đăng nhập</Text>
+              <Text selectable style={styles.emailText}>
+                {state?.email || accountEmail}
+              </Text>
+            </View>
           </View>
         )}
         {state ? (
@@ -271,24 +303,59 @@ export function MemoryFriendsModal({
             )}
           </>
         ) : emailVerificationNeeded ? (
-          <View style={styles.section}>
-            <Text style={styles.empty}>
-              Đây là email bạn dùng để đăng nhập. Đăng nhập bằng mật khẩu chưa
-              xác nhận bạn sở hữu hộp thư này. Hãy xác nhận một lần qua thư gửi
-              đến địa chỉ ở trên để kết bạn và chia sẻ ký ức.
+          <View style={styles.verificationCard}>
+            <View style={styles.verificationHeading}>
+              <Feather name="shield" size={17} color={colors.earth} />
+              <Text style={styles.verificationTitle}>
+                Cần xác nhận một lần
+              </Text>
+            </View>
+            <Text style={styles.verificationDescription}>
+              Đăng nhập bằng mật khẩu chưa xác nhận bạn sở hữu hộp thư. Mở liên
+              kết trong thư để bật kết bạn và chia sẻ.
             </Text>
             <Button
-              title="Gửi thư xác nhận"
+              title={
+                resendSeconds > 0
+                  ? `Gửi lại sau ${resendSeconds}s`
+                  : resendAt > 0
+                    ? 'Gửi lại thư xác nhận'
+                    : 'Gửi thư xác nhận'
+              }
               compact
-              disabled={loading || verificationBusy}
+              loading={verificationAction === 'send'}
+              disabled={loading || verificationBusy || resendSeconds > 0}
               onPress={() => void verifyEmail('send')}
             />
-            <Button
-              title="Tôi đã xác nhận"
-              compact
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Kiểm tra email đã xác nhận"
+              style={styles.checkButton}
               disabled={loading || verificationBusy}
               onPress={() => void verifyEmail('check')}
-            />
+            >
+              <Text style={styles.checkButtonText}>
+                {verificationAction === 'check'
+                  ? 'Đang kiểm tra…'
+                  : 'Tôi đã bấm liên kết trong thư'}
+              </Text>
+              <Feather name="arrow-right" size={15} color={colors.earth} />
+            </Pressable>
+            {!!notice && (
+              <View style={styles.deliveryNotice}>
+                <Feather name="check-circle" size={15} color={colors.success} />
+                <Text style={styles.deliveryNoticeText}>{notice}</Text>
+              </View>
+            )}
+            {!!localError && (
+              <Text accessibilityRole="alert" style={styles.error}>
+                {localError}
+              </Text>
+            )}
+            <Text style={styles.deliveryHint}>
+              Không thấy thư? Kiểm tra Thư rác/Quảng cáo và tìm email từ
+              noreply@baseapp-dd227.firebaseapp.com.
+            </Text>
           </View>
         ) : (
           <Button
@@ -298,12 +365,12 @@ export function MemoryFriendsModal({
             onPress={onRetry}
           />
         )}
-        {!!notice && (
+        {!!notice && !emailVerificationNeeded && (
           <Text accessibilityRole="alert" style={styles.notice}>
             {notice}
           </Text>
         )}
-        {!!(localError || (!emailVerificationNeeded && error)) && (
+        {!emailVerificationNeeded && !!(localError || error) && (
           <Text accessibilityRole="alert" style={styles.error}>
             {localError || error}
           </Text>
@@ -315,20 +382,66 @@ export function MemoryFriendsModal({
 
 const styles = StyleSheet.create({
   dialog: { maxHeight: '88%', padding: 0, gap: 0, overflow: 'hidden' },
-  body: { padding: 20, gap: 12 },
+  body: { padding: 20, gap: 14 },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   heading: { flex: 1, gap: 4 },
   title: { ...typography.heading, fontWeight: '700' },
-  subtitle: { ...typography.small, fontSize: 12 },
+  subtitle: { ...typography.small, fontSize: 12, lineHeight: 18 },
   emailBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    padding: 11,
-    borderRadius: 11,
+    gap: 10,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  emailIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.skySoft,
   },
-  emailText: { flex: 1, fontSize: 12, color: colors.sky },
+  emailDetails: { flex: 1, gap: 2 },
+  emailLabel: { fontSize: 11, color: colors.muted },
+  emailText: { fontSize: 13, fontWeight: '700', color: colors.ink },
+  verificationCard: {
+    gap: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+  },
+  verificationHeading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  verificationTitle: { fontSize: 14, fontWeight: '700', color: colors.ink },
+  verificationDescription: { fontSize: 12, lineHeight: 19, color: colors.muted },
+  checkButton: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  checkButtonText: { fontSize: 13, fontWeight: '700', color: colors.earth },
+  deliveryNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: colors.successSoft,
+  },
+  deliveryNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.success,
+  },
+  deliveryHint: { fontSize: 11, lineHeight: 17, color: colors.muted },
   section: {
     gap: 6,
     paddingTop: 8,

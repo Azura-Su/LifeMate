@@ -555,7 +555,11 @@ export function MemoryScreen() {
 
   async function checkVerifiedEmail() {
     if (!uid) return;
-    await refreshMemoryVerification(uid);
+    const verified = await refreshMemoryVerification(uid);
+    if (!verified)
+      throw new Error(
+        'Email vẫn chưa được xác nhận. Nếu bạn vừa bấm liên kết trong thư, hãy đợi một chút rồi kiểm tra lại.',
+      );
     await loadCloud(uid, name);
   }
 

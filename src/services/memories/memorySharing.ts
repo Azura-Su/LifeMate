@@ -1,6 +1,7 @@
 import {
   getAuth,
   getIdToken,
+  reload,
   sendEmailVerification,
 } from '@react-native-firebase/auth';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
@@ -84,16 +85,33 @@ export function memoryEmailVerificationNeeded(cause: unknown) {
 }
 
 export async function sendMemoryVerificationEmail(uid: string) {
+  const user = assertSession(uid);
   try {
-    await sendEmailVerification(assertSession(uid));
-  } catch {
-    throw new Error('Chưa gửi được thư xác nhận. Hãy thử lại sau.');
+    await sendEmailVerification(user);
+  } catch (cause) {
+    const code =
+      cause && typeof cause === 'object' && 'code' in cause
+        ? cause.code
+        : null;
+    if (code === 'auth/too-many-requests' || code === 'auth/quota-exceeded')
+      throw new Error('Đã yêu cầu quá nhiều lần. Hãy đợi rồi gửi lại.');
+    if (code === 'auth/network-request-failed')
+      throw new Error('Chưa có kết nối mạng. Hãy thử lại.');
+    if (code === 'auth/invalid-email')
+      throw new Error('Email đăng nhập không hợp lệ. Hãy kiểm tra tài khoản.');
+    if (code === 'auth/user-token-expired')
+      throw new Error('Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.');
+    throw new Error('Firebase chưa nhận được yêu cầu gửi thư. Hãy thử lại sau.');
   }
 }
 
 export async function refreshMemoryVerification(uid: string) {
+  const user = assertSession(uid);
   try {
-    await getIdToken(assertSession(uid), true);
+    await reload(user);
+    const refreshedUser = assertSession(uid);
+    await getIdToken(refreshedUser, true);
+    return refreshedUser.emailVerified;
   } catch {
     throw new Error('Chưa kiểm tra được trạng thái email. Hãy thử lại sau.');
   }
