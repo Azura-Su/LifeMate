@@ -231,7 +231,7 @@ export function MemoryEditor({
             <View style={styles.visibilitySelected}>
               <Feather
                 name={visibility === 'private' ? 'lock' : 'users'}
-                size={16}
+                size={14}
                 color={colors.earth}
               />
               <Text style={styles.visibilitySelectedText}>
@@ -239,7 +239,7 @@ export function MemoryEditor({
               </Text>
               <Feather
                 name={visibilityOpen ? 'chevron-up' : 'chevron-down'}
-                size={16}
+                size={14}
                 color={colors.muted}
               />
             </View>
@@ -267,10 +267,10 @@ export function MemoryEditor({
                     index > 0 && styles.visibilityOptionDivider,
                   ]}
                 >
-                  <Feather name={icon} size={17} color={colors.earth} />
+                  <Feather name={icon} size={15} color={colors.earth} />
                   <Text style={styles.visibilityOptionText}>{label}</Text>
                   {visibility === value && (
-                    <Feather name="check" size={17} color={colors.success} />
+                    <Feather name="check" size={15} color={colors.success} />
                   )}
                 </Pressable>
               ))}
