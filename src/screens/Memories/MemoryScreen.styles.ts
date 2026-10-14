@@ -184,18 +184,17 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.sunlightSoft,
   },
   friendsButtonText: { fontSize: 12, fontWeight: '700', color: colors.earth },
-  visibilityRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  visibilityLabel: { fontSize: 11, fontWeight: '600', color: colors.muted },
-  shareAction: {
-    minHeight: 36,
+  entryVisibilityButton: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    alignSelf: 'flex-start',
     paddingHorizontal: 10,
     borderRadius: 10,
     backgroundColor: colors.skySoft,
   },
-  shareActionText: { fontSize: 11, fontWeight: '700', color: colors.earth },
+  entryVisibilityText: { fontSize: 11, fontWeight: '700', color: colors.earth },
   friendName: { fontSize: 13, fontWeight: '700', color: colors.ink },
   errorBox: {
     gap: 7,
@@ -375,6 +374,7 @@ export const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: colors.background,
   },
+  visibilityDialog: { gap: 12, padding: 16, borderRadius: 18 },
   visibilityPopupHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',

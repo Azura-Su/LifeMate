@@ -13,6 +13,8 @@ import {
   View,
 } from 'react-native';
 import { Screen } from '../../components/Screen';
+import { DialogCloseButton } from '../../components/DialogCloseButton';
+import { DialogModal } from '../../components/DialogModal';
 import { useProfile } from '../../hooks/useProfile';
 import {
   cancelMemoryFriendInvite,
@@ -63,6 +65,12 @@ function dayLabel(dateKey: string) {
   }).format(date);
 }
 
+function timeLabel(timestamp: number) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return null;
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
 function FriendMemoryCard({
   item,
   onPhotoError,
@@ -71,6 +79,7 @@ function FriendMemoryCard({
   onPhotoError: () => void;
 }) {
   const photoRetry = useRef(false);
+  const sharedTime = item.sharedAt ? timeLabel(item.sharedAt) : null;
   return (
     <View style={styles.entryCard}>
       {item.photoUrl && (
@@ -88,7 +97,10 @@ function FriendMemoryCard({
       )}
       <View style={styles.entryBody}>
         <Text style={styles.friendName}>{item.ownerName}</Text>
-        <Text style={styles.dateChipText}>{dayLabel(item.dateKey)}</Text>
+        <Text style={styles.dateChipText}>
+          {dayLabel(item.dateKey)}
+          {sharedTime ? ` · Đã chia sẻ lúc ${sharedTime}` : ''}
+        </Text>
         {!!item.text && <Text style={styles.entryText}>{item.text}</Text>}
       </View>
     </View>
@@ -114,6 +126,7 @@ function OwnMemoryCard({
 }) {
   const photoUri = memoryPhotoUri(item.ownerId, item.photoFileName);
   const verifying = !shareStateKnown && item.visibility === 'friends';
+  const savedTime = timeLabel(item.createdAt);
   return (
     <View style={styles.entryCard}>
       {photoUri && (
@@ -128,7 +141,10 @@ function OwnMemoryCard({
         <View style={styles.entryTopRow}>
           <View style={styles.dateChip}>
             <Feather name="calendar" size={13} color={colors.earth} />
-            <Text style={styles.dateChipText}>{dayLabel(item.dateKey)}</Text>
+            <Text style={styles.dateChipText}>
+              {dayLabel(item.dateKey)}
+              {savedTime ? ` · ${savedTime}` : ''}
+            </Text>
           </View>
           <View style={styles.entryActions}>
             <Pressable
@@ -152,38 +168,29 @@ function OwnMemoryCard({
           </View>
         </View>
         {!!item.text && <Text style={styles.entryText}>{item.text}</Text>}
-        <View style={styles.visibilityRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Quyền xem: ${verifying ? 'Đang kiểm tra' : shared ? 'Bạn bè' : 'Chỉ mình tôi'}`}
+          accessibilityHint="Mở chọn quyền xem ký ức"
+          accessibilityState={{ disabled: busy || verifying }}
+          disabled={busy || verifying}
+          onPress={onVisibility}
+          style={styles.entryVisibilityButton}
+        >
           <Feather
             name={shareStateKnown && shared ? 'users' : 'lock'}
-            size={13}
-            color={colors.muted}
+            size={14}
+            color={colors.earth}
           />
-          <Text style={styles.visibilityLabel}>
-            {shareStateKnown && shared
-              ? 'Bạn bè'
-              : verifying
-                ? 'Đang kiểm tra quyền xem'
+          <Text style={styles.entryVisibilityText}>
+            {verifying
+              ? 'Đang kiểm tra quyền xem'
+              : shared
+                ? 'Bạn bè'
                 : 'Chỉ mình tôi'}
           </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={
-              shared ? 'Khóa ký ức chỉ mình tôi' : 'Chia sẻ ký ức với bạn bè'
-            }
-            disabled={busy || verifying}
-            onPress={onVisibility}
-            style={styles.shareAction}
-          >
-            <Feather
-              name={shared ? 'lock' : 'share-2'}
-              size={13}
-              color={colors.earth}
-            />
-            <Text style={styles.shareActionText}>
-              {shared ? 'Chỉ mình tôi' : 'Chia sẻ'}
-            </Text>
-          </Pressable>
-        </View>
+          <Feather name="chevron-down" size={14} color={colors.muted} />
+        </Pressable>
       </View>
     </View>
   );
@@ -212,6 +219,9 @@ export function MemoryScreen() {
   const [error, setError] = useState<string | null>(null);
   const [editorVisible, setEditorVisible] = useState(false);
   const [editing, setEditing] = useState<MemoryEntry | null>(null);
+  const [visibilityTarget, setVisibilityTarget] = useState<MemoryEntry | null>(
+    null,
+  );
   const [initialPhoto, setInitialPhoto] = useState<CapturedMemoryPhoto | null>(
     null,
   );
@@ -407,6 +417,7 @@ export function MemoryScreen() {
     setLoadedUid(null);
     setEditorVisible(false);
     setEditing(null);
+    setVisibilityTarget(null);
     setInitialPhoto(null);
     if (uid) void load(uid);
     else setLoading(false);
@@ -492,14 +503,23 @@ export function MemoryScreen() {
       if (useAuthStore.getState().user?.uid === uid) await load(uid);
       if (publishError) setError(publishError);
       if (viewMode === 'timeline') void loadCloud(uid, name);
+      setTimelineTab('mine');
+      setViewMode('timeline');
     } finally {
       operationInFlight.current = false;
       setBusy(false);
     }
   }
 
-  async function changeVisibility(item: MemoryEntry) {
+  async function changeVisibility(
+    item: MemoryEntry,
+    nextVisibility: 'private' | 'friends',
+  ) {
     if (!uid || operationInFlight.current) return;
+    if ((isShared(item) ? 'friends' : 'private') === nextVisibility) {
+      setVisibilityTarget(null);
+      return;
+    }
     if (!shareState && item.visibility === 'friends') {
       setError('Hãy kết nối để kiểm tra quyền xem trước khi đổi ký ức này.');
       return;
@@ -533,6 +553,7 @@ export function MemoryScreen() {
       }
       await load(uid);
       void loadCloud(uid, name);
+      setVisibilityTarget(null);
     } catch (cause) {
       setError((cause as Error).message || 'Chưa đổi được quyền xem.');
       void loadCloud(uid, name);
@@ -880,7 +901,10 @@ export function MemoryScreen() {
                     setEditorVisible(true);
                   }}
                   onDelete={() => confirmDelete(item)}
-                  onVisibility={() => void changeVisibility(item)}
+                  onVisibility={() => {
+                    setError(null);
+                    setVisibilityTarget(item);
+                  }}
                 />
               </View>
             )}
@@ -923,6 +947,83 @@ export function MemoryScreen() {
           />
         )}
       </Screen>
+      <DialogModal
+        visible={!!visibilityTarget}
+        onRequestClose={busy ? undefined : () => setVisibilityTarget(null)}
+        style={styles.visibilityDialog}
+      >
+        <View style={styles.visibilityPopupHeader}>
+          <View style={styles.visibilityPopupHeading}>
+            <Text
+              accessibilityRole="header"
+              style={styles.visibilityPopupTitle}
+            >
+              Ai có thể xem?
+            </Text>
+            <Text style={styles.visibilityPopupSubtitle}>
+              Chọn người được xem khoảnh khắc này.
+            </Text>
+          </View>
+          <DialogCloseButton
+            accessibilityLabel="Đóng chọn quyền xem"
+            onPress={() => setVisibilityTarget(null)}
+            disabled={busy}
+          />
+        </View>
+        <View style={styles.visibilityPopupOptions}>
+          {(
+            [
+              ['private', 'lock', 'Chỉ mình tôi', 'Chỉ lưu trên thiết bị này'],
+              [
+                'friends',
+                'users',
+                'Bạn bè',
+                'Bạn bè hiện tại và sau này có thể xem',
+              ],
+            ] as const
+          ).map(([value, icon, label, description], index) => (
+            <Pressable
+              key={value}
+              accessibilityRole="button"
+              accessibilityLabel={`Chọn ${label}. ${description}`}
+              accessibilityState={{
+                selected: visibilityTarget
+                  ? (isShared(visibilityTarget) ? 'friends' : 'private') ===
+                    value
+                  : false,
+                disabled: busy,
+              }}
+              disabled={busy}
+              onPress={() =>
+                visibilityTarget &&
+                void changeVisibility(visibilityTarget, value)
+              }
+              style={[
+                styles.visibilityOption,
+                index > 0 && styles.visibilityOptionDivider,
+              ]}
+            >
+              <Feather name={icon} size={17} color={colors.earth} />
+              <View style={styles.visibilityOptionCopy}>
+                <Text style={styles.visibilityOptionText}>{label}</Text>
+                <Text style={styles.visibilityOptionDescription}>
+                  {description}
+                </Text>
+              </View>
+              {visibilityTarget &&
+                (isShared(visibilityTarget) ? 'friends' : 'private') ===
+                  value && (
+                  <Feather name="check" size={17} color={colors.success} />
+                )}
+            </Pressable>
+          ))}
+        </View>
+        {!!error && (
+          <Text accessibilityRole="alert" style={styles.errorText}>
+            {error}
+          </Text>
+        )}
+      </DialogModal>
       {uid && (
         <MemoryEditor
           visible={editorVisible}

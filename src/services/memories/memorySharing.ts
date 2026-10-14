@@ -33,6 +33,7 @@ export type FriendMemory = {
   ownerId: string;
   ownerName: string;
   dateKey: string;
+  sharedAt?: number;
   text: string;
   photoUrl: string | null;
 };
@@ -374,6 +375,11 @@ export async function getFriendMemories(
         ownerId: row.ownerId,
         ownerName: row.ownerName,
         dateKey: row.dateKey,
+        sharedAt:
+          typeof row.sharedAt === 'string' &&
+          Number.isFinite(Date.parse(row.sharedAt))
+            ? Date.parse(row.sharedAt)
+            : undefined,
         text: row.text,
         photoUrl: signedImageUrl(row.photoUrl, row.ownerId, row.id),
       },

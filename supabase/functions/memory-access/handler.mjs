@@ -423,6 +423,7 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
           ownerId: row.owner_uid,
           ownerName: byUid.get(row.owner_uid)?.name ?? 'Người dùng',
           dateKey: row.date_key,
+          sharedAt: row.created_at,
           text: row.body,
           photoUrl: row.photo_path
             ? await photoStorage(row.photo_backend, 'download', row.photo_path)
