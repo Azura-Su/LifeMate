@@ -1,7 +1,14 @@
 import Feather from '@expo/vector-icons/Feather';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useRef, useState } from 'react';
-import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  Image,
+  Keyboard,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { AppTextInput } from '../../components/AppTextInput';
 import { Button } from '../../components/Button';
 import { DialogCloseButton } from '../../components/DialogCloseButton';
@@ -153,12 +160,22 @@ export function MemoryEditor({
   return (
     <DialogModal
       visible={visible}
-      onRequestClose={busy || picking ? undefined : onClose}
+      onRequestClose={
+        busy || picking
+          ? undefined
+          : visibilityOpen
+            ? () => setVisibilityOpen(false)
+            : onClose
+      }
       style={styles.editorDialog}
     >
       <ScrollView
         contentContainerStyle={styles.editorBody}
         keyboardShouldPersistTaps="handled"
+        accessibilityElementsHidden={visibilityOpen}
+        importantForAccessibility={
+          visibilityOpen ? 'no-hide-descendants' : 'auto'
+        }
       >
         <View style={styles.editorHeader}>
           <View style={styles.editorHeading}>
@@ -225,7 +242,10 @@ export function MemoryEditor({
             accessibilityHint="Mở danh sách chọn quyền xem ký ức"
             accessibilityState={{ expanded: visibilityOpen }}
             disabled={busy || picking}
-            onPress={() => setVisibilityOpen((open) => !open)}
+            onPress={() => {
+              Keyboard.dismiss();
+              setVisibilityOpen(true);
+            }}
             style={styles.visibilityDropdown}
           >
             <View style={styles.visibilitySelected}>
@@ -244,53 +264,6 @@ export function MemoryEditor({
               />
             </View>
           </Pressable>
-          {visibilityOpen && (
-            <View style={styles.visibilityMenu}>
-              {(
-                [
-                  [
-                    'private',
-                    'lock',
-                    'Chỉ mình tôi',
-                    'Chỉ lưu trên thiết bị này',
-                  ],
-                  [
-                    'friends',
-                    'users',
-                    'Bạn bè',
-                    'Bạn bè hiện tại và sau này có thể xem',
-                  ],
-                ] as const
-              ).map(([value, icon, label, description], index) => (
-                <Pressable
-                  key={value}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Chọn ${label}. ${description}`}
-                  accessibilityState={{ selected: visibility === value }}
-                  disabled={busy || picking}
-                  onPress={() => {
-                    setVisibility(value);
-                    setVisibilityOpen(false);
-                  }}
-                  style={[
-                    styles.visibilityOption,
-                    index > 0 && styles.visibilityOptionDivider,
-                  ]}
-                >
-                  <Feather name={icon} size={15} color={colors.earth} />
-                  <View style={styles.visibilityOptionCopy}>
-                    <Text style={styles.visibilityOptionText}>{label}</Text>
-                    <Text style={styles.visibilityOptionDescription}>
-                      {description}
-                    </Text>
-                  </View>
-                  {visibility === value && (
-                    <Feather name="check" size={15} color={colors.success} />
-                  )}
-                </Pressable>
-              ))}
-            </View>
-          )}
         </View>
         <View style={styles.textLabelRow}>
           <Text style={styles.fieldLabel}>Nội dung</Text>
@@ -320,6 +293,85 @@ export function MemoryEditor({
           disabled={picking}
         />
       </ScrollView>
+      {visibilityOpen && (
+        <View style={styles.visibilityOverlay} accessibilityViewIsModal>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Đóng chọn quyền xem"
+            disabled={busy || picking}
+            onPress={() => setVisibilityOpen(false)}
+            style={styles.visibilityBackdrop}
+          />
+          <View style={styles.visibilityPopup}>
+            <View style={styles.visibilityPopupHeader}>
+              <View style={styles.visibilityPopupHeading}>
+                <Text
+                  accessibilityRole="header"
+                  style={styles.visibilityPopupTitle}
+                >
+                  Ai có thể xem?
+                </Text>
+                <Text style={styles.visibilityPopupSubtitle}>
+                  Chọn người được xem khoảnh khắc này.
+                </Text>
+              </View>
+              <DialogCloseButton
+                accessibilityLabel="Đóng chọn quyền xem"
+                onPress={() => setVisibilityOpen(false)}
+                disabled={busy || picking}
+              />
+            </View>
+            <View style={styles.visibilityPopupOptions}>
+              {(
+                [
+                  [
+                    'private',
+                    'lock',
+                    'Chỉ mình tôi',
+                    'Chỉ lưu trên thiết bị này',
+                  ],
+                  [
+                    'friends',
+                    'users',
+                    'Bạn bè',
+                    'Bạn bè hiện tại và sau này có thể xem',
+                  ],
+                ] as const
+              ).map(([value, icon, label, description], index) => (
+                <Pressable
+                  key={value}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Chọn ${label}. ${description}`}
+                  accessibilityState={{
+                    selected: visibility === value,
+                    disabled: busy || picking,
+                  }}
+                  disabled={busy || picking}
+                  onPress={() => {
+                    setVisibility(value);
+                    setVisibilityOpen(false);
+                  }}
+                  style={[
+                    styles.visibilityOption,
+                    index > 0 && styles.visibilityOptionDivider,
+                  ]}
+                >
+                  <Feather name={icon} size={17} color={colors.earth} />
+                  <View style={styles.visibilityOptionCopy}>
+                    <Text style={styles.visibilityOptionText}>{label}</Text>
+                    <Text style={styles.visibilityOptionDescription}>
+                      {description}
+                    </Text>
+                  </View>
+                  {visibility === value && (
+                    <Feather name="check" size={17} color={colors.success} />
+                  )}
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </View>
+      )}
     </DialogModal>
   );
 }
