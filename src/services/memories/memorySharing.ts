@@ -7,6 +7,7 @@ import {
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 import { audioCloudApiKey, audioCloudUrl } from '../../config/audioCloud';
+import { memoryR2Bucket, memoryR2Origin } from '../../config/memoryR2';
 import { useAuthStore } from '../../store/authStore';
 import type { MemoryEntry } from '../../types/memory';
 import { memoryPhotoUri } from './memoryStorage';
@@ -24,6 +25,7 @@ export type MemoryShareState = {
   incoming: MemoryFriend[];
   outgoing: MemoryPendingInvite[];
   sharedIds: string[];
+  legacyIds: string[];
 };
 export type FriendMemory = {
   id: string;
@@ -90,9 +92,7 @@ export async function sendMemoryVerificationEmail(uid: string) {
     await sendEmailVerification(user);
   } catch (cause) {
     const code =
-      cause && typeof cause === 'object' && 'code' in cause
-        ? cause.code
-        : null;
+      cause && typeof cause === 'object' && 'code' in cause ? cause.code : null;
     if (code === 'auth/too-many-requests' || code === 'auth/quota-exceeded')
       throw new Error('Đã yêu cầu quá nhiều lần. Hãy đợi rồi gửi lại.');
     if (code === 'auth/network-request-failed')
@@ -101,7 +101,9 @@ export async function sendMemoryVerificationEmail(uid: string) {
       throw new Error('Email đăng nhập không hợp lệ. Hãy kiểm tra tài khoản.');
     if (code === 'auth/user-token-expired')
       throw new Error('Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.');
-    throw new Error('Firebase chưa nhận được yêu cầu gửi thư. Hãy thử lại sau.');
+    throw new Error(
+      'Firebase chưa nhận được yêu cầu gửi thư. Hãy thử lại sau.',
+    );
   }
 }
 
@@ -192,7 +194,11 @@ export async function getMemoryShareState(
     Array.isArray(data[key])
       ? data[key].map(person).filter((item): item is MemoryFriend => !!item)
       : [];
-  if (typeof data.email !== 'string' || !Array.isArray(data.sharedIds))
+  if (
+    typeof data.email !== 'string' ||
+    !Array.isArray(data.sharedIds) ||
+    (data.legacyIds !== undefined && !Array.isArray(data.legacyIds))
+  )
     throw new Error('Chưa đọc được danh sách chia sẻ.');
   return {
     email: data.email,
@@ -211,7 +217,23 @@ export async function getMemoryShareState(
     sharedIds: data.sharedIds.filter(
       (id): id is string => typeof id === 'string' && ID.test(id),
     ),
+    legacyIds: Array.isArray(data.legacyIds)
+      ? data.legacyIds.filter(
+          (id): id is string => typeof id === 'string' && ID.test(id),
+        )
+      : [],
   };
+}
+
+export async function migrateLegacyMemoryPhotos(
+  uid: string,
+  name: string,
+  ids: string[],
+) {
+  for (const id of ids.slice(0, 10)) {
+    assertSession(uid);
+    await requestMemoryAction(uid, name, { action: 'migrate', id });
+  }
 }
 
 export async function sendMemoryFriendInvite(
@@ -267,17 +289,34 @@ function signedImageUrl(
   } catch {
     throw new Error('Địa chỉ ảnh chia sẻ không hợp lệ.');
   }
-  if (
-    url.origin !== audioCloudUrl() ||
-    url.pathname !==
-      `/storage/v1/object/sign/lifemate-memories/shared/${ownerId}/${id}/photo.jpg` ||
-    !url.searchParams.get('token') ||
-    url.username ||
-    url.password ||
-    url.hash
-  )
+  const path = `shared/${ownerId}/${id}/photo.jpg`;
+  const legacy =
+    url.origin === audioCloudUrl() &&
+    url.pathname === `/storage/v1/object/sign/lifemate-memories/${path}` &&
+    !!url.searchParams.get('token');
+  const r2 = validR2Url(url, path, 600);
+  if ((!legacy && !r2) || url.username || url.password || url.hash)
     throw new Error('Địa chỉ ảnh chia sẻ không hợp lệ.');
   return url.toString();
+}
+
+function validR2Url(url: URL, path: string, maxSeconds: number) {
+  const expires = Number(url.searchParams.get('X-Amz-Expires'));
+  return (
+    url.origin === memoryR2Origin &&
+    url.pathname === `/${memoryR2Bucket}/${path}` &&
+    url.searchParams.get('X-Amz-Algorithm') === 'AWS4-HMAC-SHA256' &&
+    !!url.searchParams.get('X-Amz-Date') &&
+    !!url.searchParams.get('X-Amz-Credential') &&
+    !!url.searchParams.get('X-Amz-SignedHeaders') &&
+    !!url.searchParams.get('X-Amz-Signature') &&
+    Number.isInteger(expires) &&
+    expires >= 1 &&
+    expires <= maxSeconds &&
+    !url.username &&
+    !url.password &&
+    !url.hash
+  );
 }
 
 export async function getFriendMemories(
@@ -402,11 +441,15 @@ export async function publishMemory(
     } catch {
       throw new Error('Địa chỉ tải ảnh lên không hợp lệ.');
     }
+    const path = `shared/${uid}/${entry.id}/photo.jpg`;
+    const legacy =
+      uploadUrl.origin === audioCloudUrl() &&
+      uploadUrl.pathname ===
+        `/storage/v1/object/upload/sign/lifemate-memories/${path}` &&
+      !!uploadUrl.searchParams.get('token');
+    const r2 = validR2Url(uploadUrl, path, 120);
     if (
-      uploadUrl.origin !== audioCloudUrl() ||
-      uploadUrl.pathname !==
-        `/storage/v1/object/upload/sign/lifemate-memories/shared/${uid}/${entry.id}/photo.jpg` ||
-      !uploadUrl.searchParams.get('token') ||
+      (!legacy && !r2) ||
       uploadUrl.username ||
       uploadUrl.password ||
       uploadUrl.hash
@@ -421,8 +464,9 @@ export async function publishMemory(
         sessionType: FileSystem.FileSystemSessionType.FOREGROUND,
         headers: {
           'Content-Type': 'image/jpeg',
-          'x-upsert': 'true',
-          'Cache-Control': 'max-age=0',
+          ...(r2
+            ? { 'Content-Length': String(prepared.sizeBytes) }
+            : { 'x-upsert': 'true', 'Cache-Control': 'max-age=0' }),
         },
       },
     );

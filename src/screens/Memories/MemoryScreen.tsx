@@ -21,6 +21,7 @@ import {
   getMemoryShareState,
   memoryEmailVerificationNeeded,
   memoryPublishDefinitelyNotStarted,
+  migrateLegacyMemoryPhotos,
   publishMemory,
   refreshMemoryVerification,
   renewFriendMemoryPhoto,
@@ -218,6 +219,7 @@ export function MemoryScreen() {
   const moreFriendsInFlight = useRef(false);
   const loadGeneration = useRef(0);
   const cloudGeneration = useRef(0);
+  const migrationInFlight = useRef(false);
 
   const load = useCallback(async (accountId: string, refresh = false) => {
     const generation = ++loadGeneration.current;
@@ -260,6 +262,18 @@ export function MemoryScreen() {
           useAuthStore.getState().user?.uid === accountId
         ) {
           setShareState(state);
+          if (state.legacyIds.length && !migrationInFlight.current) {
+            migrationInFlight.current = true;
+            void migrateLegacyMemoryPhotos(
+              accountId,
+              displayName,
+              state.legacyIds,
+            )
+              .catch(() => undefined)
+              .finally(() => {
+                migrationInFlight.current = false;
+              });
+          }
         }
         if (includeFeed) {
           const feed = await getFriendMemories(accountId, displayName);

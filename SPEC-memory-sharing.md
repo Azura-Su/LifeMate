@@ -12,7 +12,7 @@
 ## Dữ liệu và quyền
 
 - Ký ức riêng và bản gốc vẫn nằm trên thiết bị theo UID như hiện tại; không tự tải các mục cũ lên cloud. Trường `visibility` của dữ liệu cũ mặc định là `private`.
-- Chỉ các mục chọn Bạn bè có bản sao cloud. Supabase Postgres lưu metadata, bucket private lưu ảnh. Edge Function xác minh Firebase ID token rồi mới đọc/ghi. Client không có service-role key. SQL bật RLS và không cấp quyền bảng/bucket trực tiếp cho `anon` hoặc `authenticated`.
+- Chỉ các mục chọn Bạn bè có bản sao cloud. Supabase Postgres lưu metadata, bucket Cloudflare R2 private lưu ảnh mới; ảnh cũ ở Supabase Storage được chuyển dần sang R2. Edge Function xác minh Firebase ID token rồi mới đọc/ghi. Client không có service-role key hoặc khóa R2. SQL bật RLS và không cấp quyền bảng/bucket trực tiếp cho `anon` hoặc `authenticated`.
 - Người xem chỉ nhận metadata/URL ảnh của mục `active` từ chủ tài khoản đang là bạn. URL ảnh có thời hạn ngắn. Gỡ chia sẻ ẩn metadata trước khi dọn ảnh; không cấp URL mới sau khi gỡ. URL đã ký có thể còn hiệu lực rất ngắn cho đến khi hết hạn hoặc ảnh bị xóa.
 - Tìm bạn bằng email chính xác; phản hồi gửi lời mời không tiết lộ email đó có tài khoản hay không. Lời mời không tự động tạo quan hệ; chỉ người nhận chấp nhận mới trở thành bạn bè. Giới hạn số lượng lời mời/bạn bè/mục chia sẻ và cỡ ảnh.
 - Nếu hộp lời mời đã đầy, lời mời theo email chưa thể chuyển sẽ được giữ lại. Dòng ký ức của bạn bè tải từng trang 30 mục và có thể xem tiếp các mục cũ.
@@ -20,7 +20,7 @@
 
 ## Contract
 
-`POST /functions/v1/memory-access`, `Authorization: Bearer <Firebase ID token>`, `apikey: <Supabase publishable key>`, body JSON giới hạn kích thước. Các action: `state`, `invite`, `accept`, `decline`, `cancel`, `remove-friend`, `feed`, `photo`, `publish`, `confirm`, `unshare`. Mọi UID chủ sở hữu lấy từ token, không tin UID do client gửi. Ảnh chia sẻ đi qua signed upload; feed và yêu cầu làm mới URL ảnh chỉ cấp signed download sau khi kiểm tra quan hệ bạn bè. Không gửi link trực tiếp giữa người dùng.
+`POST /functions/v1/memory-access`, `Authorization: Bearer <Firebase ID token>`, `apikey: <Supabase publishable key>`, body JSON giới hạn kích thước. Các action: `state`, `invite`, `accept`, `decline`, `cancel`, `remove-friend`, `feed`, `photo`, `publish`, `confirm`, `unshare`, `migrate`. Mọi UID chủ sở hữu lấy từ token, không tin UID do client gửi. Ảnh chia sẻ đi qua signed upload; feed và yêu cầu làm mới URL ảnh chỉ cấp signed download sau khi kiểm tra quan hệ bạn bè. `migrate` chỉ chuyển ảnh của chính chủ từ Supabase Storage sang R2 sau khi xác minh bản sao R2. Không gửi link trực tiếp giữa người dùng.
 
 ## Phạm vi bản này
 
