@@ -244,7 +244,7 @@ export function getFinanceReport(
         (transaction) =>
           transaction.createdAt >= start && transaction.createdAt < end,
       )
-      .sort((a, b) => a.createdAt - b.createdAt);
+      .sort((a, b) => b.createdAt - a.createdAt);
     if (monthlyTransactions.length === 0) continue;
     const monthlyTotals = monthlyTransactions.reduce(
       (totals, transaction) => {
@@ -461,7 +461,7 @@ function getCategorizedReport<Category extends string>(
     .map((group) => ({
       ...group,
       transactions: group.transactions.sort(
-        (a, b) => a.createdAt - b.createdAt,
+        (a, b) => b.createdAt - a.createdAt,
       ),
     }))
     .sort((a, b) => a.year - b.year || a.month - b.month);

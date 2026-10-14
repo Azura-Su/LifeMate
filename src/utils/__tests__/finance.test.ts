@@ -106,6 +106,81 @@ it('groups every transaction in the selected inclusive month range', () => {
   expect(getFinanceReport(transactions, 2026, 2, 13).months).toEqual([]);
 });
 
+it('orders transactions from the latest day back to the start of each month', () => {
+  const monthTransactions: FinanceTransaction[] = [
+    {
+      ...rows[0],
+      id: 'day-1',
+      createdAt: new Date(2026, 9, 1, 12).getTime(),
+    },
+    {
+      ...rows[0],
+      id: 'day-10-morning',
+      createdAt: new Date(2026, 9, 10, 9).getTime(),
+    },
+    {
+      ...rows[0],
+      id: 'day-9',
+      createdAt: new Date(2026, 9, 9, 12).getTime(),
+    },
+    {
+      ...rows[0],
+      id: 'day-10-evening',
+      createdAt: new Date(2026, 9, 10, 20).getTime(),
+    },
+    {
+      ...rows[1],
+      id: 'expense-day-1',
+      createdAt: new Date(2026, 9, 1, 12).getTime(),
+    },
+    {
+      ...rows[1],
+      id: 'expense-day-10',
+      createdAt: new Date(2026, 9, 10, 12).getTime(),
+    },
+    {
+      ...rows[1],
+      id: 'expense-day-9',
+      createdAt: new Date(2026, 9, 9, 12).getTime(),
+    },
+  ];
+
+  expect(
+    getFinanceReport(
+      monthTransactions,
+      2026,
+      10,
+      10,
+    ).months[0].transactions.map(({ id }) => id),
+  ).toEqual([
+    'day-10-evening',
+    'expense-day-10',
+    'day-10-morning',
+    'day-9',
+    'expense-day-9',
+    'day-1',
+    'expense-day-1',
+  ]);
+  expect(
+    getIncomeReport(
+      monthTransactions,
+      2026,
+      10,
+      2026,
+      10,
+    ).months[0].transactions.map(({ id }) => id),
+  ).toEqual(['day-10-evening', 'day-10-morning', 'day-9', 'day-1']);
+  expect(
+    getExpenseReport(
+      monthTransactions,
+      2026,
+      10,
+      2026,
+      10,
+    ).months[0].transactions.map(({ id }) => id),
+  ).toEqual(['expense-day-10', 'expense-day-9', 'expense-day-1']);
+});
+
 it('summarizes salary only across an inclusive range that can span years', () => {
   const transactions: FinanceTransaction[] = [
     {
@@ -228,7 +303,7 @@ it('summarizes all income including removed categories across a custom multi-yea
         month: 1,
         total: 500,
         categories: { Lương: 0, Thưởng: 200, 'Thu nhập khác': 300, Khác: 0 },
-        transactions: [transactions[1], transactions[2]],
+        transactions: [transactions[2], transactions[1]],
       },
       {
         year: 2024,
@@ -348,7 +423,7 @@ it('summarizes expenses by category across a custom multi-year range', () => {
           Khác: 300,
           'Thu nhập khác': 0,
         },
-        transactions: [transactions[1], transactions[2]],
+        transactions: [transactions[2], transactions[1]],
       },
       {
         year: 2024,
