@@ -1,11 +1,21 @@
 import Feather from '@expo/vector-icons/Feather';
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  Text,
+  View,
+} from 'react-native';
 import { colors } from '../../theme';
 import { styles } from './MemoryScreen.styles';
 
-export type CapturedMemoryPhoto = { uri: string; mimeType: string | null };
+export type CapturedMemoryPhoto = {
+  uri: string;
+  mimeType: string | null;
+  aspectRatio: number;
+};
 
 type Props = {
   active: boolean;
@@ -81,7 +91,14 @@ export function MemoryCapture({
     try {
       const photo = await camera.current?.takePictureAsync({ quality: 0.8 });
       if (!photo?.uri) throw new Error('Chưa chụp được ảnh. Hãy thử lại.');
-      onPhoto({ uri: photo.uri, mimeType: 'image/jpeg' });
+      onPhoto({
+        uri: photo.uri,
+        mimeType: 'image/jpeg',
+        aspectRatio:
+          photo.width > 0 && photo.height > 0
+            ? photo.width / photo.height
+            : 3 / 4,
+      });
     } catch (cause) {
       setError((cause as Error).message || 'Chưa chụp được ảnh.');
     } finally {

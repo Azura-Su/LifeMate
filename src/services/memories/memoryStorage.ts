@@ -105,7 +105,7 @@ function enqueue<T>(uid: string, action: () => Promise<T>): Promise<T> {
 function validateDraft(draft: MemoryDraft) {
   const date = parseDateKey(draft.dateKey);
   if (!date || draft.dateKey > toDateKey(new Date()))
-    throw new Error('Hãy chọn ngày hôm nay hoặc trước đó.');
+    throw new Error('Ngày của ký ức không hợp lệ.');
   if (draft.text.trim().length > 2000)
     throw new Error('Nội dung tối đa 2.000 ký tự.');
   if (draft.photoChange === 'replace' && !draft.photoUri)
@@ -211,8 +211,7 @@ export function updateMemory(uid: string, id: string, draft: MemoryDraft) {
       draft.photoChange === 'replace'
         ? await copyPhoto(uid, id, draft)
         : previous.photoFileName;
-    if (!nextPhoto)
-      throw new Error('Hãy chụp ảnh trước khi lưu ký ức.');
+    if (!nextPhoto) throw new Error('Hãy chụp ảnh trước khi lưu ký ức.');
     const updated: MemoryEntry = {
       ...previous,
       dateKey: draft.dateKey,
