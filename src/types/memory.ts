@@ -14,6 +14,6 @@ export type MemoryDraft = {
   text: string;
   photoUri: string | null;
   photoMimeType?: string | null;
-  photoChange: 'keep' | 'replace' | 'remove';
+  photoChange: 'keep' | 'replace';
   visibility: 'private' | 'friends';
 };

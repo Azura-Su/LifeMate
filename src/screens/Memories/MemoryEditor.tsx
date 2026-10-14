@@ -102,29 +102,20 @@ export function MemoryEditor({
     } else setPickerOpen(true);
   }
 
-  async function pick(source: 'camera' | 'library') {
+  async function takePhoto() {
     if (picking || busy) return;
     setPicking(true);
     setError(null);
     try {
-      if (source === 'camera') {
-        const permission = await ImagePicker.requestCameraPermissionsAsync();
-        if (!permission.granted) {
-          setError('Cho phép dùng máy ảnh trong Cài đặt để chụp khoảnh khắc.');
-          return;
-        }
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        setError('Cho phép dùng máy ảnh trong Cài đặt để chụp khoảnh khắc.');
+        return;
       }
-      const result =
-        source === 'camera'
-          ? await ImagePicker.launchCameraAsync({
-              mediaTypes: ['images'],
-              quality: 0.8,
-            })
-          : await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ['images'],
-              allowsMultipleSelection: false,
-              quality: 0.8,
-            });
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+      });
       if (result.canceled) return;
       const asset = result.assets[0];
       if (!asset?.uri) throw new Error('Chưa lấy được ảnh. Hãy thử lại.');
@@ -142,8 +133,8 @@ export function MemoryEditor({
 
   async function submit() {
     if (busy || picking) return;
-    if (!text.trim() && !photoUri) {
-      setError('Thêm ảnh hoặc viết vài dòng để lưu.');
+    if (!photoUri) {
+      setError('Hãy chụp ảnh trước khi lưu ký ức.');
       return;
     }
     setError(null);
@@ -224,19 +215,6 @@ export function MemoryEditor({
                 style={styles.photoPreview}
                 accessibilityLabel="Ảnh khoảnh khắc đã chọn"
               />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Bỏ ảnh"
-                disabled={busy || picking}
-                onPress={() => {
-                  setPhotoUri(null);
-                  setPhotoMimeType(null);
-                  setPhotoChange('remove');
-                }}
-                style={styles.removePhoto}
-              >
-                <Feather name="x" size={18} color={colors.ink} />
-              </Pressable>
             </View>
           ) : (
             <View style={styles.photoPlaceholder}>
@@ -249,23 +227,15 @@ export function MemoryEditor({
           <View style={styles.photoActions}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Chụp ảnh"
+              accessibilityLabel={photoUri ? 'Chụp lại ảnh' : 'Chụp ảnh'}
               disabled={busy || picking}
-              onPress={() => void pick('camera')}
+              onPress={() => void takePhoto()}
               style={styles.photoAction}
             >
               <Feather name="camera" size={17} color={colors.earth} />
-              <Text style={styles.photoActionText}>Chụp ảnh</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Chọn ảnh từ thư viện"
-              disabled={busy || picking}
-              onPress={() => void pick('library')}
-              style={styles.photoAction}
-            >
-              <Feather name="image" size={17} color={colors.earth} />
-              <Text style={styles.photoActionText}>Thư viện</Text>
+              <Text style={styles.photoActionText}>
+                {photoUri ? 'Chụp lại' : 'Chụp ảnh'}
+              </Text>
             </Pressable>
           </View>
           <Text style={styles.fieldLabel}>Ngày của ký ức</Text>

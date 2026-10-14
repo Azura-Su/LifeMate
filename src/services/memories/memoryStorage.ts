@@ -167,13 +167,12 @@ export function readMemories(uid: string) {
 export function createMemory(uid: string, draft: MemoryDraft) {
   requireUid(uid);
   validateDraft(draft);
-  if (!draft.text.trim() && draft.photoChange !== 'replace')
-    return Promise.reject(new Error('Thêm ảnh hoặc viết vài dòng để lưu.'));
+  if (draft.photoChange !== 'replace')
+    return Promise.reject(new Error('Hãy chụp ảnh trước khi lưu ký ức.'));
   return enqueue(uid, async () => {
     const entries = await read(uid);
     const id = randomUUID();
-    const photoFileName =
-      draft.photoChange === 'replace' ? await copyPhoto(uid, id, draft) : null;
+    const photoFileName = await copyPhoto(uid, id, draft);
     const now = Date.now();
     const entry: MemoryEntry = {
       id,
@@ -211,13 +210,9 @@ export function updateMemory(uid: string, id: string, draft: MemoryDraft) {
     const nextPhoto =
       draft.photoChange === 'replace'
         ? await copyPhoto(uid, id, draft)
-        : draft.photoChange === 'remove'
-          ? null
-          : previous.photoFileName;
-    if (!draft.text.trim() && !nextPhoto) {
-      if (draft.photoChange === 'replace') await removePhoto(uid, nextPhoto);
-      throw new Error('Thêm ảnh hoặc viết vài dòng để lưu.');
-    }
+        : previous.photoFileName;
+    if (!nextPhoto)
+      throw new Error('Hãy chụp ảnh trước khi lưu ký ức.');
     const updated: MemoryEntry = {
       ...previous,
       dateKey: draft.dateKey,

@@ -388,7 +388,6 @@ export function MemoryScreen() {
     () => (loadedUid === uid ? items : []),
     [items, loadedUid, uid],
   );
-  const latestPhoto = accountItems.find((item) => item.photoFileName);
   const sharedIds = useMemo(
     () => new Set(shareState?.sharedIds ?? []),
     [shareState],
@@ -410,7 +409,7 @@ export function MemoryScreen() {
     [groups],
   );
 
-  function openEditor(photo: CapturedMemoryPhoto | null = null) {
+  function openEditor(photo: CapturedMemoryPhoto) {
     setEditing(null);
     setInitialPhoto(photo);
     setEditorVisible(true);
@@ -763,16 +762,7 @@ export function MemoryScreen() {
             {localErrorNotice}
             <MemoryCapture
               active={isFocused && !editorVisible}
-              latestPhotoUri={
-                latestPhoto
-                  ? memoryPhotoUri(
-                      latestPhoto.ownerId,
-                      latestPhoto.photoFileName,
-                    )
-                  : null
-              }
               onPhoto={(photo) => openEditor(photo)}
-              onWriteOnly={() => openEditor()}
               onShowTimeline={() => setViewMode('timeline')}
               memoryCount={accountItems.length}
             />

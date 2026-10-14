@@ -1,15 +1,7 @@
 import Feather from '@expo/vector-icons/Feather';
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
-import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  Platform,
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
 import { colors } from '../../theme';
 import { styles } from './MemoryScreen.styles';
 
@@ -17,18 +9,14 @@ export type CapturedMemoryPhoto = { uri: string; mimeType: string | null };
 
 type Props = {
   active: boolean;
-  latestPhotoUri: string | null;
   onPhoto: (photo: CapturedMemoryPhoto) => void;
-  onWriteOnly: () => void;
   onShowTimeline: () => void;
   memoryCount: number;
 };
 
 export function MemoryCapture({
   active,
-  latestPhotoUri,
   onPhoto,
-  onWriteOnly,
   onShowTimeline,
   memoryCount,
 }: Props) {
@@ -63,6 +51,15 @@ export function MemoryCapture({
     if (!active) setReady(false);
   }, [active]);
 
+  useEffect(() => {
+    if (!active || !available || !permission?.granted || ready || cameraFailed)
+      return;
+    const timeout = setTimeout(() => {
+      setCameraFailed(true);
+    }, 10000);
+    return () => clearTimeout(timeout);
+  }, [active, available, permission?.granted, ready, cameraFailed]);
+
   async function enableCamera() {
     setError(null);
     setCameraFailed(false);
@@ -87,29 +84,6 @@ export function MemoryCapture({
       onPhoto({ uri: photo.uri, mimeType: 'image/jpeg' });
     } catch (cause) {
       setError((cause as Error).message || 'Chưa chụp được ảnh.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function pickFromLibrary() {
-    if (busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsMultipleSelection: false,
-        quality: 0.8,
-      });
-      if (result.canceled) return;
-      const asset = result.assets[0];
-      if (!asset?.uri) throw new Error('Chưa chọn được ảnh.');
-      if (asset.fileSize && asset.fileSize > 15 * 1024 * 1024)
-        throw new Error('Ảnh cần nhỏ hơn 15 MB. Hãy chọn ảnh khác.');
-      onPhoto({ uri: asset.uri, mimeType: asset.mimeType ?? null });
-    } catch (cause) {
-      setError((cause as Error).message || 'Chưa mở được thư viện ảnh.');
     } finally {
       setBusy(false);
     }
@@ -153,9 +127,11 @@ export function MemoryCapture({
                   : 'Sẵn sàng chụp ảnh'}
             </Text>
             <Text style={styles.cameraFallbackText}>
-              {available === false || cameraFailed
-                ? 'Bạn vẫn có thể chọn ảnh từ thư viện để lưu khoảnh khắc.'
-                : 'Bật máy ảnh khi bạn muốn chụp một khoảnh khắc mới.'}
+              {available === false
+                ? 'Thiết bị này không hỗ trợ chụp ảnh.'
+                : cameraFailed
+                  ? 'Hãy thử mở lại máy ảnh để chụp khoảnh khắc.'
+                  : 'Bật máy ảnh khi bạn muốn chụp một khoảnh khắc mới.'}
             </Text>
             {available === true &&
               permission &&
@@ -175,6 +151,12 @@ export function MemoryCapture({
               )}
           </View>
         )}
+        {canPreview && !ready && (
+          <View pointerEvents="none" style={styles.cameraStarting}>
+            <ActivityIndicator color={colors.earth} />
+            <Text style={styles.cameraFallbackText}>Đang mở máy ảnh…</Text>
+          </View>
+        )}
         {canPreview && (
           <View pointerEvents="none" style={styles.cameraFrameLabel}>
             <Text style={styles.cameraFrameLabelText}>KHOẢNH KHẮC CỦA BẠN</Text>
@@ -182,23 +164,6 @@ export function MemoryCapture({
         )}
       </View>
       <View style={styles.cameraControls}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Chọn ảnh từ thư viện"
-          disabled={busy}
-          onPress={() => void pickFromLibrary()}
-          style={styles.cameraSideButton}
-        >
-          {latestPhotoUri ? (
-            <Image
-              source={{ uri: latestPhotoUri }}
-              style={styles.latestThumbnail}
-            />
-          ) : (
-            <Feather name="image" size={22} color={colors.earth} />
-          )}
-          <Text style={styles.cameraSideLabel}>Thư viện</Text>
-        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Chụp khoảnh khắc"
@@ -244,14 +209,6 @@ export function MemoryCapture({
         <Feather name="grid" size={17} color={colors.earth} />
         <Text style={styles.viewTimelineText}>Xem ký ức · {memoryCount}</Text>
         <Feather name="arrow-right" size={17} color={colors.earth} />
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Viết ký ức không có ảnh"
-        onPress={onWriteOnly}
-        style={styles.writeOnlyAction}
-      >
-        <Text style={styles.writeOnlyText}>Viết ký ức không có ảnh</Text>
       </Pressable>
       <Text style={styles.capturePrivacy}>
         Mặc định chỉ mình tôi · Có thể chọn chia sẻ khi lưu
