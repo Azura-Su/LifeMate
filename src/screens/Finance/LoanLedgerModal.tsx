@@ -34,8 +34,10 @@ import {
 import {
   formatFinanceAmount,
   formatFinanceDate,
+  matchesFinanceSearch,
   parseFinanceAmount,
 } from '../../utils/finance';
+import { FinanceListSearch } from './FinanceListSearch';
 import { loanStyles as styles } from './LoanLedgerModal.styles';
 import {
   getPendingAdvanceAttempt,
@@ -167,6 +169,7 @@ export function LoanLedgerModal({
     null,
   );
   const [selectedLoanTab, setSelectedLoanTab] = useState<LoanTab>('open');
+  const [searchQuery, setSearchQuery] = useState('');
   const [expandedLoanId, setExpandedLoanId] = useState<string | null>(null);
   const focusedLoan = useRef<{ id: string; status: LoanTab } | null>(null);
   const [busyAction, setBusyAction] = useState<{
@@ -198,6 +201,7 @@ export function LoanLedgerModal({
     setPrincipalTarget(null);
     setHistoryActions(null);
     setExpandedLoanId(null);
+    setSearchQuery('');
   }, [visible]);
   useEffect(() => {
     if (!visible || !initialLoanId) {
@@ -261,6 +265,26 @@ export function LoanLedgerModal({
           Number(b.id === initialLoanId) - Number(a.id === initialLoanId),
       )
     : loansByTab[selectedLoanTab];
+  const matchingLoans = searchQuery.trim()
+    ? visibleLoans.filter((loan) =>
+        matchesFinanceSearch(
+          searchQuery,
+          [
+            loan.borrowerName,
+            loan.note,
+            ...(loan.advances?.map((advance) => advance.note ?? '') ?? []),
+          ].join(' '),
+          [
+            loan.principalAmount,
+            getLoanTotalAmount(loan),
+            getLoanOutstandingAmount(loan),
+            getLoanRepaidAmount(loan),
+            ...loan.repayments.map((repayment) => repayment.amount),
+            ...(loan.advances?.map((advance) => advance.amount) ?? []),
+          ],
+        ),
+      )
+    : visibleLoans;
   const receivable = unfinishedLoans.reduce(
     (total, loan) => total + getLoanOutstandingAmount(loan),
     0,
@@ -619,10 +643,29 @@ export function LoanLedgerModal({
           />
         }
       >
+        {(visibleLoans.length > 0 || !!searchQuery.trim()) && (
+          <FinanceListSearch
+            title="Khoản cho vay"
+            count={matchingLoans.length}
+            itemLabel="khoản"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            searchLabel="khoản cho vay"
+            placeholder="Tên người, nội dung hoặc số tiền"
+          />
+        )}
         {loading && loans.length === 0 ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator color={colors.earth} />
             <Text style={styles.meta}>Đang tải danh sách cho vay…</Text>
+          </View>
+        ) : searchQuery.trim() && matchingLoans.length === 0 ? (
+          <View style={styles.empty}>
+            <Feather name="search" size={24} color={colors.sky} />
+            <Text style={styles.emptyTitle}>Không tìm thấy khoản cho vay</Text>
+            <Text style={styles.emptyText}>
+              Thử tên, nội dung hoặc số tiền khác.
+            </Text>
           </View>
         ) : visibleLoans.length === 0 ? (
           <View style={styles.empty}>
@@ -637,7 +680,7 @@ export function LoanLedgerModal({
             </Text>
           </View>
         ) : (
-          visibleLoans.map((loan) => {
+          matchingLoans.map((loan) => {
             const expanded = expandedLoanId === loan.id;
             const status = getLoanStatus(loan);
             const repaid = getLoanRepaidAmount(loan);
@@ -1486,7 +1529,7 @@ function LoanHistory({
             {advanceLoading ? (
               <ActivityIndicator size="small" color={colors.earth} />
             ) : (
-              <Feather name="plus" size={18} color={colors.earth} />
+              <Feather name="plus" size={20} color={colors.earth} />
             )}
           </Pressable>
         )}
@@ -1545,7 +1588,7 @@ function LoanHistory({
               {repaymentLoading ? (
                 <ActivityIndicator size="small" color={colors.earth} />
               ) : (
-                <Feather name="plus" size={18} color={colors.earth} />
+                <Feather name="plus" size={20} color={colors.earth} />
               )}
             </Pressable>
           )}

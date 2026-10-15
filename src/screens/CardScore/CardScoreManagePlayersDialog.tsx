@@ -127,7 +127,7 @@ export function CardScoreManagePlayersDialog({
                 (busy || !newPlayerName.trim()) && styles.disabledAction,
               ]}
             >
-              <Feather name="plus" size={17} color={colors.earth} />
+              <Feather name="plus" size={19} color={colors.earth} />
             </Pressable>
           </View>
         )}

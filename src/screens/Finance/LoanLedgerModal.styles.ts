@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { colors, layout, typography } from '../../theme';
+import { actionIconStyles } from '../../theme/actionIcons';
 
 export const loanStyles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.background },
@@ -131,12 +132,7 @@ export const loanStyles = StyleSheet.create({
     fontWeight: '700',
   },
   deleteAction: {
-    width: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
-    backgroundColor: colors.dangerSoft,
+    ...actionIconStyles.deleteCompact,
   },
   meta: { ...typography.small, color: colors.muted },
   amountLabel: { ...typography.small, color: colors.muted },
@@ -214,14 +210,7 @@ export const loanStyles = StyleSheet.create({
   },
   historyEmpty: { ...typography.small, color: colors.muted },
   historyAddButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.sunlightLine,
-    backgroundColor: colors.sunlightSoft,
+    ...actionIconStyles.addCompact,
   },
   historyAddButtonPressed: {
     opacity: 0.72,

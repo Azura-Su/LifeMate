@@ -17,12 +17,14 @@ export function FinanceAmountInput({
   onChangeText,
   editable = true,
   compact = false,
+  placeholder = '0',
 }: {
   accessibilityLabel: string;
   value: string;
   onChangeText: (digits: string) => void;
   editable?: boolean;
   compact?: boolean;
+  placeholder?: string;
 }) {
   const formatted = amountDigits(value).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return (
@@ -31,7 +33,7 @@ export function FinanceAmountInput({
         accessibilityLabel={accessibilityLabel}
         value={formatted}
         onChangeText={(text) => onChangeText(amountDigits(text))}
-        placeholder="0"
+        placeholder={placeholder}
         placeholderTextColor={colors.muted}
         keyboardType="number-pad"
         maxLength={MAX_DIGITS + Math.floor((MAX_DIGITS - 1) / 3)}

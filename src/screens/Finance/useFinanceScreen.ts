@@ -143,6 +143,7 @@ export function useFinanceScreen() {
       ...(draft.type === 'expense' && sharedExpense ? { sharedExpense } : {}),
     };
     await add(uid, transaction);
+    return transaction.id;
   }
 
   async function removeTransaction(id: string) {

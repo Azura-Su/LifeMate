@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { colors } from '../../theme';
+import { actionIconStyles } from '../../theme/actionIcons';
 
 export const styles = StyleSheet.create({
   searchBox: {
@@ -104,13 +105,10 @@ export const styles = StyleSheet.create({
   trackSelected: { borderColor: colors.primaryBorder },
   trackTopRow: { paddingRight: 56 },
   trackDelete: {
+    ...actionIconStyles.delete,
     position: 'absolute',
     right: 12,
     top: 12,
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
     zIndex: 1,
   },
   trackTitle: {

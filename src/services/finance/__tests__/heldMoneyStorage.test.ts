@@ -1,4 +1,7 @@
-import { getDocsFromServer, runTransaction } from '@react-native-firebase/firestore';
+import {
+  getDocsFromServer,
+  runTransaction,
+} from '@react-native-firebase/firestore';
 import {
   getEncryptedItem,
   setEncryptedItem,
@@ -99,12 +102,20 @@ it('upgrades a legacy fund before applying an edit in a separate transaction', a
     return operation(transaction as never);
   });
   const expected = parseHeldMoneyRecord(record, 'u1')!;
-  const updated = await updateHeldMoneyDetails('u1', expected, 'Tên mới', 'Điện nước');
+  const updated = await updateHeldMoneyDetails(
+    'u1',
+    expected,
+    'Tên mới',
+    'Điện nước',
+  );
   expect(writes).toHaveLength(2);
   expect(writes[0]).toMatchObject({
     remainingAmount: 100,
     entryIds: ['received-1'],
     updatedAt: 100,
   });
-  expect(updated).toMatchObject({ senderName: 'Tên mới', remainingAmount: 100 });
+  expect(updated).toMatchObject({
+    senderName: 'Tên mới',
+    remainingAmount: 100,
+  });
 });

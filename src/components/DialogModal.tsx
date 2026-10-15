@@ -5,6 +5,7 @@ import {
   Platform,
   StyleSheet,
   View,
+  type ModalProps,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -13,6 +14,9 @@ import { colors } from '../theme';
 type Props = PropsWithChildren<{
   visible?: boolean;
   onRequestClose?: () => void;
+  onDismiss?: () => void;
+  onShow?: () => void;
+  animationType?: ModalProps['animationType'];
   style?: StyleProp<ViewStyle>;
 }>;
 
@@ -20,6 +24,9 @@ type Props = PropsWithChildren<{
 export function DialogModal({
   visible = true,
   onRequestClose,
+  onDismiss,
+  onShow,
+  animationType = 'fade',
   style,
   children,
 }: Props) {
@@ -27,8 +34,10 @@ export function DialogModal({
     <Modal
       transparent
       visible={visible}
-      animationType="fade"
+      animationType={animationType}
       onRequestClose={onRequestClose}
+      onDismiss={onDismiss}
+      onShow={onShow}
     >
       <KeyboardAvoidingView
         style={styles.overlay}

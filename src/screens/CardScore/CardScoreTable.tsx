@@ -8,6 +8,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { colors, layout } from '../../theme';
+import { actionIconStyles } from '../../theme/actionIcons';
 import type { CardScoreMatch, CardScoreRound } from '../../types/cardScore';
 import { calculateRoundTotal } from '../../utils/cardScore';
 
@@ -20,7 +21,7 @@ type Props = {
 };
 
 const ROUND_COLUMN_WIDTH = 44;
-const ROUND_ACTION_COLUMN_WIDTH = 36;
+const ROUND_ACTION_COLUMN_WIDTH = 44;
 const MIN_PLAYER_COLUMN_WIDTH = 54;
 
 const scoreLabel = (score: number) => (score > 0 ? `+${score}` : `${score}`);
@@ -287,12 +288,7 @@ const styles = StyleSheet.create({
   },
   roundNumber: { color: colors.sky, fontSize: 11, fontWeight: '700' },
   deleteRoundButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
-    backgroundColor: colors.dangerSoft,
+    ...actionIconStyles.deleteCompact,
   },
   playerCell: {
     alignItems: 'center',

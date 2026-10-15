@@ -58,11 +58,7 @@ export const useAgendaStore = create<AgendaState>((set, get) => ({
     if (!uid) return;
     try {
       const result = await readAgenda(uid);
-      if (
-        mine === request &&
-        get().uid === uid &&
-        isActiveAccount(uid)
-      ) {
+      if (mine === request && get().uid === uid && isActiveAccount(uid)) {
         set({
           items: result.items,
           synced: result.synced,

@@ -54,7 +54,6 @@ export function FinancePeriodSelector({ year, month, onPeriodChange }: Props) {
             <Text style={styles.selectedMonthText}>
               Tháng {month} · {year}
             </Text>
-            <Feather name="chevron-down" size={15} color={colors.muted} />
           </Pressable>
           <Pressable
             accessibilityRole="button"

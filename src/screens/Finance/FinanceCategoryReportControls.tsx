@@ -1,6 +1,12 @@
 import Feather from '@expo/vector-icons/Feather';
-import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import {
+  Modal,
+  Pressable,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { DialogCloseButton } from '../../components/DialogCloseButton';
 import { DialogModal } from '../../components/DialogModal';
 import { colors } from '../../theme';
@@ -59,7 +65,39 @@ export function FinanceCategoryReportControls({
     edge: PickerEdge;
     point: FinanceReportPoint;
   } | null>(null);
+  const [sourcePickerOpen, setSourcePickerOpen] = useState(false);
+  const sourcePickerRef = useRef<View>(null);
+  const [sourceMenuAnchor, setSourceMenuAnchor] = useState({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+  });
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const sourceMenuWidth = Math.min(
+    windowWidth - 24,
+    Math.max(172, sourceMenuAnchor.width),
+  );
+  const sourceMenuHeight = 132;
+  const sourceMenuLeft = Math.max(
+    12,
+    Math.min(
+      sourceMenuAnchor.x + sourceMenuAnchor.width - sourceMenuWidth,
+      windowWidth - sourceMenuWidth - 12,
+    ),
+  );
+  const sourceMenuTop =
+    sourceMenuAnchor.y + sourceMenuAnchor.height + sourceMenuHeight + 12 <=
+    windowHeight
+      ? sourceMenuAnchor.y + sourceMenuAnchor.height + 4
+      : Math.max(12, sourceMenuAnchor.y - sourceMenuHeight - 4);
   const selectedPoint = picker?.point ?? start;
+  const sourceLabel =
+    incomeSource === 'company'
+      ? 'Công ty'
+      : incomeSource === 'other'
+        ? 'Ngoài công ty'
+        : 'Tất cả';
 
   function changePoint(month: number) {
     if (!picker) return;
@@ -93,6 +131,21 @@ export function FinanceCategoryReportControls({
     onMonthChange({
       year: Math.floor(monthIndex / 12),
       month: (monthIndex % 12) + 1,
+    });
+  }
+
+  function toggleSourceMenu() {
+    if (sourcePickerOpen) {
+      setSourcePickerOpen(false);
+      return;
+    }
+    if (!sourcePickerRef.current?.measureInWindow) {
+      setSourcePickerOpen(true);
+      return;
+    }
+    sourcePickerRef.current.measureInWindow((x, y, width, height) => {
+      setSourceMenuAnchor({ x, y, width, height });
+      setSourcePickerOpen(true);
     });
   }
 
@@ -209,7 +262,6 @@ export function FinanceCategoryReportControls({
               <Text style={styles.selectedMonthText}>
                 Tháng {month.month} năm {month.year}
               </Text>
-              <Feather name="chevron-down" size={15} color={colors.muted} />
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -226,7 +278,7 @@ export function FinanceCategoryReportControls({
           <View style={styles.rangeRow}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Chọn tháng bắt đầu"
+              accessibilityLabel={`Chọn tháng bắt đầu: ${formatPeriodPoint(start)}`}
               onPress={() => setPicker({ edge: 'start', point: { ...start } })}
               style={styles.rangeButton}
             >
@@ -240,7 +292,7 @@ export function FinanceCategoryReportControls({
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Chọn tháng kết thúc"
+              accessibilityLabel={`Chọn tháng kết thúc: ${formatPeriodPoint(end)}`}
               onPress={() => setPicker({ edge: 'end', point: { ...end } })}
               style={styles.rangeButton}
             >
@@ -252,51 +304,87 @@ export function FinanceCategoryReportControls({
             </Pressable>
           </View>
         )}
-        <Text style={styles.periodHint}>
-          {isIncome
-            ? incomeSource === 'company'
-              ? 'Lương, thưởng và khoản khác từ công ty'
-              : incomeSource === 'other'
-                ? 'Chỉ tính thu nhập ngoài công ty'
-                : 'Tất cả thu nhập trong kỳ'
-            : 'Đã trừ tiền nhận lại từ các khoản cho vay'}
-        </Text>
+        {isIncome && (
+          <View style={styles.sourceRow}>
+            <Text style={styles.sourceLabel}>Nguồn thu</Text>
+            <Pressable
+              ref={sourcePickerRef}
+              accessibilityRole="button"
+              accessibilityLabel={`Nguồn thu: ${sourceLabel}`}
+              accessibilityState={{ expanded: sourcePickerOpen }}
+              onPress={toggleSourceMenu}
+              style={styles.sourcePickerButton}
+            >
+              <Text style={styles.sourcePickerText}>{sourceLabel}</Text>
+              <Feather
+                name={sourcePickerOpen ? 'chevron-up' : 'chevron-down'}
+                size={15}
+                color={colors.earth}
+              />
+            </Pressable>
+          </View>
+        )}
       </View>
 
-      {isIncome && (
-        <View style={styles.sourceSwitch}>
-          {(
-            [
-              ['all', 'Tất cả'],
-              ['company', 'Công ty'],
-              ['other', 'Khác'],
-            ] as const
-          ).map(([value, label]) => {
-            const selected = incomeSource === value;
-            return (
+      <Modal
+        transparent
+        statusBarTranslucent
+        visible={sourcePickerOpen}
+        onRequestClose={() => setSourcePickerOpen(false)}
+        animationType="none"
+      >
+        <View style={styles.sourceMenuOverlay}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Đóng danh sách nguồn thu"
+            onPress={() => setSourcePickerOpen(false)}
+            style={styles.sourceMenuDismissLayer}
+          />
+          <View
+            accessibilityViewIsModal
+            style={[
+              styles.sourceMenu,
+              {
+                top: sourceMenuTop,
+                left: sourceMenuLeft,
+                width: sourceMenuWidth,
+              },
+            ]}
+          >
+            {(
+              [
+                ['all', 'Tất cả'],
+                ['company', 'Công ty'],
+                ['other', 'Ngoài công ty'],
+              ] as const
+            ).map(([value, label]) => (
               <Pressable
                 key={value}
                 accessibilityRole="button"
-                accessibilityLabel={`Nguồn thu: ${label}`}
-                accessibilityState={{ selected }}
-                onPress={() => onIncomeSourceChange(value)}
-                style={[styles.sourceButton, selected && styles.sourceSelected]}
+                accessibilityLabel={`Chọn nguồn thu báo cáo: ${label}`}
+                accessibilityState={{ selected: incomeSource === value }}
+                onPress={() => {
+                  onIncomeSourceChange(value);
+                  setSourcePickerOpen(false);
+                }}
+                style={styles.sourceChoice}
               >
                 <Text
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
                   style={[
-                    styles.sourceText,
-                    selected && styles.sourceTextSelected,
+                    styles.sourceChoiceText,
+                    incomeSource === value && styles.sourceChoiceTextSelected,
                   ]}
                 >
                   {label}
                 </Text>
+                {incomeSource === value && (
+                  <Feather name="check" size={16} color={colors.earth} />
+                )}
               </Pressable>
-            );
-          })}
+            ))}
+          </View>
         </View>
-      )}
+      </Modal>
 
       <DialogModal
         visible={picker !== null}

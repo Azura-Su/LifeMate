@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { colors, layout, typography } from '../../theme';
+import { actionIconStyles } from '../../theme/actionIcons';
 
 export const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -11,12 +12,7 @@ export const styles = StyleSheet.create({
   },
   headerTitle: { flex: 1 },
   add: {
-    width: 42,
-    height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-    backgroundColor: colors.sunlightSoft,
+    ...actionIconStyles.add,
   },
   fixedHeader: {
     paddingHorizontal: layout.screenGutter,

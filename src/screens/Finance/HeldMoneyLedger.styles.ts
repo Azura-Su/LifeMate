@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { colors, typography } from '../../theme';
+import { actionIconStyles } from '../../theme/actionIcons';
 
 export const heldStyles = StyleSheet.create({
   root: { gap: 12 },
@@ -44,18 +45,10 @@ export const heldStyles = StyleSheet.create({
   },
   purpose: { ...typography.small, flexShrink: 1, color: colors.muted },
   editDetailsIcon: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
+    ...actionIconStyles.editCompact,
   },
   deleteAction: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.dangerSoft,
+    ...actionIconStyles.deleteCompact,
   },
   menuButton: {
     width: 38,
@@ -92,14 +85,7 @@ export const heldStyles = StyleSheet.create({
   },
   historyTitle: { fontSize: 13, fontWeight: '700', color: colors.ink },
   addEntryButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.sunlightSoft,
-    borderWidth: 1,
-    borderColor: colors.sunlightLine,
+    ...actionIconStyles.addCompact,
   },
   entry: {
     flexDirection: 'row',

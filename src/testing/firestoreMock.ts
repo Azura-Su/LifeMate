@@ -69,12 +69,17 @@ export function getFirestoreMockRows(uid: string) {
 export const getFirestore = jest.fn(() => 'firestore');
 export const collection = jest.fn((...parts: unknown[]) => reference(parts));
 export const doc = jest.fn((...parts: unknown[]) => reference(parts));
-export const where = jest.fn((field: string, _operator: string, value: unknown) => ({
-  field,
-  value,
-}));
+export const where = jest.fn(
+  (field: string, _operator: string, value: unknown) => ({
+    field,
+    value,
+  }),
+);
 export const query = jest.fn(
-  (ref: FirestoreReference, ...filters: { field: string; value: unknown }[]) => ({
+  (
+    ref: FirestoreReference,
+    ...filters: { field: string; value: unknown }[]
+  ) => ({
     ...ref,
     filters,
   }),

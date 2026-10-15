@@ -71,6 +71,33 @@ function timeLabel(timestamp: number) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
+function MemoryPhoto({
+  uri,
+  accessibilityLabel,
+  onError,
+}: {
+  uri: string;
+  accessibilityLabel: string;
+  onError?: () => void;
+}) {
+  const [dimensions, setDimensions] = useState({ uri, aspectRatio: 3 / 4 });
+  const aspectRatio = dimensions.uri === uri ? dimensions.aspectRatio : 3 / 4;
+  return (
+    <Image
+      source={{ uri }}
+      style={[styles.entryPhoto, { aspectRatio }]}
+      resizeMode="contain"
+      accessibilityLabel={accessibilityLabel}
+      onLoad={({ nativeEvent }) => {
+        const { width, height } = nativeEvent.source;
+        if (width > 0 && height > 0)
+          setDimensions({ uri, aspectRatio: width / height });
+      }}
+      onError={onError}
+    />
+  );
+}
+
 function FriendMemoryCard({
   item,
   onPhotoError,
@@ -83,10 +110,8 @@ function FriendMemoryCard({
   return (
     <View style={styles.entryCard}>
       {item.photoUrl && (
-        <Image
-          source={{ uri: item.photoUrl }}
-          style={styles.entryPhoto}
-          resizeMode="cover"
+        <MemoryPhoto
+          uri={item.photoUrl}
           accessibilityLabel={`Ảnh ký ức của ${item.ownerName}`}
           onError={() => {
             if (photoRetry.current) return;
@@ -130,10 +155,8 @@ function OwnMemoryCard({
   return (
     <View style={styles.entryCard}>
       {photoUri && (
-        <Image
-          source={{ uri: photoUri }}
-          style={styles.entryPhoto}
-          resizeMode="cover"
+        <MemoryPhoto
+          uri={photoUri}
           accessibilityLabel={`Ảnh ký ức ngày ${dayLabel(item.dateKey)}`}
         />
       )}
@@ -473,11 +496,23 @@ export function MemoryScreen() {
           throw new Error(
             'Hãy kết nối để kiểm tra quyền xem trước khi sửa ký ức này.',
           );
+        saved = await updateMemory(uid, editing.id, draft);
         if (isShared(editing)) {
-          await unshareMemory(uid, name, editing.id);
+          try {
+            await unshareMemory(uid, name, editing.id);
+            await setMemoryVisibility(uid, editing.id, 'private');
+          } catch {
+            setEditing(saved);
+            throw new Error(
+              'Bản sửa đã lưu trên máy nhưng chưa cập nhật được quyền chia sẻ. Hãy kết nối và thử lưu lại.',
+            );
+          }
+        } else if (
+          draft.visibility === 'private' &&
+          saved.visibility === 'friends'
+        ) {
           await setMemoryVisibility(uid, editing.id, 'private');
         }
-        saved = await updateMemory(uid, editing.id, draft);
       } else saved = await createMemory(uid, draft);
       if (draft.visibility === 'friends') {
         try {
@@ -505,6 +540,9 @@ export function MemoryScreen() {
       if (viewMode === 'timeline') void loadCloud(uid, name);
       setTimelineTab('mine');
       setViewMode('timeline');
+    } catch (cause) {
+      if (useAuthStore.getState().user?.uid === uid) void loadCloud(uid, name);
+      throw cause;
     } finally {
       operationInFlight.current = false;
       setBusy(false);

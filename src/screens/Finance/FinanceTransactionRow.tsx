@@ -164,7 +164,7 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
                 : 'edit-2'
             }
             size={16}
-            color={colors.muted}
+            color={colors.earth}
           />
         </Pressable>
       ) : null}
@@ -181,7 +181,7 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
           {deleting ? (
             <ActivityIndicator size="small" color={colors.earth} />
           ) : (
-            <Feather name="trash-2" size={16} color={colors.muted} />
+            <Feather name="trash-2" size={16} color={colors.danger} />
           )}
         </Pressable>
       )}

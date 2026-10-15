@@ -4,6 +4,8 @@ import { colors } from '../../theme';
 import type { FinanceTransaction } from '../../types/finance';
 import type { LoanRecord } from '../../types/loan';
 import { formatFinanceAmount } from '../../utils/finance';
+import type { PendingSharedExpense } from '../../utils/sharedExpense';
+import { FinancePendingSharedExpenses } from './FinancePendingSharedExpenses';
 import { FinanceTransactionDayGroups } from './FinanceTransactionDayGroups';
 import { styles } from './FinanceScreen.styles';
 
@@ -14,6 +16,7 @@ type Props = {
   income: number;
   expense: number;
   balance: number;
+  pendingSharedExpenses: PendingSharedExpense[];
   onDelete: (transaction: FinanceTransaction) => void;
   onEdit: (transaction: FinanceTransaction) => void;
   canDeleteLinkedExpense?: (transaction: FinanceTransaction) => boolean;
@@ -30,6 +33,7 @@ export function FinanceMonthSection({
   income,
   expense,
   balance,
+  pendingSharedExpenses,
   onDelete,
   onEdit,
   canDeleteLinkedExpense,
@@ -38,6 +42,15 @@ export function FinanceMonthSection({
   onOpenLoan,
   onAdd,
 }: Props) {
+  const pendingAmount = pendingSharedExpenses.reduce(
+    (sum, item) => sum + item.remaining,
+    0,
+  );
+  const monthStart = new Date(year, month - 1, 1).getTime();
+  const carriedExpenses = pendingSharedExpenses.filter(
+    ({ transaction }) => transaction.createdAt < monthStart,
+  );
+
   return (
     <View style={styles.monthSection}>
       <View style={styles.monthHeader}>
@@ -52,7 +65,7 @@ export function FinanceMonthSection({
             onPress={onAdd}
             style={styles.monthAddButton}
           >
-            <Feather name="plus" size={18} color={colors.earth} />
+            <Feather name="plus" size={20} color={colors.earth} />
           </Pressable>
         </View>
         <View testID="finance-month-stats" style={styles.monthStatsRow}>
@@ -87,18 +100,31 @@ export function FinanceMonthSection({
             </Text>
           </View>
         </View>
+        {pendingAmount > 0 && (
+          <View style={styles.monthPendingRow}>
+            <Text style={styles.monthPendingLabel}>
+              Còn chờ nhận · {pendingSharedExpenses.length} khoản
+            </Text>
+            <Text style={styles.monthPendingAmount}>
+              {formatFinanceAmount(pendingAmount)}
+            </Text>
+          </View>
+        )}
       </View>
-      <View style={styles.transactionList}>
-        <FinanceTransactionDayGroups
-          transactions={transactions}
-          deletingIds={deletingIds}
-          onDelete={onDelete}
-          onEdit={onEdit}
-          loansById={loansById}
-          onOpenLoan={onOpenLoan}
-          canDeleteLinkedExpense={canDeleteLinkedExpense}
-        />
-      </View>
+      <FinancePendingSharedExpenses items={carriedExpenses} onOpen={onEdit} />
+      {transactions.length > 0 && (
+        <View style={styles.transactionList}>
+          <FinanceTransactionDayGroups
+            transactions={transactions}
+            deletingIds={deletingIds}
+            onDelete={onDelete}
+            onEdit={onEdit}
+            loansById={loansById}
+            onOpenLoan={onOpenLoan}
+            canDeleteLinkedExpense={canDeleteLinkedExpense}
+          />
+        </View>
+      )}
     </View>
   );
 }

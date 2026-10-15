@@ -1,5 +1,5 @@
 import Feather from '@expo/vector-icons/Feather';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { DialogModal } from '../../components/DialogModal';
@@ -15,6 +15,7 @@ import { getHeldMoneyTotals } from '../../types/heldMoney';
 import {
   formatFinanceAmount,
   formatFinanceDate,
+  matchesFinanceSearch,
   parseFinanceAmount,
   parseFinanceDate,
 } from '../../utils/finance';
@@ -25,6 +26,7 @@ import {
   type HeldMoneyRecordDraft,
 } from './HeldMoneyDialogs';
 import { heldStyles as styles } from './HeldMoneyLedger.styles';
+import { FinanceListSearch } from './FinanceListSearch';
 
 type Ledger = ReturnType<typeof useHeldMoneyLedger>;
 type MenuTarget = { record: HeldMoneyRecord; entry: HeldMoneyEntry };
@@ -76,6 +78,7 @@ export function HeldMoneyLedger({
   addRequestId: number;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [recordFormVisible, setRecordFormVisible] = useState(false);
   const [recordTarget, setRecordTarget] = useState<HeldMoneyRecord | null>(
     null,
@@ -110,6 +113,7 @@ export function HeldMoneyLedger({
     setRecordFormVisible(false);
     setEntryTarget(null);
     setMenuTarget(null);
+    setSearchQuery('');
   }, [uid]);
 
   async function saveRecord(draft: HeldMoneyRecordDraft) {
@@ -222,6 +226,30 @@ export function HeldMoneyLedger({
     (sum, record) => sum + getHeldMoneyTotals(record).remaining,
     0,
   );
+  const matchingRecords = useMemo(
+    () =>
+      searchQuery.trim()
+        ? ledger.records.filter((record) => {
+            const totals = getHeldMoneyTotals(record);
+            return matchesFinanceSearch(
+              searchQuery,
+              [
+                record.senderName,
+                record.purpose,
+                ...record.entries.map((entry) => entry.note),
+              ].join(' '),
+              [
+                totals.remaining,
+                totals.received,
+                totals.paid,
+                totals.returned,
+                ...record.entries.map((entry) => entry.amount),
+              ],
+            );
+          })
+        : ledger.records,
+    [ledger.records, searchQuery],
+  );
 
   return (
     <View style={styles.root}>
@@ -287,7 +315,29 @@ export function HeldMoneyLedger({
           </View>
         )}
 
-      {ledger.records.map((record) => {
+      {(ledger.records.length > 0 || !!searchQuery.trim()) && (
+        <FinanceListSearch
+          title="Khoản đóng hộ"
+          count={matchingRecords.length}
+          itemLabel="khoản"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          searchLabel="khoản đóng hộ"
+          placeholder="Người đưa, nội dung hoặc số tiền"
+        />
+      )}
+
+      {!!searchQuery.trim() && matchingRecords.length === 0 && (
+        <View style={styles.empty}>
+          <Feather name="search" size={26} color={colors.sky} />
+          <Text style={styles.emptyTitle}>Không tìm thấy khoản đóng hộ</Text>
+          <Text style={styles.emptyText}>
+            Thử tên người, nội dung hoặc số tiền khác.
+          </Text>
+        </View>
+      )}
+
+      {matchingRecords.map((record) => {
         const totals = getHeldMoneyTotals(record);
         const expanded = expandedId === record.id;
         const entries = [...record.entries].sort(
@@ -367,7 +417,9 @@ export function HeldMoneyLedger({
                 {formatFinanceAmount(totals.remaining)}
               </Text>
               {totals.remaining < 0 && (
-                <Text style={styles.balanceHint}>Đã ứng trước phần chênh lệch</Text>
+                <Text style={styles.balanceHint}>
+                  Đã ứng trước phần chênh lệch
+                </Text>
               )}
             </Pressable>
             <View style={styles.totalsRow}>
@@ -510,9 +562,10 @@ function HeldMoneyHistorySection({
           accessibilityState={{ disabled: busy }}
           disabled={busy}
           onPress={onAdd}
+          hitSlop={5}
           style={styles.addEntryButton}
         >
-          <Feather name="plus" size={19} color={colors.earth} />
+          <Feather name="plus" size={20} color={colors.earth} />
         </Pressable>
       </View>
       {entries.length === 0 && (

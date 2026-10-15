@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { colors } from '../../theme';
+import { actionIconStyles } from '../../theme/actionIcons';
 
 export const styles = StyleSheet.create({
   card: {
@@ -28,12 +29,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   add: {
-    width: 38,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    backgroundColor: colors.sunlightSoft,
+    ...actionIconStyles.add,
   },
   empty: { padding: 12, borderRadius: 12, backgroundColor: colors.skySoft },
   more: {

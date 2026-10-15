@@ -1,8 +1,15 @@
 import type {
+  FinanceTransaction,
   SharedExpense,
   SharedExpenseParticipant,
   SharedExpenseReceipt,
 } from '../types/finance';
+
+export type PendingSharedExpense = {
+  transaction: FinanceTransaction;
+  remaining: number;
+  pendingPeople: string[];
+};
 
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
 const MAX_DATE = 253402300799999;
@@ -101,14 +108,57 @@ export function getSharedExpenseTotals(shared: SharedExpense) {
   return { owed, received, remaining: owed - received };
 }
 
+export function getPendingSharedExpenses(
+  transactions: FinanceTransaction[],
+  asOfExclusive = Date.now() + 1,
+): PendingSharedExpense[] {
+  return transactions
+    .flatMap((transaction) => {
+      if (
+        transaction.type !== 'expense' ||
+        !transaction.sharedExpense ||
+        transaction.createdAt >= asOfExclusive
+      )
+        return [];
+      const shared = transaction.sharedExpense;
+      const pending = shared.participants.flatMap((person) => {
+        const remaining = getSharedExpensePersonTotals(
+          shared,
+          person.id,
+          asOfExclusive,
+        ).remaining;
+        return remaining > 0 ? [{ name: person.name, remaining }] : [];
+      });
+      const remaining = pending.reduce(
+        (sum, person) => sum + person.remaining,
+        0,
+      );
+      return remaining > 0
+        ? [
+            {
+              transaction,
+              remaining,
+              pendingPeople: pending.map(({ name }) => name),
+            },
+          ]
+        : [];
+    })
+    .sort((a, b) => b.transaction.createdAt - a.transaction.createdAt);
+}
+
 export function getSharedExpensePersonTotals(
   shared: SharedExpense,
   participantId: string,
+  asOfExclusive = Number.POSITIVE_INFINITY,
 ) {
   const owed =
     shared.participants.find(({ id }) => id === participantId)?.owedAmount ?? 0;
   const received = shared.receipts
-    .filter((receipt) => receipt.participantId === participantId)
+    .filter(
+      (receipt) =>
+        receipt.participantId === participantId &&
+        receipt.receivedAt < asOfExclusive,
+    )
     .reduce((sum, receipt) => sum + receipt.amount, 0);
   return { owed, received, remaining: owed - received };
 }

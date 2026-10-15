@@ -59,9 +59,7 @@ export function FinanceTransactionDayGroups({
             onDelete={onDelete}
             onEdit={onEdit}
             loan={
-              transaction.loanId
-                ? loansById.get(transaction.loanId)
-                : undefined
+              transaction.loanId ? loansById.get(transaction.loanId) : undefined
             }
             onOpenLoan={onOpenLoan}
             canDeleteLinkedExpense={canDeleteLinkedExpense?.(transaction)}

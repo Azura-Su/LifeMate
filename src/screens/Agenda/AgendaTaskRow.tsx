@@ -106,7 +106,7 @@ export function AgendaTaskRow({
           {pendingAction === 'delete' ? (
             <ActivityIndicator size="small" color={colors.earth} />
           ) : (
-            <Feather name="trash-2" size={17} color={colors.muted} />
+            <Feather name="trash-2" size={17} color={colors.danger} />
           )}
         </Pressable>
       </View>

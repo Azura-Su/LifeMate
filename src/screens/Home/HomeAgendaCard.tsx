@@ -133,7 +133,7 @@ export function HomeAgendaCard({
             }}
             style={styles.add}
           >
-            <Feather name="plus" size={19} color={colors.earth} />
+            <Feather name="plus" size={21} color={colors.earth} />
           </Pressable>
         </View>
         {model.loading ? (

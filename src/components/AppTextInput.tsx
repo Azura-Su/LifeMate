@@ -6,8 +6,6 @@ import {
 
 export const AppTextInput = forwardRef<NativeTextInput, TextInputProps>(
   function AppTextInput(props, ref) {
-    return (
-      <NativeTextInput ref={ref} autoCapitalize="sentences" {...props} />
-    );
+    return <NativeTextInput ref={ref} autoCapitalize="sentences" {...props} />;
   },
 );

@@ -357,9 +357,7 @@ it('shows Home totals while Finance tab remains locked', async () => {
     screen.getByRole('button', { name: 'Chọn ngày, hôm nay' }),
   ).toBeTruthy();
   expect(LocalAuthentication.authenticateAsync).not.toHaveBeenCalled();
-  fireEvent.press(
-    screen.getByRole('button', { name: 'Mở sổ Tài chính' }),
-  );
+  fireEvent.press(screen.getByRole('button', { name: 'Mở sổ Tài chính' }));
   expect(navigation.navigate).toHaveBeenCalledWith('Finance');
   expect(LocalAuthentication.authenticateAsync).not.toHaveBeenCalled();
 });

@@ -306,9 +306,7 @@ export function MemoryFriendsModal({
           <View style={styles.verificationCard}>
             <View style={styles.verificationHeading}>
               <Feather name="shield" size={17} color={colors.earth} />
-              <Text style={styles.verificationTitle}>
-                Cần xác nhận một lần
-              </Text>
+              <Text style={styles.verificationTitle}>Cần xác nhận một lần</Text>
             </View>
             <Text style={styles.verificationDescription}>
               Đăng nhập bằng mật khẩu chưa xác nhận bạn sở hữu hộp thư. Mở liên
@@ -418,7 +416,11 @@ const styles = StyleSheet.create({
   },
   verificationHeading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   verificationTitle: { fontSize: 14, fontWeight: '700', color: colors.ink },
-  verificationDescription: { fontSize: 12, lineHeight: 19, color: colors.muted },
+  verificationDescription: {
+    fontSize: 12,
+    lineHeight: 19,
+    color: colors.muted,
+  },
   checkButton: {
     minHeight: 40,
     flexDirection: 'row',

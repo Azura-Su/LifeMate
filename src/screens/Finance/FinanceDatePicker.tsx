@@ -45,8 +45,9 @@ export function FinanceDatePicker({
   const monthLabel = formatMonth(visibleMonth);
 
   function moveMonth(offset: number) {
-    setVisibleMonth((current) =>
-      new Date(current.getFullYear(), current.getMonth() + offset, 1),
+    setVisibleMonth(
+      (current) =>
+        new Date(current.getFullYear(), current.getMonth() + offset, 1),
     );
   }
 
@@ -101,10 +102,7 @@ export function FinanceDatePicker({
               accessibilityLabel={`Chọn ngày ${formatDateLabel(day)}`}
               accessibilityState={{ selected }}
               onPress={() => onChange(day)}
-              style={[
-                styles.dayCell,
-                selected && styles.selectedDayCell,
-              ]}
+              style={[styles.dayCell, selected && styles.selectedDayCell]}
             >
               <Text
                 style={[styles.dayNumber, selected && styles.selectedDayNumber]}

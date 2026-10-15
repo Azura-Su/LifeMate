@@ -18,4 +18,11 @@ module.exports = defineConfig([
       'supabase/functions/audio-access/index.ts',
     ],
   },
+  {
+    // Deno resolves these through supabase/functions/memory-access/deno.json.
+    files: ['supabase/functions/memory-access/**'],
+    rules: {
+      'import/no-unresolved': ['error', { ignore: ['^@aws-sdk/'] }],
+    },
+  },
 ]);

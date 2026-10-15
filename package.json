@@ -68,6 +68,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "jest --runInBand",
+    "test:functions": "node --test supabase/functions/tests/*.test.mjs",
     "test:rules": "npx --yes firebase-tools@15.33.0 emulators:exec --only firestore --project demo-lifemate 'node firebase/tests/firestore.rules.cjs'",
     "bundle": "expo export --platform android --platform ios",
     "format": "prettier --write App.tsx index.ts src tasks README.md SPEC.md CAPABILITIES.md app.json"

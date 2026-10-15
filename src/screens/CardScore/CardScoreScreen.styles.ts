@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { colors } from '../../theme';
+import { actionIconStyles } from '../../theme/actionIcons';
 
 export const styles = StyleSheet.create({
   fixedHeader: { paddingTop: 8, paddingBottom: 8 },
@@ -239,10 +240,7 @@ export const styles = StyleSheet.create({
   },
   historySubtitle: { color: colors.muted, fontSize: 10, lineHeight: 15 },
   historyDelete: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
+    ...actionIconStyles.deleteCompact,
   },
   dialog: { padding: 14, gap: 10, maxHeight: '88%' },
   managePlayersDialog: {
@@ -277,20 +275,10 @@ export const styles = StyleSheet.create({
   managePlayerInput: { flex: 1, minWidth: 0 },
   nameNumberSpacer: { width: 24, height: 24 },
   managePlayerDelete: {
-    width: 36,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 11,
-    backgroundColor: colors.dangerSoft,
+    ...actionIconStyles.deleteCompact,
   },
   managePlayerAdd: {
-    width: 36,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 11,
-    backgroundColor: colors.sunlightSoft,
+    ...actionIconStyles.addCompact,
   },
   dialogScroll: { flexShrink: 1 },
   dialogContent: { gap: 10, paddingBottom: 2 },

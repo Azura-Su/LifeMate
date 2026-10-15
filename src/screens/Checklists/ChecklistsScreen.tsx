@@ -30,6 +30,7 @@ import type {
   PrepChecklistItem,
 } from '../../types/prepChecklist';
 import { colors } from '../../theme';
+import { actionIconStyles } from '../../theme/actionIcons';
 import { parseDateKey, toDateKey } from '../../utils/vietnameseCalendar';
 import {
   MAX_CHECKLIST_ITEMS,
@@ -495,9 +496,9 @@ export function ChecklistsScreen({ navigation, route }: Props) {
               accessibilityState={{ disabled: loadFailed }}
               disabled={loadFailed}
               onPress={() => openCreate()}
-              style={styles.iconButton}
+              style={[styles.iconButton, actionIconStyles.add]}
             >
-              <Feather name="plus" size={21} color={colors.earth} />
+              <Feather name="plus" size={22} color={colors.earth} />
             </Pressable>
           )}
           {selected && (
@@ -639,7 +640,7 @@ export function ChecklistsScreen({ navigation, route }: Props) {
                   onPress={() => openItemEditor(selected, item)}
                   style={styles.itemAction}
                 >
-                  <Feather name="edit-2" size={16} color={colors.muted} />
+                  <Feather name="edit-2" size={16} color={colors.earth} />
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
@@ -688,7 +689,7 @@ export function ChecklistsScreen({ navigation, route }: Props) {
                 {busy ? (
                   <ActivityIndicator color={colors.earth} />
                 ) : (
-                  <Feather name="plus" size={19} color={colors.earth} />
+                  <Feather name="plus" size={21} color={colors.earth} />
                 )}
               </Pressable>
             </View>

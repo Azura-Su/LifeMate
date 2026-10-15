@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { colors, layout, typography } from '../../theme';
+import { actionIconStyles } from '../../theme/actionIcons';
 
 export const styles = StyleSheet.create({
   fixedHeader: { paddingTop: 10, paddingBottom: 12 },
@@ -268,18 +269,14 @@ export const styles = StyleSheet.create({
     borderRadius: 19,
     backgroundColor: colors.surface,
   },
-  entryPhoto: { width: '100%', height: 220, backgroundColor: colors.skySoft },
+  entryPhoto: { width: '100%', backgroundColor: colors.skySoft },
   entryBody: { gap: 9, paddingHorizontal: 14, paddingVertical: 12 },
   entryTopRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   dateChip: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
   dateChipText: { fontSize: 12, fontWeight: '600', color: colors.earth },
   entryActions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   entryAction: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 11,
+    ...actionIconStyles.edit,
   },
   entryText: { fontSize: 14, lineHeight: 22, color: colors.ink },
   editorDialog: { maxHeight: '92%', padding: 0, gap: 0, overflow: 'hidden' },

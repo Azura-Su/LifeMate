@@ -11,19 +11,20 @@ import {
   ActivityIndicator,
   Alert,
   Keyboard,
+  Platform,
   Pressable,
   RefreshControl,
   Text,
   View,
 } from 'react-native';
 import { Button } from '../../components/Button';
-import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { Screen } from '../../components/Screen';
 import { colors, typography } from '../../theme';
 import {
   formatFinanceAmount,
   formatFinanceDate,
   getFinanceTransactionCategoryLabel,
+  parseFinanceDate,
 } from '../../utils/finance';
 import type {
   RegularFinanceIncomeSource,
@@ -31,7 +32,10 @@ import type {
   FinanceTransactionType,
 } from '../../types/finance';
 import { isLoanLedgerTransaction } from '../../types/finance';
-import { getSharedExpenseTotals } from '../../utils/sharedExpense';
+import {
+  getPendingSharedExpenses,
+  getSharedExpenseTotals,
+} from '../../utils/sharedExpense';
 import { useLoanLedger } from '../../hooks/useLoanLedger';
 import { useHeldMoneyLedger } from '../../hooks/useHeldMoneyLedger';
 import { useFinanceStore } from '../../store/financeStore';
@@ -81,6 +85,30 @@ const reportTabs = [
 
 export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   const model = useFinanceScreen();
+  const overviewPending = useMemo(() => {
+    const now = Date.now();
+    const monthStart = new Date(model.year, model.month - 1, 1).getTime();
+    if (monthStart > now) return [];
+    const monthEnd = new Date(model.year, model.month, 1).getTime();
+    return getPendingSharedExpenses(
+      model.transactions,
+      Math.min(monthEnd, now + 1),
+    );
+  }, [model.transactions, model.year, model.month]);
+  const overviewMonths =
+    model.report.months.length > 0
+      ? model.report.months
+      : overviewPending.length > 0
+        ? [
+            {
+              month: model.month,
+              transactions: [],
+              income: 0,
+              expense: 0,
+              balance: 0,
+            },
+          ]
+        : [];
   const loanLedger = useLoanLedger(model.uid);
   const loansById = useMemo(
     () => new Map(loanLedger.loans.map((loan) => [loan.id, loan])),
@@ -233,6 +261,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     [loansById],
   );
   const [dialogVisible, setDialogVisible] = useState(false);
+  const [instantEditOpen, setInstantEditOpen] = useState(false);
   const [dialogInitialType, setDialogInitialType] =
     useState<FinanceTransactionType>('expense');
   const [dialogInitialIncomeSource, setDialogInitialIncomeSource] =
@@ -246,10 +275,22 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   const deletingIdsRef = useRef(new Set<string>());
   const [editTarget, setEditTarget] = useState<FinanceTransaction | null>(null);
   const [sharedDetailId, setSharedDetailId] = useState<string | null>(null);
+  const [closingSharedEdit, setClosingSharedEdit] = useState(false);
+  const [editTransitioning, setEditTransitioning] = useState(false);
+  const pendingSharedEdit = useRef<FinanceTransaction | null>(null);
   const sharedDetailTransaction =
     model.transactions.find(({ id }) => id === sharedDetailId) ?? null;
-  useEffect(() => setSharedDetailId(null), [model.uid]);
+  useEffect(() => {
+    setSharedDetailId(null);
+    pendingSharedEdit.current = null;
+    setClosingSharedEdit(false);
+    setEditTransitioning(false);
+  }, [model.uid]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [revealedTransactionId, setRevealedTransactionId] = useState<
+    string | null
+  >(null);
+  useEffect(() => setRevealedTransactionId(null), [model.uid]);
   const [reportIncomeSource, setReportIncomeSource] =
     useState<FinanceIncomeSourceFilter>('company');
   const [reportPeriodMode, setReportPeriodMode] =
@@ -342,8 +383,12 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     openDirectEditDialog(transaction);
   }
 
-  function openDirectEditDialog(transaction: FinanceTransaction) {
+  function openDirectEditDialog(
+    transaction: FinanceTransaction,
+    instant = false,
+  ) {
     setSharedDetailId(null);
+    setInstantEditOpen(instant);
     setEditTarget(transaction);
     setDialogInitialType(transaction.type);
     setDialogInitialIncomeSource(
@@ -351,6 +396,28 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     );
     setDialogInitialDate(formatFinanceDate(new Date(transaction.createdAt)));
     setDialogVisible(true);
+  }
+
+  function beginSharedEdit(transaction: FinanceTransaction) {
+    if (Platform.OS !== 'ios') {
+      openDirectEditDialog(transaction);
+      return;
+    }
+    pendingSharedEdit.current = transaction;
+    setEditTransitioning(true);
+    setClosingSharedEdit(true);
+  }
+
+  function finishSharedEdit() {
+    const transaction = pendingSharedEdit.current;
+    pendingSharedEdit.current = null;
+    setClosingSharedEdit(false);
+    if (!transaction) return;
+    if (suspended || model.uid !== transaction.ownerId) {
+      setSharedDetailId(null);
+      return;
+    }
+    openDirectEditDialog(transaction, true);
   }
 
   function confirmDelete(transaction: FinanceTransaction) {
@@ -404,8 +471,29 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   ) {
     setSaving(true);
     try {
-      if (id) await model.updateTransaction(id, draft);
-      else await model.addTransaction(draft);
+      let savedId: string;
+      if (id) {
+        await model.updateTransaction(id, draft);
+        savedId = id;
+      } else {
+        savedId = await model.addTransaction(draft);
+      }
+      const timestamp = parseFinanceDate(draft.date);
+      if (timestamp !== null) {
+        const date = new Date(timestamp);
+        const point = { year: date.getFullYear(), month: date.getMonth() + 1 };
+        if (reportMode === 'overview') {
+          model.setPeriod(point.year, point.month);
+        } else if (reportMode === 'income' || reportMode === 'expense') {
+          setReportMode(draft.type);
+          setSearchQuery('');
+          if (draft.type === 'income')
+            setReportIncomeSource(draft.incomeSource ?? 'company');
+          setReportMonth(point);
+          setReportPeriodMode('month');
+          setRevealedTransactionId(savedId);
+        }
+      }
     } finally {
       setSaving(false);
     }
@@ -494,6 +582,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
           if (!selected) {
             Keyboard.dismiss();
             setSearchQuery('');
+            setRevealedTransactionId(null);
           }
           setReportMode(tab.value);
           setLoanLedgerTargetId(null);
@@ -688,6 +777,20 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
         </View>
       }
       fixedContentStyle={styles.reportModeSection}
+      overlay={
+        editTransitioning ? (
+          <View
+            accessibilityRole="progressbar"
+            accessibilityLabel="Đang mở màn sửa giao dịch"
+            style={styles.editTransitionOverlay}
+          >
+            <View style={styles.editTransitionCard}>
+              <ActivityIndicator color={colors.earth} />
+              <Text style={styles.editTransitionText}>Đang mở màn sửa…</Text>
+            </View>
+          </View>
+        ) : null
+      }
       scrollable={reportMode !== 'loans'}
       contentStyle={reportMode === 'loans' ? undefined : styles.content}
       refreshControl={
@@ -720,34 +823,6 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
           </View>
         )}
 
-      {(reportMode === 'income' || reportMode === 'expense') && (
-        <View style={styles.searchField}>
-          <Feather name="search" size={18} color={colors.muted} />
-          <TextInput
-            accessibilityLabel={`Tìm giao dịch ${reportMode === 'income' ? 'thu nhập' : 'chi tiêu'}`}
-            placeholder="Ghi chú, danh mục hoặc số tiền"
-            placeholderTextColor={colors.muted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-            style={styles.searchInput}
-          />
-          {!!searchQuery && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Xóa từ khóa tìm kiếm"
-              hitSlop={2}
-              onPress={() => setSearchQuery('')}
-              style={styles.searchClear}
-            >
-              <Feather name="x" size={18} color={colors.muted} />
-            </Pressable>
-          )}
-        </View>
-      )}
-
       {reportMode === 'income' || reportMode === 'expense' ? (
         <>
           <FinanceCategoryReport
@@ -769,10 +844,12 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             start={reportStart}
             end={reportEnd}
             incomeSource={reportIncomeSource}
-            searchQuery={searchQuery.trim()}
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
             deferredSearchQuery={deferredQuery}
             getAdditionalSearchText={getLoanSearchText}
             loading={model.loading}
+            revealedTransactionId={revealedTransactionId}
           />
           {model.loading && !refreshing && !searchQuery.trim() && (
             <ActivityIndicator color={colors.earth} />
@@ -833,26 +910,24 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
             </View>
           )}
 
-          {!model.loading &&
-            model.report.months.length === 0 &&
-            !model.error && (
-              <View style={styles.empty}>
-                <Feather name="pie-chart" size={24} color={colors.sky} />
-                <Text style={styles.emptyTitle}>
-                  {model.transactions.length === 0
-                    ? 'Chưa có giao dịch nào'
-                    : 'Chưa có giao dịch trong tháng này'}
-                </Text>
-                <Text style={typography.small}>
-                  {model.transactions.length === 0
-                    ? 'Thêm khoản lương hoặc chi tiêu đầu tiên của bạn.'
-                    : 'Chọn tháng khác để xem các khoản đã ghi.'}
-                </Text>
-              </View>
-            )}
+          {!model.loading && overviewMonths.length === 0 && !model.error && (
+            <View style={styles.empty}>
+              <Feather name="pie-chart" size={24} color={colors.sky} />
+              <Text style={styles.emptyTitle}>
+                {model.transactions.length === 0
+                  ? 'Chưa có giao dịch nào'
+                  : 'Chưa có giao dịch trong tháng này'}
+              </Text>
+              <Text style={typography.small}>
+                {model.transactions.length === 0
+                  ? 'Thêm khoản lương hoặc chi tiêu đầu tiên của bạn.'
+                  : 'Chọn tháng khác để xem các khoản đã ghi.'}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.monthList}>
-            {model.report.months.map((month) => (
+            {overviewMonths.map((month) => (
               <FinanceMonthSection
                 key={month.month}
                 year={model.year}
@@ -861,6 +936,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
                 income={month.income}
                 expense={month.expense}
                 balance={month.balance}
+                pendingSharedExpenses={overviewPending}
                 onDelete={deleteRow}
                 onEdit={editRow}
                 canDeleteLinkedExpense={canDeleteLinkedExpense}
@@ -881,6 +957,8 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
 
       <FinanceTransactionDialog
         visible={dialogVisible}
+        instantOpen={instantEditOpen}
+        onShow={() => setEditTransitioning(false)}
         suspended={suspended}
         initialTransaction={editTarget}
         initialType={dialogInitialType}
@@ -898,14 +976,22 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
         onClose={() => {
           setDialogVisible(false);
           setEditTarget(null);
+          setInstantEditOpen(false);
+          setEditTransitioning(false);
         }}
         onSave={save}
       />
       <SharedExpenseModal
-        visible={!!sharedDetailTransaction && !suspended && !dialogVisible}
+        visible={
+          !!sharedDetailTransaction &&
+          !suspended &&
+          !dialogVisible &&
+          !closingSharedEdit
+        }
         transaction={sharedDetailTransaction}
         onClose={() => setSharedDetailId(null)}
-        onEditExpense={openDirectEditDialog}
+        onDismiss={finishSharedEdit}
+        onEditExpense={beginSharedEdit}
         onSaveReceipt={model.saveSharedReceipt}
         onRemoveReceipt={model.removeSharedReceipt}
       />

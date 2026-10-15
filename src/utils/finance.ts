@@ -594,22 +594,35 @@ function normalizeFinanceSearchText(value: string) {
     .trim();
 }
 
-export function filterFinanceTransactions(
-  transactions: FinanceTransaction[],
+export function matchesFinanceSearch(
   query: string,
-  getAdditionalSearchText?: (transaction: FinanceTransaction) => string,
+  text: string,
+  amounts: readonly number[] = [],
 ) {
   const normalized = normalizeFinanceSearchText(query);
-  if (!normalized) return transactions;
-  // A note like "tháng 10" must not also match unrelated amounts containing 10.
+  if (!normalized) return true;
+  // Only treat a numeric query as an amount; words containing digits stay text.
   const amountQuery =
     /^(?:(?:₫|d|dong|vnd)\s*)?[\d.,\s]+(?:\s*(?:₫|d|dong|vnd))?$/;
   const digits = amountQuery.test(normalized)
     ? normalized.replace(/\D/g, '')
     : '';
+  return (
+    normalizeFinanceSearchText(text).includes(normalized) ||
+    (!!digits && amounts.some((amount) => String(amount).includes(digits)))
+  );
+}
+
+export function filterFinanceTransactions(
+  transactions: FinanceTransaction[],
+  query: string,
+  getAdditionalSearchText?: (transaction: FinanceTransaction) => string,
+) {
+  if (!normalizeFinanceSearchText(query)) return transactions;
   return transactions.filter((transaction) => {
     const additionalText = getAdditionalSearchText?.(transaction) ?? '';
-    const text = normalizeFinanceSearchText(
+    return matchesFinanceSearch(
+      query,
       [
         transaction.note,
         transaction.category,
@@ -622,10 +635,7 @@ export function filterFinanceTransactions(
           (receipt) => receipt.note,
         ) ?? []),
       ].join(' '),
-    );
-    return (
-      text.includes(normalized) ||
-      (!!digits && String(transaction.amount).includes(digits))
+      [transaction.amount],
     );
   });
 }

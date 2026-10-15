@@ -1,12 +1,6 @@
 import Feather from '@expo/vector-icons/Feather';
 import { useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { DialogModal } from '../../components/DialogModal';
 import { AppTextInput as TextInput } from '../../components/AppTextInput';
@@ -167,8 +161,7 @@ export function HomeDayDetailsCard({
             .catch((cause) =>
               setDeleteError({
                 dateKey,
-                message:
-                  (cause as Error).message || 'Chưa xóa được ghi chú.',
+                message: (cause as Error).message || 'Chưa xóa được ghi chú.',
               }),
             )
             .finally(() => {

@@ -16,6 +16,7 @@ import { Screen } from '../../components/Screen';
 import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { useNotesAccount } from '../../hooks/useNotesAccount';
 import { colors, layout, typography } from '../../theme';
+import { actionIconStyles } from '../../theme/actionIcons';
 import type { LifeNote } from '../../types/note';
 import { isCalendarNote } from '../../utils/calendarNotes';
 import type { MainTabParams } from '../../navigation/types';
@@ -234,7 +235,7 @@ export function NotesScreen({
               onPress={() => open()}
               style={styles.add}
             >
-              <Feather name="plus" size={21} color={colors.earth} />
+              <Feather name="plus" size={22} color={colors.earth} />
             </Pressable>
           </View>
         }
@@ -337,7 +338,7 @@ export function NotesScreen({
                   {deletingIds.has(note.id) ? (
                     <ActivityIndicator size="small" color={colors.earth} />
                   ) : (
-                    <Feather name="trash-2" size={17} color={colors.muted} />
+                    <Feather name="trash-2" size={17} color={colors.danger} />
                   )}
                 </Pressable>
               </View>
@@ -434,12 +435,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   add: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-    backgroundColor: colors.sunlightSoft,
+    ...actionIconStyles.add,
   },
   content: {
     paddingHorizontal: layout.screenGutter,
@@ -486,10 +482,7 @@ const styles = StyleSheet.create({
   },
   updated: { fontSize: 11, color: colors.muted },
   delete: {
-    width: 40,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+    ...actionIconStyles.delete,
   },
   empty: {
     alignItems: 'center',

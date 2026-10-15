@@ -113,7 +113,9 @@ it('recovers when metadata deletion fails after the audio object is gone', async
   jest.mocked(getDocsFromServer).mockResolvedValueOnce({
     docs: [{ id: 'a', data: () => ({ ...track, deletionPending: true }) }],
   } as never);
-  expect(await fetchCloudTracks('u1', new AbortController().signal)).toEqual([]);
+  expect(await fetchCloudTracks('u1', new AbortController().signal)).toEqual(
+    [],
+  );
   expect(deleteFreeAudio).toHaveBeenCalledTimes(2);
   expect(deleteDoc).toHaveBeenCalledTimes(2);
 });

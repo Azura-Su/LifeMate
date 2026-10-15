@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   Text,
   View,
+  type LayoutRectangle,
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
@@ -26,6 +27,7 @@ import {
 } from '../../types/finance';
 import type { FinanceTransactionTemplate } from '../../services/finance/financePreferences';
 import { colors } from '../../theme';
+import { actionIconStyles } from '../../theme/actionIcons';
 import {
   formatFinanceDate,
   parseFinanceAmount,
@@ -54,6 +56,8 @@ function makePersonId() {
 
 type Props = {
   visible: boolean;
+  instantOpen?: boolean;
+  onShow?: () => void;
   suspended?: boolean;
   initialType?: FinanceTransactionType;
   initialIncomeSource?: RegularFinanceIncomeSource;
@@ -94,6 +98,8 @@ function capitalizeInitialLetter(value: string) {
 
 export function FinanceTransactionDialog({
   visible,
+  instantOpen = false,
+  onShow,
   suspended = false,
   initialType = 'expense',
   initialIncomeSource = 'company',
@@ -128,6 +134,15 @@ export function FinanceTransactionDialog({
       ? 'other'
       : initialIncomeSource,
   );
+  const [sourceMenuOpen, setSourceMenuOpen] = useState(false);
+  const [sourceMenuAnchor, setSourceMenuAnchor] =
+    useState<LayoutRectangle | null>(null);
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
+  const [categoryMenuAnchor, setCategoryMenuAnchor] =
+    useState<LayoutRectangle | null>(null);
+  const [categoryMenuAbove, setCategoryMenuAbove] = useState(false);
+  const [scrollViewportHeight, setScrollViewportHeight] = useState(0);
+  const scrollOffsetRef = useRef(0);
   const [note, setNote] = useState('');
   const [date, setDate] = useState(initialDate);
   const [datePickerVisible, setDatePickerVisible] = useState(false);
@@ -159,15 +174,7 @@ export function FinanceTransactionDialog({
     !sourceCategories.includes(initialTransaction.category)
       ? [...sourceCategories, initialTransaction.category]
       : sourceCategories;
-  const categoriesPerRow = type === 'expense' ? 4 : 3;
-  const categoryRows = Array.from(
-    { length: Math.ceil(categories.length / categoriesPerRow) },
-    (_, index) =>
-      categories.slice(
-        index * categoriesPerRow,
-        (index + 1) * categoriesPerRow,
-      ),
-  );
+  const categoryMenuHeight = Math.min(categories.length * 44 + 2, 220);
   const visibleTemplates = templates.filter(
     (template) =>
       template.type === type &&
@@ -206,6 +213,8 @@ export function FinanceTransactionDialog({
           ? 'other'
           : initialIncomeSource,
       );
+      setSourceMenuOpen(false);
+      setCategoryMenuOpen(false);
       setNote(capitalizeInitialLetter(initialTransaction?.note ?? ''));
       setDate(
         initialTransaction
@@ -257,6 +266,8 @@ export function FinanceTransactionDialog({
   async function applyTemplate(template: FinanceTransactionTemplate) {
     setType(template.type);
     setIncomeSource(template.incomeSource ?? 'company');
+    setSourceMenuOpen(false);
+    setCategoryMenuOpen(false);
     setAmount(String(template.amount));
     setCategory(template.category);
     setNote(capitalizeInitialLetter(template.note));
@@ -408,7 +419,10 @@ export function FinanceTransactionDialog({
     setPreferenceAction(`remove-category:${value}`);
     try {
       await onRemoveCategory(type, value, incomeSource);
-      if (category === value) setCategory(builtIns[0]);
+      if (category === value)
+        setCategory(
+          sourceCategories.find((item) => item !== value) ?? builtIns[0],
+        );
       setError(null);
     } catch (cause) {
       setError((cause as Error).message || 'Chưa xóa được danh mục.');
@@ -421,12 +435,18 @@ export function FinanceTransactionDialog({
   return (
     <DialogModal
       visible={visible && !suspended}
+      animationType={instantOpen ? 'none' : 'fade'}
+      onShow={onShow}
       onRequestClose={
         busy || preferenceBusy
           ? undefined
           : datePickerVisible
             ? () => setDatePickerVisible(false)
-            : onClose
+            : categoryMenuOpen
+              ? () => setCategoryMenuOpen(false)
+              : sourceMenuOpen
+                ? () => setSourceMenuOpen(false)
+                : onClose
       }
       style={
         Platform.OS === 'ios' && datePickerVisible
@@ -451,6 +471,13 @@ export function FinanceTransactionDialog({
         style={datePickerVisible ? styles.hidden : undefined}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
+        onLayout={({ nativeEvent: { layout } }) =>
+          setScrollViewportHeight(layout.height)
+        }
+        onScroll={({ nativeEvent }) => {
+          scrollOffsetRef.current = nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
       >
         {(visibleTemplates.length > 0 ||
           (!initialTransaction && onSaveTemplate)) && (
@@ -466,11 +493,14 @@ export function FinanceTransactionDialog({
                   accessibilityState={{ expanded: showTemplateForm }}
                   hitSlop={6}
                   onPress={() => setShowTemplateForm((current) => !current)}
-                  style={styles.addAction}
+                  style={[
+                    styles.addAction,
+                    showTemplateForm && actionIconStyles.editCompact,
+                  ]}
                 >
                   <Feather
                     name={showTemplateForm ? 'x' : 'plus'}
-                    size={16}
+                    size={19}
                     color={colors.earth}
                   />
                 </Pressable>
@@ -509,7 +539,7 @@ export function FinanceTransactionDialog({
                             color={colors.earth}
                           />
                         ) : (
-                          <Feather name="x" size={13} color={colors.muted} />
+                          <Feather name="x" size={13} color={colors.danger} />
                         )}
                       </Pressable>
                     )}
@@ -563,6 +593,8 @@ export function FinanceTransactionDialog({
                 disabled={value === 'income' && existingReceipts.length > 0}
                 onPress={() => {
                   setType(value);
+                  setSourceMenuOpen(false);
+                  setCategoryMenuOpen(false);
                   if (value === 'income') setIncomeSource('company');
                   setCategory(
                     value === 'income'
@@ -585,47 +617,44 @@ export function FinanceTransactionDialog({
           })}
         </View>
         {type === 'income' && (
-          <View style={styles.incomeSourceSection}>
+          <View
+            testID="finance-income-source-section"
+            style={styles.incomeSourceSection}
+            onLayout={({ nativeEvent: { layout } }) =>
+              setSourceMenuAnchor((current) =>
+                current?.x === layout.x &&
+                current.y === layout.y &&
+                current.width === layout.width &&
+                current.height === layout.height
+                  ? current
+                  : layout,
+              )
+            }
+          >
             <Text style={styles.label}>Nguồn thu</Text>
-            <View style={styles.sourceRow}>
-              {(
-                [
-                  ['company', 'Công ty'],
-                  ['other', 'Ngoài công ty'],
-                ] as const
-              ).map(([value, label]) => {
-                const selected = incomeSource === value;
-                return (
-                  <Pressable
-                    key={value}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Nguồn thu: ${label}`}
-                    accessibilityState={{ selected }}
-                    onPress={() => {
-                      setIncomeSource(value);
-                      setCategory(
-                        value === 'company'
-                          ? INCOME_CATEGORIES[0]
-                          : INCOME_CATEGORIES[2],
-                      );
-                    }}
-                    style={[
-                      styles.sourceButton,
-                      selected && styles.sourceSelected,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.sourceText,
-                        selected && styles.sourceTextSelected,
-                      ]}
-                    >
-                      {label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Nguồn thu: ${incomeSource === 'company' ? 'Công ty' : 'Ngoài công ty'}`}
+              accessibilityState={{
+                expanded: sourceMenuOpen,
+                disabled: busy || preferenceBusy,
+              }}
+              disabled={busy || preferenceBusy}
+              onPress={() => {
+                setCategoryMenuOpen(false);
+                setSourceMenuOpen((open) => !open);
+              }}
+              style={styles.sourceTrigger}
+            >
+              <Text style={styles.sourceTriggerText}>
+                {incomeSource === 'company' ? 'Công ty' : 'Ngoài công ty'}
+              </Text>
+              <Feather
+                name={sourceMenuOpen ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color={colors.muted}
+              />
+            </Pressable>
           </View>
         )}
         <View style={styles.amountDateGroup}>
@@ -677,98 +706,84 @@ export function FinanceTransactionDialog({
           </View>
           <FinanceAmountWords value={amount} />
         </View>
-        <View style={styles.sectionHeading}>
-          <Text style={styles.label}>Danh mục</Text>
-          {onAddCategory && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
-                showCategoryForm ? 'Đóng thêm danh mục' : 'Thêm danh mục'
-              }
-              accessibilityState={{ expanded: showCategoryForm }}
-              hitSlop={6}
-              onPress={() => {
-                setShowCategoryForm((current) => !current);
-                setNewCategory('');
-              }}
-              style={styles.addAction}
-            >
-              <Feather
-                name={showCategoryForm ? 'x' : 'plus'}
-                size={16}
-                color={colors.earth}
-              />
-            </Pressable>
-          )}
-        </View>
-        <View style={styles.categoryGrid}>
-          {categoryRows.map((row) => (
-            <View key={row[0]} style={styles.categoryRow}>
-              {row.map((value) => {
-                const selected = value === category;
-                const builtIns =
-                  type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
-                return (
-                  <View
-                    key={value}
-                    testID={`finance-category-${value}`}
-                    style={[
-                      styles.category,
-                      selected && styles.categorySelected,
-                    ]}
-                  >
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityState={{ selected }}
-                      onPress={() => setCategory(value)}
-                      style={[
-                        styles.categoryAction,
-                        type === 'expense' && styles.expenseCategoryAction,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.categoryText,
-                          styles.categoryLabel,
-                          type === 'expense' && styles.expenseCategoryText,
-                          selected && styles.categoryTextSelected,
-                        ]}
-                      >
-                        {value}
-                      </Text>
-                    </Pressable>
-                    {sourceCategories.includes(value) &&
-                      !builtIns.some((builtIn) => builtIn === value) &&
-                      onRemoveCategory && (
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`Xóa danh mục ${value}`}
-                          accessibilityState={{
-                            disabled: preferenceBusy,
-                            busy:
-                              preferenceAction === `remove-category:${value}`,
-                          }}
-                          disabled={preferenceBusy}
-                          hitSlop={6}
-                          onPress={() => void removeCategory(value)}
-                          style={styles.smallAction}
-                        >
-                          {preferenceAction === `remove-category:${value}` ? (
-                            <ActivityIndicator
-                              size="small"
-                              color={colors.earth}
-                            />
-                          ) : (
-                            <Feather name="x" size={13} color={colors.muted} />
-                          )}
-                        </Pressable>
-                      )}
-                  </View>
+        <View
+          testID="finance-category-section"
+          style={styles.categorySection}
+          onLayout={({ nativeEvent: { layout } }) =>
+            setCategoryMenuAnchor((current) =>
+              current?.x === layout.x &&
+              current.y === layout.y &&
+              current.width === layout.width &&
+              current.height === layout.height
+                ? current
+                : layout,
+            )
+          }
+        >
+          <View style={styles.sectionHeading}>
+            <Text style={styles.label}>Danh mục</Text>
+            {onAddCategory && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  showCategoryForm ? 'Đóng thêm danh mục' : 'Thêm danh mục'
+                }
+                accessibilityState={{ expanded: showCategoryForm }}
+                hitSlop={6}
+                onPress={() => {
+                  setCategoryMenuOpen(false);
+                  setShowCategoryForm((current) => !current);
+                  setNewCategory('');
+                }}
+                style={[
+                  styles.addAction,
+                  showCategoryForm && actionIconStyles.editCompact,
+                ]}
+              >
+                <Feather
+                  name={showCategoryForm ? 'x' : 'plus'}
+                  size={19}
+                  color={colors.earth}
+                />
+              </Pressable>
+            )}
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Danh mục: ${category}`}
+            accessibilityState={{
+              expanded: categoryMenuOpen,
+              disabled: busy || preferenceBusy,
+            }}
+            disabled={busy || preferenceBusy}
+            onPress={() => {
+              setSourceMenuOpen(false);
+              if (!categoryMenuOpen && categoryMenuAnchor) {
+                const availableBelow =
+                  scrollOffsetRef.current +
+                  scrollViewportHeight -
+                  categoryMenuAnchor.y -
+                  categoryMenuAnchor.height;
+                const availableAbove =
+                  categoryMenuAnchor.y - scrollOffsetRef.current;
+                setCategoryMenuAbove(
+                  availableBelow < categoryMenuHeight + 4 &&
+                    availableAbove > availableBelow,
                 );
-              })}
-              {row.length === 1 && <View style={styles.categorySpacer} />}
-            </View>
-          ))}
+              }
+              setCategoryMenuOpen((open) => !open);
+            }}
+            style={styles.sourceTrigger}
+          >
+            <Text style={styles.sourceTriggerText} numberOfLines={1}>
+              {category}
+            </Text>
+            <Feather
+              name={categoryMenuOpen ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color={colors.muted}
+            />
+          </Pressable>
         </View>
         {showCategoryForm && onAddCategory && (
           <View style={styles.inlineForm}>
@@ -856,9 +871,10 @@ export function FinanceTransactionDialog({
                                 current.filter(({ id }) => id !== person.id),
                               )
                             }
-                            style={styles.addAction}
+                            hitSlop={5}
+                            style={actionIconStyles.deleteCompact}
                           >
-                            <Feather name="x" size={16} color={colors.earth} />
+                            <Feather name="x" size={16} color={colors.danger} />
                           </Pressable>
                         )}
                       </View>
@@ -912,15 +928,20 @@ export function FinanceTransactionDialog({
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Thêm người cần trả lại"
+                    accessibilityState={{ disabled: busy }}
+                    disabled={busy}
                     onPress={() =>
                       setSharedPeople((current) => [
                         ...current,
                         { id: makePersonId(), name: '', amount: '' },
                       ])
                     }
-                    style={styles.addPerson}
+                    style={({ pressed }) => [
+                      styles.addPerson,
+                      pressed && styles.addPersonPressed,
+                    ]}
                   >
-                    <Feather name="plus" size={16} color={colors.earth} />
+                    <Feather name="user-plus" size={16} color={colors.earth} />
                     <Text style={styles.addPersonText}>Thêm người</Text>
                   </Pressable>
                 )}
@@ -952,6 +973,153 @@ export function FinanceTransactionDialog({
           loading={busy}
           disabled={!canSave}
         />
+        {(sourceMenuOpen || categoryMenuOpen) && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Đóng danh sách lựa chọn"
+            onPress={() => {
+              setSourceMenuOpen(false);
+              setCategoryMenuOpen(false);
+            }}
+            style={styles.sourceMenuDismissLayer}
+          />
+        )}
+        {sourceMenuOpen && sourceMenuAnchor && (
+          <View
+            style={[
+              styles.sourceMenu,
+              {
+                top: sourceMenuAnchor.y + sourceMenuAnchor.height + 4,
+                left: sourceMenuAnchor.x,
+                width: sourceMenuAnchor.width,
+              },
+            ]}
+          >
+            {(
+              [
+                ['company', 'Công ty'],
+                ['other', 'Ngoài công ty'],
+              ] as const
+            ).map(([value, label]) => {
+              const selected = incomeSource === value;
+              return (
+                <Pressable
+                  key={value}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Chọn nguồn thu: ${label}`}
+                  accessibilityState={{ selected }}
+                  onPress={() => {
+                    if (value !== incomeSource) {
+                      setIncomeSource(value);
+                      setCategory(
+                        value === 'company'
+                          ? INCOME_CATEGORIES[0]
+                          : INCOME_CATEGORIES[2],
+                      );
+                    }
+                    setSourceMenuOpen(false);
+                  }}
+                  style={[
+                    styles.sourceOption,
+                    selected && styles.sourceOptionSelected,
+                  ]}
+                >
+                  <Text style={styles.sourceOptionText}>{label}</Text>
+                  {selected && (
+                    <Feather name="check" size={17} color={colors.earth} />
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+        {categoryMenuOpen && categoryMenuAnchor && (
+          <View
+            style={[
+              styles.sourceMenu,
+              {
+                top: categoryMenuAbove
+                  ? categoryMenuAnchor.y - categoryMenuHeight - 4
+                  : categoryMenuAnchor.y + categoryMenuAnchor.height + 4,
+                left: categoryMenuAnchor.x,
+                width: categoryMenuAnchor.width,
+                height: categoryMenuHeight,
+              },
+            ]}
+          >
+            <ScrollView
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
+              style={styles.categoryMenuScroll}
+            >
+              {categories.map((value) => {
+                const selected = value === category;
+                const builtIns =
+                  type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+                const removable =
+                  sourceCategories.includes(value) &&
+                  !builtIns.some((builtIn) => builtIn === value) &&
+                  !!onRemoveCategory;
+                return (
+                  <View
+                    key={value}
+                    testID={`finance-category-${value}`}
+                    style={[
+                      styles.categoryOptionRow,
+                      selected && styles.sourceOptionSelected,
+                    ]}
+                  >
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Chọn danh mục: ${value}`}
+                      accessibilityState={{ selected }}
+                      onPress={() => {
+                        setCategory(value);
+                        setCategoryMenuOpen(false);
+                      }}
+                      style={styles.categoryOption}
+                    >
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.sourceOptionText,
+                          selected && styles.categoryOptionSelectedText,
+                        ]}
+                      >
+                        {value}
+                      </Text>
+                      {selected && (
+                        <Feather name="check" size={17} color={colors.earth} />
+                      )}
+                    </Pressable>
+                    {removable && (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Xóa danh mục ${value}`}
+                        accessibilityState={{
+                          disabled: preferenceBusy,
+                          busy: preferenceAction === `remove-category:${value}`,
+                        }}
+                        disabled={preferenceBusy}
+                        onPress={() => void removeCategory(value)}
+                        style={styles.categoryOptionDelete}
+                      >
+                        {preferenceAction === `remove-category:${value}` ? (
+                          <ActivityIndicator
+                            size="small"
+                            color={colors.earth}
+                          />
+                        ) : (
+                          <Feather name="x" size={16} color={colors.danger} />
+                        )}
+                      </Pressable>
+                    )}
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
       </ScrollView>
       {Platform.OS === 'ios' && datePickerVisible && (
         <>

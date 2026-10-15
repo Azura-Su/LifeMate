@@ -248,10 +248,10 @@ it('creates a shared game table, records and edits scores with the keypad, then 
       screen.getByRole('button', { name: 'Xóa điểm ván 1' }).props.style,
     ),
   ).toMatchObject({
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: colors.dangerSoft,
+    width: 44,
+    height: 44,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
   });
   expect(screen.queryByText('Σ')).toBeNull();
   expect(

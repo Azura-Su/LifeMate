@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { colors, typography } from '../../theme';
+import { actionIconStyles } from '../../theme/actionIcons';
 
 export const styles = StyleSheet.create({
   card: {
@@ -113,10 +114,7 @@ export const styles = StyleSheet.create({
     gap: 9,
   },
   deleteNoteButton: {
-    width: 38,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    ...actionIconStyles.delete,
   },
   noteIcon: {
     width: 29,

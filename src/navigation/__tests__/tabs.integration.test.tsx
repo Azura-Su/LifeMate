@@ -33,6 +33,12 @@ jest.mock('@react-native-async-storage/async-storage', () =>
     '@react-native-async-storage/async-storage/jest/async-storage-mock',
   ),
 );
+jest.mock('@react-native-firebase/auth', () => ({
+  getAuth: jest.fn(),
+  getIdToken: jest.fn(),
+  reload: jest.fn(),
+  sendEmailVerification: jest.fn(),
+}));
 jest.mock('@react-native-firebase/firestore', () =>
   jest.requireActual('../../testing/firestoreMock'),
 );
@@ -142,7 +148,7 @@ function renderApp(insets = { top: 0, bottom: 0, left: 0, right: 0 }) {
 }
 
 function pressFinanceTab() {
-  fireEvent.press(screen.getByLabelText('Tài chính, tab, 2 of 3'));
+  fireEvent.press(screen.getByLabelText('Tài chính, tab, 2 of 4'));
 }
 
 it('shows the configured name, opens all tabs, and returns to Login on logout', async () => {
@@ -168,9 +174,10 @@ it('shows the configured name, opens all tabs, and returns to Login on logout', 
     .filter((item) => StyleSheet.flatten(item.props.style)?.display === 'none');
   expect(hiddenTabItems).toHaveLength(4);
   expect(await screen.findByText('Asher')).toBeTruthy();
-  expect(screen.getByLabelText('Home, tab, 1 of 3')).toBeTruthy();
-  expect(screen.getByLabelText('Tài chính, tab, 2 of 3')).toBeTruthy();
-  expect(screen.getByLabelText('MP3, tab, 3 of 3')).toBeTruthy();
+  expect(screen.getByLabelText('Home, tab, 1 of 4')).toBeTruthy();
+  expect(screen.getByLabelText('Tài chính, tab, 2 of 4')).toBeTruthy();
+  expect(screen.getByLabelText('Ký ức, tab, 3 of 4')).toBeTruthy();
+  expect(screen.getByLabelText('MP3, tab, 4 of 4')).toBeTruthy();
   pressFinanceTab();
   expect(await screen.findByText('Chưa có giao dịch nào')).toBeTruthy();
   fireEvent.press(screen.getByText('MP3'));
@@ -203,9 +210,9 @@ it('shows the configured name, opens all tabs, and returns to Login on logout', 
   expect(await screen.findByText('Sẵn sàng ghi điểm?')).toBeTruthy();
   expect(screen.getByRole('header', { name: 'Bảng điểm' })).toBeTruthy();
   expect(screen.queryByText('TIỆN ÍCH')).toBeNull();
-  expect(screen.queryByLabelText('Home, tab, 1 of 3')).toBeNull();
-  expect(screen.queryByLabelText('Tài chính, tab, 2 of 3')).toBeNull();
-  expect(screen.queryByLabelText('MP3, tab, 3 of 3')).toBeNull();
+  expect(screen.queryByLabelText('Home, tab, 1 of 4')).toBeNull();
+  expect(screen.queryByLabelText('Tài chính, tab, 2 of 4')).toBeNull();
+  expect(screen.queryByLabelText('MP3, tab, 4 of 4')).toBeNull();
 
   fireEvent.press(screen.getByRole('button', { name: 'Quay về Home' }));
   fireEvent.press(screen.getByRole('button', { name: 'Mở menu' }));
@@ -327,7 +334,7 @@ it('retries automatic Finance authentication after changing the lock setting', a
   expect(await screen.findByText('Đã hủy xác thực.')).toBeTruthy();
   expect(LocalAuthentication.authenticateAsync).toHaveBeenCalledTimes(1);
 
-  fireEvent.press(screen.getByLabelText('Home, tab, 1 of 3'));
+  fireEvent.press(screen.getByLabelText('Home, tab, 1 of 4'));
   fireEvent.press(screen.getByRole('button', { name: 'Mở menu' }));
   fireEvent(
     screen.getByRole('switch', {

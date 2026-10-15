@@ -1,7 +1,25 @@
 import { StyleSheet } from 'react-native';
 import { colors, layout, typography } from '../../theme';
+import { actionIconStyles } from '../../theme/actionIcons';
 
 export const styles = StyleSheet.create({
+  editTransitionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+    backgroundColor: 'rgba(32, 31, 30, 0.42)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editTransitionCard: {
+    minWidth: 180,
+    paddingHorizontal: 22,
+    paddingVertical: 20,
+    gap: 12,
+    alignItems: 'center',
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+  },
+  editTransitionText: { ...typography.small, color: colors.ink },
   header: {
     paddingHorizontal: layout.screenGutter,
     paddingTop: 8,
@@ -21,12 +39,7 @@ export const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 26, lineHeight: 34 },
   addButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-    backgroundColor: colors.sunlightSoft,
+    ...actionIconStyles.add,
   },
   content: {
     paddingHorizontal: layout.screenGutter,
@@ -34,45 +47,7 @@ export const styles = StyleSheet.create({
     paddingBottom: 28,
     gap: 14,
   },
-  searchField: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 14,
-    paddingRight: 3,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
-  },
-  searchInput: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 46,
-    paddingHorizontal: 10,
-    fontSize: 14,
-    color: colors.ink,
-  },
-  searchClear: {
-    width: 42,
-    height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   searchResults: { gap: 12 },
-  searchHeading: { flex: 1, minWidth: 0, gap: 2 },
-  searchScope: { ...typography.small, fontSize: 11 },
-  searchCount: {
-    ...typography.small,
-    overflow: 'hidden',
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    borderRadius: 10,
-    backgroundColor: colors.skySoft,
-    color: colors.sky,
-    fontSize: 11,
-    fontWeight: '600',
-  },
   reportMode: {
     flexDirection: 'row',
     gap: 2,
@@ -216,13 +191,17 @@ export const styles = StyleSheet.create({
   monthIncomeValue: { color: colors.success },
   monthExpenseValue: { color: colors.earth },
   monthBalanceValue: { color: colors.ink, textAlign: 'right' },
-  monthAddButton: {
-    width: 34,
-    height: 34,
+  monthPendingRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    backgroundColor: colors.primarySoft,
+    justifyContent: 'space-between',
+    gap: 8,
+    paddingHorizontal: 2,
+  },
+  monthPendingLabel: { color: colors.sky, fontSize: 11, fontWeight: '600' },
+  monthPendingAmount: { color: colors.earth, fontSize: 12, fontWeight: '700' },
+  monthAddButton: {
+    ...actionIconStyles.addCompact,
   },
   transactionList: { gap: 14 },
   transactionDayGroup: { gap: 8 },

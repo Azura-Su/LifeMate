@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Platform,
   Pressable,
@@ -50,6 +51,7 @@ type Props = {
   visible: boolean;
   transaction: FinanceTransaction | null;
   onClose: () => void;
+  onDismiss?: () => void;
   onEditExpense: (transaction: FinanceTransaction) => void;
   onSaveReceipt: (
     expenseId: string,
@@ -63,6 +65,7 @@ export function SharedExpenseModal({
   visible,
   transaction,
   onClose,
+  onDismiss,
   onEditExpense,
   onSaveReceipt,
   onRemoveReceipt,
@@ -71,6 +74,7 @@ export function SharedExpenseModal({
   const [editingReceiptId, setEditingReceiptId] = useState<string>();
   const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [transitioningToEdit, setTransitioningToEdit] = useState(false);
   const savingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const shared = transaction?.sharedExpense;
@@ -107,14 +111,10 @@ export function SharedExpenseModal({
 
   function openForm(participantId: string, receipt?: SharedExpenseReceipt) {
     if (busy) return;
-    const remaining = getSharedExpensePersonTotals(
-      shared!,
-      participantId,
-    ).remaining;
     setForm({
       requestId: receipt?.id ?? makeReceiptId(),
       participantId,
-      amount: String(receipt?.amount ?? remaining),
+      amount: receipt ? String(receipt.amount) : '',
       date: receipt
         ? formatFinanceDate(new Date(receipt.receivedAt))
         : formatFinanceDate(),
@@ -184,11 +184,21 @@ export function SharedExpenseModal({
     );
   }
 
+  function startEditingExpense() {
+    if (busy || transitioningToEdit) return;
+    if (Platform.OS === 'ios') setTransitioningToEdit(true);
+    onEditExpense(transaction!);
+  }
+
   return (
     <DialogModal
       visible={visible}
+      onDismiss={() => {
+        setTransitioningToEdit(false);
+        onDismiss?.();
+      }}
       onRequestClose={
-        busy
+        busy || transitioningToEdit
           ? undefined
           : datePickerVisible
             ? () => setDatePickerVisible(false)
@@ -246,17 +256,40 @@ export function SharedExpenseModal({
             </Text>
             <View style={styles.amountDateRow}>
               <View style={styles.field}>
-                <Text style={styles.label}>Số tiền nhận</Text>
+                <View style={styles.amountFieldHeading}>
+                  <Text style={styles.label}>Số tiền nhận</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Nhập tối đa ${formatFinanceAmount(available)}`}
+                    accessibilityState={{ disabled: busy || available <= 0 }}
+                    disabled={busy || available <= 0}
+                    hitSlop={7}
+                    onPress={() => {
+                      setForm((previous) =>
+                        previous
+                          ? { ...previous, amount: String(available) }
+                          : previous,
+                      );
+                      setError(null);
+                    }}
+                    style={styles.maxButton}
+                  >
+                    <Text style={styles.maxButtonText}>MAX</Text>
+                  </Pressable>
+                </View>
                 <FinanceAmountInput
                   accessibilityLabel="Số tiền nhận lại"
                   value={form.amount}
                   onChangeText={(amount) => setForm({ ...form, amount })}
+                  placeholder="Nhập tiền"
                   editable={!busy}
                   compact
                 />
               </View>
               <View style={styles.field}>
-                <Text style={styles.label}>Ngày nhận</Text>
+                <View style={styles.amountFieldHeading}>
+                  <Text style={styles.label}>Ngày nhận</Text>
+                </View>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Chọn ngày nhận lại"
@@ -300,10 +333,10 @@ export function SharedExpenseModal({
         <>
           <View style={styles.header}>
             <ModalHeader
-              title="Khoản chi có người trả lại"
+              title="Chi chung"
               accessibilityLabel="Đóng chi tiết khoản chi"
               onClose={onClose}
-              disabled={busy}
+              disabled={busy || transitioningToEdit}
             />
           </View>
           <ScrollView contentContainerStyle={styles.content}>
@@ -320,38 +353,55 @@ export function SharedExpenseModal({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Sửa khoản chi"
-                accessibilityState={{ disabled: busy }}
-                disabled={busy}
-                onPress={() => onEditExpense(transaction)}
+                accessibilityState={{ disabled: busy || transitioningToEdit }}
+                disabled={busy || transitioningToEdit}
+                hitSlop={4}
+                onPress={startEditingExpense}
                 style={styles.iconButton}
               >
-                <Feather name="edit-2" size={16} color={colors.earth} />
+                <Feather name="edit-2" size={18} color={colors.earth} />
               </Pressable>
             </View>
             <View style={styles.summary}>
-              <View style={styles.rowBetween}>
-                <Text style={styles.helper}>Đã thanh toán</Text>
-                <Text style={styles.value}>
-                  {formatFinanceAmount(transaction.amount)}
-                </Text>
-              </View>
-              <View style={styles.rowBetween}>
-                <Text style={styles.helper}>Phần của tôi dự kiến</Text>
-                <Text style={styles.value}>
-                  {formatFinanceAmount(transaction.amount - totals.owed)}
-                </Text>
-              </View>
-              <View style={styles.rowBetween}>
-                <Text style={styles.helper}>Đã nhận lại</Text>
-                <Text style={styles.value}>
-                  {formatFinanceAmount(totals.received)}
-                </Text>
-              </View>
-              <View style={styles.rowBetween}>
-                <Text style={styles.label}>Còn chờ</Text>
-                <Text style={styles.highlight}>
-                  {formatFinanceAmount(totals.remaining)}
-                </Text>
+              <Text style={styles.summaryLabel}>Còn chờ nhận</Text>
+              <Text
+                adjustsFontSizeToFit
+                numberOfLines={1}
+                style={styles.summaryAmount}
+              >
+                {formatFinanceAmount(totals.remaining)}
+              </Text>
+              <View style={styles.summaryDetails}>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.helper}>Đã chi</Text>
+                  <Text
+                    adjustsFontSizeToFit
+                    numberOfLines={1}
+                    style={styles.value}
+                  >
+                    {formatFinanceAmount(transaction.amount)}
+                  </Text>
+                </View>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.helper}>Đã nhận lại</Text>
+                  <Text
+                    adjustsFontSizeToFit
+                    numberOfLines={1}
+                    style={styles.value}
+                  >
+                    {formatFinanceAmount(totals.received)}
+                  </Text>
+                </View>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.helper}>Phần của tôi</Text>
+                  <Text
+                    adjustsFontSizeToFit
+                    numberOfLines={1}
+                    style={styles.value}
+                  >
+                    {formatFinanceAmount(transaction.amount - totals.owed)}
+                  </Text>
+                </View>
               </View>
             </View>
             {shared.participants.map((person) => {
@@ -362,74 +412,138 @@ export function SharedExpenseModal({
               const receipts = shared.receipts
                 .filter(({ participantId }) => participantId === person.id)
                 .sort((a, b) => b.receivedAt - a.receivedAt);
+              const receivedPercent =
+                person.owedAmount > 0
+                  ? Math.min(
+                      100,
+                      (personTotals.received / person.owedAmount) * 100,
+                    )
+                  : 0;
               return (
                 <View key={person.id} style={styles.personSection}>
-                  <View style={styles.rowBetween}>
-                    <View style={styles.headingText}>
+                  <View style={styles.personTop}>
+                    <View style={styles.rowBetween}>
                       <Text style={styles.personName}>{person.name}</Text>
-                      <Text style={styles.helper}>
-                        Cần trả {formatFinanceAmount(person.owedAmount)} · Còn{' '}
-                        {formatFinanceAmount(personTotals.remaining)}
+                      {personTotals.remaining > 0 && (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Nhận lại tiền từ ${person.name}`}
+                          accessibilityState={{ disabled: busy }}
+                          disabled={busy}
+                          hitSlop={4}
+                          onPress={() => openForm(person.id)}
+                          style={styles.addReceiptButton}
+                        >
+                          <Feather name="plus" size={22} color={colors.earth} />
+                        </Pressable>
+                      )}
+                    </View>
+                    <View style={styles.personBalanceRow}>
+                      <Text style={styles.personBalanceLabel}>
+                        {personTotals.remaining > 0
+                          ? 'Còn cần trả'
+                          : 'Tình trạng'}
+                      </Text>
+                      <Text
+                        adjustsFontSizeToFit
+                        numberOfLines={1}
+                        style={[
+                          styles.personBalanceAmount,
+                          personTotals.remaining <= 0 && styles.personPaid,
+                        ]}
+                      >
+                        {personTotals.remaining > 0
+                          ? formatFinanceAmount(personTotals.remaining)
+                          : 'Đã trả đủ'}
                       </Text>
                     </View>
-                    {personTotals.remaining > 0 && (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`Nhận lại tiền từ ${person.name}`}
-                        accessibilityState={{ disabled: busy }}
-                        disabled={busy}
-                        onPress={() => openForm(person.id)}
-                        style={styles.iconButton}
-                      >
-                        <Feather name="plus" size={18} color={colors.earth} />
-                      </Pressable>
+                    {personTotals.received > 0 && (
+                      <>
+                        <View
+                          accessibilityRole="progressbar"
+                          accessibilityLabel={`Đã nhận từ ${person.name}`}
+                          accessibilityValue={{
+                            min: 0,
+                            max: person.owedAmount,
+                            now: personTotals.received,
+                          }}
+                          style={styles.personProgressTrack}
+                        >
+                          <View
+                            style={[
+                              styles.personProgressFill,
+                              { width: `${receivedPercent}%` },
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.personProgressText}>
+                          Đã nhận {formatFinanceAmount(personTotals.received)} /{' '}
+                          {formatFinanceAmount(person.owedAmount)}
+                        </Text>
+                      </>
                     )}
                   </View>
-                  {receipts.length === 0 ? (
-                    <Text style={styles.helper}>Chưa nhận lại lần nào.</Text>
-                  ) : (
-                    receipts.map((receipt) => (
-                      <View key={receipt.id} style={styles.receiptRow}>
-                        <View style={styles.headingText}>
-                          <Text style={styles.value}>
-                            +{formatFinanceAmount(receipt.amount)}
-                          </Text>
-                          <Text style={styles.helper}>
-                            {formatFinanceDate(new Date(receipt.receivedAt))}
-                            {receipt.note ? ` · ${receipt.note}` : ''}
-                          </Text>
+                  <View style={styles.personHistory}>
+                    <Text style={styles.historyTitle}>Lịch sử nhận lại</Text>
+                    {receipts.length === 0 ? (
+                      <Text style={styles.emptyHistory}>
+                        Chưa có lần nhận lại
+                      </Text>
+                    ) : (
+                      receipts.map((receipt) => (
+                        <View key={receipt.id} style={styles.receiptRow}>
+                          <View style={styles.receiptIcon}>
+                            <Feather
+                              name="arrow-down-left"
+                              size={15}
+                              color={colors.success}
+                            />
+                          </View>
+                          <View style={styles.receiptMain}>
+                            <Text style={styles.receiptAmount}>
+                              +{formatFinanceAmount(receipt.amount)}
+                            </Text>
+                            <Text style={styles.receiptDate}>
+                              {formatFinanceDate(new Date(receipt.receivedAt))}
+                              {receipt.note ? ` · ${receipt.note}` : ''}
+                            </Text>
+                          </View>
+                          <View style={styles.receiptActions}>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={`Sửa lần nhận từ ${person.name}`}
+                              accessibilityState={{ disabled: busy }}
+                              disabled={busy}
+                              hitSlop={4}
+                              onPress={() => openForm(person.id, receipt)}
+                              style={styles.receiptAction}
+                            >
+                              <Feather
+                                name="edit-2"
+                                size={16}
+                                color={colors.earth}
+                              />
+                            </Pressable>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={`Xóa lần nhận từ ${person.name}`}
+                              accessibilityState={{ disabled: busy }}
+                              disabled={busy}
+                              hitSlop={4}
+                              onPress={() => confirmRemove(receipt)}
+                              style={styles.receiptAction}
+                            >
+                              <Feather
+                                name="trash-2"
+                                size={16}
+                                color={colors.danger}
+                              />
+                            </Pressable>
+                          </View>
                         </View>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`Sửa lần nhận từ ${person.name}`}
-                          accessibilityState={{ disabled: busy }}
-                          disabled={busy}
-                          onPress={() => openForm(person.id, receipt)}
-                          style={styles.iconButton}
-                        >
-                          <Feather
-                            name="edit-2"
-                            size={15}
-                            color={colors.muted}
-                          />
-                        </Pressable>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`Xóa lần nhận từ ${person.name}`}
-                          accessibilityState={{ disabled: busy }}
-                          disabled={busy}
-                          onPress={() => confirmRemove(receipt)}
-                          style={styles.iconButton}
-                        >
-                          <Feather
-                            name="trash-2"
-                            size={15}
-                            color={colors.danger}
-                          />
-                        </Pressable>
-                      </View>
-                    ))
-                  )}
+                      ))
+                    )}
+                  </View>
                 </View>
               );
             })}
@@ -438,11 +552,17 @@ export function SharedExpenseModal({
                 {error}
               </Text>
             )}
-            <Text style={styles.helper}>
-              Tiền nhận lại giảm chi {transaction.category}, không cộng vào Thu
-              nhập.
-            </Text>
           </ScrollView>
+          {transitioningToEdit && (
+            <View
+              accessibilityRole="progressbar"
+              accessibilityLabel="Đang mở màn sửa giao dịch"
+              style={styles.transitionOverlay}
+            >
+              <ActivityIndicator color={colors.earth} />
+              <Text style={styles.transitionText}>Đang mở màn sửa…</Text>
+            </View>
+          )}
         </>
       )}
     </DialogModal>

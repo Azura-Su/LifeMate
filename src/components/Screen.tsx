@@ -19,6 +19,7 @@ type Props = PropsWithChildren<{
   fixedHeaderStyle?: StyleProp<ViewStyle>;
   fixedContent?: ReactNode;
   fixedContentStyle?: StyleProp<ViewStyle>;
+  overlay?: ReactNode;
   backgroundColor?: ColorValue;
   safeAreaBackgroundColor?: ColorValue;
 }>;
@@ -32,6 +33,7 @@ export function Screen({
   fixedHeaderStyle,
   fixedContent,
   fixedContentStyle,
+  overlay,
   backgroundColor,
   safeAreaBackgroundColor,
 }: Props) {
@@ -89,6 +91,7 @@ export function Screen({
           {children}
         </View>
       )}
+      {overlay}
     </SafeAreaView>
   );
 }

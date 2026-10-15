@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { colors, layout } from '../../theme';
+import { actionIconStyles } from '../../theme/actionIcons';
 
 export const styles = StyleSheet.create({
   content: {
@@ -45,14 +46,7 @@ export const styles = StyleSheet.create({
   title: { fontSize: 22, lineHeight: 29, fontWeight: '700', color: colors.ink },
   subtitle: { fontSize: 13, lineHeight: 19, color: colors.muted },
   iconButton: {
-    width: 42,
-    height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-    backgroundColor: colors.sunlightSoft,
-    borderWidth: 1,
-    borderColor: colors.sunlightLine,
+    ...actionIconStyles.edit,
   },
   sectionHeading: {
     fontSize: 16,
@@ -256,14 +250,7 @@ export const styles = StyleSheet.create({
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   quantityInput: { width: 94 },
   quickAddButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    backgroundColor: colors.sunlightAction,
-    borderWidth: 1,
-    borderColor: colors.sunlightBorder,
+    ...actionIconStyles.add,
   },
   addButton: {
     minHeight: 46,
@@ -345,11 +332,7 @@ export const styles = StyleSheet.create({
   itemChecked: { color: colors.muted, textDecorationLine: 'line-through' },
   itemQuantity: { fontSize: 12, lineHeight: 17, color: colors.muted },
   itemAction: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 11,
+    ...actionIconStyles.edit,
   },
   dialog: { gap: 14 },
   dialogHeader: {

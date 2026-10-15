@@ -190,7 +190,7 @@ function NoteBulletRow({
             onPress={() => onRemove(item.id)}
             style={[styles.remove, disabled && styles.disabled]}
           >
-            <Feather name="x" size={16} color={colors.muted} />
+            <Feather name="x" size={16} color={colors.danger} />
           </Pressable>
         )}
         <View

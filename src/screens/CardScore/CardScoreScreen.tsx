@@ -735,7 +735,7 @@ export function CardScoreScreen({
                           <Feather
                             name="trash-2"
                             size={17}
-                            color={colors.muted}
+                            color={colors.danger}
                           />
                         </Pressable>
                       </View>

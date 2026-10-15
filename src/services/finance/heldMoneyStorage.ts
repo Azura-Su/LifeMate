@@ -168,8 +168,7 @@ export function parseHeldMoneyRecord(
 
 function assertRecord(value: HeldMoneyRecord, uid: string) {
   const parsed = parseHeldMoneyRecord(value, uid);
-  if (!parsed)
-    throw new Error('Dữ liệu khoản đóng hộ không hợp lệ.');
+  if (!parsed) throw new Error('Dữ liệu khoản đóng hộ không hợp lệ.');
   return parsed;
 }
 

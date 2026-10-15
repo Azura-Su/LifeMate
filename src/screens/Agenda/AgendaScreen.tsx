@@ -140,7 +140,7 @@ export function AgendaScreen({
               }}
               style={styles.add}
             >
-              <Feather name="plus" size={21} color={colors.earth} />
+              <Feather name="plus" size={22} color={colors.earth} />
             </Pressable>
           </View>
         }
