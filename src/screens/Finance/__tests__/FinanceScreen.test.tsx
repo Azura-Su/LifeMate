@@ -254,6 +254,40 @@ it('formats the entered amount and can dismiss the form from its header', async 
   expect(screen.queryByLabelText('Số tiền')).toBeNull();
 });
 
+it('adds a shared expense and records a partial repayment from its detail', async () => {
+  renderFinanceScreen();
+  await screen.findByText('Đã lưu trên tài khoản');
+  fireEvent.press(screen.getByRole('button', { name: 'Thêm giao dịch' }));
+  fireEvent.changeText(screen.getByLabelText('Số tiền'), '500000');
+  fireEvent.changeText(screen.getByLabelText('Ghi chú'), 'Ăn chung');
+  fireEvent.press(
+    screen.getByRole('switch', { name: 'Có người cần trả lại' }),
+  );
+  fireEvent.changeText(screen.getByLabelText('Tên người 1'), 'An');
+  fireEvent.changeText(
+    screen.getByLabelText('Số tiền người 1 cần trả'),
+    '300000',
+  );
+  expect(screen.getByText('Phần của tôi dự kiến: 200.000 ₫')).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Lưu giao dịch' }));
+
+  const open = await screen.findByRole('button', {
+    name: 'Xem chi tiết Ăn chung',
+  });
+  fireEvent.press(open);
+  expect(screen.getByText('Khoản chi có người trả lại')).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Nhận lại tiền từ An' }));
+  fireEvent.changeText(screen.getByLabelText('Số tiền nhận lại'), '100000');
+  fireEvent.press(screen.getByRole('button', { name: 'Lưu lần nhận lại' }));
+
+  await waitFor(() => {
+    expect(screen.getByText('+100.000 ₫')).toBeTruthy();
+    expect(
+      useFinanceStore.getState().transactions[0].sharedExpense?.receipts,
+    ).toMatchObject([{ participantId: expect.any(String), amount: 100000 }]);
+  });
+});
+
 it('shows a Vietnamese date calendar that fits the transaction dialog', async () => {
   renderFinanceScreen();
   await screen.findByText('Đã lưu trên tài khoản');

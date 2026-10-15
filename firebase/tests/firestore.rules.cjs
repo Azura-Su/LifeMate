@@ -209,6 +209,48 @@ async function main() {
     });
     await assertSucceeds(postRepayment.commit());
 
+    const sharedExpense = owner.doc(
+      'financeAccounts/u1/transactions/shared-meal',
+    );
+    const sharedMeal = {
+      id: 'shared-meal',
+      ownerId: 'u1',
+      type: 'expense',
+      amount: 500,
+      category: 'Ăn uống',
+      note: 'Ăn chung',
+      createdAt: 100,
+      sharedExpense: {
+        participants: [{ id: 'an', name: 'An', owedAmount: 300 }],
+        receipts: [],
+      },
+    };
+    await assertSucceeds(sharedExpense.set(sharedMeal));
+    await assertSucceeds(
+      sharedExpense.update({
+        sharedExpense: {
+          ...sharedMeal.sharedExpense,
+          receipts: [
+            {
+              id: 'paid-1',
+              participantId: 'an',
+              amount: 100,
+              receivedAt: 101,
+              note: '',
+            },
+          ],
+        },
+      }),
+    );
+    await assertFails(outsider.doc(sharedExpense.path).get());
+    await assertFails(
+      owner.doc('financeAccounts/u1/transactions/fake-income').set({
+        ...sharedMeal,
+        id: 'fake-income',
+        type: 'income',
+      }),
+    );
+
     await assertSucceeds(audio.set(audioRecord()));
     await assertSucceeds(audio.update({ deletionPending: true }));
     await assertFails(audio.update({ deletionPending: false }));
@@ -216,7 +258,7 @@ async function main() {
     await assertSucceeds(audio.delete());
     assert.equal((await audio.get()).exists, false);
     process.stdout.write(
-      'Firestore rules: held funds, loans, and audio deletion passed.\n',
+      'Firestore rules: held funds, loans, shared expenses, and audio deletion passed.\n',
     );
   } finally {
     await environment.cleanup();

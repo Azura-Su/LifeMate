@@ -1,4 +1,5 @@
 import {
+  filterFinanceTransactions,
   formatFinanceDate,
   getFinanceIncomeSource,
   getExpenseReport,
@@ -45,6 +46,80 @@ it('parses only valid transactions for the expected account', () => {
   expect(parseFinanceTransaction(rows[0], 'u1')).toEqual(rows[0]);
   expect(parseFinanceTransaction({ ...rows[0], amount: 0 }, 'u1')).toBeNull();
   expect(parseFinanceTransaction(rows[0], 'u2')).toBeNull();
+});
+
+it('keeps repayments inside their expense category without adding income', () => {
+  const shared: FinanceTransaction = {
+    ...rows[1],
+    id: 'shared-meal',
+    amount: 500000,
+    createdAt: new Date(2026, 9, 12).getTime(),
+    sharedExpense: {
+      participants: [
+        { id: 'an', name: 'An', owedAmount: 200000 },
+        { id: 'binh', name: 'Bình', owedAmount: 100000 },
+      ],
+      receipts: [
+        {
+          id: 'first',
+          participantId: 'binh',
+          amount: 100000,
+          receivedAt: new Date(2026, 9, 15).getTime(),
+          note: 'Tiền mặt',
+        },
+        {
+          id: 'second',
+          participantId: 'an',
+          amount: 200000,
+          receivedAt: new Date(2026, 10, 2).getTime(),
+          note: 'Chuyển khoản',
+        },
+      ],
+    },
+  };
+  expect(parseFinanceTransaction(shared, 'u1')).toEqual(shared);
+  expect(getFinanceReport([shared], 2026, 10, 11)).toMatchObject({
+    income: 0,
+    expense: 200000,
+    months: [
+      { month: 10, income: 0, expense: 400000 },
+      { month: 11, income: 0, expense: -200000 },
+    ],
+  });
+  expect(getExpenseReport([shared], 2026, 11, 2026, 11)).toMatchObject({
+    total: -200000,
+    categories: { 'Ăn uống': -200000 },
+  });
+  expect(getIncomeReport([shared], 2026, 10, 2026, 11).total).toBe(0);
+  expect(
+    filterFinanceTransactions(
+      getFinanceReport([shared], 2026, 11, 11).months[0].transactions,
+      'An',
+    ),
+  ).toHaveLength(1);
+});
+
+it('rejects a shared expense that receives more than one person owes', () => {
+  expect(
+    parseFinanceTransaction(
+      {
+        ...rows[1],
+        sharedExpense: {
+          participants: [{ id: 'an', name: 'An', owedAmount: 100000 }],
+          receipts: [
+            {
+              id: 'paid',
+              participantId: 'an',
+              amount: 100001,
+              receivedAt: new Date(2026, 9, 15).getTime(),
+              note: '',
+            },
+          ],
+        },
+      },
+      'u1',
+    ),
+  ).toBeNull();
 });
 
 it('treats income without a source as company income and preserves other income', () => {

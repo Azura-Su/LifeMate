@@ -150,7 +150,7 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
       ) : !linkedLoanTransaction && onEdit ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${transaction.sharedExpense || sharedReceipt ? 'Xem chi tiết' : 'Sửa giao dịch'} ${transaction.note || transaction.category}`}
+          accessibilityLabel={`${transaction.sharedExpense || sharedReceipt ? 'Mở chi tiết' : 'Sửa giao dịch'} ${transaction.note || transaction.category}`}
           accessibilityState={{ disabled: deleting }}
           disabled={deleting}
           hitSlop={8}

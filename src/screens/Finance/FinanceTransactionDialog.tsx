@@ -817,7 +817,13 @@ export function FinanceTransactionDialog({
                 disabled: existingReceipts.length > 0,
               }}
               disabled={busy || existingReceipts.length > 0}
-              onPress={() => setSharingEnabled((current) => !current)}
+              onPress={() => {
+                if (!sharingEnabled && sharedPeople.length === 0)
+                  setSharedPeople([
+                    { id: makePersonId(), name: '', amount: '' },
+                  ]);
+                setSharingEnabled(!sharingEnabled);
+              }}
               style={styles.sharingToggle}
             >
               <Text style={styles.label}>Có người cần trả lại</Text>
