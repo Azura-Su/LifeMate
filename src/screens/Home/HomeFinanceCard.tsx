@@ -7,6 +7,7 @@ import { colors, typography } from '../../theme';
 import {
   formatFinanceAmount,
   getFinanceReportContribution,
+  expandFinanceTransactions,
 } from '../../utils/finance';
 import {
   getMonthGrid,
@@ -100,7 +101,7 @@ export function HomeFinanceCard({
   }).format(monthDate);
   const transactionsByDate = useMemo(() => {
     const totals = new Map<string, DayTotals>();
-    for (const transaction of transactions) {
+    for (const transaction of expandFinanceTransactions(transactions)) {
       const dateKey = toDateKey(new Date(transaction.createdAt));
       const day = totals.get(dateKey) ?? { income: 0, expense: 0 };
       const contribution = getFinanceReportContribution(transaction);

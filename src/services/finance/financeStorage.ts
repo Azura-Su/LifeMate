@@ -14,6 +14,7 @@ import {
   setEncryptedItem,
 } from '../security/encryptedLocalStorage';
 import { parseFinanceTransaction } from '../../utils/finance';
+import { parseSharedExpense } from '../../utils/sharedExpense';
 
 const queues = new Map<string, Promise<unknown>>();
 const cloudFallbackTransactions = new Map<string, FinanceTransaction[]>();
@@ -69,11 +70,55 @@ function sameTransaction(a: FinanceTransaction, b: FinanceTransaction) {
     a.advanceId === b.advanceId &&
     a.repaymentId === b.repaymentId &&
     a.repaymentReceivedAt === b.repaymentReceivedAt &&
+    JSON.stringify(a.sharedExpense) === JSON.stringify(b.sharedExpense) &&
     a.amount === b.amount &&
     a.category === b.category &&
     a.note === b.note &&
     a.createdAt === b.createdAt
   );
+}
+
+// Independent offline receipts can be combined. Edits to the bill, people, or
+// existing receipts still require an explicit conflict choice.
+function mergeAppendedSharedReceipts(
+  base: FinanceTransaction,
+  local: FinanceTransaction,
+  remote: FinanceTransaction,
+): FinanceTransaction | null {
+  if (!base.sharedExpense || !local.sharedExpense || !remote.sharedExpense)
+    return null;
+  const withoutReceipts = (value: FinanceTransaction) =>
+    JSON.stringify({
+      ...value,
+      sharedExpense: { ...value.sharedExpense, receipts: [] },
+    });
+  if (
+    withoutReceipts(base) !== withoutReceipts(local) ||
+    withoutReceipts(base) !== withoutReceipts(remote)
+  )
+    return null;
+  const previous = base.sharedExpense.receipts;
+  const localReceipts = local.sharedExpense.receipts;
+  const remoteReceipts = remote.sharedExpense.receipts;
+  if (
+    JSON.stringify(localReceipts.slice(0, previous.length)) !==
+      JSON.stringify(previous) ||
+    JSON.stringify(remoteReceipts.slice(0, previous.length)) !==
+      JSON.stringify(previous)
+  )
+    return null;
+  const mergedReceipts = [...remoteReceipts];
+  for (const receipt of localReceipts.slice(previous.length)) {
+    const existing = mergedReceipts.find(({ id }) => id === receipt.id);
+    if (existing && JSON.stringify(existing) !== JSON.stringify(receipt))
+      return null;
+    if (!existing) mergedReceipts.push(receipt);
+  }
+  const sharedExpense = parseSharedExpense(
+    { ...remote.sharedExpense, receipts: mergedReceipts },
+    remote.amount,
+  );
+  return sharedExpense ? { ...remote, sharedExpense } : null;
 }
 
 async function readPendingBases(uid: string) {
@@ -397,6 +442,7 @@ async function readFinanceDataInternal(
     const toUpload: FinanceTransaction[] = [];
     const batchUpload: FinanceTransaction[] = [];
     for (const local of candidates) {
+      let candidate = local;
       const change = pending.get(local.id);
       const remote = remoteById.get(local.id) ?? null;
       if (change === 'add' && remote) {
@@ -415,21 +461,31 @@ async function readFinanceDataInternal(
           continue;
         }
         const base = bases.get(local.id);
-        if (!remote || !base || !sameTransaction(remote, base)) {
+        if (!remote || !base) {
           conflicts.push({ id: local.id, local, remote });
           continue;
         }
-        const uploadResult = await uploadEditedTransaction(uid, local, base);
+        if (!sameTransaction(remote, base)) {
+          const merged = mergeAppendedSharedReceipts(base, local, remote);
+          if (!merged) {
+            conflicts.push({ id: local.id, local, remote });
+            continue;
+          }
+          candidate = merged;
+        }
+        const uploadResult = sameTransaction(candidate, remote)
+          ? 'uploaded'
+          : await uploadEditedTransaction(uid, candidate, remote);
         if (uploadResult !== 'uploaded') {
           conflicts.push({ id: local.id, local, remote: uploadResult });
           continue;
         }
       } else {
-        batchUpload.push(local);
+        batchUpload.push(candidate);
       }
       pending.delete(local.id);
       bases.delete(local.id);
-      toUpload.push(local);
+      toUpload.push(candidate);
     }
     await uploadTransactions(uid, batchUpload);
     const uploadedIds = new Set(toUpload.map(({ id }) => id));

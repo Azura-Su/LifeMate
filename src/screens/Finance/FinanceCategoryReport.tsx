@@ -88,8 +88,7 @@ export function FinanceCategoryReport({
       isIncome
         ? transactions.filter(
             (transaction) =>
-              transaction.type === 'income' &&
-              transaction.incomeSource !== 'loan_repayment' &&
+              getFinanceReportContribution(transaction).kind === 'income' &&
               (incomeSource === 'all' ||
                 getFinanceIncomeSource(transaction) === incomeSource),
           )

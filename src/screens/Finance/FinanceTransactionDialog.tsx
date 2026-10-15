@@ -22,6 +22,7 @@ import {
   type RegularFinanceIncomeSource,
   type FinanceTransactionType,
   type FinanceTransaction,
+  type SharedExpense,
 } from '../../types/finance';
 import type { FinanceTransactionTemplate } from '../../services/finance/financePreferences';
 import { colors } from '../../theme';
@@ -29,7 +30,9 @@ import {
   formatFinanceDate,
   parseFinanceAmount,
   parseFinanceDate,
+  formatFinanceAmount,
 } from '../../utils/finance';
+import { getSharedExpensePersonTotals } from '../../utils/sharedExpense';
 import { FinanceDatePicker } from './FinanceDatePicker';
 import { styles } from './FinanceTransactionDialog.styles';
 
@@ -40,7 +43,14 @@ type Draft = {
   category: string;
   note: string;
   date: string;
+  sharedExpense?: SharedExpense;
 };
+
+type PersonDraft = { id: string; name: string; amount: string };
+
+function makePersonId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+}
 
 type Props = {
   visible: boolean;
@@ -121,6 +131,10 @@ export function FinanceTransactionDialog({
   const [note, setNote] = useState('');
   const [date, setDate] = useState(initialDate);
   const [datePickerVisible, setDatePickerVisible] = useState(false);
+  const [sharingEnabled, setSharingEnabled] = useState(
+    !!initialTransaction?.sharedExpense,
+  );
+  const [sharedPeople, setSharedPeople] = useState<PersonDraft[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [templateName, setTemplateName] = useState('');
   const [newCategory, setNewCategory] = useState('');
@@ -168,6 +182,11 @@ export function FinanceTransactionDialog({
     !busy &&
     !preferenceBusy;
   const parsedDate = parseFinanceDate(date);
+  const totalOwed = sharedPeople.reduce(
+    (sum, person) => sum + (parseFinanceAmount(person.amount) ?? 0),
+    0,
+  );
+  const existingReceipts = initialTransaction?.sharedExpense?.receipts ?? [];
   const pickerValue = parsedDate === null ? new Date() : new Date(parsedDate);
 
   useEffect(() => {
@@ -194,6 +213,14 @@ export function FinanceTransactionDialog({
           : initialDate,
       );
       setDatePickerVisible(false);
+      setSharingEnabled(!!initialTransaction?.sharedExpense);
+      setSharedPeople(
+        initialTransaction?.sharedExpense?.participants.map((person) => ({
+          id: person.id,
+          name: person.name,
+          amount: String(person.owedAmount),
+        })) ?? [],
+      );
       setError(null);
       setTemplateName('');
       setNewCategory('');
@@ -246,6 +273,51 @@ export function FinanceTransactionDialog({
       setError('Ngày không hợp lệ. Nhập theo dạng DD/MM/YYYY.');
       return;
     }
+    let sharedExpense: SharedExpense | undefined;
+    if (type === 'expense' && sharingEnabled) {
+      const gross = parseFinanceAmount(amount)!;
+      if (sharedPeople.length === 0) {
+        setError('Thêm ít nhất một người cần trả lại.');
+        return;
+      }
+      const participants = sharedPeople.map((person) => ({
+        id: person.id,
+        name: person.name.trim(),
+        owedAmount: parseFinanceAmount(person.amount) ?? 0,
+      }));
+      if (participants.some((person) => !person.name || !person.owedAmount)) {
+        setError('Nhập tên và số tiền cần trả của từng người.');
+        return;
+      }
+      if (totalOwed > gross) {
+        setError('Tổng tiền cần trả lại không thể vượt số tiền đã chi.');
+        return;
+      }
+      if (
+        participants.some(
+          (person) =>
+            person.owedAmount <
+            getSharedExpensePersonTotals(
+              initialTransaction?.sharedExpense ?? {
+                participants: [],
+                receipts: [],
+              },
+              person.id,
+            ).received,
+        ) ||
+        existingReceipts.some(
+          (receipt) =>
+            !participants.some((person) => person.id === receipt.participantId),
+        )
+      ) {
+        setError('Không thể giảm phần cần trả thấp hơn số đã nhận.');
+        return;
+      }
+      sharedExpense = { participants, receipts: existingReceipts };
+    } else if (existingReceipts.length > 0) {
+      setError('Hãy xóa các lần nhận lại trước khi bỏ phần chia khoản chi.');
+      return;
+    }
     try {
       await onSave(
         {
@@ -255,6 +327,7 @@ export function FinanceTransactionDialog({
           category,
           note: capitalizeInitialLetter(note.trim()),
           date,
+          sharedExpense,
         },
         initialTransaction?.id,
       );
@@ -483,7 +556,11 @@ export function FinanceTransactionDialog({
                 key={value}
                 accessibilityRole="button"
                 accessibilityLabel={label}
-                accessibilityState={{ selected }}
+                accessibilityState={{
+                  selected,
+                  disabled: value === 'income' && existingReceipts.length > 0,
+                }}
+                disabled={value === 'income' && existingReceipts.length > 0}
                 onPress={() => {
                   setType(value);
                   if (value === 'income') setIncomeSource('company');
@@ -730,6 +807,134 @@ export function FinanceTransactionDialog({
           maxLength={120}
           style={styles.input}
         />
+        {type === 'expense' && (
+          <View style={styles.sharingSection}>
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityLabel="Có người cần trả lại"
+              accessibilityState={{
+                checked: sharingEnabled,
+                disabled: existingReceipts.length > 0,
+              }}
+              disabled={busy || existingReceipts.length > 0}
+              onPress={() => setSharingEnabled((current) => !current)}
+              style={styles.sharingToggle}
+            >
+              <Text style={styles.label}>Có người cần trả lại</Text>
+              <Feather
+                name={sharingEnabled ? 'check-circle' : 'circle'}
+                size={20}
+                color={sharingEnabled ? colors.success : colors.muted}
+              />
+            </Pressable>
+            {sharingEnabled && (
+              <View style={styles.sharingContent}>
+                {sharedPeople.map((person, index) => {
+                  const alreadyReceived = getSharedExpensePersonTotals(
+                    initialTransaction?.sharedExpense ?? {
+                      participants: [],
+                      receipts: [],
+                    },
+                    person.id,
+                  ).received;
+                  return (
+                    <View key={person.id} style={styles.personBlock}>
+                      <View style={styles.sectionHeading}>
+                        <Text style={styles.label}>Người {index + 1}</Text>
+                        {alreadyReceived === 0 && (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`Bỏ người ${index + 1}`}
+                            onPress={() =>
+                              setSharedPeople((current) =>
+                                current.filter(({ id }) => id !== person.id),
+                              )
+                            }
+                            style={styles.addAction}
+                          >
+                            <Feather name="x" size={16} color={colors.earth} />
+                          </Pressable>
+                        )}
+                      </View>
+                      <View style={styles.personRow}>
+                        <TextInput
+                          accessibilityLabel={`Tên người ${index + 1}`}
+                          placeholder="Tên người"
+                          placeholderTextColor={colors.muted}
+                          value={person.name}
+                          onChangeText={(name) =>
+                            setSharedPeople((current) =>
+                              current.map((item) =>
+                                item.id === person.id
+                                  ? { ...item, name }
+                                  : item,
+                              ),
+                            )
+                          }
+                          maxLength={100}
+                          editable={!busy}
+                          style={[styles.input, styles.personName]}
+                        />
+                        <View style={styles.personAmount}>
+                          <FinanceAmountInput
+                            accessibilityLabel={`Số tiền người ${index + 1} cần trả`}
+                            value={person.amount}
+                            onChangeText={(value) =>
+                              setSharedPeople((current) =>
+                                current.map((item) =>
+                                  item.id === person.id
+                                    ? { ...item, amount: value }
+                                    : item,
+                                ),
+                              )
+                            }
+                            editable={!busy}
+                            compact
+                          />
+                        </View>
+                      </View>
+                      <FinanceAmountWords value={person.amount} />
+                      {alreadyReceived > 0 && (
+                        <Text style={styles.sharingHint}>
+                          Đã nhận {formatFinanceAmount(alreadyReceived)}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                })}
+                {sharedPeople.length < 20 && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Thêm người cần trả lại"
+                    onPress={() =>
+                      setSharedPeople((current) => [
+                        ...current,
+                        { id: makePersonId(), name: '', amount: '' },
+                      ])
+                    }
+                    style={styles.addPerson}
+                  >
+                    <Feather name="plus" size={16} color={colors.earth} />
+                    <Text style={styles.addPersonText}>Thêm người</Text>
+                  </Pressable>
+                )}
+                {parsedAmount !== null && (
+                  <Text
+                    style={
+                      totalOwed > parsedAmount
+                        ? styles.error
+                        : styles.sharingHint
+                    }
+                  >
+                    {totalOwed > parsedAmount
+                      ? 'Tổng tiền cần trả lại vượt số đã chi.'
+                      : `Phần của tôi dự kiến: ${formatFinanceAmount(parsedAmount - totalOwed)}`}
+                  </Text>
+                )}
+              </View>
+            )}
+          </View>
+        )}
         {error && (
           <Text accessibilityRole="alert" style={styles.error}>
             {error}

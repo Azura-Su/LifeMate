@@ -5,6 +5,7 @@ import type {
   RegularFinanceIncomeSource,
   FinanceTransaction,
   FinanceTransactionType,
+  SharedExpense,
 } from '../../types/finance';
 import {
   readFinancePreferences,
@@ -18,6 +19,7 @@ import {
   parseFinanceAmount,
   parseFinanceDate,
 } from '../../utils/finance';
+import { parseSharedExpense } from '../../utils/sharedExpense';
 
 type Draft = {
   type: FinanceTransactionType;
@@ -26,6 +28,7 @@ type Draft = {
   category: string;
   note: string;
   date: string;
+  sharedExpense?: SharedExpense;
 };
 
 const EMPTY_PREFERENCES: FinancePreferences = {
@@ -119,6 +122,13 @@ export function useFinanceScreen() {
     const createdAt = parseFinanceDate(draft.date);
     if (createdAt === null)
       throw new Error('Ngày không hợp lệ. Nhập theo dạng DD/MM/YYYY.');
+    const sharedExpense = draft.sharedExpense
+      ? parseSharedExpense(draft.sharedExpense, amount)
+      : undefined;
+    if (draft.type !== 'expense' && draft.sharedExpense)
+      throw new Error('Chỉ khoản chi mới có người trả lại.');
+    if (draft.sharedExpense && !sharedExpense)
+      throw new Error('Phần người cần trả lại không hợp lệ.');
     const transaction: FinanceTransaction = {
       id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`,
       ownerId: uid,
@@ -130,6 +140,7 @@ export function useFinanceScreen() {
       category: draft.category,
       note: draft.note.trim(),
       createdAt,
+      ...(draft.type === 'expense' && sharedExpense ? { sharedExpense } : {}),
     };
     await add(uid, transaction);
   }
@@ -160,7 +171,105 @@ export function useFinanceScreen() {
     if (draft.type === 'income')
       transaction.incomeSource = draft.incomeSource ?? 'company';
     else delete transaction.incomeSource;
+    if (draft.type === 'expense' && draft.sharedExpense) {
+      const parsed = parseSharedExpense(draft.sharedExpense, amount);
+      if (!parsed) throw new Error('Phần người cần trả lại không hợp lệ.');
+      transaction.sharedExpense = parsed;
+    } else {
+      if (original.sharedExpense?.receipts.length)
+        throw new Error(
+          'Hãy xóa các lần nhận lại trước khi bỏ phần chia khoản chi.',
+        );
+      delete transaction.sharedExpense;
+    }
     await update(uid, transaction);
+  }
+
+  async function saveSharedReceipt(
+    expenseId: string,
+    draft: {
+      requestId: string;
+      participantId: string;
+      amount: string;
+      date: string;
+      note: string;
+    },
+    receiptId?: string,
+  ) {
+    if (!uid) throw new Error('Bạn cần đăng nhập để lưu lần nhận lại.');
+    const amount = parseFinanceAmount(draft.amount);
+    const receivedAt = parseFinanceDate(draft.date);
+    if (amount === null || receivedAt === null)
+      throw new Error('Số tiền hoặc ngày nhận không hợp lệ.');
+    const original = useFinanceStore
+      .getState()
+      .transactions.find(({ id }) => id === expenseId);
+    if (!original?.sharedExpense)
+      throw new Error('Không tìm thấy khoản chi cần cập nhật.');
+    const existingRequest = original.sharedExpense.receipts.find(
+      ({ id }) => id === draft.requestId,
+    );
+    if (!receiptId && existingRequest) {
+      if (
+        existingRequest.participantId === draft.participantId &&
+        existingRequest.amount === amount &&
+        existingRequest.receivedAt === receivedAt &&
+        existingRequest.note === draft.note.trim()
+      )
+        return;
+      throw new Error('Lần nhận này đã thay đổi. Hãy tải lại.');
+    }
+    const receipts = receiptId
+      ? original.sharedExpense.receipts.map((receipt) =>
+          receipt.id === receiptId
+            ? {
+                ...receipt,
+                participantId: draft.participantId,
+                amount,
+                receivedAt,
+                note: draft.note.trim(),
+              }
+            : receipt,
+        )
+      : [
+          ...original.sharedExpense.receipts,
+          {
+            id: draft.requestId,
+            participantId: draft.participantId,
+            amount,
+            receivedAt,
+            note: draft.note.trim(),
+          },
+        ];
+    if (receiptId && !receipts.some(({ id }) => id === receiptId))
+      throw new Error('Không tìm thấy lần nhận cần sửa.');
+    const sharedExpense = parseSharedExpense(
+      { ...original.sharedExpense, receipts },
+      original.amount,
+    );
+    if (!sharedExpense)
+      throw new Error(
+        'Số tiền nhận vượt phần người này cần trả hoặc dữ liệu chưa hợp lệ.',
+      );
+    await update(uid, { ...original, sharedExpense });
+  }
+
+  async function removeSharedReceipt(expenseId: string, receiptId: string) {
+    if (!uid) throw new Error('Bạn cần đăng nhập để xóa lần nhận lại.');
+    const original = useFinanceStore
+      .getState()
+      .transactions.find(({ id }) => id === expenseId);
+    if (!original?.sharedExpense?.receipts.some(({ id }) => id === receiptId))
+      throw new Error('Không tìm thấy lần nhận cần xóa.');
+    await update(uid, {
+      ...original,
+      sharedExpense: {
+        ...original.sharedExpense,
+        receipts: original.sharedExpense.receipts.filter(
+          ({ id }) => id !== receiptId,
+        ),
+      },
+    });
   }
 
   async function addTemplate(template: Omit<FinanceTransactionTemplate, 'id'>) {
@@ -272,5 +381,7 @@ export function useFinanceScreen() {
     addTransaction,
     updateTransaction,
     removeTransaction,
+    saveSharedReceipt,
+    removeSharedReceipt,
   };
 }

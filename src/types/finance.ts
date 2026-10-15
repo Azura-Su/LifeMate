@@ -1,10 +1,30 @@
 export type FinanceTransactionType = 'income' | 'expense';
-export type FinanceIncomeSource = 'company' | 'other' | 'loan_repayment';
+export type FinanceIncomeSource =
+  'company' | 'other' | 'loan_repayment' | 'expense_reimbursement';
 export type FinanceExpenseSource = 'loan_lending';
 export type RegularFinanceIncomeSource = Exclude<
   FinanceIncomeSource,
-  'loan_repayment'
+  'loan_repayment' | 'expense_reimbursement'
 >;
+
+export type SharedExpenseParticipant = {
+  id: string;
+  name: string;
+  owedAmount: number;
+};
+
+export type SharedExpenseReceipt = {
+  id: string;
+  participantId: string;
+  amount: number;
+  receivedAt: number;
+  note: string;
+};
+
+export type SharedExpense = {
+  participants: SharedExpenseParticipant[];
+  receipts: SharedExpenseReceipt[];
+};
 
 export type FinanceTransaction = {
   id: string;
@@ -16,6 +36,14 @@ export type FinanceTransaction = {
   advanceId?: string;
   repaymentId?: string;
   repaymentReceivedAt?: number;
+  sharedExpense?: SharedExpense;
+  /** A report-only row derived from a shared expense receipt; never stored. */
+  sharedExpenseReceipt?: {
+    expenseId: string;
+    participantId: string;
+    receiptId: string;
+    participantName: string;
+  };
   amount: number;
   category: string;
   note: string;

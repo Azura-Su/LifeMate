@@ -543,7 +543,7 @@ service cloud.firestore {
             && hasLinkedLoanRecord(uid, request.resource.data))
         )
         && request.resource.data.keys().hasAll(['id', 'ownerId', 'type', 'amount', 'category', 'note', 'createdAt'])
-        && request.resource.data.keys().hasOnly(['id', 'ownerId', 'type', 'amount', 'category', 'note', 'createdAt', 'incomeSource', 'expenseSource', 'loanId', 'repaymentId', 'repaymentReceivedAt', 'advanceId'])
+        && request.resource.data.keys().hasOnly(['id', 'ownerId', 'type', 'amount', 'category', 'note', 'createdAt', 'incomeSource', 'expenseSource', 'loanId', 'repaymentId', 'repaymentReceivedAt', 'advanceId', 'sharedExpense'])
         && (
           (
             !('loanId' in request.resource.data)
@@ -551,6 +551,16 @@ service cloud.firestore {
             && !('repaymentId' in request.resource.data)
             && !('repaymentReceivedAt' in request.resource.data)
             && !('expenseSource' in request.resource.data)
+            && (!('sharedExpense' in request.resource.data)
+              || (request.resource.data.type == 'expense'
+                && request.resource.data.sharedExpense is map
+                && request.resource.data.sharedExpense.keys().hasAll(['participants', 'receipts'])
+                && request.resource.data.sharedExpense.keys().hasOnly(['participants', 'receipts'])
+                && request.resource.data.sharedExpense.participants is list
+                && request.resource.data.sharedExpense.participants.size() > 0
+                && request.resource.data.sharedExpense.participants.size() <= 20
+                && request.resource.data.sharedExpense.receipts is list
+                && request.resource.data.sharedExpense.receipts.size() <= 100))
             && (!('incomeSource' in request.resource.data)
               || (request.resource.data.type == 'income'
                 && request.resource.data.incomeSource in ['company', 'other']))
@@ -559,6 +569,7 @@ service cloud.firestore {
           (
             request.resource.data.type == 'income'
             && !('advanceId' in request.resource.data)
+            && !('sharedExpense' in request.resource.data)
             && request.resource.data.incomeSource == 'loan_repayment'
             && request.resource.data.keys().hasAll(['loanId', 'repaymentId'])
             && request.resource.data.loanId.matches('^[A-Za-z0-9_-]{1,128}$')
@@ -581,6 +592,7 @@ service cloud.firestore {
           (
             request.resource.data.type == 'expense'
             && request.resource.data.expenseSource == 'loan_lending'
+            && !('sharedExpense' in request.resource.data)
             && !('incomeSource' in request.resource.data)
             && request.resource.data.keys().hasAll(['loanId'])
             && !('repaymentId' in request.resource.data)

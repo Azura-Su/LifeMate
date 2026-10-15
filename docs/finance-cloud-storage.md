@@ -67,6 +67,28 @@ không đổi. Một tháng chỉ có tiền nhận lại từ khoản cho vay k
 Chi tiêu ròng âm. Dữ liệu cũ được tính lại khi hiển thị, không cần chuyển đổi
 giao dịch hoặc phát hành rules mới.
 
+### Khoản chi có người trả lại — 15/10/2026
+
+Giao dịch chi cá nhân có thể có `sharedExpense` tùy chọn, chứa tối đa 20 người
+cần trả và 100 lần nhận lại. Mỗi người có ID riêng; tổng phần cần trả không
+vượt số tiền đã chi, và tổng nhận của từng người không vượt phần của họ. Parser
+kiểm tra toàn bộ dữ liệu trước khi dùng. Các giao dịch cũ không có trường này
+được giữ nguyên.
+
+Lần nhận lại được lưu **trong giao dịch chi gốc**, không tạo giao dịch Thu nhập
+trên cloud. Khi lập báo cáo, app tạo dòng hiển thị tạm với ngày nhận và số tiền
+âm trong chính danh mục chi gốc. Nhờ vậy tháng nhận giảm chi, Thu nhập không
+tăng, và sửa danh mục gốc không làm lệch danh mục của lần nhận. ID lần nhận
+được giữ khi thử lại; hai thiết bị thêm hai lần khác nhau khi offline có thể
+gộp lúc đồng bộ nếu tổng vẫn hợp lệ. Sửa cùng một lần hoặc sửa hóa đơn đồng
+thời sẽ hiện xung đột để người dùng chọn bản giữ.
+
+Firestore rules chỉ cho chủ UID đọc/ghi và giới hạn hình dạng/kích thước
+`sharedExpense`. [Firestore Rules không có phép kiểm tra mọi phần tử của danh
+sách cùng lúc](https://firebase.google.com/docs/firestore/security/rules-fields);
+kiểm tra số tiền, ID trùng và liên kết người nhận được thực hiện
+trong parser và thao tác lưu của ứng dụng.
+
 ### Sửa lần nhận tiền ghi nhầm — 12/10/2026
 
 Mỗi lần **Đã nhận** đã ghi Tài chính có nút xóa riêng trong lịch sử khoản vay.

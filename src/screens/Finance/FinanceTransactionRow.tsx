@@ -13,6 +13,7 @@ import {
   getFinanceReportContribution,
   getFinanceTransactionCategoryLabel,
 } from '../../utils/finance';
+import { getSharedExpenseTotals } from '../../utils/sharedExpense';
 import { styles } from './FinanceScreen.styles';
 
 type Props = {
@@ -39,7 +40,11 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
   const contribution = getFinanceReportContribution(transaction);
   const income = contribution.kind === 'income';
   const isRepayment = transaction.incomeSource === 'loan_repayment';
-  const incoming = income || isRepayment;
+  const sharedReceipt = transaction.sharedExpenseReceipt;
+  const sharedRemaining = transaction.sharedExpense
+    ? getSharedExpenseTotals(transaction.sharedExpense).remaining
+    : null;
+  const incoming = income || isRepayment || !!sharedReceipt;
   const linkedLoanTransaction = isLoanLedgerTransaction(transaction);
   const linkedLoanLending = transaction.expenseSource === 'loan_lending';
   const advanceNote = transaction.advanceId
@@ -51,20 +56,25 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
         ? advanceNote
         : loan.note
       : undefined;
-  const title = linkedLoanLending
-    ? loan
-      ? `Cho ${loan.borrowerName} vay`
-      : transaction.note || 'Khoản cho vay đã xóa'
-    : transaction.incomeSource === 'loan_repayment' && loan
-      ? `Nhận lại tiền từ ${loan.borrowerName}`
-      : transaction.note || transaction.category;
-  const category =
-    transaction.incomeSource === 'loan_repayment'
+  const title = sharedReceipt
+    ? `${sharedReceipt.participantName} trả lại`
+    : linkedLoanLending
+      ? loan
+        ? `Cho ${loan.borrowerName} vay`
+        : transaction.note || 'Khoản cho vay đã xóa'
+      : transaction.incomeSource === 'loan_repayment' && loan
+        ? `Nhận lại tiền từ ${loan.borrowerName}`
+        : transaction.note || transaction.category;
+  const category = sharedReceipt
+    ? `Giảm chi ${transaction.category}`
+    : transaction.incomeSource === 'loan_repayment'
       ? 'Cho vay'
       : getFinanceTransactionCategoryLabel(transaction);
   const date = formatFinanceDate(new Date(transaction.createdAt));
   const metadata =
-    transaction.note || linkedLoanTransaction ? `${category} · ${date}` : date;
+    transaction.note || linkedLoanTransaction || sharedReceipt
+      ? `${category} · ${date}`
+      : date;
   return (
     <View style={styles.transaction}>
       <View
@@ -79,7 +89,19 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
           color={incoming ? colors.success : colors.sunlight}
         />
       </View>
-      <View style={styles.transactionText}>
+      <Pressable
+        accessibilityRole={
+          transaction.sharedExpense || sharedReceipt ? 'button' : undefined
+        }
+        accessibilityLabel={
+          transaction.sharedExpense || sharedReceipt
+            ? `Xem chi tiết ${title}`
+            : undefined
+        }
+        disabled={!onEdit || (!transaction.sharedExpense && !sharedReceipt)}
+        onPress={() => onEdit?.(transaction)}
+        style={styles.transactionText}
+      >
         <Text numberOfLines={2} style={styles.transactionTitle}>
           {title}
         </Text>
@@ -96,13 +118,20 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
           adjustsFontSizeToFit
           style={[
             styles.transactionAmount,
-            income ? styles.income : styles.expense,
+            incoming ? styles.income : styles.expense,
           ]}
         >
-          {isRepayment ? 'Giảm chi ' : income ? '+' : '−'}
+          {isRepayment || sharedReceipt ? 'Giảm chi ' : income ? '+' : '−'}
           {formatFinanceAmount(transaction.amount)}
         </Text>
-      </View>
+        {sharedRemaining !== null && (
+          <Text style={styles.transactionNote}>
+            {sharedRemaining > 0
+              ? `Còn chờ ${formatFinanceAmount(sharedRemaining)}`
+              : 'Đã nhận đủ'}
+          </Text>
+        )}
+      </Pressable>
       {linkedLoanTransaction && loan ? (
         <Pressable
           accessibilityRole="button"
@@ -121,17 +150,25 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
       ) : !linkedLoanTransaction && onEdit ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Sửa giao dịch ${transaction.note || transaction.category}`}
+          accessibilityLabel={`${transaction.sharedExpense || sharedReceipt ? 'Xem chi tiết' : 'Sửa giao dịch'} ${transaction.note || transaction.category}`}
           accessibilityState={{ disabled: deleting }}
           disabled={deleting}
           hitSlop={8}
           onPress={() => onEdit(transaction)}
           style={styles.deleteButton}
         >
-          <Feather name="edit-2" size={16} color={colors.muted} />
+          <Feather
+            name={
+              transaction.sharedExpense || sharedReceipt
+                ? 'chevron-right'
+                : 'edit-2'
+            }
+            size={16}
+            color={colors.muted}
+          />
         </Pressable>
       ) : null}
-      {(!linkedLoanTransaction || canDeleteLinkedExpense) && (
+      {!sharedReceipt && (!linkedLoanTransaction || canDeleteLinkedExpense) && (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Xóa giao dịch ${transaction.note || transaction.category}`}

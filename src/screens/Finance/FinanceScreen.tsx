@@ -31,6 +31,7 @@ import type {
   FinanceTransactionType,
 } from '../../types/finance';
 import { isLoanLedgerTransaction } from '../../types/finance';
+import { getSharedExpenseTotals } from '../../utils/sharedExpense';
 import { useLoanLedger } from '../../hooks/useLoanLedger';
 import { useHeldMoneyLedger } from '../../hooks/useHeldMoneyLedger';
 import { useFinanceStore } from '../../store/financeStore';
@@ -46,6 +47,7 @@ import { FinancePeriodSelector } from './FinancePeriodSelector';
 import { FinanceTransactionDialog } from './FinanceTransactionDialog';
 import { LoanLedgerModal } from './LoanLedgerModal';
 import { HeldMoneyLedger } from './HeldMoneyLedger';
+import { SharedExpenseModal } from './SharedExpenseModal';
 import { styles } from './FinanceScreen.styles';
 import { useFinanceScreen } from './useFinanceScreen';
 
@@ -144,8 +146,13 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     const conflict = model.conflicts[0];
     if (!conflict || !model.uid) return;
     const uid = model.uid;
-    const describe = (item: FinanceTransaction) =>
-      `${item.category} · ${formatFinanceAmount(item.amount)} · ${formatFinanceDate(new Date(item.createdAt))}${item.note ? `\n${item.note}` : ''}`;
+    const describe = (item: FinanceTransaction) => {
+      const shared = item.sharedExpense;
+      const sharedSummary = shared
+        ? `\n${shared.participants.map((person) => person.name).join(', ')} · Đã nhận ${formatFinanceAmount(getSharedExpenseTotals(shared).received)} · ${shared.receipts.length} lần`
+        : '';
+      return `${item.category} · ${formatFinanceAmount(item.amount)} · ${formatFinanceDate(new Date(item.createdAt))}${item.note ? `\n${item.note}` : ''}${sharedSummary}`;
+    };
     Alert.alert(
       'Giao dịch thay đổi ở hai nơi',
       `Trên thiết bị:\n${describe(conflict.local)}\n\nTrên tài khoản:\n${conflict.remote ? describe(conflict.remote) : 'Đã xóa'}\n\nChọn bản muốn giữ.`,
@@ -238,6 +245,10 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   );
   const deletingIdsRef = useRef(new Set<string>());
   const [editTarget, setEditTarget] = useState<FinanceTransaction | null>(null);
+  const [sharedDetailId, setSharedDetailId] = useState<string | null>(null);
+  const sharedDetailTransaction =
+    model.transactions.find(({ id }) => id === sharedDetailId) ?? null;
+  useEffect(() => setSharedDetailId(null), [model.uid]);
   const [searchQuery, setSearchQuery] = useState('');
   const [reportIncomeSource, setReportIncomeSource] =
     useState<FinanceIncomeSourceFilter>('company');
@@ -320,6 +331,19 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
 
   function openEditDialog(transaction: FinanceTransaction) {
     if (isLoanLedgerTransaction(transaction)) return;
+    if (transaction.sharedExpenseReceipt) {
+      setSharedDetailId(transaction.sharedExpenseReceipt.expenseId);
+      return;
+    }
+    if (transaction.sharedExpense) {
+      setSharedDetailId(transaction.id);
+      return;
+    }
+    openDirectEditDialog(transaction);
+  }
+
+  function openDirectEditDialog(transaction: FinanceTransaction) {
+    setSharedDetailId(null);
     setEditTarget(transaction);
     setDialogInitialType(transaction.type);
     setDialogInitialIncomeSource(
@@ -331,11 +355,17 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
 
   function confirmDelete(transaction: FinanceTransaction) {
     if (deletingIdsRef.current.has(transaction.id)) return;
+    if (transaction.sharedExpenseReceipt) {
+      setSharedDetailId(transaction.sharedExpenseReceipt.expenseId);
+      return;
+    }
     Alert.alert(
       'Xóa giao dịch?',
       canDeleteLinkedExpense(transaction)
         ? 'Hồ sơ cho vay đã xóa. Xóa luôn khoản chi liên kết còn sót trong Tài chính?'
-        : 'Giao dịch này sẽ được xóa khỏi sổ thu chi của tài khoản.',
+        : transaction.sharedExpense?.receipts.length
+          ? 'Khoản chi và tất cả các lần nhận lại liên kết sẽ bị xóa. Báo cáo các kỳ sẽ được cập nhật.'
+          : 'Giao dịch này sẽ được xóa khỏi sổ thu chi của tài khoản.',
       [
         { text: 'Hủy', style: 'cancel' },
         {
@@ -870,6 +900,14 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
           setEditTarget(null);
         }}
         onSave={save}
+      />
+      <SharedExpenseModal
+        visible={!!sharedDetailTransaction && !suspended && !dialogVisible}
+        transaction={sharedDetailTransaction}
+        onClose={() => setSharedDetailId(null)}
+        onEditExpense={openDirectEditDialog}
+        onSaveReceipt={model.saveSharedReceipt}
+        onRemoveReceipt={model.removeSharedReceipt}
       />
       <LoanLedgerModal
         key={model.uid ?? 'signed-out'}

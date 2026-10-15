@@ -1,5 +1,6 @@
 import type { FinanceIncomeSource, FinanceTransaction } from '../types/finance';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../types/finance';
+import { parseSharedExpense } from './sharedExpense';
 
 export function getFinanceErrorMessage(cause: unknown, fallback: string) {
   const code =
@@ -98,6 +99,17 @@ export function parseFinanceTransaction(
     row.incomeSource !== 'loan_repayment'
   )
     return null;
+  if (row.sharedExpenseReceipt !== undefined) return null;
+  const sharedExpense =
+    row.sharedExpense === undefined
+      ? undefined
+      : parseSharedExpense(row.sharedExpense, row.amount);
+  if (
+    (row.sharedExpense !== undefined && !sharedExpense) ||
+    (sharedExpense &&
+      (row.type !== 'expense' || row.expenseSource !== undefined))
+  )
+    return null;
   if (row.expenseSource !== undefined && row.expenseSource !== 'loan_lending')
     return null;
   const linkedLoanRepayment = row.incomeSource === 'loan_repayment';
@@ -167,7 +179,36 @@ export function parseFinanceTransaction(
           ...(row.advanceId !== undefined ? { advanceId: row.advanceId } : {}),
         }
       : {}),
+    ...(sharedExpense ? { sharedExpense } : {}),
   };
+}
+
+/** Add report-only receipt rows without creating income records in storage. */
+export function expandFinanceTransactions(transactions: FinanceTransaction[]) {
+  return transactions.flatMap((transaction) => {
+    const shared = transaction.sharedExpense;
+    if (!shared) return [transaction];
+    const people = new Map(
+      shared.participants.map((person) => [person.id, person.name]),
+    );
+    const receipts: FinanceTransaction[] = shared.receipts.map((receipt) => ({
+      id: `shared-receipt-${transaction.id}-${receipt.id}`,
+      ownerId: transaction.ownerId,
+      type: 'income',
+      incomeSource: 'expense_reimbursement',
+      amount: receipt.amount,
+      category: transaction.category,
+      note: receipt.note,
+      createdAt: receipt.receivedAt,
+      sharedExpenseReceipt: {
+        expenseId: transaction.id,
+        participantId: receipt.participantId,
+        receiptId: receipt.id,
+        participantName: people.get(receipt.participantId) ?? '',
+      },
+    }));
+    return [transaction, ...receipts];
+  });
 }
 
 export function getFinanceIncomeSource(
@@ -192,6 +233,13 @@ export function getFinanceReportContribution(transaction: FinanceTransaction) {
       kind: 'expense' as const,
       amount: -transaction.amount,
       category: 'Cho vay',
+    };
+  }
+  if (transaction.sharedExpenseReceipt) {
+    return {
+      kind: 'expense' as const,
+      amount: -transaction.amount,
+      category: transaction.category,
     };
   }
   return {
@@ -236,10 +284,11 @@ export function getFinanceReport(
   const months = [];
   let income = 0;
   let expense = 0;
+  const reportTransactions = expandFinanceTransactions(transactions);
   for (let month = startMonth; month <= endMonth; month += 1) {
     const start = new Date(year, month - 1, 1).getTime();
     const end = new Date(year, month, 1).getTime();
-    const monthlyTransactions = transactions
+    const monthlyTransactions = reportTransactions
       .filter(
         (transaction) =>
           transaction.createdAt >= start && transaction.createdAt < end,
@@ -361,10 +410,11 @@ function getCategorizedReport<Category extends string>(
   allowedCategories: readonly Category[],
   fallbackCategory?: string,
 ) {
+  const reportTransactions = expandFinanceTransactions(transactions);
   const reportCategories = [
     ...new Set([
       ...allowedCategories,
-      ...transactions
+      ...reportTransactions
         .filter(
           (transaction) =>
             getFinanceReportContribution(transaction).kind === type &&
@@ -424,7 +474,7 @@ function getCategorizedReport<Category extends string>(
     }
   >();
 
-  for (const transaction of transactions) {
+  for (const transaction of reportTransactions) {
     const contribution = getFinanceReportContribution(transaction);
     if (
       contribution.kind !== type ||
@@ -531,6 +581,7 @@ export function getFinanceTransactionCategoryLabel(
 ) {
   if (transaction.expenseSource === 'loan_lending') return 'Cho vay';
   if (transaction.incomeSource === 'loan_repayment') return 'Thu hồi cho vay';
+  if (transaction.sharedExpenseReceipt) return transaction.category.trim();
   return transaction.category.trim();
 }
 
@@ -559,7 +610,18 @@ export function filterFinanceTransactions(
   return transactions.filter((transaction) => {
     const additionalText = getAdditionalSearchText?.(transaction) ?? '';
     const text = normalizeFinanceSearchText(
-      [transaction.note, transaction.category, additionalText].join(' '),
+      [
+        transaction.note,
+        transaction.category,
+        additionalText,
+        transaction.sharedExpenseReceipt?.participantName ?? '',
+        ...(transaction.sharedExpense?.participants.map(
+          (person) => person.name,
+        ) ?? []),
+        ...(transaction.sharedExpense?.receipts.map(
+          (receipt) => receipt.note,
+        ) ?? []),
+      ].join(' '),
     );
     return (
       text.includes(normalized) ||
