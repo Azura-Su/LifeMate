@@ -1,7 +1,7 @@
 import {
   createUserWithEmailAndPassword,
   getAuth,
-  getIdToken,
+  getIdTokenResult,
   onAuthStateChanged,
   reload,
   sendEmailVerification,
@@ -71,9 +71,11 @@ export async function sendAccountVerificationEmail(uid: string) {
 
 export async function refreshAccountVerification(uid: string) {
   await reload(activeUser(uid));
-  const user = activeUser(uid);
-  await getIdToken(user, true);
-  return activeUser(uid).emailVerified;
+  const token = await getIdTokenResult(activeUser(uid), true);
+  activeUser(uid);
+  if (token.claims.sub !== uid)
+    throw new Error('Phiên tài khoản đã thay đổi. Hãy đăng nhập lại.');
+  return token.claims.email_verified === true;
 }
 
 export async function logout() {

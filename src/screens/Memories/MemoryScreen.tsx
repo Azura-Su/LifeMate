@@ -16,6 +16,7 @@ import { Screen } from '../../components/Screen';
 import { DialogCloseButton } from '../../components/DialogCloseButton';
 import { DialogModal } from '../../components/DialogModal';
 import { useProfile } from '../../hooks/useProfile';
+import { useScreenActive } from '../../hooks/useScreenActive';
 import {
   cancelMemoryFriendInvite,
   changeMemoryFriend,
@@ -224,6 +225,7 @@ export function MemoryScreen() {
   const accountEmail = useAuthStore((state) => state.user?.email);
   const { name } = useProfile();
   const isFocused = useIsFocused();
+  const screenActive = useScreenActive();
   const [viewMode, setViewMode] = useState<'capture' | 'timeline'>('capture');
   const [timelineTab, setTimelineTab] = useState<'mine' | 'friends'>('mine');
   const [friendsVisible, setFriendsVisible] = useState(false);
@@ -425,8 +427,9 @@ export function MemoryScreen() {
   }, [isFocused]);
 
   useEffect(() => {
-    if (isFocused && uid && viewMode === 'timeline') void loadCloud(uid, name);
-  }, [isFocused, uid, viewMode, loadCloud, name]);
+    if (screenActive && uid && viewMode === 'timeline')
+      void loadCloud(uid, name);
+  }, [screenActive, uid, viewMode, timelineTab, loadCloud, name]);
 
   useEffect(() => {
     setItems([]);
@@ -768,16 +771,15 @@ export function MemoryScreen() {
             accessibilityRole="button"
             accessibilityLabel={
               emailVerificationNeeded
-                ? 'Mở Bạn bè để xác nhận email'
+                ? 'Tôi đã xác nhận email'
                 : 'Thử kết nối chia sẻ'
             }
             onPress={() => {
-              if (emailVerificationNeeded) setFriendsVisible(true);
-              else if (uid) void loadCloud(uid, name);
+              if (uid) void loadCloud(uid, name);
             }}
           >
             <Text style={styles.retryText}>
-              {emailVerificationNeeded ? 'Mở Bạn bè' : 'Thử lại'}
+              {emailVerificationNeeded ? 'Tôi đã xác nhận' : 'Thử lại'}
             </Text>
           </Pressable>
         </View>

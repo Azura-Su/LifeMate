@@ -11,14 +11,14 @@ const mockCreate = jest.fn();
 const mockUpdate = jest.fn();
 const mockSend = jest.fn();
 const mockReload = jest.fn();
-const mockToken = jest.fn();
+const mockTokenResult = jest.fn();
 jest.mock('@react-native-firebase/auth', () => ({
   getAuth: () => mockAuth,
   createUserWithEmailAndPassword: (...args: unknown[]) => mockCreate(...args),
   updateProfile: (...args: unknown[]) => mockUpdate(...args),
   sendEmailVerification: (...args: unknown[]) => mockSend(...args),
   reload: (...args: unknown[]) => mockReload(...args),
-  getIdToken: (...args: unknown[]) => mockToken(...args),
+  getIdTokenResult: (...args: unknown[]) => mockTokenResult(...args),
 }));
 
 describe('Firebase registration service', () => {
@@ -28,7 +28,9 @@ describe('Firebase registration service', () => {
     mockUpdate.mockReset().mockResolvedValue(undefined);
     mockSend.mockReset().mockResolvedValue(undefined);
     mockReload.mockReset().mockResolvedValue(undefined);
-    mockToken.mockReset().mockResolvedValue('token');
+    mockTokenResult.mockReset().mockResolvedValue({
+      claims: { sub: 'u1', email_verified: true },
+    });
   });
 
   it('normalizes email but keeps password bytes unchanged', async () => {
@@ -69,7 +71,7 @@ describe('Firebase registration service', () => {
     expect(mockSend).not.toHaveBeenCalled();
   });
 
-  it('reloads and refreshes the token before accepting email verification', async () => {
+  it('accepts the fresh verified token even if the user snapshot is still stale', async () => {
     const user = {
       uid: 'u1',
       email: 'a@b.co',
@@ -77,10 +79,39 @@ describe('Firebase registration service', () => {
       emailVerified: false,
     };
     mockAuth.currentUser = user;
-    mockReload.mockImplementation(async () => {
-      user.emailVerified = true;
-    });
     expect(await refreshAccountVerification('u1')).toBe(true);
-    expect(mockToken).toHaveBeenCalledWith(user, true);
+    expect(mockReload).toHaveBeenCalledWith(user);
+    expect(mockTokenResult).toHaveBeenCalledWith(user, true);
+  });
+
+  it('does not accept a stale verified profile without a verified token', async () => {
+    mockAuth.currentUser = { uid: 'u1', emailVerified: true };
+    mockTokenResult.mockResolvedValueOnce({
+      claims: { sub: 'u1', email_verified: false },
+    });
+    expect(await refreshAccountVerification('u1')).toBe(false);
+  });
+
+  it('rejects a refreshed token for another account', async () => {
+    mockAuth.currentUser = { uid: 'u1', emailVerified: true };
+    mockTokenResult.mockResolvedValueOnce({
+      claims: { sub: 'other', email_verified: true },
+    });
+    await expect(refreshAccountVerification('u1')).rejects.toThrow(
+      'Phiên tài khoản',
+    );
+  });
+
+  it('rejects verification if the active account changes during token refresh', async () => {
+    mockAuth.currentUser = { uid: 'u1' };
+    let finish!: (value: unknown) => void;
+    mockTokenResult.mockImplementationOnce(
+      () => new Promise((resolve) => (finish = resolve)),
+    );
+    const checking = refreshAccountVerification('u1');
+    await Promise.resolve();
+    mockAuth.currentUser = { uid: 'other' };
+    finish({ claims: { sub: 'u1', email_verified: true } });
+    await expect(checking).rejects.toThrow('Phiên tài khoản');
   });
 });

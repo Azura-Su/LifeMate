@@ -124,6 +124,7 @@ async function requestMemoryAction(
   uid: string,
   displayName: string,
   input: Record<string, unknown>,
+  retryVerification = true,
 ): Promise<Record<string, unknown>> {
   const user = assertSession(uid);
   const origin = audioCloudUrl();
@@ -157,11 +158,30 @@ async function requestMemoryAction(
       value && typeof value === 'object' && !Array.isArray(value)
         ? (value as Record<string, unknown>)
         : {};
-    if (!response.ok)
-      throw serviceError(
+    if (!response.ok) {
+      const error = serviceError(
         response.status,
         typeof data.code === 'string' ? data.code : undefined,
       );
+      if (
+        retryVerification &&
+        response.status === 403 &&
+        memoryEmailVerificationNeeded(error)
+      ) {
+        clearTimeout(timeout);
+        let verified: boolean;
+        try {
+          verified = await refreshMemoryVerification(uid);
+          assertSession(uid);
+        } catch {
+          // This request was rejected before any shared data could change.
+          throw error;
+        }
+        if (verified)
+          return requestMemoryAction(uid, displayName, input, false);
+      }
+      throw error;
+    }
     return data;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError')
