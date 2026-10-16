@@ -101,14 +101,22 @@ export function FinanceMonthSection({
           </View>
         </View>
         {pendingAmount > 0 && (
-          <View style={styles.monthPendingRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Xem khoản còn chờ nhận: ${pendingSharedExpenses.length} khoản, ${formatFinanceAmount(pendingAmount)}`}
+            onPress={() => {
+              const pending = carriedExpenses[0] ?? pendingSharedExpenses[0];
+              if (pending) onEdit(pending.transaction);
+            }}
+            style={styles.monthPendingRow}
+          >
             <Text style={styles.monthPendingLabel}>
               Còn chờ nhận · {pendingSharedExpenses.length} khoản
             </Text>
             <Text style={styles.monthPendingAmount}>
               {formatFinanceAmount(pendingAmount)}
             </Text>
-          </View>
+          </Pressable>
         )}
       </View>
       <FinancePendingSharedExpenses items={carriedExpenses} onOpen={onEdit} />

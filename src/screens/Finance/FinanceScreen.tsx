@@ -86,13 +86,19 @@ const reportTabs = [
 export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   const model = useFinanceScreen();
   const overviewPending = useMemo(() => {
-    const now = Date.now();
+    const current = new Date();
+    const now = current.getTime();
+    const todayEnd = new Date(
+      current.getFullYear(),
+      current.getMonth(),
+      current.getDate() + 1,
+    ).getTime();
     const monthStart = new Date(model.year, model.month - 1, 1).getTime();
     if (monthStart > now) return [];
     const monthEnd = new Date(model.year, model.month, 1).getTime();
     return getPendingSharedExpenses(
       model.transactions,
-      Math.min(monthEnd, now + 1),
+      Math.min(monthEnd, todayEnd),
     );
   }, [model.transactions, model.year, model.month]);
   const overviewMonths =

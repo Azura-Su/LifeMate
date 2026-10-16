@@ -50,9 +50,8 @@ export function FinancePeriodSelector({ year, month, onPeriodChange }: Props) {
             }}
             style={styles.selectedMonthButton}
           >
-            <Feather name="calendar" size={16} color={colors.earth} />
             <Text style={styles.selectedMonthText}>
-              Tháng {month} · {year}
+              Tháng {month} năm {year}
             </Text>
           </Pressable>
           <Pressable

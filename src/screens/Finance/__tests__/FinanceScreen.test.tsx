@@ -298,6 +298,105 @@ it('adds a shared expense and records a partial repayment from its detail', asyn
   });
 });
 
+it('stops showing a shared expense as pending when its dated repayment is today before noon', async () => {
+  jest.useFakeTimers({ now: new Date(2026, 9, 16, 10, 30) });
+  try {
+    seedFirestoreMock('finance-user', {
+      id: 'settled-shared-expense',
+      ownerId: 'finance-user',
+      type: 'expense',
+      amount: 98000,
+      category: 'Ăn uống',
+      note: 'Ăn trưa bún vịt quay',
+      createdAt: new Date(2026, 9, 14, 12).getTime(),
+      sharedExpense: {
+        participants: [{ id: 'chinh', name: 'Chỉnh', owedAmount: 49000 }],
+        receipts: [
+          {
+            id: 'paid',
+            participantId: 'chinh',
+            amount: 49000,
+            receivedAt: new Date(2026, 9, 16, 12).getTime(),
+            note: 'Đã thanh toán',
+          },
+        ],
+      },
+    });
+
+    renderFinanceScreen();
+    expect(await screen.findByText('Ăn trưa bún vịt quay')).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: /Xem khoản còn chờ nhận/ }),
+    ).toBeNull();
+
+    fireEvent.press(screen.getByRole('tab', { name: 'Báo cáo chi tiêu' }));
+    expect(screen.queryByText(/Còn chờ nhận/)).toBeNull();
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it('keeps tomorrow’s repayment pending today and a next-month repayment pending in the prior month', async () => {
+  jest.useFakeTimers({ now: new Date(2026, 9, 16, 10, 30) });
+  try {
+    const sharedExpense: FinanceTransaction = {
+      id: 'tomorrow-shared-expense',
+      ownerId: 'finance-user',
+      type: 'expense',
+      amount: 98000,
+      category: 'Ăn uống',
+      note: 'Khoản trả ngày mai',
+      createdAt: new Date(2026, 9, 14, 12).getTime(),
+      sharedExpense: {
+        participants: [{ id: 'an', name: 'An', owedAmount: 49000 }],
+        receipts: [
+          {
+            id: 'tomorrow',
+            participantId: 'an',
+            amount: 49000,
+            receivedAt: new Date(2026, 9, 17, 12).getTime(),
+            note: '',
+          },
+        ],
+      },
+    };
+    seedFirestoreMock('finance-user', sharedExpense);
+    seedFirestoreMock('finance-user', {
+      ...sharedExpense,
+      id: 'previous-month-shared-expense',
+      amount: 50000,
+      note: 'Khoản trả tháng sau',
+      createdAt: new Date(2026, 8, 30, 12).getTime(),
+      sharedExpense: {
+        participants: [{ id: 'binh', name: 'Bình', owedAmount: 25000 }],
+        receipts: [
+          {
+            id: 'next-month',
+            participantId: 'binh',
+            amount: 25000,
+            receivedAt: new Date(2026, 9, 1, 12).getTime(),
+            note: '',
+          },
+        ],
+      },
+    });
+
+    renderFinanceScreen();
+    expect(await screen.findByText('Khoản trả ngày mai')).toBeTruthy();
+    expect(
+      screen.getByRole('button', {
+        name: 'Xem khoản còn chờ nhận: 1 khoản, 49.000 ₫',
+      }),
+    ).toBeTruthy();
+
+    fireEvent.press(screen.getByRole('tab', { name: 'Báo cáo chi tiêu' }));
+    expect(screen.getByText('Còn chờ nhận 49.000 ₫')).toBeTruthy();
+    expect(screen.getByText('Còn chờ nhận 25.000 ₫')).toBeTruthy();
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
 it('shows a Vietnamese date calendar that fits the transaction dialog', async () => {
   renderFinanceScreen();
   await screen.findByText('Đã lưu trên tài khoản');
@@ -575,7 +674,7 @@ it('opens on the current month and excludes transactions from other months', asy
   renderFinanceScreen();
 
   expect(await screen.findByText('Lương tháng hiện tại')).toBeTruthy();
-  expect(screen.getByText(`Tháng ${currentMonth} · ${year}`)).toBeTruthy();
+  expect(screen.getByText(`Tháng ${currentMonth} năm ${year}`)).toBeTruthy();
   expect(screen.queryByText('Khoản chi tháng trước')).toBeNull();
   expect(screen.getAllByText('25.000.000 ₫').length).toBeGreaterThan(0);
 });
@@ -588,18 +687,18 @@ it('moves one month at a time and can return to the current month', async () => 
 
   renderFinanceScreen();
   expect(
-    await screen.findByText(`Tháng ${currentMonth} · ${currentYear}`),
+    await screen.findByText(`Tháng ${currentMonth} năm ${currentYear}`),
   ).toBeTruthy();
 
   fireEvent.press(screen.getByRole('button', { name: 'Tháng trước' }));
   expect(
     screen.getByText(
-      `Tháng ${previousDate.getMonth() + 1} · ${previousDate.getFullYear()}`,
+      `Tháng ${previousDate.getMonth() + 1} năm ${previousDate.getFullYear()}`,
     ),
   ).toBeTruthy();
   fireEvent.press(screen.getByRole('button', { name: 'Về tháng hiện tại' }));
   expect(
-    screen.getByText(`Tháng ${currentMonth} · ${currentYear}`),
+    screen.getByText(`Tháng ${currentMonth} năm ${currentYear}`),
   ).toBeTruthy();
 });
 
@@ -615,7 +714,7 @@ it('keeps the viewed month when the month picker is cancelled after browsing yea
   );
 
   expect(
-    screen.getByText(`Tháng ${now.getMonth() + 1} · ${now.getFullYear()}`),
+    screen.getByText(`Tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`),
   ).toBeTruthy();
 });
 
@@ -666,7 +765,7 @@ it('lets the user jump to a month in another year', async () => {
   fireEvent.press(screen.getByRole('button', { name: 'Tháng 5' }));
 
   expect(await screen.findByText('Tiền nhà năm trước')).toBeTruthy();
-  expect(screen.getByText(`Tháng 5 · ${year - 1}`)).toBeTruthy();
+  expect(screen.getByText(`Tháng 5 năm ${year - 1}`)).toBeTruthy();
   expect(screen.getAllByText('6.000.000 ₫').length).toBeGreaterThan(0);
 
   fireEvent.press(

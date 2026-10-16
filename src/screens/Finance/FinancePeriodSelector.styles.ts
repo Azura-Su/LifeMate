@@ -20,8 +20,6 @@ export const styles = StyleSheet.create({
     height: 42,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
-    backgroundColor: colors.background,
   },
   selectedMonthButton: {
     flex: 1,
@@ -29,12 +27,14 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 9,
     paddingHorizontal: 10,
-    borderRadius: 12,
-    backgroundColor: colors.primarySoft,
   },
-  selectedMonthText: { color: colors.ink, fontSize: 15, fontWeight: '700' },
+  selectedMonthText: {
+    color: colors.ink,
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   currentMonthButton: {
     alignSelf: 'center',
     minHeight: 28,

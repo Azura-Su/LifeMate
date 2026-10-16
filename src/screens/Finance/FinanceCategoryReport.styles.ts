@@ -3,7 +3,7 @@ import { colors, typography } from '../../theme';
 import { actionIconStyles } from '../../theme/actionIcons';
 
 export const categoryReportStyles = StyleSheet.create({
-  container: { gap: 12 },
+  container: { gap: 14 },
   periodCard: {
     gap: 6,
     padding: 10,
@@ -105,9 +105,12 @@ export const categoryReportStyles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
   },
-  rangeRow: { flexDirection: 'row', gap: 10 },
+  rangeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
   rangeButton: {
-    flex: 1,
+    width: '49%',
     minHeight: 58,
     justifyContent: 'center',
     gap: 3,
@@ -180,7 +183,14 @@ export const categoryReportStyles = StyleSheet.create({
   },
   categoryAmount: { fontSize: 13, fontWeight: '700', color: colors.earth },
   monthList: { gap: 10 },
-  monthTransactions: { gap: 14 },
+  monthTransactions: {
+    gap: 10,
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
+  },
   monthCard: {
     gap: 10,
     padding: 11,

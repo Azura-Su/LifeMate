@@ -177,6 +177,11 @@ export function FinanceCategoryReport({
     // Carry unresolved expenses into later months for display, without changing report totals.
     const now = Date.now();
     const current = new Date(now);
+    const todayEnd = new Date(
+      current.getFullYear(),
+      current.getMonth(),
+      current.getDate() + 1,
+    ).getTime();
     const currentIndex = current.getFullYear() * 12 + current.getMonth();
     const first =
       periodMode === 'year'
@@ -204,7 +209,7 @@ export function FinanceCategoryReport({
       const nextMonth = new Date(entryYear, entryMonth, 1).getTime();
       const pending = getPendingSharedExpenses(
         sharedExpenses,
-        Math.min(nextMonth, now + 1),
+        Math.min(nextMonth, todayEnd),
       );
       if (pending.length === 0) continue;
       const existing = months.get(index);
@@ -312,13 +317,14 @@ export function FinanceCategoryReport({
   }, [deferredSearchQuery, getAdditionalSearchText, report, visibleMonths]);
 
   const currentMonth = periodMode === 'month' ? visibleMonths[0] : null;
-  const carriedCount = currentMonth
+  const currentMonthCarriedPending = currentMonth
     ? currentMonth.pendingSharedExpenses.filter(
         ({ transaction }) =>
           transaction.createdAt <
           new Date(currentMonth.year, currentMonth.month - 1, 1).getTime(),
-      ).length
-    : 0;
+      )
+    : [];
+  const carriedCount = currentMonthCarriedPending.length;
 
   const activeQuery = searchQuery.trim();
   const incomeScope =
@@ -434,28 +440,36 @@ export function FinanceCategoryReport({
         </View>
       ) : periodMode === 'month' ? (
         <View style={styles.monthTransactions}>
-          {visibleMonths[0].pendingSharedExpenses.length > 0 && (
-            <View style={styles.monthPendingRow}>
+          {currentMonthCarriedPending.length > 0 && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Xem khoản còn chờ nhận: ${carriedCount} khoản, ${formatFinanceAmount(
+                currentMonthCarriedPending.reduce(
+                  (sum, item) => sum + item.remaining,
+                  0,
+                ),
+              )}`}
+              onPress={() => {
+                const pending = currentMonthCarriedPending[0];
+                if (pending) onEdit(pending.transaction);
+              }}
+              style={styles.monthPendingRow}
+            >
               <Text style={styles.monthPendingLabel}>
-                Còn chờ nhận · {visibleMonths[0].pendingSharedExpenses.length}{' '}
-                khoản
+                Còn chờ nhận · {carriedCount} khoản
               </Text>
               <Text style={styles.monthPendingAmount}>
                 {formatFinanceAmount(
-                  visibleMonths[0].pendingSharedExpenses.reduce(
+                  currentMonthCarriedPending.reduce(
                     (sum, item) => sum + item.remaining,
                     0,
                   ),
                 )}
               </Text>
-            </View>
+            </Pressable>
           )}
           <FinancePendingSharedExpenses
-            items={visibleMonths[0].pendingSharedExpenses.filter(
-              ({ transaction }) =>
-                transaction.createdAt <
-                new Date(month.year, month.month - 1, 1).getTime(),
-            )}
+            items={currentMonthCarriedPending}
             onOpen={onEdit}
           />
           {visibleMonths[0].transactions.length > 0 && (
