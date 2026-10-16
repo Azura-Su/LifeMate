@@ -50,7 +50,10 @@ export function useRegisterScreen() {
   const [created, setCreated] = useState<CreatedAccount | null>(null);
   const submitting = useRef(false);
   const mounted = useRef(true);
-  useEffect(() => () => void (mounted.current = false), []);
+  useEffect(() => {
+    mounted.current = true;
+    return () => void (mounted.current = false);
+  }, []);
 
   async function submit() {
     if (submitting.current) return;

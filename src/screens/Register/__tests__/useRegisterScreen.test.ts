@@ -149,6 +149,25 @@ describe('registration form', () => {
     expect(useAuthStore.getState().user?.uid).toBe('u1');
   });
 
+  it('finishes sending and checking after React replays the effect lifecycle', async () => {
+    // Strict effects must be enabled on the renderer root to replay cleanup/setup.
+    const strictRootOptions = {
+      concurrentRoot: true,
+      unstable_strictMode: true,
+    };
+    const { result } = renderHook(useRegisterScreen, strictRootOptions);
+    fill(result);
+    await act(async () => result.current.submit());
+    expect(result.current.created?.verificationSent).toBe(true);
+    expect(result.current.busy).toBeNull();
+
+    await act(async () => result.current.resendVerification());
+    expect(result.current.busy).toBeNull();
+    jest.mocked(refreshAccountVerification).mockResolvedValueOnce(true);
+    await act(async () => result.current.checkVerification());
+    expect(useAuthStore.getState().registrationPhase).toBe('idle');
+  });
+
   it('keeps the completion screen for an unverified email or failed check', async () => {
     const { result } = renderHook(useRegisterScreen);
     fill(result);
