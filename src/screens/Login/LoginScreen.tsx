@@ -112,15 +112,25 @@ export function LoginScreen() {
             />
           </View>
           {registrationEnabled ? (
-            <Button
-              title="Tạo tài khoản"
-              variant="secondary"
-              disabled={model.loading}
-              onPress={() => {
-                if (useConfigStore.getState().registrationEnabled)
-                  useAuthStore.getState().openRegistration();
-              }}
-            />
+            <View style={styles.registrationPrompt}>
+              <Text style={styles.registrationQuestion}>
+                Chưa có tài khoản?
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Tạo tài khoản"
+                accessibilityState={{ disabled: model.loading }}
+                disabled={model.loading}
+                onPress={() => {
+                  if (useConfigStore.getState().registrationEnabled)
+                    useAuthStore.getState().openRegistration();
+                }}
+                style={styles.registrationLink}
+              >
+                <Text style={styles.registrationLinkText}>Tạo tài khoản</Text>
+                <Feather name="arrow-right" size={16} color={colors.earth} />
+              </Pressable>
+            </View>
           ) : (
             <Text style={typography.small}>
               Sử dụng tài khoản đã được cấp để bắt đầu.

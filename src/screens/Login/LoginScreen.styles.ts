@@ -51,6 +51,27 @@ export const styles = StyleSheet.create({
   },
   submit: { marginTop: 16 },
   error: { color: colors.danger, fontSize: 14, lineHeight: 21 },
-  footer: { marginTop: 'auto', gap: 20, paddingTop: 24, paddingBottom: 12 },
+  registrationPrompt: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  registrationQuestion: { fontSize: 14, color: colors.muted },
+  registrationLink: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 4,
+  },
+  registrationLinkText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.earth,
+  },
+  footer: { gap: 10, marginTop: 28, paddingBottom: 12 },
   line: { width: 40, height: 3, backgroundColor: colors.primary },
 });

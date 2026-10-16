@@ -51,9 +51,11 @@ it('only opens registration when Remote Config enables it', () => {
   const view = renderLogin();
   expect(screen.getByRole('button', { name: 'Đăng nhập' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Tạo tài khoản' })).toBeNull();
+  expect(screen.queryByText('Chưa có tài khoản?')).toBeNull();
 
   act(() => useConfigStore.setState({ registrationEnabled: true }));
   expect(screen.getByRole('button', { name: 'Tạo tài khoản' })).toBeTruthy();
+  expect(screen.getByText('Chưa có tài khoản?')).toBeTruthy();
   fireEvent.press(screen.getByRole('button', { name: 'Tạo tài khoản' }));
   expect(useAuthStore.getState().authView).toBe('register');
 
