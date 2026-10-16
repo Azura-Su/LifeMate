@@ -86,7 +86,9 @@ jest.mock('../../services/firebase/authService', () => ({
   login: jest.fn(),
 }));
 jest.mock('../../services/firebase/remoteConfigService', () => ({
-  loadRemoteUsers: jest.fn(),
+  loadRemoteConfig: jest.fn(),
+  readActivatedRemoteConfig: jest.fn(),
+  observeRemoteConfig: jest.fn().mockReturnValue(jest.fn()),
 }));
 jest.mock('../../services/firebase/messagingService', () => ({
   disablePush: jest.fn().mockResolvedValue(undefined),

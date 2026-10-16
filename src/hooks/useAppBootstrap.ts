@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import { observeAuth } from '../services/firebase/authService';
+import { observeRemoteConfig } from '../services/firebase/remoteConfigService';
 import {
   disablePush,
   observePush,
@@ -21,6 +22,7 @@ const PUSH_RECHECK_MS = 30 * 60 * 1000;
 
 export function useAppBootstrap() {
   const uid = useAuthStore((state) => state.user?.uid);
+  const initializing = useAuthStore((state) => state.initializing);
   useEffect(
     () =>
       observeAuth(
@@ -62,6 +64,15 @@ export function useAppBootstrap() {
     });
     return () => listener.remove();
   }, []);
+
+  useEffect(() => {
+    if (initializing || uid) return;
+    const unsubscribe = observeRemoteConfig(
+      () => useConfigStore.getState().applyActivated(),
+      () => undefined,
+    );
+    return unsubscribe;
+  }, [initializing, uid]);
 
   useEffect(() => {
     if (!uid) return;

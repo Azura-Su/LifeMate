@@ -12,7 +12,8 @@ jest.mock('../../../services/firebase/messagingService', () => ({
   registerPush: jest.fn(),
 }));
 jest.mock('../../../services/firebase/remoteConfigService', () => ({
-  loadRemoteUsers: jest.fn(),
+  loadRemoteConfig: jest.fn(),
+  readActivatedRemoteConfig: jest.fn(),
 }));
 
 describe('logout', () => {

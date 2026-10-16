@@ -15,6 +15,7 @@ import { useNoteStore } from '../../store/noteStore';
 import { cancelAllLoanReminders } from '../../services/finance/loanReminders';
 import { cancelAllAgendaReminders } from '../../services/agenda/agendaReminders';
 import { migrateSensitiveCache } from '../../services/security/encryptedLocalStorage';
+import { observeRemoteConfig } from '../../services/firebase/remoteConfigService';
 
 jest.mock('@react-native-firebase/firestore', () =>
   jest.requireActual('../../testing/firestoreMock'),
@@ -38,7 +39,18 @@ jest.mock('../../services/security/encryptedLocalStorage', () => ({
   migrateSensitiveCache: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('../../services/firebase/remoteConfigService', () => ({
-  loadRemoteUsers: jest.fn().mockResolvedValue({ users: [], warning: null }),
+  loadRemoteConfig: jest
+    .fn()
+    .mockResolvedValue({
+      users: [],
+      registrationEnabled: false,
+      warning: null,
+    }),
+  readActivatedRemoteConfig: jest.fn().mockReturnValue({
+    users: [],
+    registrationEnabled: false,
+  }),
+  observeRemoteConfig: jest.fn().mockReturnValue(jest.fn()),
 }));
 
 describe('session lifecycle', () => {
@@ -97,6 +109,20 @@ describe('session lifecycle', () => {
     expect(useFinanceStore.getState().uid).toBeNull();
     expect(useAgendaStore.getState().uid).toBeNull();
     expect(useNoteStore.getState().uid).toBeNull();
+    unmount();
+  });
+
+  it('listens for registration config only while signed out', async () => {
+    const stopConfig = jest.fn();
+    jest.mocked(observeRemoteConfig).mockReturnValue(stopConfig);
+    const { unmount } = renderHook(useAppBootstrap);
+    await act(async () => authChanged(null));
+    expect(observeRemoteConfig).toHaveBeenCalledTimes(1);
+
+    await act(async () =>
+      authChanged({ uid: 'a', email: 'a@b.co', displayName: null }),
+    );
+    expect(stopConfig).toHaveBeenCalledTimes(1);
     unmount();
   });
 });

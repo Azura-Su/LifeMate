@@ -18,7 +18,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RefreshControl } from 'react-native';
 import { useAgendaStore } from '../../../store/agendaStore';
 import { useNoteStore } from '../../../store/noteStore';
-import { loadRemoteUsers } from '../../../services/firebase/remoteConfigService';
+import { loadRemoteConfig } from '../../../services/firebase/remoteConfigService';
 import type { AgendaItem } from '../../../types/agenda';
 import type { LifeNote } from '../../../types/note';
 import type { FinanceTransaction } from '../../../types/finance';
@@ -51,7 +51,8 @@ jest.mock('@react-native-firebase/firestore', () =>
   jest.requireActual('../../../testing/firestoreMock'),
 );
 jest.mock('../../../services/firebase/remoteConfigService', () => ({
-  loadRemoteUsers: jest.fn(),
+  loadRemoteConfig: jest.fn(),
+  readActivatedRemoteConfig: jest.fn(),
 }));
 jest.mock('../../../services/firebase/authService', () => ({
   logout: jest.fn(),
@@ -147,8 +148,12 @@ it('keeps the pull-to-refresh indicator hidden during background loads', () => {
 });
 
 it('shows the pull-to-refresh indicator only while a manual refresh runs', async () => {
-  let finishConfig!: (value: { users: []; warning: null }) => void;
-  jest.mocked(loadRemoteUsers).mockImplementationOnce(
+  let finishConfig!: (value: {
+    users: [];
+    registrationEnabled: false;
+    warning: null;
+  }) => void;
+  jest.mocked(loadRemoteConfig).mockImplementationOnce(
     () =>
       new Promise((resolve) => {
         finishConfig = resolve;
@@ -159,7 +164,9 @@ it('shows the pull-to-refresh indicator only while a manual refresh runs', async
   fireEvent(screen.UNSAFE_getByType(RefreshControl), 'refresh');
   expect(screen.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(true);
 
-  await act(async () => finishConfig({ users: [], warning: null }));
+  await act(async () =>
+    finishConfig({ users: [], registrationEnabled: false, warning: null }),
+  );
   await waitFor(() =>
     expect(screen.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(
       false,
@@ -169,7 +176,7 @@ it('shows the pull-to-refresh indicator only while a manual refresh runs', async
 
 it('ends a manual refresh when a background service does not respond', async () => {
   jest
-    .mocked(loadRemoteUsers)
+    .mocked(loadRemoteConfig)
     .mockImplementationOnce(() => new Promise(() => undefined));
   jest.useFakeTimers();
   try {
