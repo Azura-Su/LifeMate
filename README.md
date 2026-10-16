@@ -95,16 +95,19 @@ tasks/                        plan và checklist
 ## Firebase Console cần thiết lập
 
 1. Mở project `baseapp-dd227`, **Authentication → Sign-in method → Email/Password → Enable**.
-2. Trong **Authentication → Users**, tạo tài khoản thử nghiệm, ví dụ `asher@example.com`, với mật khẩu do bạn chọn. App hiện hỗ trợ login, chưa có đăng ký/reset password/Google login.
+2. Trong **Authentication → Users**, có thể tạo sẵn tài khoản thử nghiệm, ví dụ `asher@example.com`, với mật khẩu do bạn chọn. Khi bật công tắc đăng ký ở bước 4, mọi email hợp lệ có thể tự tạo tài khoản trong app.
 3. **Remote Config → Add parameter**: key **`users`**, data type **JSON** (hoặc string chứa JSON), giá trị:
 
 ```json
 [{ "mail": "asher@example.com", "name": "Asher" }]
 ```
 
-4. **Publish changes**. Đăng nhập bằng email tương ứng: Home hiện **Asher** ở góc trên bên trái. Ghép email không phân biệt hoa/thường, bỏ khoảng trắng hai đầu. Nếu không có tên cấu hình, dùng displayName Firebase rồi phần tên trong email.
+4. **Remote Config → Add parameter**: key **`registration_enabled`**, kiểu **Boolean**, giá trị **`false`** khi chưa muốn hiện nút **Tạo tài khoản**; đổi thành **`true`** và **Publish changes** để mở đăng ký cho mọi email. Cờ chỉ điều khiển giao diện trong app, không khóa Firebase Authentication ở phía máy chủ. Nếu cần chặn tạo tài khoản trên mọi client, phải có cơ chế phía máy chủ riêng.
+5. Đăng nhập bằng email tương ứng: Home hiện **Asher** ở góc trên bên trái. Ghép email không phân biệt hoa/thường, bỏ khoảng trắng hai đầu. Nếu không có tên cấu hình, dùng `displayName` của Firebase Auth rồi phần tên trong email.
 
-App có defaults như dữ liệu mẫu. Khi khởi động/về foreground/kéo xuống Home, app fetch & activate. Development bỏ thời gian cache tối thiểu; production cache 1 giờ. Khi offline dùng activated cache; JSON không hợp lệ giữ dữ liệu hợp lệ đang có. Remote Config là dữ liệu tải xuống client, **không dùng chứa bí mật hoặc phân quyền**. Danh sách lớn/riêng tư nên chuyển sang database có security rules.
+App có defaults như dữ liệu mẫu; `registration_enabled` mặc định `false` khi chưa có giá trị kích hoạt. Khi khởi động/về foreground/kéo xuống Home, app fetch & activate. Khi chưa đăng nhập, app còn nhận thay đổi Remote Config theo thời gian thực lúc có mạng. Development bỏ thời gian cache tối thiểu; production cache 1 giờ cho lần fetch thường. Khi offline dùng activated cache nên nút đăng ký có thể vẫn hiện theo giá trị cũ. JSON `users` không hợp lệ giữ dữ liệu hợp lệ đang có. Remote Config là dữ liệu tải xuống client, **không dùng chứa bí mật hoặc phân quyền**. Danh sách lớn/riêng tư nên chuyển sang database có security rules.
+
+Tài khoản tự đăng ký được lưu trong **Firebase Authentication**: UID, email và tên hiển thị (`displayName`). App không tự ghi mật khẩu hoặc Firebase ID token vào kho dữ liệu ứng dụng. Dữ liệu riêng tiếp tục dùng UID hiện có trong Firestore và các kho của từng tính năng; không tạo thêm hồ sơ trong Firestore hay ghi email mới vào `users` Remote Config. Sau khi tạo tài khoản, app gửi thư xác nhận email; người dùng vẫn dùng dữ liệu riêng, còn kết bạn và chia sẻ Ký ức đòi email đã xác nhận. Nếu lưu tên hoặc gửi thư lỗi, màn hoàn tất cho thử lại từng bước. Đăng ký không bao gồm reset mật khẩu, Google/Apple login hoặc xóa tài khoản và dữ liệu.
 
 ## Khóa Tài chính
 

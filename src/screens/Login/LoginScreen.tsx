@@ -14,9 +14,14 @@ import { Button } from '../../components/Button';
 import { Screen } from '../../components/Screen';
 import { colors, typography } from '../../theme';
 import { useLoginScreen } from './useLoginScreen';
+import { useAuthStore } from '../../store/authStore';
+import { useConfigStore } from '../../store/configStore';
 
 export function LoginScreen() {
   const model = useLoginScreen();
+  const registrationEnabled = useConfigStore(
+    (state) => state.registrationEnabled,
+  );
   const passwordInput = useRef<TextInput>(null);
   return (
     <KeyboardAvoidingView
@@ -106,9 +111,21 @@ export function LoginScreen() {
               loading={model.loading}
             />
           </View>
-          <Text style={typography.small}>
-            Sử dụng tài khoản đã được cấp để bắt đầu.
-          </Text>
+          {registrationEnabled ? (
+            <Button
+              title="Tạo tài khoản"
+              variant="secondary"
+              disabled={model.loading}
+              onPress={() => {
+                if (useConfigStore.getState().registrationEnabled)
+                  useAuthStore.getState().openRegistration();
+              }}
+            />
+          ) : (
+            <Text style={typography.small}>
+              Sử dụng tài khoản đã được cấp để bắt đầu.
+            </Text>
+          )}
         </View>
         <View style={styles.footer}>
           <View style={styles.line} />

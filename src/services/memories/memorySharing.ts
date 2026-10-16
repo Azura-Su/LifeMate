@@ -1,9 +1,4 @@
-import {
-  getAuth,
-  getIdToken,
-  reload,
-  sendEmailVerification,
-} from '@react-native-firebase/auth';
+import { getAuth, getIdToken } from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -11,6 +6,10 @@ import { audioCloudApiKey, audioCloudUrl } from '../../config/audioCloud';
 import { memoryR2Bucket, memoryR2Origin } from '../../config/memoryR2';
 import { useAuthStore } from '../../store/authStore';
 import type { MemoryEntry } from '../../types/memory';
+import {
+  refreshAccountVerification,
+  sendAccountVerificationEmail,
+} from '../firebase/authService';
 import { memoryPhotoUri } from './memoryStorage';
 
 const MAX_SHARED_PHOTO_BYTES = 2 * 1024 * 1024;
@@ -89,9 +88,10 @@ export function memoryEmailVerificationNeeded(cause: unknown) {
 }
 
 export async function sendMemoryVerificationEmail(uid: string) {
-  const user = assertSession(uid);
+  assertSession(uid);
   try {
-    await sendEmailVerification(user);
+    await sendAccountVerificationEmail(uid);
+    assertSession(uid);
   } catch (cause) {
     const code =
       cause && typeof cause === 'object' && 'code' in cause ? cause.code : null;
@@ -110,12 +110,11 @@ export async function sendMemoryVerificationEmail(uid: string) {
 }
 
 export async function refreshMemoryVerification(uid: string) {
-  const user = assertSession(uid);
+  assertSession(uid);
   try {
-    await reload(user);
-    const refreshedUser = assertSession(uid);
-    await getIdToken(refreshedUser, true);
-    return refreshedUser.emailVerified;
+    const verified = await refreshAccountVerification(uid);
+    assertSession(uid);
+    return verified;
   } catch {
     throw new Error('Chưa kiểm tra được trạng thái email. Hãy thử lại sau.');
   }

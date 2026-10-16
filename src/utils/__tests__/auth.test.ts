@@ -1,4 +1,9 @@
-import { getAuthErrorMessage, validateLogin } from '../auth';
+import {
+  getAuthErrorMessage,
+  getRegistrationErrorMessage,
+  validateLogin,
+  validateRegistration,
+} from '../auth';
 
 describe('login boundary', () => {
   it('validates email and nonempty password without imposing signup password rules', () => {
@@ -17,5 +22,43 @@ describe('login boundary', () => {
     expect(
       getAuthErrorMessage({ code: 'auth/network-request-failed' }),
     ).toContain('kết nối');
+  });
+});
+
+describe('registration boundary', () => {
+  it('validates name, email, password and exact confirmation', () => {
+    expect(
+      validateRegistration('', 'a@b.co', 'abcdefgh', 'abcdefgh'),
+    ).toBeTruthy();
+    expect(
+      validateRegistration('A\nB', 'a@b.co', 'abcdefgh', 'abcdefgh'),
+    ).toBeTruthy();
+    expect(
+      validateRegistration('Asher', 'bad', 'abcdefgh', 'abcdefgh'),
+    ).toBeTruthy();
+    expect(
+      validateRegistration('Asher', 'a@b.co', 'short', 'short'),
+    ).toBeTruthy();
+    expect(
+      validateRegistration('Asher', 'a@b.co', 'abcdefgh', 'abcdefgh '),
+    ).toBeTruthy();
+    expect(
+      validateRegistration(' Asher ', ' A@B.Co ', 'abcdefgh', 'abcdefgh'),
+    ).toBeNull();
+  });
+
+  it('maps provider errors without exposing raw details', () => {
+    expect(
+      getRegistrationErrorMessage({ code: 'auth/email-already-in-use' }),
+    ).toContain('email');
+    expect(
+      getRegistrationErrorMessage({ code: 'auth/weak-password' }),
+    ).toContain('Mật khẩu');
+    expect(
+      getRegistrationErrorMessage({ code: 'auth/network-request-failed' }),
+    ).toContain('kết nối');
+    expect(
+      getRegistrationErrorMessage(new Error('secret internal detail')),
+    ).not.toContain('secret');
   });
 });
