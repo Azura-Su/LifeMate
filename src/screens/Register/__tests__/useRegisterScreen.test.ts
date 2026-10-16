@@ -113,10 +113,98 @@ describe('registration form', () => {
     expect(createAccount).toHaveBeenCalledTimes(1);
   });
 
+  it('sends verification before waiting for profile setup', async () => {
+    let finishProfile!: () => void;
+    jest
+      .mocked(updateAccountDisplayName)
+      .mockImplementationOnce(
+        () => new Promise((resolve) => (finishProfile = resolve)),
+      );
+    const { result } = renderHook(useRegisterScreen);
+    fill(result);
+    let submission!: Promise<void>;
+    act(() => {
+      submission = result.current.submit();
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(updateAccountDisplayName).toHaveBeenCalledTimes(1);
+    expect(sendAccountVerificationEmail).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      finishProfile();
+      await submission;
+    });
+  });
+
+  it('enters the app after the signed-in account is verified', async () => {
+    jest.mocked(refreshAccountVerification).mockResolvedValueOnce(true);
+    const { result } = renderHook(useRegisterScreen);
+    fill(result);
+    await act(async () => result.current.submit());
+    await act(async () => result.current.checkVerification());
+    expect(result.current.created?.emailVerified).toBe(true);
+    expect(useAuthStore.getState().registrationPhase).toBe('idle');
+    expect(useAuthStore.getState().user?.uid).toBe('u1');
+  });
+
+  it('keeps the completion screen for an unverified email or failed check', async () => {
+    const { result } = renderHook(useRegisterScreen);
+    fill(result);
+    await act(async () => result.current.submit());
+    await act(async () => result.current.checkVerification());
+    expect(useAuthStore.getState().registrationPhase).toBe('created');
+    expect(result.current.error).toContain('chưa được xác nhận');
+    jest
+      .mocked(refreshAccountVerification)
+      .mockRejectedValueOnce(new Error('offline'));
+    await act(async () => result.current.checkVerification());
+    expect(useAuthStore.getState().registrationPhase).toBe('created');
+    expect(result.current.error).toContain('Chưa kiểm tra được');
+  });
+
+  it('does not enter a different account if the session changes during verification', async () => {
+    let finishCheck!: (verified: boolean) => void;
+    jest
+      .mocked(refreshAccountVerification)
+      .mockImplementationOnce(
+        () => new Promise((resolve) => (finishCheck = resolve)),
+      );
+    const { result } = renderHook(useRegisterScreen);
+    fill(result);
+    await act(async () => result.current.submit());
+    let checking!: Promise<void>;
+    act(() => {
+      checking = result.current.checkVerification();
+      useAuthStore.getState().setUser({ ...user, uid: 'other' });
+    });
+    await act(async () => {
+      finishCheck(true);
+      await checking;
+    });
+    expect(useAuthStore.getState().user?.uid).toBe('other');
+    expect(result.current.created?.emailVerified).toBe(false);
+  });
+
+  it('offers resend when the automatic verification email fails', async () => {
+    jest
+      .mocked(sendAccountVerificationEmail)
+      .mockRejectedValueOnce(new Error('offline'));
+    const { result } = renderHook(useRegisterScreen);
+    fill(result);
+    await act(async () => result.current.submit());
+    expect(result.current.created).toMatchObject({ verificationSent: false });
+    expect(useAuthStore.getState().registrationPhase).toBe('created');
+    await act(async () => result.current.resendVerification());
+    expect(result.current.created).toMatchObject({ verificationSent: true });
+    expect(sendAccountVerificationEmail).toHaveBeenCalledTimes(2);
+  });
+
   it('does not send setup actions for a user that signed out mid-flight', async () => {
     let finish!: () => void;
     jest
-      .mocked(updateAccountDisplayName)
+      .mocked(sendAccountVerificationEmail)
       .mockImplementationOnce(
         () => new Promise((resolve) => (finish = resolve)),
       );
@@ -132,7 +220,7 @@ describe('registration form', () => {
       finish();
       await submission;
     });
-    expect(sendAccountVerificationEmail).not.toHaveBeenCalled();
+    expect(updateAccountDisplayName).not.toHaveBeenCalled();
     expect(result.current.created).toBeNull();
   });
 

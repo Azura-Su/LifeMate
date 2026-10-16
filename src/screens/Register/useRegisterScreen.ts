@@ -16,6 +16,7 @@ import { normalizeEmail } from '../../utils/users';
 
 type CreatedAccount = {
   uid: string;
+  email: string;
   profileSaved: boolean;
   verificationSent: boolean;
   emailVerified: boolean;
@@ -105,8 +106,16 @@ export function useRegisterScreen() {
         setPassword('');
         setConfirmation('');
       }
-      let profileSaved = false;
+      if (!isCurrentRegistration(uid)) return;
       let verificationSent = false;
+      try {
+        await sendAccountVerificationEmail(uid);
+        verificationSent = true;
+      } catch {
+        // The account already exists; the completion screen offers a resend.
+      }
+      if (!isCurrentRegistration(uid)) return;
+      let profileSaved = false;
       try {
         await updateAccountDisplayName(uid, name);
         profileSaved = true;
@@ -114,17 +123,11 @@ export function useRegisterScreen() {
       } catch {
         // The account already exists; the completion screen offers a retry.
       }
-      if (!isCurrentRegistration(uid)) return;
-      try {
-        await sendAccountVerificationEmail(uid);
-        verificationSent = true;
-      } catch {
-        // Verification can be sent again without creating another account.
-      }
       if (mounted.current && isCurrentRegistration(uid)) {
         syncSessionProfile(uid);
         setCreated({
           uid,
+          email: currentSessionUser(uid)?.email ?? normalizeEmail(email),
           profileSaved,
           verificationSent,
           emailVerified: false,
@@ -185,8 +188,12 @@ export function useRegisterScreen() {
         setCreated((value) =>
           value ? { ...value, emailVerified: verified } : value,
         );
-        if (!verified)
+        if (verified) {
+          syncSessionProfile(created.uid);
+          useAuthStore.getState().finishRegistration(created.uid);
+        } else {
           setError('Email chưa được xác nhận. Hãy kiểm tra hộp thư.');
+        }
       }
     } catch {
       if (mounted.current)

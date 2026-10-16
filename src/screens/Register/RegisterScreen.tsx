@@ -157,7 +157,8 @@ export function RegisterScreen() {
                 />
               </View>
               <Text style={styles.hint}>
-                Xác nhận email để kết bạn và chia sẻ Ký ức sau khi đăng ký.
+                Chúng tôi sẽ gửi thư xác nhận đến email này ngay sau khi tạo tài
+                khoản.
               </Text>
             </View>
           </>
