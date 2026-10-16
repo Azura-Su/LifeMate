@@ -93,6 +93,45 @@ it('shows both totals for today and updates them when another day is selected', 
   expect(screen.queryByText('Chưa có giao dịch trong ngày này.')).toBeNull();
 });
 
+it('does not show shared-expense repayments as Home activity on their receipt date', () => {
+  renderCard({
+    today: new Date(2026, 9, 16, 12),
+    transactions: [
+      {
+        id: 'shared-lunch',
+        ownerId: 'u1',
+        type: 'expense',
+        amount: 98_000,
+        category: 'Ăn uống',
+        note: 'Ăn trưa',
+        createdAt: new Date(2026, 9, 11, 12).getTime(),
+        sharedExpense: {
+          participants: [{ id: 'friend', name: 'Bạn', owedAmount: 49_000 }],
+          receipts: [
+            {
+              id: 'paid',
+              participantId: 'friend',
+              amount: 49_000,
+              receivedAt: new Date(2026, 9, 16, 12).getTime(),
+              note: '',
+            },
+          ],
+        },
+      },
+    ],
+  });
+
+  expect(screen.getAllByText('0 ₫')).toHaveLength(2);
+  expect(screen.queryByText('-49.000 ₫')).toBeNull();
+  fireEvent.press(screen.getByRole('button', { name: 'Chọn ngày, hôm nay' }));
+  expect(
+    screen.getByTestId('home-finance-picker-day-2026-10-16').props
+      .accessibilityLabel,
+  ).toContain('chưa có giao dịch');
+  fireEvent.press(screen.getByTestId('home-finance-picker-day-2026-10-11'));
+  expect(screen.getByText('98.000 ₫')).toBeTruthy();
+});
+
 it('opens the month picker to choose any date without expanding the Home card', () => {
   renderCard();
 
