@@ -15,6 +15,7 @@ import {
 } from '../../utils/vietnameseCalendar';
 import {
   isCalendarNoteForDate,
+  isLunarAnnualCalendarNote,
   makeCalendarNoteId,
 } from '../../utils/calendarNotes';
 import { styles } from './HomeDayDetailsCard.styles';
@@ -180,17 +181,6 @@ export function HomeDayDetailsCard({
   return (
     <>
       <View style={styles.card}>
-        <View style={styles.dateHeading}>
-          <View style={styles.dateIcon}>
-            <Feather name="calendar" size={18} color={colors.earth} />
-          </View>
-          <View style={styles.dateCopy}>
-            <Text style={styles.dateTitle}>{dateLabel}</Text>
-            <Text style={typography.small}>
-              Âm lịch {formatLunarDate(lunar)} năm {lunar.year}
-            </Text>
-          </View>
-        </View>
         {events.length > 0 && (
           <View style={styles.eventList}>
             {events.map((event) => (
@@ -288,62 +278,65 @@ export function HomeDayDetailsCard({
             })}
           </View>
         )}
-        {dayNotes.length > 0 && (
-          <View style={styles.noteList}>
-            <Text style={styles.noteSectionTitle}>
-              Ghi chú · {dayNotes.length}
-            </Text>
-            {dayNotes.map((note) => (
-              <View key={note.id} style={styles.notePreview}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Mở ghi chú: ${displayTitle(note, dateKey)}`}
-                  onPress={() => openNote(note)}
-                  style={styles.noteOpen}
-                >
-                  <View style={styles.noteIcon}>
-                    <Feather name="file-text" size={16} color={colors.sky} />
-                  </View>
-                  <Text numberOfLines={1} style={styles.notePreviewTitle}>
-                    {displayTitle(note, dateKey)}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Xóa ghi chú: ${displayTitle(note, dateKey)}`}
-                  accessibilityState={{
-                    disabled: deletingNoteIds.has(note.id),
-                    busy: deletingNoteIds.has(note.id),
-                  }}
-                  disabled={deletingNoteIds.has(note.id)}
-                  onPress={() => confirmDelete(note)}
-                  style={styles.deleteNoteButton}
-                  hitSlop={4}
-                >
-                  {deletingNoteIds.has(note.id) ? (
-                    <ActivityIndicator size="small" color={colors.danger} />
-                  ) : (
-                    <Feather name="trash-2" size={17} color={colors.danger} />
-                  )}
-                </Pressable>
-              </View>
-            ))}
+        <View style={styles.noteList}>
+          <View style={styles.noteSectionHeading}>
+            <View style={styles.noteSectionLabel}>
+              <Text style={styles.noteSectionTitle}>Ghi chú</Text>
+              {dayNotes.length > 0 && (
+                <Text style={styles.noteSectionCount}>{dayNotes.length}</Text>
+              )}
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Thêm ghi chú cho ngày này"
+              onPress={addNote}
+              style={styles.addNoteButton}
+              hitSlop={4}
+            >
+              <Feather name="plus" size={22} color={colors.earth} />
+            </Pressable>
           </View>
-        )}
+          {dayNotes.map((note) => (
+            <View key={note.id} style={styles.notePreview}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Mở ghi chú: ${displayTitle(note, dateKey)}`}
+                onPress={() => openNote(note)}
+                style={styles.noteOpen}
+              >
+                <View style={styles.noteIcon}>
+                  <Feather name="file-text" size={17} color={colors.sky} />
+                </View>
+                <Text numberOfLines={1} style={styles.notePreviewTitle}>
+                  {displayTitle(note, dateKey)}
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Xóa ghi chú: ${displayTitle(note, dateKey)}`}
+                accessibilityState={{
+                  disabled: deletingNoteIds.has(note.id),
+                  busy: deletingNoteIds.has(note.id),
+                }}
+                disabled={deletingNoteIds.has(note.id)}
+                onPress={() => confirmDelete(note)}
+                style={styles.deleteNoteButton}
+                hitSlop={4}
+              >
+                {deletingNoteIds.has(note.id) ? (
+                  <ActivityIndicator size="small" color={colors.danger} />
+                ) : (
+                  <Feather name="trash-2" size={17} color={colors.danger} />
+                )}
+              </Pressable>
+            </View>
+          ))}
+        </View>
         {deleteError?.dateKey === dateKey && (
           <Text accessibilityRole="alert" style={styles.error}>
             {deleteError.message}
           </Text>
         )}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Thêm ghi chú cho ngày này"
-          onPress={addNote}
-          style={styles.addNote}
-        >
-          <Feather name="plus" size={16} color={colors.earth} />
-          <Text style={styles.addNoteText}>Thêm ghi chú cho ngày này</Text>
-        </Pressable>
       </View>
       <DialogModal
         visible={popupVisible}
@@ -375,6 +368,11 @@ export function HomeDayDetailsCard({
         <View style={styles.dialogDate}>
           <Text style={typography.small}>{dateLabel}</Text>
           <Text style={typography.small}>{lunarDateLabel}</Text>
+          {isLunarAnnualCalendarNote(title) && (
+            <Text style={typography.small}>
+              Lặp hằng năm theo ngày âm lịch của ghi chú.
+            </Text>
+          )}
         </View>
         <TextInput
           accessibilityLabel="Nội dung ghi chú trong ngày"

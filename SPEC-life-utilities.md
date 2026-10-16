@@ -55,6 +55,8 @@ Make daily use of LifeMate faster by improving the finance ledger, adding study-
 - User can create, edit, complete, and delete a dated task with optional details and reminder time.
 - User can add a saved task to the device calendar by opening a prefilled system calendar editor. Canceling the OS editor does not change the saved task.
 - The Home tasks sheet shows the day's tasks, completion action, and an add action; tasks remain usable if notifications/calendar access is unavailable.
+- The calendar month header lets users select a year from 1800 through 2200 while keeping the displayed month and day when valid.
+- Calendar notes whose titles begin with “Giỗ” recur on the original day's Vietnamese lunar date in later lunar years. A day-30 note appears on day 29 when that lunar month has only 29 days; leap-month notes recur in the regular month in later years. Existing birthday notes keep their solar-date recurrence.
 - Task notifications are local to the device and are rescheduled/canceled when the task changes, completes, or is deleted.
 
 ## Testing strategy

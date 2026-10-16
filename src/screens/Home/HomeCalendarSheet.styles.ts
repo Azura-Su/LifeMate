@@ -43,6 +43,12 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.ink,
   },
+  calendarDate: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+    color: colors.earth,
+  },
   closeButton: {
     width: 40,
     height: 40,

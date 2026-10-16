@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors, typography } from '../../theme';
+import { colors } from '../../theme';
 
 export const styles = StyleSheet.create({
   card: {
@@ -25,7 +25,6 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
-    backgroundColor: colors.skySoft,
   },
   disabledArrow: { opacity: 0.35 },
   monthTitle: {
@@ -36,14 +35,55 @@ export const styles = StyleSheet.create({
     color: colors.ink,
     textTransform: 'capitalize',
   },
-  todayButton: {
-    minHeight: 36,
+  monthPickerControl: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 10,
-    borderRadius: 12,
+    gap: 4,
+  },
+  monthTitleText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.ink,
+    textTransform: 'capitalize',
+  },
+  yearButton: {
+    minHeight: 32,
+    justifyContent: 'center',
+    paddingHorizontal: 7,
+    borderRadius: 10,
+    backgroundColor: colors.skySoft,
+  },
+  yearButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.earth,
+  },
+  yearGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  yearOption: {
+    width: '25%',
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 11,
+  },
+  selectedYearOption: { backgroundColor: colors.primarySoft },
+  yearOptionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.ink,
+  },
+  todayButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 2,
+    borderRadius: 10,
     backgroundColor: colors.sunlightSoft,
   },
-  todayText: { ...typography.small, color: colors.sunlight, fontWeight: '600' },
   legend: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -95,7 +135,11 @@ export const styles = StyleSheet.create({
   outsideMonth: { opacity: 0.42 },
   unsupportedDay: { opacity: 0.2 },
   todayCell: { borderWidth: 1, borderColor: colors.sunlightBorder },
-  selectedCell: { backgroundColor: colors.primary },
+  selectedCell: {
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.primary,
+  },
   solarDay: {
     fontSize: 15,
     lineHeight: 19,
@@ -104,7 +148,7 @@ export const styles = StyleSheet.create({
   },
   lunarDay: { fontSize: 9, lineHeight: 12, color: colors.sky },
   todayTextColor: { color: colors.sunlight, fontWeight: '700' },
-  selectedText: { color: colors.ink },
+  selectedText: { color: colors.ink, fontWeight: '700' },
   selectedLunarText: { color: colors.earth },
   dotsRow: {
     position: 'absolute',

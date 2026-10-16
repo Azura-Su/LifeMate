@@ -108,7 +108,10 @@ export function HomeCalendarSheet({
               <Text accessibilityRole="header" style={styles.title}>
                 {showCalendar ? 'Lịch' : 'Việc cần làm'}
               </Text>
-              <Text numberOfLines={1} style={typography.small}>
+              <Text
+                numberOfLines={1}
+                style={showCalendar ? styles.calendarDate : typography.small}
+              >
                 {dateLabel} · Âm lịch {formatLunarDate(lunar)}
               </Text>
             </View>

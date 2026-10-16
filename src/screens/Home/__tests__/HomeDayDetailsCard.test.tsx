@@ -44,7 +44,7 @@ it('shows the date and holiday, then opens and updates an existing day note', as
   expect(screen.getByLabelText('Nội dung ghi chú trong ngày').props.value).toBe(
     'Nhớ gọi trước 7 giờ tối.',
   );
-  expect(screen.getAllByText(/Âm lịch .* năm/)).toHaveLength(2);
+  expect(screen.getAllByText(/Âm lịch .* năm/)).toHaveLength(1);
   expect(screen.getByRole('button', { name: 'Đóng ghi chú' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Lưu lại' })).toBeNull();
   fireEvent.changeText(
@@ -146,7 +146,8 @@ it('shows multiple note titles and opens only the selected note body', () => {
     />,
   );
 
-  expect(screen.getByText('Ghi chú · 2')).toBeTruthy();
+  expect(screen.getByText('Ghi chú')).toBeTruthy();
+  expect(screen.getByText('2')).toBeTruthy();
   expect(screen.getByText('Gọi điện')).toBeTruthy();
   expect(screen.getByText('Lớp học')).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Lưu lại' })).toBeNull();
@@ -178,6 +179,57 @@ it('shows a saved birthday note on the same date in a later year', () => {
   expect(
     screen.getByRole('button', { name: 'Mở ghi chú: Sinh nhật vợ' }),
   ).toBeTruthy();
+});
+
+it('creates a Giỗ note that reappears by lunar date and edits the original note', async () => {
+  const onSave = jest.fn().mockResolvedValue(undefined);
+  const onDelete = jest.fn().mockResolvedValue(undefined);
+  const { rerender } = render(
+    <HomeDayDetailsCard
+      date={new Date(2026, 3, 26)}
+      uid="u1"
+      notes={[]}
+      synced
+      onSave={onSave}
+      onDelete={onDelete}
+    />,
+  );
+
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Thêm ghi chú cho ngày này' }),
+  );
+  fireEvent.changeText(
+    screen.getByLabelText('Tiêu đề ghi chú ngày'),
+    'Giỗ ông',
+  );
+  expect(
+    screen.getByText('Lặp hằng năm theo ngày âm lịch của ghi chú.'),
+  ).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Lưu lại' }));
+  await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+  const saved = onSave.mock.calls[0][1] as LifeNote;
+  expect(getCalendarNoteDateKey(saved.id)).toBe('2026-04-26');
+
+  rerender(
+    <HomeDayDetailsCard
+      date={new Date(2027, 3, 16)}
+      uid="u1"
+      notes={[saved]}
+      synced
+      onSave={onSave}
+      onDelete={onDelete}
+    />,
+  );
+  fireEvent.press(screen.getByRole('button', { name: 'Mở ghi chú: Giỗ ông' }));
+  fireEvent.changeText(
+    screen.getByLabelText('Nội dung ghi chú trong ngày'),
+    'Nhớ chuẩn bị hoa',
+  );
+  fireEvent.press(screen.getByRole('button', { name: 'Lưu lại' }));
+  await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
+  expect(onSave.mock.calls[1][1]).toEqual(
+    expect.objectContaining({ id: saved.id, body: 'Nhớ chuẩn bị hoa' }),
+  );
 });
 
 it('asks before deleting one day note and removes only the selected note', async () => {

@@ -1,3 +1,9 @@
+import {
+  MAX_SOLAR_YEAR,
+  MIN_SOLAR_YEAR,
+  solarToLunar,
+} from './vietnameseCalendar';
+
 const CALENDAR_NOTE_PREFIX = 'calendar-day-';
 
 // Day notes live in the regular notes store but are shown only in the calendar.
@@ -19,6 +25,10 @@ export function isAnnualCalendarNote(title: string) {
     normalizedTitle.includes('sinh nhat') ||
     normalizedTitle.includes('birthday')
   );
+}
+
+export function isLunarAnnualCalendarNote(title: string) {
+  return /^giỗ(?:$|[^A-Za-zÀ-ỹ])/i.test(title.trimStart());
 }
 
 function parseDateKey(dateKey: string) {
@@ -44,11 +54,53 @@ export function isCalendarNoteForDate(
   const sourceDateKey = getCalendarNoteDateKey(note.id);
   if (!sourceDateKey) return false;
   if (sourceDateKey === dateKey) return true;
-  if (!isAnnualCalendarNote(note.title)) return false;
 
   const sourceDate = parseDateKey(sourceDateKey);
   const targetDate = parseDateKey(dateKey);
-  if (!sourceDate || !targetDate || targetDate.year < sourceDate.year)
+  if (!sourceDate || !targetDate) return false;
+
+  if (isLunarAnnualCalendarNote(note.title)) {
+    if (
+      sourceDate.year < MIN_SOLAR_YEAR ||
+      sourceDate.year > MAX_SOLAR_YEAR ||
+      targetDate.year < MIN_SOLAR_YEAR ||
+      targetDate.year > MAX_SOLAR_YEAR
+    )
+      return false;
+    const sourceLunar = solarToLunar(
+      sourceDate.day,
+      sourceDate.month,
+      sourceDate.year,
+    );
+    const targetLunar = solarToLunar(
+      targetDate.day,
+      targetDate.month,
+      targetDate.year,
+    );
+    if (
+      targetLunar.year <= sourceLunar.year ||
+      targetLunar.month !== sourceLunar.month ||
+      targetLunar.leapMonth
+    )
+      return false;
+    if (targetLunar.day === sourceLunar.day) return true;
+    if (sourceLunar.day !== 30 || targetLunar.day !== 29) return false;
+
+    // A 30th-day anniversary falls on the final day of a 29-day lunar month.
+    const nextDate = new Date(
+      Date.UTC(targetDate.year, targetDate.month - 1, targetDate.day + 1),
+    );
+    if (nextDate.getUTCFullYear() > MAX_SOLAR_YEAR) return false;
+    return (
+      solarToLunar(
+        nextDate.getUTCDate(),
+        nextDate.getUTCMonth() + 1,
+        nextDate.getUTCFullYear(),
+      ).day === 1
+    );
+  }
+
+  if (!isAnnualCalendarNote(note.title) || targetDate.year < sourceDate.year)
     return false;
   if (
     sourceDate.month === targetDate.month &&
