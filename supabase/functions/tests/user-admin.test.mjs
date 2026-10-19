@@ -233,6 +233,7 @@ function jobsFixture() {
   const events = [];
   let fail = false;
   let cleanupFail = false;
+  let gameCleanupFail = false;
   let authFail = false;
   let authPresent = true;
   let failAuthAck = false;
@@ -285,6 +286,10 @@ function jobsFixture() {
       if (cleanupFail) throw Error('Storage offline');
       return true;
     },
+    clearGames: async () => {
+      events.push('games');
+      if (gameCleanupFail) throw Error('Game cleanup offline');
+    },
     now: () => clock,
     uuid: () => 'lease',
   });
@@ -304,6 +309,9 @@ function jobsFixture() {
     setCleanupFail: (value) => {
       cleanupFail = value;
     },
+    setGameCleanupFail: (value) => {
+      gameCleanupFail = value;
+    },
     setAuthFail: (value) => {
       authFail = value;
     },
@@ -312,6 +320,20 @@ function jobsFixture() {
     },
   };
 }
+test('game cleanup failure keeps deletion retryable and must finish before other private data cleanup', async () => {
+  const f = jobsFixture();
+  f.setGameCleanupFail(true);
+  await f.accounts.transition('target', 'delete', 'target@example.com');
+  assert.equal(f.row.status, 'deleting');
+  assert.equal(f.row.phase, 'sweeping');
+  assert.ok(!f.events.includes('firestore'));
+  f.setGameCleanupFail(false);
+  f.advance();
+  await f.accounts.sweep();
+  assert.equal(f.row.status, 'deleted');
+  assert.equal(f.row.phase, 'complete');
+  assert.ok(f.events.indexOf('games') < f.events.indexOf('firestore'));
+});
 test('durable block survives provider failure; sweep deletes Auth and data without grace wait', async () => {
   const f = jobsFixture();
   f.setFail(true);

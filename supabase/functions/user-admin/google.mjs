@@ -83,6 +83,11 @@ export function createGoogleAdmin(credentials, bucket, request = fetch) {
         disableUser: disabled,
         ...(disabled ? { validSince: String(validSince) } : {}),
       }),
+    setCustomClaims: (uid, claims) =>
+      api(`${auth}:update`, 'POST', {
+        localId: uid,
+        customAttributes: JSON.stringify(claims),
+      }),
     deleteAuth: async (uid) => {
       // Lookup handles the crash after deletion but before durable completion.
       const user = (await api(`${auth}:lookup`, 'POST', { localId: [uid] }))

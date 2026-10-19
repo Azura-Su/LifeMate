@@ -13,3 +13,7 @@ verify_jwt = false
 [functions.profile-access]
 # Firebase JWT and account access are checked inside the handler.
 verify_jwt = false
+
+[functions.game-access]
+# Firebase JWT verified in Edge; account revocation rechecked by transactional RPCs.
+verify_jwt = false

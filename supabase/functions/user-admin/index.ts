@@ -6,6 +6,7 @@ import { createGoogleAdmin } from './google.mjs';
 import { createAdminHandler } from './handler.mjs';
 import { createObjectCleanup } from './objects.mjs';
 import { createR2Cleanup } from './r2Cleanup.mjs';
+import { createGameBackend } from '../game-access/backend.mjs';
 
 const url = Deno.env.get('SUPABASE_URL');
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -17,6 +18,10 @@ const { database } = createMemoryBackend(url, serviceKey);
 const accounts = createAccounts({
   database,
   google,
+  clearGames: (uid: string) =>
+    createGameBackend(url, serviceKey)('lifemate_game_erase_account', {
+      p_uid: uid,
+    }),
   clearObjects: createObjectCleanup({
     url,
     serviceKey,
