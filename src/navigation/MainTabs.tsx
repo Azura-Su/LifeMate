@@ -13,6 +13,7 @@ import { MemoryScreen } from '../screens/Memories/MemoryScreen';
 import { ProtectedNotesScreen } from '../screens/Notes/ProtectedNotesScreen';
 import { AgendaScreen } from '../screens/Agenda/AgendaScreen';
 import { CardScoreScreen } from '../screens/CardScore/CardScoreScreen';
+import { CardGamesRoute } from '../screens/CardGames/CardGamesRoute';
 import { ChecklistsScreen } from '../screens/Checklists/ChecklistsScreen';
 import { colors } from '../theme';
 import { UserManagementScreen } from '../screens/UserManagement/UserManagementScreen';
@@ -31,6 +32,7 @@ const icons = {
   Notes: 'edit-3',
   Agenda: 'calendar',
   CardScore: 'award',
+  CardGames: 'layers',
   Checklists: 'check-square',
 } as const;
 
@@ -150,6 +152,15 @@ export function MainTabs() {
       <Tab.Screen
         name="CardScore"
         component={CardScoreScreen}
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tab.Screen
+        name="CardGames"
+        component={CardGamesRoute}
         options={{
           tabBarButton: () => null,
           tabBarItemStyle: { display: 'none' },

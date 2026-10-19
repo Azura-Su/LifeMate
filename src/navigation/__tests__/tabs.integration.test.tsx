@@ -179,7 +179,7 @@ it('shows the configured name, opens all tabs, and returns to Login on logout', 
   const hiddenTabItems = screen
     .UNSAFE_getAllByType(View)
     .filter((item) => StyleSheet.flatten(item.props.style)?.display === 'none');
-  expect(hiddenTabItems).toHaveLength(5);
+  expect(hiddenTabItems).toHaveLength(6);
   expect(await screen.findByText('Asher')).toBeTruthy();
   expect(screen.getByLabelText('Home, tab, 1 of 4')).toBeTruthy();
   expect(screen.getByLabelText('Tài chính, tab, 2 of 4')).toBeTruthy();

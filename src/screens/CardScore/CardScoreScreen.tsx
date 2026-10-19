@@ -21,6 +21,7 @@ import {
   updateCardScoreMatch,
 } from '../../services/cardScore/cardScoreStorage';
 import { colors } from '../../theme';
+import { cardGamesEnabled } from '../../config/cardGames';
 import type {
   CardScoreMatch,
   CardScorePlayer,
@@ -484,6 +485,14 @@ export function CardScoreScreen({
         }
         contentStyle={styles.content}
       >
+        {cardGamesEnabled() && (
+          <Button
+            title="Chơi online"
+            variant="secondary"
+            compact
+            onPress={() => navigation.navigate('CardGames')}
+          />
+        )}
         {error && (
           <Text accessibilityRole="alert" style={styles.error}>
             {error}
