@@ -3,7 +3,7 @@
     "name": "LifeMate",
     "slug": "lifemate",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "userInterfaceStyle": "light",
     "icon": "./assets/icon.png",
     "scheme": "lifemate",
@@ -36,6 +36,12 @@
       }
     },
     "plugins": [
+      [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "PORTRAIT_UP"
+        }
+      ],
       [
         "expo-navigation-bar",
         {

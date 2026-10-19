@@ -9,6 +9,12 @@ export const styles = StyleSheet.create({
     gap: 10,
     paddingBottom: 10,
   },
+  playingHeader: { paddingBottom: 4 },
+  landscapeFixedHeader: {
+    maxWidth: '100%',
+    paddingTop: 4,
+    paddingHorizontal: 12,
+  },
   iconButton: {
     minWidth: 44,
     minHeight: 44,
@@ -111,6 +117,11 @@ export const styles = StyleSheet.create({
   },
   reconnecting: { backgroundColor: colors.sunlight },
   tableContent: { flex: 1, gap: 10, paddingHorizontal: 16, paddingTop: 10 },
+  landscapeTableContent: {
+    maxWidth: '100%',
+    paddingHorizontal: 12,
+    paddingTop: 4,
+  },
   opponents: { flexDirection: 'row', justifyContent: 'space-around', gap: 8 },
   opponent: {
     flex: 1,
@@ -177,6 +188,38 @@ export const styles = StyleSheet.create({
   sort: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 10 },
   sortText: { fontSize: 13, fontWeight: '600', color: colors.sky },
   footer: { flexDirection: 'row', gap: 10, paddingTop: 4 },
+  landscapeTable: { flex: 1, gap: 6 },
+  landscapeOpponents: {
+    minHeight: 56,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    gap: 8,
+  },
+  landscapeOpponent: {
+    minHeight: 52,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  landscapeAvatar: { width: 36, height: 36, borderRadius: 18 },
+  landscapeOpponentCopy: { justifyContent: 'center', minWidth: 64 },
+  landscapeBoard: { minHeight: 92, borderRadius: 18, padding: 8, gap: 4 },
+  landscapeBottom: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
+  landscapeHandSection: { flex: 1, gap: 2 },
+  landscapeHand: {
+    flexWrap: 'nowrap',
+    justifyContent: 'flex-start',
+    gap: 2,
+    paddingTop: 0,
+  },
+  landscapeActions: {
+    width: 154,
+    flexDirection: 'column',
+    gap: 6,
+    paddingTop: 0,
+  },
   resultRow: {
     flexDirection: 'row',
     gap: 10,

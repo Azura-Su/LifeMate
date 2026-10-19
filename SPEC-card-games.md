@@ -6,7 +6,7 @@ Người dùng đã chấp thuận kế hoạch ngày 19/10/2026. Triển khai m
 
 Home → Ghi điểm bài → Chơi online → Tạo phòng / Nhập mã → Sẵn sàng → Bắt đầu → Chơi → Kết quả / Ván tiếp. Phòng 2–4 người, mã 8 ký tự dễ đọc. Không có khán giả, bot, tiền cược hoặc giao dịch Tài chính. Trò chưa triển khai không được tạo phòng.
 
-Mỗi người thấy bài mình, số lá của đối thủ, bộ trên bàn, lượt và thời gian còn lại. Chọn lá rồi Đánh hoặc Bỏ lượt. Thao tác chờ máy chủ không xóa lá sớm, không loading lại cả bàn. Nút và lá chạm được có nhãn trợ năng; màn dọc, chữ lớn, bàn phím và safe area được kiểm tra.
+Mỗi người thấy bài mình, số lá của đối thủ, bộ trên bàn, lượt và thời gian còn lại. Chọn lá rồi Đánh hoặc Bỏ lượt. Thao tác chờ máy chủ không xóa lá sớm, không loading lại cả bàn. Sảnh giữ màn dọc; khi ván bắt đầu, bàn tự khóa ngang và tận dụng toàn bộ chiều rộng, rồi trả về dọc khi kết thúc, rời màn hoặc ứng dụng không còn active. Nút và lá chạm được có nhãn trợ năng; chữ lớn và safe area được kiểm tra ở cả hai hướng.
 
 ## Hợp đồng máy chủ
 

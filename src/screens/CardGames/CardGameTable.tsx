@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { Button } from '../../components/Button';
 import type { CardGameRoom, GameIntent } from '../../types/cardGame';
 import { PlayingCard, cardLabel } from './PlayingCard';
@@ -23,6 +29,8 @@ export function CardGameTable({
   onAction: (action: GameIntent) => void;
 }) {
   const game = room.game!;
+  const { width, height } = useWindowDimensions();
+  const landscape = width > height;
   const [selected, setSelected] = useState<number[]>([]);
   const [sortBySuit, setSortBySuit] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -55,6 +63,149 @@ export function CardGameTable({
   const mySeat = game.players.find((p) => p.uid === uid);
   const canAct =
     !disabled && !mySeat?.finished && !mySeat?.forfeited && seconds > 0;
+  const opponents = game.players
+    .filter((p) => p.uid !== uid)
+    .map((p) => {
+      const member = room.members.find((m) => m.uid === p.uid);
+      return (
+        <View
+          key={p.uid}
+          style={[
+            styles.opponent,
+            landscape && styles.landscapeOpponent,
+            game.turn === p.uid && styles.currentOpponent,
+          ]}
+        >
+          <View style={[styles.avatar, landscape && styles.landscapeAvatar]}>
+            <Text style={styles.avatarText}>
+              {member?.name.slice(0, 1).toUpperCase() ?? '—'}
+            </Text>
+          </View>
+          <View style={landscape && styles.landscapeOpponentCopy}>
+            <Text numberOfLines={1} style={styles.opponentName}>
+              {member?.name ?? 'Đã rời phòng'}
+            </Text>
+            <Text style={styles.subtitle}>
+              {p.forfeited ? 'Bỏ cuộc' : p.finished ? 'Đã về' : `${p.count} lá`}
+            </Text>
+            {game.passed.includes(p.uid) && (
+              <Text style={styles.subtitle}>Bỏ lượt</Text>
+            )}
+          </View>
+        </View>
+      );
+    });
+  const board = (
+    <View style={[styles.board, landscape && styles.landscapeBoard]}>
+      <Text style={styles.centerText}>
+        {game.table
+          ? `${room.members.find((p) => p.uid === game.table?.uid)?.name ?? 'Người chơi'} vừa đánh`
+          : 'Vòng mới'}
+      </Text>
+      {game.table ? (
+        <View style={styles.tableCards}>
+          {game.table.cards.map((c) => (
+            <PlayingCard key={c} card={c} />
+          ))}
+        </View>
+      ) : (
+        <Text style={styles.centerText}>Chọn bài để mở vòng</Text>
+      )}
+      <Text accessibilityLiveRegion="polite" style={styles.turnText}>
+        {seconds === 0
+          ? 'Đang chuyển lượt…'
+          : mine
+            ? `Lượt của bạn · ${seconds}s`
+            : `Lượt ${current} · ${seconds}s`}
+      </Text>
+      {mine && game.openingCard !== null && (
+        <Text style={styles.centerText}>
+          Bộ mở cần có {cardLabel(game.openingCard)}
+        </Text>
+      )}
+    </View>
+  );
+  const handSection = (
+    <View
+      style={[styles.handSection, landscape && styles.landscapeHandSection]}
+    >
+      <View style={styles.handHeading}>
+        <Text style={styles.name}>Bài của bạn · {hand.length}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Đổi cách sắp bài"
+          onPress={() => setSortBySuit(!sortBySuit)}
+          style={styles.sort}
+        >
+          <Text style={styles.sortText}>
+            Xếp theo {sortBySuit ? 'số' : 'chất'}
+          </Text>
+        </Pressable>
+      </View>
+      <View style={[styles.hand, landscape && styles.landscapeHand]}>
+        {hand.map((card) => (
+          <PlayingCard
+            key={card}
+            card={card}
+            selected={selected.includes(card)}
+            disabled={disabled || !active}
+            onPress={() =>
+              setSelected((old) =>
+                old.includes(card)
+                  ? old.filter((c) => c !== card)
+                  : [...old, card],
+              )
+            }
+          />
+        ))}
+      </View>
+      {!hand.length && (
+        <Text style={styles.body}>
+          Bạn đã hết bài. Đợi các bạn chơi xong ván nhé.
+        </Text>
+      )}
+    </View>
+  );
+  const actions = (
+    <View style={[styles.footer, landscape && styles.landscapeActions]}>
+      <View style={styles.grow}>
+        <Button
+          compact
+          variant="secondary"
+          title="Bỏ lượt"
+          disabled={!canAct || !mine || !game.table}
+          onPress={() => onAction({ type: 'pass' })}
+        />
+      </View>
+      <View style={styles.grow}>
+        <Button
+          compact
+          title={`Đánh ${selected.length} lá`}
+          loading={busy}
+          disabled={
+            !canAct || !selected.length || (!mine && selected.length !== 8)
+          }
+          onPress={() =>
+            onAction({
+              type: 'play',
+              cards: [...selected].sort((a, b) => a - b),
+            })
+          }
+        />
+      </View>
+    </View>
+  );
+  if (landscape)
+    return (
+      <View testID="game-table-landscape" style={styles.landscapeTable}>
+        <View style={styles.landscapeOpponents}>{opponents}</View>
+        {board}
+        <View style={styles.landscapeBottom}>
+          {handSection}
+          {actions}
+        </View>
+      </View>
+    );
   return (
     <>
       <ScrollView
@@ -63,134 +214,11 @@ export function CardGameTable({
         contentContainerStyle={styles.tableScrollable}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.opponents}>
-          {game.players
-            .filter((p) => p.uid !== uid)
-            .map((p) => {
-              const member = room.members.find((m) => m.uid === p.uid);
-              return (
-                <View
-                  key={p.uid}
-                  style={[
-                    styles.opponent,
-                    game.turn === p.uid && styles.currentOpponent,
-                  ]}
-                >
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
-                      {member?.name.slice(0, 1).toUpperCase() ?? '—'}
-                    </Text>
-                  </View>
-                  <Text numberOfLines={2} style={styles.opponentName}>
-                    {member?.name ?? 'Đã rời phòng'}
-                  </Text>
-                  <Text style={styles.subtitle}>
-                    {p.forfeited
-                      ? 'Bỏ cuộc'
-                      : p.finished
-                        ? 'Đã về'
-                        : `${p.count} lá`}
-                  </Text>
-                  {game.passed.includes(p.uid) && (
-                    <Text style={styles.subtitle}>Bỏ lượt</Text>
-                  )}
-                </View>
-              );
-            })}
-        </View>
-        <View style={styles.board}>
-          <Text style={styles.centerText}>
-            {game.table
-              ? `${room.members.find((p) => p.uid === game.table?.uid)?.name ?? 'Người chơi'} vừa đánh`
-              : 'Vòng mới'}
-          </Text>
-          {game.table ? (
-            <View style={styles.tableCards}>
-              {game.table.cards.map((c) => (
-                <PlayingCard key={c} card={c} />
-              ))}
-            </View>
-          ) : (
-            <Text style={styles.centerText}>Chọn bài để mở vòng</Text>
-          )}
-          <Text accessibilityLiveRegion="polite" style={styles.turnText}>
-            {seconds === 0
-              ? 'Đang chuyển lượt…'
-              : mine
-                ? `Lượt của bạn · ${seconds}s`
-                : `Lượt ${current} · ${seconds}s`}
-          </Text>
-          {mine && game.openingCard !== null && (
-            <Text style={styles.centerText}>
-              Bộ mở cần có {cardLabel(game.openingCard)}
-            </Text>
-          )}
-        </View>
-        <View style={styles.handSection}>
-          <View style={styles.handHeading}>
-            <Text style={styles.name}>Bài của bạn · {hand.length}</Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Đổi cách sắp bài"
-              onPress={() => setSortBySuit(!sortBySuit)}
-              style={styles.sort}
-            >
-              <Text style={styles.sortText}>
-                Xếp theo {sortBySuit ? 'số' : 'chất'}
-              </Text>
-            </Pressable>
-          </View>
-          <View style={styles.hand}>
-            {hand.map((card) => (
-              <PlayingCard
-                key={card}
-                card={card}
-                selected={selected.includes(card)}
-                disabled={disabled || !active}
-                onPress={() =>
-                  setSelected((old) =>
-                    old.includes(card)
-                      ? old.filter((c) => c !== card)
-                      : [...old, card],
-                  )
-                }
-              />
-            ))}
-          </View>
-          {!hand.length && (
-            <Text style={styles.body}>
-              Bạn đã hết bài. Đợi các bạn chơi xong ván nhé.
-            </Text>
-          )}
-        </View>
+        <View style={styles.opponents}>{opponents}</View>
+        {board}
+        {handSection}
       </ScrollView>
-      <View style={styles.footer}>
-        <View style={styles.grow}>
-          <Button
-            compact
-            variant="secondary"
-            title="Bỏ lượt"
-            disabled={!canAct || !mine || !game.table}
-            onPress={() => onAction({ type: 'pass' })}
-          />
-        </View>
-        <View style={styles.grow}>
-          <Button
-            compact
-            title={`Đánh ${selected.length} lá`}
-            loading={busy}
-            disabled={
-              !canAct || !selected.length || (!mine && selected.length !== 8)
-            }
-            onPress={() =>
-              onAction({
-                type: 'play',
-                cards: [...selected].sort((a, b) => a - b),
-              })
-            }
-          />
-        </View>
-      </View>
+      {actions}
     </>
   );
 }

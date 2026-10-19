@@ -6,11 +6,18 @@ import {
 } from '@testing-library/react-native';
 import { CardGamesScreen } from '../CardGamesScreen';
 import { useCardGame } from '../../../hooks/useCardGame';
+import { useCardGameOrientation } from '../../../hooks/useCardGameOrientation';
 import { useAuthStore } from '../../../store/authStore';
 import type { CardGameRoom } from '../../../types/cardGame';
 
 jest.mock('../../../hooks/useCardGame', () => ({ useCardGame: jest.fn() }));
+jest.mock('../../../hooks/useCardGameOrientation', () => ({
+  useCardGameOrientation: jest.fn(),
+}));
 jest.mock('@expo/vector-icons/Feather', () => 'Feather');
+jest.mock('react-native-screens', () => ({
+  Screen: jest.requireActual('react-native').View,
+}));
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: jest.requireActual('react-native').View,
   useSafeAreaInsets: () => ({ top: 0, bottom: 12, left: 0, right: 0 }),
@@ -92,12 +99,10 @@ it('shows seats and lets only the host start a fully ready lobby', () => {
 it('always exposes recovery for an uncertain action even when a successful read cleared its error', () => {
   setup(base);
   const current = jest.mocked(useCardGame).mock.results.at(-1)!.value;
-  jest
-    .mocked(useCardGame)
-    .mockReturnValue({
-      ...current,
-      state: { ...current.state, pending: true, error: null },
-    });
+  jest.mocked(useCardGame).mockReturnValue({
+    ...current,
+    state: { ...current.state, pending: true, error: null },
+  });
   render(
     <CardGamesScreen
       navigation={{ navigate: jest.fn() } as never}
@@ -138,6 +143,7 @@ it('selects cards, submits only selected IDs and never renders opponent hands', 
     screen.getAllByRole('button', { name: /^(3 bích|4 chuồn)$/ }),
   ).toHaveLength(2);
   expect(screen.getByText('13 lá')).toBeTruthy();
+  expect(useCardGameOrientation).toHaveBeenLastCalledWith(true, true);
   expect(
     within(screen.getByTestId('game-table-scroll')).queryByRole('button', {
       name: 'Đánh 1 lá',
