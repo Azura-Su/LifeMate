@@ -98,14 +98,10 @@ service cloud.firestore {
     }
     function hasLinkedLoanRecord(uid, transactionData) {
       let loanPath = /databases/$(database)/documents/financeAccounts/$(uid)/loans/$(transactionData.loanId);
-      let deletedLoanPath = /databases/$(database)/documents/financeAccounts/$(uid)/deletedLoans/$(transactionData.loanId);
       return transactionData.repaymentReceivedAt is number
-        && ((existsAfter(loanPath)
-          && getAfter(loanPath).data.ownerId == uid
-          && getAfter(loanPath).data.repayments.hasAny([linkedLoanRepayment(transactionData)]))
-        || (existsAfter(deletedLoanPath)
-          && getAfter(deletedLoanPath).data.ownerId == uid
-          && getAfter(deletedLoanPath).data.repayments.hasAny([linkedLoanRepayment(transactionData)])));
+        && existsAfter(loanPath)
+        && getAfter(loanPath).data.ownerId == uid
+        && getAfter(loanPath).data.repayments.hasAny([linkedLoanRepayment(transactionData)]);
     }
     function hasLinkedLoanLendingRecord(uid, transactionData) {
       let loanPath = /databases/$(database)/documents/financeAccounts/$(uid)/loans/$(transactionData.loanId);
@@ -302,22 +298,25 @@ service cloud.firestore {
         && getAfter(loanPath).data.lentAt == next.createdAt
         && getAfter(loanPath).data.updatedAt > get(loanPath).data.updatedAt;
     }
-    function deletesMistakenLoanExpense(uid, transactionData) {
+    function hasDeletedLoan(uid, transactionData) {
       let loanPath = /databases/$(database)/documents/financeAccounts/$(uid)/loans/$(transactionData.loanId);
       let deletedPath = /databases/$(database)/documents/financeAccounts/$(uid)/deletedLoans/$(transactionData.loanId);
+      return !existsAfter(loanPath)
+        && existsAfter(deletedPath)
+        && getAfter(deletedPath).data.ownerId == uid
+        && getAfter(deletedPath).data.id == transactionData.loanId
+        && getAfter(deletedPath).data.deleted == true;
+    }
+    function deletesMistakenLoanExpense(uid, transactionData) {
       return transactionData.get('expenseSource', '') == 'loan_lending'
         && transactionData.id == 'loan-lent-' + transactionData.loanId
           + (('advanceId' in transactionData) ? '-' + transactionData.advanceId : '')
-        && ((exists(loanPath)
-          && !existsAfter(loanPath)
-          && existsAfter(deletedPath)
-          && get(loanPath).data.repayments.size() == 0
-          && getAfter(deletedPath).data.ownerId == uid
-          && getAfter(deletedPath).data.repayments.size() == 0)
-          || (!exists(loanPath)
-            && exists(deletedPath)
-            && get(deletedPath).data.ownerId == uid
-            && get(deletedPath).data.repayments.size() == 0));
+        && hasDeletedLoan(uid, transactionData);
+    }
+    function deletesDeletedLoanRepayment(uid, transactionData) {
+      return transactionData.get('incomeSource', '') == 'loan_repayment'
+        && transactionData.id == 'loan-' + transactionData.loanId + '-' + transactionData.repaymentId
+        && hasDeletedLoan(uid, transactionData);
     }
     function deletesRemovedLoanAdvanceExpense(uid, transactionData) {
       let loanPath = /databases/$(database)/documents/financeAccounts/$(uid)/loans/$(transactionData.loanId);
@@ -566,6 +565,7 @@ service cloud.firestore {
         && ((resource.data.get('incomeSource', '') != 'loan_repayment'
             && resource.data.get('expenseSource', '') != 'loan_lending')
           || deletesMistakenLoanExpense(uid, resource.data)
+          || deletesDeletedLoanRepayment(uid, resource.data)
           || deletesRemovedLoanAdvanceExpense(uid, resource.data)
           || deletesCorrectedLoanRepayment(uid, resource.data));
       allow create, update: if owns(uid)

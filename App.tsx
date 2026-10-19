@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NotificationBanner } from './src/components/NotificationBanner';
 import { useAppBootstrap } from './src/hooks/useAppBootstrap';
+import { useAndroidNavigationBar } from './src/hooks/useAndroidNavigationBar';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { useAuthStore } from './src/store/authStore';
 import { colors } from './src/theme';
@@ -22,6 +23,7 @@ const theme = {
 };
 
 function LifeMate() {
+  useAndroidNavigationBar();
   useAppBootstrap();
   const signedIn = useAuthStore((state) => !!state.user);
   return (

@@ -275,6 +275,109 @@ async function main() {
     });
     await assertSucceeds(postRepayment.commit());
 
+    // Whole-loan deletion removes both directions and prevents stale receipt replay.
+    await assertFails(expense.delete());
+    await assertFails(receipt.delete());
+    const tombstone = owner.doc('financeAccounts/u1/deletedLoans/loan-1');
+    const incomeData = (await receipt.get()).data();
+    const deleteLoan = owner.batch();
+    deleteLoan.set(tombstone, {
+      id: 'loan-1',
+      ownerId: 'u1',
+      deleted: true,
+      updatedAt: 103,
+      repayments: [repayment],
+    });
+    deleteLoan.delete(loan);
+    deleteLoan.delete(expense);
+    deleteLoan.delete(receipt);
+    await assertSucceeds(deleteLoan.commit());
+    assert.equal((await expense.get()).exists, false);
+    assert.equal((await receipt.get()).exists, false);
+    await assertFails(receipt.set(incomeData));
+    // Historical rows retained by older clients can be explicitly cleaned up.
+    await environment.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().doc(expense.path).set(loanExpense());
+      await context.firestore().doc(receipt.path).set(incomeData);
+    });
+    await assertFails(outsider.doc(receipt.path).delete());
+    const cleanup = owner.batch();
+    cleanup.delete(expense);
+    cleanup.delete(receipt);
+    await assertSucceeds(cleanup.commit());
+
+    // The maximum supported history must stay within rule access-call limits.
+    const largeId = 'large-loan';
+    const largeLoan = {
+      ...loanRecord(),
+      id: largeId,
+      principalAmount: 10000,
+      repayments: Array.from({ length: 100 }, (_, index) => ({
+        id: `r${index}`,
+        amount: 1,
+        receivedAt: 101,
+        financeTransactionId: `loan-${largeId}-r${index}`,
+        status: 'posted',
+      })),
+      advances: Array.from({ length: 50 }, (_, index) => ({
+        id: `a${index}`,
+        amount: 1,
+        lentAt: 100,
+        financeTransactionId: `loan-lent-${largeId}-a${index}`,
+      })),
+      additionalAmount: 50,
+    };
+    const largeLoanRef = owner.doc(`financeAccounts/u1/loans/${largeId}`);
+    const largeRows = [
+      {
+        ...loanExpense(),
+        id: `loan-lent-${largeId}`,
+        loanId: largeId,
+        amount: 10000,
+      },
+      ...largeLoan.repayments.map((item) => ({
+        ...incomeData,
+        id: item.financeTransactionId,
+        loanId: largeId,
+        repaymentId: item.id,
+        amount: 1,
+      })),
+      ...largeLoan.advances.map((item) => ({
+        ...loanExpense(),
+        id: item.financeTransactionId,
+        loanId: largeId,
+        advanceId: item.id,
+        amount: 1,
+      })),
+    ];
+    await environment.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      const seed = db.batch();
+      seed.set(db.doc(largeLoanRef.path), largeLoan);
+      for (const row of largeRows)
+        seed.set(db.doc(`financeAccounts/u1/transactions/${row.id}`), row);
+      await seed.commit();
+    });
+    const removeLargeLoan = owner.batch();
+    removeLargeLoan.set(
+      owner.doc(`financeAccounts/u1/deletedLoans/${largeId}`),
+      {
+        id: largeId,
+        ownerId: 'u1',
+        deleted: true,
+        updatedAt: 104,
+        repayments: largeLoan.repayments,
+        advances: largeLoan.advances,
+        additionalAmount: 50,
+      },
+    );
+    removeLargeLoan.delete(largeLoanRef);
+    for (const row of largeRows)
+      removeLargeLoan.delete(
+        owner.doc(`financeAccounts/u1/transactions/${row.id}`),
+      );
+    await assertSucceeds(removeLargeLoan.commit());
+
     const sharedExpense = owner.doc(
       'financeAccounts/u1/transactions/shared-meal',
     );

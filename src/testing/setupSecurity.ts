@@ -45,8 +45,15 @@ jest.mock('expo-crypto', () => {
     constructor(mockPayload: string) {
       this.mockPayload = mockPayload;
     }
-    static fromCombined(mockCombined: string) {
-      return new SealedData(mockCombined);
+    static fromCombined(mockCombined: Uint8Array) {
+      // Android accepts bytes, even though the SDK TypeScript API also allows strings.
+      if (!(mockCombined instanceof Uint8Array))
+        throw new Error(
+          '[fromCombined] Cannot convert encrypted payload to ByteArray',
+        );
+      let binary = '';
+      for (const byte of mockCombined) binary += String.fromCharCode(byte);
+      return new SealedData(btoa(binary));
     }
     async combined() {
       return this.mockPayload;

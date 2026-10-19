@@ -1,10 +1,11 @@
 import Feather from '@expo/vector-icons/Feather';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeScreen } from '../screens/Home/HomeScreen';
 import { ProfileScreen } from '../screens/Profile/ProfileScreen';
 import { ProtectedFinanceScreen } from '../screens/Finance/ProtectedFinanceScreen';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { useFinancePrivacy } from '../hooks/useFinancePrivacy';
 import { useNotesLockStore } from '../store/notesLockStore';
 import { Mp3Screen } from '../screens/Mp3/Mp3Screen';
@@ -34,6 +35,7 @@ const icons = {
 } as const;
 
 export function MainTabs() {
+  const insets = useSafeAreaInsets();
   const admin = useAuthStore((state) => isUserAdmin(state.user));
   const privacy = useFinancePrivacy();
   const { lock, setAppActive } = privacy;
@@ -59,6 +61,11 @@ export function MainTabs() {
   }, [lock, setAppActive]);
   return (
     <Tab.Navigator
+      safeAreaInsets={
+        Platform.OS === 'android'
+          ? { bottom: Math.max(insets.bottom, 12) }
+          : undefined
+      }
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: colors.earth,

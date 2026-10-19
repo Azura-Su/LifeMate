@@ -12,6 +12,8 @@ Yêu cầu và kiến trúc: [tasks/plan.md](tasks/plan.md). Ranh giới module:
 - Home, MP3, Ký ức và Tài chính giữ header cố định; menu Cài đặt có header riêng. MP3 chỉ cuộn danh sách file; các màn thư viện/editor có nút X để đóng và tiêu đề giữa.
 - Tích hợp push permissions, FCM token, token refresh, foreground/background/open.
 - UI tiếng Việt, có trạng thái loading/error/empty; logic nằm ngoài file màn hình.
+- Android ẩn thanh điều hướng hệ thống phía dưới khi vào app, quay lại foreground, lấy lại focus hoặc đóng bàn phím; vẫn gọi lại được bằng cử chỉ hệ thống. Không ẩn thanh trạng thái phía trên hoặc thay đổi iOS. Dùng expo-navigation-bar đúng SDK55 và config plugin visibility hidden; cần build Android mới.
+- Thanh tab Android có khoảng đệm dưới tối thiểu12pt khi thanh điều hướng hệ thống ẩn để icon/chữ không sát mép; vùng an toàn lớn hơn vẫn được giữ nguyên.
 - Thư viện audio riêng, nhập video/audio, nghe/cắt/ghép nối tuần tự và đồng bộ: [SPEC-audio.md](SPEC-audio.md).
 - Sổ thu chi theo UID, báo cáo thu nhập/chi tiêu theo năm hoặc khoảng tháng nhiều năm: [SPEC-finance.md](SPEC-finance.md).
 - Cho vay theo UID, ghi nhận các lần nhận lại vào Tài chính với nguồn riêng: [tasks/loan-ledger-plan-2026-10-11.md](tasks/loan-ledger-plan-2026-10-11.md).

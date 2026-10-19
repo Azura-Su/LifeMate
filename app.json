@@ -37,6 +37,12 @@
     },
     "plugins": [
       [
+        "expo-navigation-bar",
+        {
+          "visibility": "hidden"
+        }
+      ],
+      [
         "@react-native-firebase/app",
         {
           "ios": {

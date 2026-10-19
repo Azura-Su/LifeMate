@@ -1,5 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  deleteLoanData,
+  getOrCreateAdvanceAttempt,
+  recordLoanAdvanceAtomically,
   getPendingNewLoanAttempt,
   getOrCreateRepaymentAttempt,
   readLoanData,
@@ -9,6 +12,8 @@ import {
 } from '../loanStorage';
 import {
   getDocsFromServer,
+  getFirestoreMockRows,
+  seedFirestoreMock,
   resetFirestoreMock,
 } from '../../../testing/firestoreMock';
 import type { LoanRecord } from '../../../types/loan';
@@ -144,4 +149,46 @@ describe('loan repayment recovery', () => {
       ]),
     ).rejects.toThrow('đang chờ xác nhận');
   });
+});
+
+it('fully deletes lending and repayment transactions together, preserving other loans and accounts', async () => {
+  await saveLoanData('u1', loan);
+  await saveLoanData('u1', { ...loan, id: 'unrelated' });
+  await saveLoanData('u2', { ...loan, ownerId: 'u2' });
+  const advance = await getOrCreateAdvanceAttempt('u1', loan.id, 50, {
+    lentAt: loan.lentAt,
+    note: 'Thêm',
+  });
+  await recordLoanAdvanceAtomically('u1', loan.id, advance);
+  const receipt = await getOrCreateRepaymentAttempt('u1', loan.id, 100);
+  await recordLoanRepaymentAtomically('u1', loan.id, receipt);
+  const result = await deleteLoanData('u1', loan.id);
+  expect(result.loans.map(({ id }) => id)).toEqual(['unrelated']);
+  expect(getFirestoreMockRows('u1').map(({ loanId }) => loanId)).toEqual([
+    'unrelated',
+  ]);
+  expect(getFirestoreMockRows('u2')).toHaveLength(1);
+  await deleteLoanData('u1', loan.id);
+  expect(getFirestoreMockRows('u1')).toHaveLength(1);
+});
+
+it('cleans up explicitly retried historical deletion and rejects mismatched linked data atomically', async () => {
+  await saveLoanData('u1', loan);
+  const receipt = await getOrCreateRepaymentAttempt('u1', loan.id, 100);
+  await recordLoanRepaymentAtomically('u1', loan.id, receipt);
+  const historicalRows = getFirestoreMockRows('u1');
+  await deleteLoanData('u1', loan.id);
+  for (const row of historicalRows) seedFirestoreMock('u1', row);
+  await readLoanData('u1');
+  expect(getFirestoreMockRows('u1')).toHaveLength(2);
+  const result = await deleteLoanData('u1', loan.id);
+  expect(result.deletedLendingTransactionId).toBeDefined();
+  expect(getFirestoreMockRows('u1')).toEqual([]);
+  for (const row of historicalRows) seedFirestoreMock('u1', row);
+  seedFirestoreMock('u1', {
+    ...historicalRows.find(({ type }) => type === 'income')!,
+    amount: 999,
+  });
+  await expect(deleteLoanData('u1', loan.id)).rejects.toThrow();
+  expect(getFirestoreMockRows('u1')).toHaveLength(2);
 });

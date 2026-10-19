@@ -416,9 +416,7 @@ export function LoanLedgerModal({
     if (!canInteract()) return;
     Alert.alert(
       'Xóa khoản cho vay?',
-      loan.repayments.length === 0
-        ? `Xóa khoản của ${loan.borrowerName} và tất cả khoản chi cho vay liên kết trong Tài chính?`
-        : `Hồ sơ của ${loan.borrowerName} sẽ bị xóa khỏi sổ. Các giao dịch chi và thu đã ghi trong Tài chính vẫn được giữ lại.`,
+      `Xóa khoản của ${loan.borrowerName} cùng tất cả giao dịch cho vay và nhận lại liên quan? Tổng thu chi sẽ được cập nhật.`,
       [
         { text: 'Để sau', style: 'cancel' },
         {

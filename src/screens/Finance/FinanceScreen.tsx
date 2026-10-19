@@ -222,7 +222,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   const canDeleteLinkedExpense = useCallback(
     (transaction: FinanceTransaction) =>
       !loanLedger.loading &&
-      transaction.expenseSource === 'loan_lending' &&
+      isLoanLedgerTransaction(transaction) &&
       !!transaction.loanId &&
       correctableDeletedLoanIds.has(transaction.loanId),
     [correctableDeletedLoanIds, loanLedger.loading],
@@ -442,7 +442,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     Alert.alert(
       'Xóa giao dịch?',
       canDeleteLinkedExpense(transaction)
-        ? 'Hồ sơ cho vay đã xóa. Xóa luôn khoản chi liên kết còn sót trong Tài chính?'
+        ? 'Hồ sơ cho vay đã xóa. Xóa toàn bộ giao dịch cho vay và nhận lại còn sót của khoản này? Tổng thu chi sẽ được cập nhật.'
         : transaction.sharedExpense?.receipts.length
           ? 'Khoản chi và tất cả các lần nhận lại liên kết sẽ bị xóa. Báo cáo các kỳ sẽ được cập nhật.'
           : 'Giao dịch này sẽ được xóa khỏi sổ thu chi của tài khoản.',
@@ -462,7 +462,9 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     deletingIdsRef.current.add(transaction.id);
     setDeletingIds((current) => new Set(current).add(transaction.id));
     try {
-      await model.removeTransaction(transaction.id);
+      if (canDeleteLinkedExpense(transaction) && transaction.loanId)
+        await loanLedger.remove(transaction.loanId);
+      else await model.removeTransaction(transaction.id);
     } catch (cause) {
       Alert.alert(
         'Chưa xóa được giao dịch',

@@ -476,7 +476,7 @@ export function readLoanData(uid: string): Promise<LoanStorageResult> {
             value.ownerId === uid &&
             value.deleted === true &&
             Array.isArray(value.repayments) &&
-            value.repayments.length === 0
+            value.id === item.id
           );
         })
         .map(({ id }) => id);
@@ -647,85 +647,133 @@ export function deleteLoanData(
           transaction.get(deletedRef),
           transaction.get(lendingRef),
         ]);
-        if (deletedSnapshot.exists()) {
-          if (snapshot.exists())
-            throw new LoanDataConflictError(
-              'Khoản này đã được xóa trên một thiết bị khác.',
-            );
-          return undefined;
-        }
-        if (!snapshot.exists()) return undefined;
-        const sourceData = snapshot.data();
-        const loan = parseLoanRecord(sourceData, uid);
-        if (!loan)
+        if (deletedSnapshot.exists() && snapshot.exists())
+          throw new LoanDataConflictError(
+            'Khoản này đã được xóa trên một thiết bị khác.',
+          );
+        if (!snapshot.exists() && !deletedSnapshot.exists()) return undefined;
+        const sourceData = snapshot.exists()
+          ? snapshot.data()
+          : deletedSnapshot.data();
+        const loan = snapshot.exists()
+          ? parseLoanRecord(sourceData, uid)
+          : null;
+        const source = sourceData as Partial<DeletedLoanRecord> | undefined;
+        if (
+          !source ||
+          source.ownerId !== uid ||
+          source.id !== loanId ||
+          (snapshot.exists() ? !loan : source.deleted !== true) ||
+          !Array.isArray(source.repayments) ||
+          source.repayments.length > 100 ||
+          (source.advances !== undefined &&
+            (!Array.isArray(source.advances) || source.advances.length > 50))
+        )
           throw new LoanDataConflictError(
             'Dữ liệu khoản cho vay không hợp lệ nên không thể xóa.',
           );
-        const rawRepayments = (
-          sourceData as { repayments?: unknown } | undefined
-        )?.repayments;
-        if (!Array.isArray(rawRepayments))
+        const repayments = source.repayments.map((item) =>
+          parseRepayment(item, loanId),
+        );
+        const advances = (source.advances ?? []).map((item) =>
+          parseAdvance(item, loanId),
+        );
+        if (repayments.some((item) => !item) || advances.some((item) => !item))
           throw new LoanDataConflictError(
-            'Lịch sử nhận tiền không hợp lệ nên không thể xóa khoản này.',
+            'Lịch sử khoản cho vay không hợp lệ nên không thể xóa.',
           );
-        const deletedLoan: DeletedLoanRecord = {
-          id: loan.id,
-          ownerId: uid,
-          deleted: true,
-          updatedAt: nextRevision(loan.updatedAt),
-          // Preserve legacy fields such as repayment.updatedAt. Firestore
-          // rules require the tombstone history to exactly match the source.
-          repayments: rawRepayments as LoanRepayment[],
-          ...(loan.advances !== undefined
-            ? {
-                advances: loan.advances,
-                additionalAmount: loan.additionalAmount,
-              }
-            : {}),
-        };
-        const advanceExpenses =
-          loan.repayments.length === 0
-            ? await Promise.all(
-                (loan.advances ?? []).map(async (advance) => {
-                  const expenseRef = financeTransactionDocument(
-                    uid,
-                    advance.financeTransactionId,
-                  );
-                  const expenseSnapshot = await transaction.get(expenseRef);
-                  if (
-                    expenseSnapshot.exists() &&
-                    !matchesLendingTransaction(
-                      expenseSnapshot.data(),
-                      createAdvanceTransaction(uid, loan, advance),
-                      uid,
-                    )
-                  )
-                    throw new LoanDataConflictError(
-                      'Khoản chi cho vay thêm không khớp, chưa thể xóa.',
-                    );
-                  return { ref: expenseRef, exists: expenseSnapshot.exists() };
-                }),
-              )
-            : [];
-        if (loan.repayments.length === 0 && lendingSnapshot.exists()) {
-          const expected = createLendingTransaction(uid, loan);
-          if (!matchesLendingTransaction(lendingSnapshot.data(), expected, uid))
+        const linked = [
+          {
+            ref: lendingRef,
+            snapshot: lendingSnapshot,
+            matches: (row: FinanceTransaction) =>
+              row.type === 'expense' &&
+              row.expenseSource === 'loan_lending' &&
+              !row.advanceId &&
+              (!loan ||
+                matchesLendingTransaction(
+                  row,
+                  createLendingTransaction(uid, loan),
+                  uid,
+                )),
+          },
+          ...(await Promise.all(
+            advances.map(async (item) => {
+              const advance = item!;
+              const ref = financeTransactionDocument(
+                uid,
+                advance.financeTransactionId,
+              );
+              return {
+                ref,
+                snapshot: await transaction.get(ref),
+                matches: (row: FinanceTransaction) =>
+                  row.type === 'expense' &&
+                  row.expenseSource === 'loan_lending' &&
+                  row.advanceId === advance.id &&
+                  row.amount === advance.amount &&
+                  row.createdAt === advance.lentAt,
+              };
+            }),
+          )),
+          ...(await Promise.all(
+            repayments.map(async (item) => {
+              const repayment = item!;
+              const ref = financeTransactionDocument(
+                uid,
+                repayment.financeTransactionId,
+              );
+              return {
+                ref,
+                snapshot: await transaction.get(ref),
+                matches: (row: FinanceTransaction) =>
+                  row.type === 'income' &&
+                  row.incomeSource === 'loan_repayment' &&
+                  row.repaymentId === repayment.id &&
+                  row.amount === repayment.amount &&
+                  (row.repaymentReceivedAt ?? repayment.receivedAt) ===
+                    repayment.receivedAt,
+              };
+            }),
+          )),
+        ];
+        // Finish all reads and validation before deleting any linked entry.
+        for (const entry of linked) {
+          if (!entry.snapshot.exists()) continue;
+          const row = parseFinanceTransaction(entry.snapshot.data(), uid);
+          if (
+            !row ||
+            row.id !== entry.ref.id ||
+            row.loanId !== loanId ||
+            !entry.matches(row)
+          )
             throw new LoanDataConflictError(
-              'Giao dịch chi liên kết không khớp, chưa thể xóa khoản này.',
+              'Giao dịch liên kết không khớp, chưa thể xóa khoản này.',
             );
         }
-        transaction.set(deletedRef, deletedLoan);
-        transaction.delete(ref);
-        for (const expense of advanceExpenses) {
-          if (expense.exists) transaction.delete(expense.ref);
+        if (loan) {
+          const deletedLoan: DeletedLoanRecord = {
+            id: loan.id,
+            ownerId: uid,
+            deleted: true,
+            updatedAt: nextRevision(loan.updatedAt),
+            // Keep raw history for legacy fields and to block stale-device replay.
+            repayments: source.repayments,
+            ...(source.advances !== undefined
+              ? {
+                  advances: source.advances,
+                  additionalAmount: source.additionalAmount,
+                }
+              : {}),
+          };
+          transaction.set(deletedRef, deletedLoan);
+          transaction.delete(ref);
         }
-        if (loan.repayments.length === 0 && lendingSnapshot.exists()) {
-          transaction.delete(lendingRef);
-          return lendingTransactionId(loanId);
+        for (const entry of linked) {
+          if (entry.snapshot.exists()) transaction.delete(entry.ref);
         }
-        return advanceExpenses.some((expense) => expense.exists)
-          ? lendingTransactionId(loanId)
-          : undefined;
+        // Always reload Finance, including retries where the principal is absent.
+        return lendingTransactionId(loanId);
       }),
     );
     const loans = (await readLocal(uid)).filter((loan) => loan.id !== loanId);

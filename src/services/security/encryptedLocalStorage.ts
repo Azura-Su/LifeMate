@@ -81,18 +81,50 @@ async function encryptValue(uid: string, storageKey: string, value: string) {
   return `${ENCRYPTED_PREFIX}${await sealed.combined('base64')}`;
 }
 
+// expo-crypto 55 forwards Base64 strings unchanged, but Android fromCombined
+// accepts only bytes. Decode here without relying on browser-only globals.
+function decodeBase64(value: string) {
+  if (
+    !value ||
+    !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
+      value,
+    )
+  )
+    throw new Error('Invalid Base64');
+  const alphabet =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
+  const bytes = new Uint8Array((value.length / 4) * 3 - padding);
+  let offset = 0;
+  for (let index = 0; index < value.length; index += 4) {
+    const block =
+      (alphabet.indexOf(value[index]) << 18) |
+      (alphabet.indexOf(value[index + 1]) << 12) |
+      ((alphabet.indexOf(value[index + 2]) & 63) << 6) |
+      (alphabet.indexOf(value[index + 3]) & 63);
+    bytes[offset++] = (block >>> 16) & 255;
+    if (offset < bytes.length) bytes[offset++] = (block >>> 8) & 255;
+    if (offset < bytes.length) bytes[offset++] = block & 255;
+  }
+  return bytes;
+}
+
 async function decryptValue(uid: string, storageKey: string, value: string) {
-  const payload = value.slice(ENCRYPTED_PREFIX.length);
-  if (!payload)
+  const key = await encryptionKey(uid, false);
+  try {
+    const payload = decodeBase64(value.slice(ENCRYPTED_PREFIX.length));
+    const plaintext = await aesDecryptAsync(
+      AESSealedData.fromCombined(payload),
+      key,
+      { additionalData: associatedData(uid, storageKey) },
+    );
+    if (!(plaintext instanceof Uint8Array))
+      throw new Error('Invalid plaintext');
+    return new TextDecoder().decode(plaintext);
+  } catch {
+    // Native conversion errors may include the entire encrypted cache value.
     throw new Error('Không đọc được dữ liệu đã mã hóa trên thiết bị.');
-  const plaintext = await aesDecryptAsync(
-    AESSealedData.fromCombined(payload),
-    await encryptionKey(uid, false),
-    { additionalData: associatedData(uid, storageKey) },
-  );
-  if (!(plaintext instanceof Uint8Array))
-    throw new Error('Không đọc được dữ liệu đã mã hóa trên thiết bị.');
-  return new TextDecoder().decode(plaintext);
+  }
 }
 
 /** Reads encrypted data and upgrades legacy plaintext values in place. */

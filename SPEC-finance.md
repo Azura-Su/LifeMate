@@ -76,3 +76,5 @@ Theo cấu trúc screen/hook/styles và component hiện tại; validate dữ li
   lại, cùng lựa chọn xung đột phải mất hiệu lực khi lớp khóa xuất hiện, dialog
   đóng, đổi chủ dữ liệu hoặc unmount. Mở lại dialog không khôi phục callback
   xác nhận cũ. Android date picker cũng bỏ qua kết quả sau khi dialog đóng.
+
+- Xóa toàn bộ khoản cho vay xóa đồng thời giao dịch cho vay ban đầu, cho vay thêm và nhận lại, rồi tải lại báo cáo. Giữ marker xóa để thiết bị cũ không tạo lại khoản/giao dịch. Với hồ sơ đã xóa theo bản cũ, người dùng có thể xóa toàn bộ giao dịch còn sót qua xác nhận xóa từ một giao dịch liên kết trong Thu chi; không tự động xóa lịch sử cũ khi tải sổ.

@@ -199,7 +199,8 @@ export function useLoanLedger(uid: string | null) {
       busyIds.current.add(busyKey);
       try {
         const loan = loansRef.current.find(({ id }) => id === loanId);
-        if (!loan) throw new Error('Không tìm thấy khoản cho vay.');
+        if (!loan && !correctableDeletedLoanIds.includes(loanId))
+          throw new Error('Không tìm thấy khoản cho vay.');
         const result = await deleteLoanData(uid, loanId);
         assertActive();
         await clearRepaymentAttempt(uid, loanId).catch(() => undefined);
@@ -224,7 +225,7 @@ export function useLoanLedger(uid: string | null) {
         busyIds.current.delete(busyKey);
       }
     },
-    [captureSession, publish, uid],
+    [captureSession, correctableDeletedLoanIds, publish, uid],
   );
 
   const correctPrincipal = useCallback(

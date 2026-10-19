@@ -27,8 +27,15 @@ import {
 } from '../../../services/finance/financeStorage';
 import { setEncryptedItem } from '../../../services/security/encryptedLocalStorage';
 import { readFinancePreferences } from '../../../services/finance/financePreferences';
+import {
+  deleteLoanData,
+  saveLoanData,
+  getOrCreateRepaymentAttempt,
+  recordLoanRepaymentAtomically,
+} from '../../../services/finance/loanStorage';
 import type { FinanceTransaction } from '../../../types/finance';
 import {
+  getFirestoreMockRows,
   resetFirestoreMock,
   seedFirestoreMock,
   seedFinancePreferencesMock,
@@ -1304,4 +1311,56 @@ it('hides the held-money creation modal when Finance is suspended', async () => 
   expect(
     screen.queryByRole('header', { name: 'Khoản đóng hộ mới' }),
   ).toBeNull();
+});
+
+it('explicitly cleans all historical loan rows from either orphan row and refreshes Finance', async () => {
+  const uid = 'finance-user';
+  const loanId = 'deleted-with-receipt';
+  await saveLoanData(uid, {
+    id: loanId,
+    ownerId: uid,
+    borrowerName: 'An',
+    principalAmount: 50000,
+    lentAt: Date.now(),
+    dueAt: null,
+    remindOnDueDate: false,
+    note: '',
+    repayments: [],
+    cancelledAt: null,
+    updatedAt: Date.now(),
+  });
+  const repayment = await getOrCreateRepaymentAttempt(uid, loanId, 5000);
+  await recordLoanRepaymentAtomically(uid, loanId, repayment);
+  const retained = getFirestoreMockRows(uid);
+  await deleteLoanData(uid, loanId);
+  for (const row of retained) seedFirestoreMock(uid, row);
+  let confirm: (() => void) | undefined;
+  const alert = jest
+    .spyOn(Alert, 'alert')
+    .mockImplementation((_title, _message, buttons) => {
+      confirm = buttons?.find((button) => button.style === 'destructive')
+        ?.onPress as (() => void) | undefined;
+    });
+  try {
+    renderFinanceScreen();
+    const remove = await screen.findByRole('button', {
+      name: 'Xóa giao dịch Nhận lại tiền từ An',
+    });
+    expect(getFirestoreMockRows(uid)).toHaveLength(2);
+    fireEvent.press(remove);
+    expect(alert).toHaveBeenCalledWith(
+      'Xóa giao dịch?',
+      expect.stringContaining('toàn bộ'),
+      expect.any(Array),
+    );
+    await act(async () => {
+      confirm?.();
+    });
+    await waitFor(() =>
+      expect(useFinanceStore.getState().transactions).toHaveLength(0),
+    );
+    expect(getFirestoreMockRows(uid)).toHaveLength(0);
+  } finally {
+    alert.mockRestore();
+  }
 });
