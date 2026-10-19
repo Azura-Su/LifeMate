@@ -11,6 +11,7 @@ import {
   sendAccountVerificationEmail,
 } from '../firebase/authService';
 import { memoryPhotoUri } from './memoryStorage';
+import { accountTask } from '../security/accountLifecycle';
 
 const MAX_SHARED_PHOTO_BYTES = 2 * 1024 * 1024;
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
@@ -54,6 +55,18 @@ function serviceError(status: number, code?: string) {
   if (code === 'email-not-verified')
     return new MemoryEmailNotVerifiedError(
       'Email đăng nhập chưa được xác nhận để kết bạn và chia sẻ ký ức.',
+    );
+  if (code === 'memory-pending')
+    return new Error('Hãy gỡ bản chia sẻ đang chờ trước khi thay đổi ảnh.');
+  if (code === 'memory-revoking')
+    return new Error('Đang gỡ chia sẻ ký ức. Hãy thử lại sau vài phút.');
+  if (code === 'memory-migrating')
+    return new Error(
+      'Đang chuyển ảnh ký ức sang R2. Hãy thử lại sau vài phút.',
+    );
+  if (code === 'memory-deleted')
+    return new MemoryShareNotStartedError(
+      'Ký ức này đã bị xóa trên thiết bị khác. Hãy tạo ký ức mới để chia sẻ.',
     );
   if (code === 'invite-not-found')
     return new Error('Lời mời này không còn hiệu lực.');
@@ -125,6 +138,8 @@ async function requestMemoryAction(
   displayName: string,
   input: Record<string, unknown>,
   retryVerification = true,
+  retryResponse = true,
+  responseDeadline?: number,
 ): Promise<Record<string, unknown>> {
   const user = assertSession(uid);
   const origin = audioCloudUrl();
@@ -133,27 +148,88 @@ async function requestMemoryAction(
     throw new MemoryShareNotStartedError(
       'Chia sẻ ký ức chưa được kết nối. Ký ức riêng vẫn dùng được.',
     );
-  const token = await getIdToken(user);
-  assertSession(uid);
+  const { sessionEpoch } = useAuthStore.getState();
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20000);
-  try {
-    const response = await fetch(`${origin}/functions/v1/memory-access`, {
-      method: 'POST',
-      redirect: 'error',
-      signal: controller.signal,
-      headers: {
-        apikey: apiKey,
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
+  const expiresAt = responseDeadline ?? Date.now() + 20000;
+  let timeout: ReturnType<typeof setTimeout>;
+  // RN's XHR fetch detaches its abort listener before FileReader decodes JSON.
+  // Race both stages against the deadline so body reading cannot hang forever.
+  let rejectPending!: (cause: Error) => void;
+  const deadline = new Promise<never>((_, reject) => {
+    rejectPending = reject;
+    timeout = setTimeout(
+      () => {
+        controller.abort();
+        reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
       },
-      body: JSON.stringify({
-        ...input,
-        displayName: displayName.trim().slice(0, 60) || 'Người dùng',
-      }),
-    });
-    const value: unknown = await response.json().catch(() => ({}));
+      Math.max(0, expiresAt - Date.now()),
+    );
+  });
+  const unsubscribe = useAuthStore.subscribe((state) => {
+    if (state.user?.uid !== uid || state.sessionEpoch !== sessionEpoch) {
+      rejectPending(new Error('Phiên tài khoản đã thay đổi.'));
+      controller.abort();
+    }
+  });
+  const assertActive = () => {
     assertSession(uid);
+    if (useAuthStore.getState().sessionEpoch !== sessionEpoch)
+      throw new Error('Phiên tài khoản đã thay đổi.');
+    if (controller.signal.aborted)
+      throw Object.assign(new Error('Aborted'), { name: 'AbortError' });
+  };
+  try {
+    const token = await Promise.race([getIdToken(user), deadline]);
+    assertActive();
+    const response = await Promise.race([
+      fetch(`${origin}/functions/v1/memory-access`, {
+        method: 'POST',
+        redirect: 'error',
+        signal: controller.signal,
+        headers: {
+          apikey: apiKey,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...input,
+          displayName: displayName.trim().slice(0, 60) || 'Người dùng',
+        }),
+      }),
+      deadline,
+    ]);
+    let value: unknown;
+    try {
+      value = await Promise.race([response.json(), deadline]);
+    } catch (error) {
+      assertActive();
+      if (response.ok) {
+        if (error instanceof Error && error.name === 'AbortError') throw error;
+        if (
+          retryResponse &&
+          ['state', 'feed', 'photo'].includes(String(input.action))
+        ) {
+          clearTimeout(timeout!);
+          controller.abort();
+          return requestMemoryAction(
+            uid,
+            displayName,
+            input,
+            retryVerification,
+            false,
+            expiresAt,
+          );
+        }
+        throw new Error('Phản hồi chia sẻ chưa đầy đủ. Hãy thử lại.');
+      }
+      value = {};
+    }
+    assertActive();
+    if (
+      response.ok &&
+      (!value || typeof value !== 'object' || Array.isArray(value))
+    )
+      throw new Error('Phản hồi chia sẻ không hợp lệ. Hãy thử lại.');
     const data =
       value && typeof value === 'object' && !Array.isArray(value)
         ? (value as Record<string, unknown>)
@@ -168,17 +244,28 @@ async function requestMemoryAction(
         response.status === 403 &&
         memoryEmailVerificationNeeded(error)
       ) {
-        clearTimeout(timeout);
         let verified: boolean;
         try {
-          verified = await refreshMemoryVerification(uid);
-          assertSession(uid);
+          verified = await Promise.race([
+            refreshMemoryVerification(uid),
+            deadline,
+          ]);
+          assertActive();
         } catch {
           // This request was rejected before any shared data could change.
           throw error;
         }
-        if (verified)
-          return requestMemoryAction(uid, displayName, input, false);
+        if (verified) {
+          clearTimeout(timeout!);
+          return requestMemoryAction(
+            uid,
+            displayName,
+            input,
+            false,
+            retryResponse,
+            expiresAt,
+          );
+        }
       }
       throw error;
     }
@@ -188,8 +275,9 @@ async function requestMemoryAction(
       throw new Error('Kết nối chia sẻ quá lâu. Hãy thử lại.');
     throw error;
   } finally {
-    clearTimeout(timeout);
+    clearTimeout(timeout!);
     controller.abort();
+    unsubscribe();
   }
 }
 
@@ -218,6 +306,7 @@ export async function getMemoryShareState(
   if (
     typeof data.email !== 'string' ||
     !Array.isArray(data.sharedIds) ||
+    !data.sharedIds.every((id) => typeof id === 'string' && ID.test(id)) ||
     (data.legacyIds !== undefined && !Array.isArray(data.legacyIds))
   )
     throw new Error('Chưa đọc được danh sách chia sẻ.');
@@ -259,9 +348,11 @@ export async function migrateLegacyMemoryPhotos(
       ? storedCursor % ids.length
       : 0;
   const batch = [...ids.slice(start), ...ids.slice(0, start)].slice(0, 10);
-  await AsyncStorage.setItem(
-    cursorKey,
-    String((start + batch.length) % ids.length),
+  await accountTask(uid, () =>
+    AsyncStorage.setItem(
+      cursorKey,
+      String((start + batch.length) % ids.length),
+    ),
   );
   let failed = 0;
   for (const id of batch) {
@@ -554,4 +645,13 @@ export async function unshareMemory(uid: string, name: string, id: string) {
   });
   if (result.shared !== false)
     throw new Error('Chưa khóa được ký ức cho riêng bạn.');
+}
+
+export async function revokeDeletedMemory(uid: string, id: string) {
+  const result = await requestMemoryAction(uid, 'Người dùng', {
+    action: 'delete-own',
+    id,
+  });
+  if (result.shared !== false)
+    throw new Error('Chưa gỡ được bản chia sẻ của ký ức đã xóa.');
 }

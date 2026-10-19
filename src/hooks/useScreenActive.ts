@@ -10,7 +10,7 @@ export function useScreenActive() {
   const navigation = useContext(NavigationContext);
   const [focused, setFocused] = useState(() => navigation?.isFocused() ?? true);
   const [appActive, setAppActive] = useState(
-    () => AppState.currentState !== 'background',
+    () => AppState.currentState === 'active',
   );
 
   useEffect(() => {

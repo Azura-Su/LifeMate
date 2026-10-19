@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
+  ScrollView,
   Text,
   View,
 } from 'react-native';
@@ -20,17 +21,18 @@ export type CapturedMemoryPhoto = {
 type Props = {
   active: boolean;
   onPhoto: (photo: CapturedMemoryPhoto) => void;
-  onShowTimeline: () => void;
-  memoryCount: number;
+  onCapturingChange: (capturing: boolean) => void;
 };
 
-export function MemoryCapture({
-  active,
-  onPhoto,
-  onShowTimeline,
-  memoryCount,
-}: Props) {
+export function MemoryCapture({ active, onPhoto, onCapturingChange }: Props) {
   const camera = useRef<CameraView>(null);
+  const captureInFlight = useRef(false);
+  const cameraSession = useRef(0);
+  const readyRef = useRef(false);
+  const captureGeneration = useRef(0);
+  const mounted = useRef(true);
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const [permission, requestPermission] = useCameraPermissions();
   const [available, setAvailable] = useState<boolean | null>(null);
   const [ready, setReady] = useState(false);
@@ -58,19 +60,45 @@ export function MemoryCapture({
   }, []);
 
   useEffect(() => {
-    if (!active) setReady(false);
+    if (!active) {
+      readyRef.current = false;
+      setReady(false);
+      cameraSession.current += 1;
+      captureGeneration.current += 1;
+    }
   }, [active]);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      cameraSession.current += 1;
+      readyRef.current = false;
+      captureGeneration.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!active) onCapturingChange(false);
+  }, [active, onCapturingChange]);
 
   useEffect(() => {
     if (!active || !available || !permission?.granted || ready || cameraFailed)
       return;
+    const session = cameraSession.current;
     const timeout = setTimeout(() => {
+      if (session !== cameraSession.current || !activeRef.current) return;
+      cameraSession.current += 1;
+      readyRef.current = false;
       setCameraFailed(true);
     }, 10000);
     return () => clearTimeout(timeout);
   }, [active, available, permission?.granted, ready, cameraFailed]);
 
   async function enableCamera() {
+    cameraSession.current += 1;
+    readyRef.current = false;
+    setReady(false);
     setError(null);
     setCameraFailed(false);
     try {
@@ -85,11 +113,17 @@ export function MemoryCapture({
   }
 
   async function capture() {
-    if (!ready || busy || !active) return;
+    if (!readyRef.current || captureInFlight.current || !activeRef.current)
+      return;
+    captureInFlight.current = true;
+    const generation = captureGeneration.current;
     setBusy(true);
+    onCapturingChange(true);
     setError(null);
     try {
       const photo = await camera.current?.takePictureAsync({ quality: 0.8 });
+      if (generation !== captureGeneration.current || !activeRef.current)
+        return;
       if (!photo?.uri) throw new Error('Chưa chụp được ảnh. Hãy thử lại.');
       onPhoto({
         uri: photo.uri,
@@ -100,86 +134,121 @@ export function MemoryCapture({
             : 3 / 4,
       });
     } catch (cause) {
-      setError((cause as Error).message || 'Chưa chụp được ảnh.');
+      if (generation === captureGeneration.current && activeRef.current)
+        setError((cause as Error).message || 'Chưa chụp được ảnh.');
     } finally {
-      setBusy(false);
+      captureInFlight.current = false;
+      if (mounted.current) {
+        setBusy(false);
+        onCapturingChange(false);
+      }
     }
   }
 
+  function flipCamera() {
+    if (!readyRef.current || captureInFlight.current || !activeRef.current)
+      return;
+    readyRef.current = false;
+    cameraSession.current += 1;
+    setError(null);
+    setReady(false);
+    setFacing((current) => (current === 'back' ? 'front' : 'back'));
+  }
+  const session = cameraSession.current;
+  const currentSession = () =>
+    mounted.current && activeRef.current && session === cameraSession.current;
   const canPreview =
     active && available === true && permission?.granted && !cameraFailed;
   return (
     <View style={styles.capturePage}>
-      <View style={styles.captureHeading}>
-        <Text style={styles.captureEyebrow}>HÔM NAY</Text>
-        <Text style={styles.captureTitle}>Một khoảnh khắc để nhớ</Text>
-        <Text style={styles.captureHint}>
-          Chụp ảnh rồi viết vài dòng cho riêng bạn.
-        </Text>
-      </View>
-      <View style={styles.cameraFrame}>
-        {canPreview ? (
-          <CameraView
-            ref={camera}
-            style={styles.cameraPreview}
-            facing={facing}
-            mode="picture"
-            onCameraReady={() => setReady(true)}
-            onMountError={(event) => {
-              setReady(false);
-              setCameraFailed(true);
-              setError(event.message || 'Máy ảnh chưa sẵn sàng.');
-            }}
-          />
-        ) : (
-          <View style={styles.cameraFallback}>
-            <View style={styles.cameraFallbackIcon}>
-              <Feather name="camera" size={35} color={colors.sky} />
+      <ScrollView
+        style={styles.captureStage}
+        contentContainerStyle={styles.captureStageContent}
+        bounces={false}
+      >
+        <View style={styles.captureHeading}>
+          <Text style={styles.captureEyebrow}>HÔM NAY</Text>
+          <Text style={styles.captureTitle}>Một khoảnh khắc để nhớ</Text>
+          <Text style={styles.captureHint}>
+            Chụp ảnh rồi viết vài dòng cho riêng bạn.
+          </Text>
+        </View>
+        <View style={styles.cameraFrame}>
+          {canPreview ? (
+            <CameraView
+              ref={camera}
+              // iOS 55.0.23 emits ready on session startup, not facing changes.
+              // Android rebinds the existing view and emits ready for the new camera.
+              key={Platform.OS === 'ios' ? session : 'camera'}
+              style={styles.cameraPreview}
+              facing={facing}
+              mode="picture"
+              onCameraReady={() => {
+                if (!currentSession()) return;
+                readyRef.current = true;
+                setReady(true);
+              }}
+              onMountError={(event) => {
+                if (!currentSession()) return;
+                cameraSession.current += 1;
+                readyRef.current = false;
+                setReady(false);
+                setCameraFailed(true);
+                setError(event.message || 'Máy ảnh chưa sẵn sàng.');
+              }}
+            />
+          ) : (
+            <View style={styles.cameraFallback}>
+              <View style={styles.cameraFallbackIcon}>
+                <Feather name="camera" size={35} color={colors.sky} />
+              </View>
+              <Text style={styles.cameraFallbackTitle}>
+                {available === false || cameraFailed
+                  ? 'Máy ảnh chưa khả dụng'
+                  : permission === null || available === null
+                    ? 'Đang kiểm tra máy ảnh…'
+                    : 'Sẵn sàng chụp ảnh'}
+              </Text>
+              <Text style={styles.cameraFallbackText}>
+                {available === false
+                  ? 'Thiết bị này không hỗ trợ chụp ảnh.'
+                  : cameraFailed
+                    ? 'Hãy thử mở lại máy ảnh để chụp khoảnh khắc.'
+                    : 'Bật máy ảnh khi bạn muốn chụp một khoảnh khắc mới.'}
+              </Text>
+              {available === true &&
+                permission &&
+                (!permission.granted || cameraFailed) && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      cameraFailed ? 'Thử mở lại máy ảnh' : 'Bật máy ảnh'
+                    }
+                    onPress={() => void enableCamera()}
+                    style={styles.enableCameraButton}
+                  >
+                    <Text style={styles.enableCameraText}>
+                      {cameraFailed ? 'Thử lại' : 'Bật máy ảnh'}
+                    </Text>
+                  </Pressable>
+                )}
             </View>
-            <Text style={styles.cameraFallbackTitle}>
-              {available === false || cameraFailed
-                ? 'Máy ảnh chưa khả dụng'
-                : permission === null || available === null
-                  ? 'Đang kiểm tra máy ảnh…'
-                  : 'Sẵn sàng chụp ảnh'}
-            </Text>
-            <Text style={styles.cameraFallbackText}>
-              {available === false
-                ? 'Thiết bị này không hỗ trợ chụp ảnh.'
-                : cameraFailed
-                  ? 'Hãy thử mở lại máy ảnh để chụp khoảnh khắc.'
-                  : 'Bật máy ảnh khi bạn muốn chụp một khoảnh khắc mới.'}
-            </Text>
-            {available === true &&
-              permission &&
-              (!permission.granted || cameraFailed) && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    cameraFailed ? 'Thử mở lại máy ảnh' : 'Bật máy ảnh'
-                  }
-                  onPress={() => void enableCamera()}
-                  style={styles.enableCameraButton}
-                >
-                  <Text style={styles.enableCameraText}>
-                    {cameraFailed ? 'Thử lại' : 'Bật máy ảnh'}
-                  </Text>
-                </Pressable>
-              )}
-          </View>
-        )}
-        {canPreview && !ready && (
-          <View pointerEvents="none" style={styles.cameraStarting}>
-            <ActivityIndicator color={colors.earth} />
-            <Text style={styles.cameraFallbackText}>Đang mở máy ảnh…</Text>
-          </View>
-        )}
-        {canPreview && (
-          <View pointerEvents="none" style={styles.cameraFrameLabel}>
-            <Text style={styles.cameraFrameLabelText}>KHOẢNH KHẮC CỦA BẠN</Text>
-          </View>
-        )}
-      </View>
+          )}
+          {canPreview && !ready && (
+            <View pointerEvents="none" style={styles.cameraStarting}>
+              <ActivityIndicator color={colors.earth} />
+              <Text style={styles.cameraFallbackText}>Đang mở máy ảnh…</Text>
+            </View>
+          )}
+          {canPreview && (
+            <View pointerEvents="none" style={styles.cameraFrameLabel}>
+              <Text style={styles.cameraFrameLabelText}>
+                KHOẢNH KHẮC CỦA BẠN
+              </Text>
+            </View>
+          )}
+        </View>
+      </ScrollView>
       <View style={styles.cameraControls}>
         <Pressable
           accessibilityRole="button"
@@ -201,14 +270,19 @@ export function MemoryCapture({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Đổi camera trước sau"
-          disabled={!canPreview || busy}
-          onPress={() => {
-            setReady(false);
-            setFacing((current) => (current === 'back' ? 'front' : 'back'));
+          accessibilityState={{
+            disabled: !canPreview || !ready || busy,
+            busy: !!canPreview && !ready,
           }}
+          disabled={!canPreview || !ready || busy}
+          onPress={flipCamera}
           style={styles.cameraSideButton}
         >
-          <Feather name="refresh-cw" size={22} color={colors.earth} />
+          {canPreview && !ready ? (
+            <ActivityIndicator size="small" color={colors.earth} />
+          ) : (
+            <Feather name="refresh-cw" size={22} color={colors.earth} />
+          )}
           <Text style={styles.cameraSideLabel}>Đổi camera</Text>
         </Pressable>
       </View>
@@ -217,19 +291,6 @@ export function MemoryCapture({
           {error}
         </Text>
       )}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Xem dòng ký ức, ${memoryCount} khoảnh khắc`}
-        onPress={onShowTimeline}
-        style={styles.viewTimelineButton}
-      >
-        <Feather name="grid" size={17} color={colors.earth} />
-        <Text style={styles.viewTimelineText}>Xem ký ức · {memoryCount}</Text>
-        <Feather name="arrow-right" size={17} color={colors.earth} />
-      </Pressable>
-      <Text style={styles.capturePrivacy}>
-        Mặc định chỉ mình tôi · Có thể chọn chia sẻ khi lưu
-      </Text>
     </View>
   );
 }

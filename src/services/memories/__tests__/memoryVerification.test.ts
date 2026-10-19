@@ -3,6 +3,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { refreshAccountVerification } from '../../firebase/authService';
 import {
   getMemoryShareState,
+  unshareMemory,
   memoryEmailVerificationNeeded,
   memoryPublishDefinitelyNotStarted,
 } from '../memorySharing';
@@ -57,6 +58,108 @@ beforeEach(() => {
 
 afterAll(() => {
   global.fetch = originalFetch;
+});
+
+it.each(['timeout', 'logout', 'relogin'] as const)(
+  'bounds stalled sharing token retrieval on %s',
+  async (reason) => {
+    jest.useFakeTimers();
+    let release!: (value: string) => void;
+    jest.mocked(getIdToken).mockReturnValue(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    mockFetch.mockResolvedValue(response(200, state));
+    const operation = getMemoryShareState('u1', 'Asher').catch(
+      (error: Error) => error.message,
+    );
+    try {
+      await jest.advanceTimersByTimeAsync(0);
+      if (reason === 'timeout') await jest.advanceTimersByTimeAsync(20001);
+      else {
+        useAuthStore.getState().setUser(null);
+        if (reason === 'relogin')
+          useAuthStore
+            .getState()
+            .setUser({ uid: 'u1', email: null, displayName: null });
+        await jest.advanceTimersByTimeAsync(0);
+      }
+      expect(
+        await Promise.race([operation, Promise.resolve('still pending')]),
+      ).not.toBe('still pending');
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      release('late-token');
+      await jest.advanceTimersByTimeAsync(0);
+      await operation;
+      jest.useRealTimers();
+    }
+    expect(mockFetch).not.toHaveBeenCalled();
+  },
+);
+
+it('includes verification refresh and its retry in the original sharing deadline', async () => {
+  jest.useFakeTimers();
+  let release!: (value: boolean) => void;
+  jest.mocked(refreshAccountVerification).mockReturnValue(
+    new Promise((resolve) => {
+      release = resolve;
+    }),
+  );
+  mockFetch
+    .mockResolvedValueOnce(response(403, { code: 'email-not-verified' }))
+    .mockResolvedValue(response(200, state));
+  const operation = getMemoryShareState('u1', 'Asher').catch(
+    (error: Error) => error.message,
+  );
+  try {
+    await jest.advanceTimersByTimeAsync(19000);
+    expect(refreshAccountVerification).toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(1001);
+    expect(
+      await Promise.race([operation, Promise.resolve('still pending')]),
+    ).not.toBe('still pending');
+  } finally {
+    release(true);
+    await jest.advanceTimersByTimeAsync(0);
+    await operation;
+    jest.useRealTimers();
+  }
+  expect(mockFetch).toHaveBeenCalledTimes(1);
+});
+
+it('does not restart an old sharing read after logout and login with the same UID', async () => {
+  jest.useFakeTimers();
+  mockFetch
+    .mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => new Promise(() => {}),
+    })
+    .mockResolvedValue(response(200, state));
+  const operation = getMemoryShareState('u1', 'Asher').catch(
+    (error: Error) => error.message,
+  );
+  try {
+    await jest.advanceTimersByTimeAsync(0);
+    useAuthStore.getState().setUser(null);
+    useAuthStore
+      .getState()
+      .setUser({ uid: 'u1', email: null, displayName: null });
+    await jest.advanceTimersByTimeAsync(0);
+    expect(await operation).toMatch(/thay đổi/i);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it('explains a busy migration instead of reporting that the memory is already shared', async () => {
+  mockFetch.mockResolvedValue(response(409, { code: 'memory-migrating' }));
+  await expect(unshareMemory('u1', 'Asher', 'one')).rejects.toThrow(
+    'Đang chuyển ảnh',
+  );
 });
 
 it('refreshes a stale unverified token and reloads sharing with the new token', async () => {
@@ -140,4 +243,170 @@ it('keeps a network failure ambiguous after the retry is sent', async () => {
   expect(error.message).toBe('offline');
   expect(memoryPublishDefinitelyNotStarted(error)).toBe(false);
   expect(mockFetch).toHaveBeenCalledTimes(2);
+});
+
+it('reports empty successful JSON explicitly without treating it as private state', async () => {
+  mockFetch.mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => {
+      throw new SyntaxError('Unexpected end of input');
+    },
+  });
+  await expect(getMemoryShareState('u1', 'Asher')).rejects.toThrow(
+    'Phản hồi chia sẻ chưa đầy đủ',
+  );
+});
+it('keeps a body-read abort recognizable as a timeout', async () => {
+  mockFetch.mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => {
+      throw Object.assign(new Error('Aborted'), { name: 'AbortError' });
+    },
+  });
+  await expect(getMemoryShareState('u1', 'Asher')).rejects.toThrow(
+    'Kết nối chia sẻ quá lâu',
+  );
+});
+it('rejects array responses and malformed shared IDs rather than assuming private visibility', async () => {
+  mockFetch.mockResolvedValueOnce(response(200, []));
+  await expect(getMemoryShareState('u1', 'Asher')).rejects.toThrow(
+    'Phản hồi chia sẻ không hợp lệ',
+  );
+  mockFetch.mockResolvedValueOnce(
+    response(200, { ...state, sharedIds: ['valid', '../invalid'] }),
+  );
+  await expect(getMemoryShareState('u1', 'Asher')).rejects.toThrow(
+    'Chưa đọc được danh sách chia sẻ',
+  );
+});
+it('still handles an unauthorized response when its error body is unreadable', async () => {
+  mockFetch.mockResolvedValue({
+    ok: false,
+    status: 401,
+    json: async () => {
+      throw new SyntaxError('Invalid JSON');
+    },
+  });
+  const error = await getMemoryShareState('u1', 'Asher').catch(
+    (cause) => cause,
+  );
+  expect(memoryPublishDefinitelyNotStarted(error)).toBe(true);
+  expect(refreshAccountVerification).not.toHaveBeenCalled();
+});
+
+it('recovers once from an unreadable successful state response using a fresh request', async () => {
+  mockFetch
+    .mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new SyntaxError('Unexpected end');
+      },
+    })
+    .mockResolvedValueOnce(response(200, state));
+  await expect(getMemoryShareState('u1', 'Asher')).resolves.toMatchObject({
+    email: state.email,
+  });
+  expect(mockFetch).toHaveBeenCalledTimes(2);
+  expect(mockFetch.mock.calls[0][1].signal).not.toBe(
+    mockFetch.mock.calls[1][1].signal,
+  );
+});
+
+it('stops after one response retry and never turns unreadable state into private state', async () => {
+  mockFetch.mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => {
+      throw new SyntaxError('Unexpected end');
+    },
+  });
+  await expect(getMemoryShareState('u1', 'Asher')).rejects.toThrow(
+    'chưa đầy đủ',
+  );
+  expect(mockFetch).toHaveBeenCalledTimes(2);
+});
+
+it('does not resend a mutation when its successful response is unreadable', async () => {
+  mockFetch.mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => {
+      throw new SyntaxError('Unexpected end');
+    },
+  });
+  const error = await unshareMemory('u1', 'Asher', 'one').catch(
+    (cause) => cause,
+  );
+  expect(error.message).toContain('chưa đầy đủ');
+  expect(memoryPublishDefinitelyNotStarted(error)).toBe(false);
+  expect(mockFetch).toHaveBeenCalledTimes(1);
+});
+
+it.each(['fetch', 'body'])(
+  'bounds a stalled %s even if native abort does not reject it',
+  async (stage) => {
+    jest.useFakeTimers();
+    try {
+      if (stage === 'fetch') mockFetch.mockReturnValue(new Promise(() => {}));
+      else
+        mockFetch.mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: () => new Promise(() => {}),
+        });
+      const result = getMemoryShareState('u1', 'Asher').catch((cause) => cause);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      await jest.advanceTimersByTimeAsync(20000);
+      expect((await result).message).toContain('quá lâu');
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  },
+);
+
+it('keeps the original time budget across the response retry', async () => {
+  jest.useFakeTimers();
+  try {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new SyntaxError('Unexpected end')), 5000),
+          ),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => new Promise(() => {}),
+      });
+    const result = getMemoryShareState('u1', 'Asher').catch((cause) => cause);
+    await jest.advanceTimersByTimeAsync(5000);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    await jest.advanceTimersByTimeAsync(15000);
+    expect((await result).message).toContain('quá lâu');
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it('does not retry a response for an account that has changed', async () => {
+  mockFetch.mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => {
+      useAuthStore.setState({
+        user: { uid: 'other', email: 'other@example.com', displayName: null },
+      });
+      throw new SyntaxError('Unexpected end');
+    },
+  });
+  await expect(getMemoryShareState('u1', 'Asher')).rejects.toThrow('Phiên');
+  expect(mockFetch).toHaveBeenCalledTimes(1);
 });

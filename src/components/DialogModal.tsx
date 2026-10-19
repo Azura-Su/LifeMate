@@ -8,6 +8,7 @@ import {
   type ModalProps,
   type StyleProp,
   type ViewStyle,
+  type ViewProps,
 } from 'react-native';
 import { colors } from '../theme';
 
@@ -17,16 +18,20 @@ type Props = PropsWithChildren<{
   onDismiss?: () => void;
   onShow?: () => void;
   animationType?: ModalProps['animationType'];
+  overlayStyle?: StyleProp<ViewStyle>;
+  onTouchEnd?: ViewProps['onTouchEnd'];
   style?: StyleProp<ViewStyle>;
 }>;
 
-// Centered card over a dimmed backdrop, lifted above the keyboard on iOS.
+// Centered card over a dimmed backdrop, kept above the keyboard on iOS.
 export function DialogModal({
   visible = true,
   onRequestClose,
   onDismiss,
   onShow,
   animationType = 'fade',
+  overlayStyle,
+  onTouchEnd,
   style,
   children,
 }: Props) {
@@ -40,7 +45,8 @@ export function DialogModal({
       onShow={onShow}
     >
       <KeyboardAvoidingView
-        style={styles.overlay}
+        onTouchEnd={onTouchEnd}
+        style={[styles.overlay, overlayStyle]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={[styles.card, style]} accessibilityViewIsModal>
