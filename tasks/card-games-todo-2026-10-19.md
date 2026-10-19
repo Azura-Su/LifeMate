@@ -1,13 +1,13 @@
 # Checklist: Chơi bài online
 
-Kế hoạch: [card-games-plan-2026-10-19.md](card-games-plan-2026-10-19.md). Engine/API/SQL/client miền Nam đã triển khai dưới cờ tắt. Các checkpoint có Firebase Realtime/native vẫn chưa đạt; không đánh dấu hoàn tất chỉ dựa trên mock. Bằng chứng và hạn chế: [runbook](../docs/card-games-online.md).
+Kế hoạch: [card-games-plan-2026-10-19.md](card-games-plan-2026-10-19.md). Engine/API/SQL/client miền Nam đã triển khai và server đã mở sau smoke test iOS simulator. Realtime có Edge polling foreground làm dự phòng; các checkpoint Realtime/private channel và native nhiều thiết bị vẫn chưa đạt. Bằng chứng và hạn chế: [runbook](../docs/card-games-online.md).
 
 ## Trạng thái ngày 19/10
 
 - Đã có luật south-v1, engine, lobby2–4 người, tay riêng, CAS/receipt, takeover, deadline worker, cleanup account và UI riêng. Miền Bắc/Phỏm chưa làm.
-- Supabase thật: hai migration mới +game-access / user-admin +Vault/cron 5 giây đã triển khai; mode closed, không bật người dùng thật.
+- Supabase thật: hai migration mới +game-access / user-admin +Vault/cron 5 giây đã triển khai; mode open, client có kill switch và server có drain/closed.
 - Đạt 749 ca Jest, 133 ca functions/SQL, typecheck/lint và bundle iOS/Android. Có kiểm tra ván 4 tài khoản tổng hợp và timeout thật; không coi đây là kiểm chứngnative 2–4 thiết bị.
-- Realtime Firebase đang bị chặn: hosted integration chưa bật, công cụ trình duyệt Work vẫn báo disabled. IP rate limit, load/latency/battery và TestFlight/Android release còn chờ.
+- Realtime Firebase đang bị chặn: hosted integration chưa bật, công cụ trình duyệt Work vẫn báo disabled. App tự dùng Edge polling 3 giây chỉ khi màn game foreground. IP rate limit, load/latency/battery và TestFlight/Android release còn chờ.
 - Dữ liệu thử được dọn sau kiểm chứng; không dùng dữ liệu tài khoản thật.
 
 ## A — Chốt nền tảng
