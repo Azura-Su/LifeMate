@@ -40,7 +40,8 @@ export function createGameSession(deps: Dependencies) {
   let topic: string | null = null,
     unsubscribe: (() => void) | null = null;
   let lease: ReturnType<typeof setTimeout> | undefined,
-    joinTimeout: ReturnType<typeof setTimeout> | undefined;
+    joinTimeout: ReturnType<typeof setTimeout> | undefined,
+    poll: ReturnType<typeof setTimeout> | undefined;
   const requests = new Set<AbortController>();
   let syncing = false,
     queued: 'sync' | 'lease' | null = null;
@@ -60,6 +61,7 @@ export function createGameSession(deps: Dependencies) {
   };
   const stopChannel = () => {
     clearTimeout(joinTimeout);
+    clearTimeout(poll);
     unsubscribe?.();
     unsubscribe = null;
     topic = null;
@@ -74,6 +76,7 @@ export function createGameSession(deps: Dependencies) {
           error:
             'Chưa nối được phòng online. Hãy kiểm tra kết nối rồi thử lại.',
         });
+        startPolling();
       }
     }, 10000);
   };
@@ -86,6 +89,20 @@ export function createGameSession(deps: Dependencies) {
         armLease();
       }
     }, 20000);
+  };
+  const startPolling = () => {
+    clearTimeout(joinTimeout);
+    clearTimeout(poll);
+    emit({ connected: true });
+    void sync('sync');
+    const tick = () => {
+      poll = setTimeout(() => {
+        if (!active || !topic) return;
+        void sync('sync');
+        tick();
+      }, 3000);
+    };
+    tick();
   };
   const connect = (next: string) => {
     stopChannel();
@@ -103,8 +120,9 @@ export function createGameSession(deps: Dependencies) {
         emit({ connected });
         if (connected) {
           clearTimeout(joinTimeout);
+          clearTimeout(poll);
           void sync('sync');
-        } else watchConnection();
+        } else startPolling();
       },
     );
     armLease();
@@ -208,6 +226,7 @@ export function createGameSession(deps: Dependencies) {
     generation++;
     clearTimeout(lease);
     clearTimeout(joinTimeout);
+    clearTimeout(poll);
     stopChannel();
     for (const request of requests) request.abort();
     requests.clear();

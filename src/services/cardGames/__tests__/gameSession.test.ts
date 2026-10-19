@@ -24,7 +24,7 @@ const flush = async () => {
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());
 
-it('keeps the connection recovery error through metadata-only leases until confirmed subscription and sync', async () => {
+it('falls back to polling when realtime never reports a status', async () => {
   let status!: (value: boolean) => void;
   const onChange = jest.fn();
   const controller = createGameSession({
@@ -41,11 +41,9 @@ it('keeps the connection recovery error through metadata-only leases until confi
   await flush();
   jest.advanceTimersByTime(10000);
   await flush();
-  expect(onChange.mock.calls.at(-1)?.[0].error).toBeTruthy();
-  jest.advanceTimersByTime(10000);
-  await flush();
-  expect(onChange.mock.calls.at(-1)?.[0].error).toBeTruthy();
-  expect(onChange.mock.calls.at(-1)?.[0].snapshot).toBeNull();
+  expect(onChange.mock.calls.at(-1)?.[0].error).toBeNull();
+  expect(onChange.mock.calls.at(-1)?.[0].connected).toBe(true);
+  expect(onChange.mock.calls.at(-1)?.[0].snapshot?.room?.version).toBe(1);
   status(true);
   await flush();
   expect(onChange.mock.calls.at(-1)?.[0].error).toBeNull();
@@ -84,6 +82,75 @@ it('waits for subscription confirmation before syncing and stops all work when s
   expect(unsubscribe).toHaveBeenCalledTimes(1);
   expect(request).toHaveBeenCalledTimes(2);
   expect(jest.getTimerCount()).toBe(0);
+});
+
+it('falls back to foreground polling when the private realtime channel is unavailable', async () => {
+  const calls: string[] = [];
+  let status!: (value: boolean) => void;
+  const onChange = jest.fn();
+  const controller = createGameSession({
+    sessionId: 'session',
+    request: async (input) => {
+      calls.push(input.type);
+      return snapshot();
+    },
+    subscribe: (_topic, _hint, onStatus) => {
+      status = onStatus;
+      return jest.fn();
+    },
+    onChange,
+    uuid: () => 'action',
+  });
+
+  controller.start();
+  await flush();
+  status(false);
+  await flush();
+
+  expect(calls).toEqual(['bootstrap', 'sync']);
+  expect(onChange.mock.calls.at(-1)?.[0].connected).toBe(true);
+  expect(onChange.mock.calls.at(-1)?.[0].snapshot?.room?.version).toBe(1);
+
+  jest.advanceTimersByTime(3000);
+  await flush();
+  expect(calls).toEqual(['bootstrap', 'sync', 'sync']);
+
+  controller.stop();
+  jest.advanceTimersByTime(30000);
+  await flush();
+  expect(calls).toEqual(['bootstrap', 'sync', 'sync']);
+  expect(jest.getTimerCount()).toBe(0);
+});
+
+it('stops fallback polling after realtime reconnects', async () => {
+  const calls: string[] = [];
+  let status!: (value: boolean) => void;
+  const controller = createGameSession({
+    sessionId: 'session',
+    request: async (input) => {
+      calls.push(input.type);
+      return snapshot();
+    },
+    subscribe: (_topic, _hint, onStatus) => {
+      status = onStatus;
+      return jest.fn();
+    },
+    onChange: jest.fn(),
+    uuid: () => 'action',
+  });
+
+  controller.start();
+  await flush();
+  status(false);
+  await flush();
+  status(true);
+  await flush();
+  const callsAfterReconnect = calls.length;
+
+  jest.advanceTimersByTime(6000);
+  await flush();
+  expect(calls).toHaveLength(callsAfterReconnect);
+  controller.stop();
 });
 
 it('keeps one intent ID across an ambiguous acknowledgement failure', async () => {
