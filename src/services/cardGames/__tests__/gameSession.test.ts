@@ -231,6 +231,46 @@ it('does not expose an in-flight action as an uncertain action', async () => {
   controller.stop();
 });
 
+it('clears an action error when a fresh sync shows the room has closed', async () => {
+  let status!: (value: boolean) => void;
+  let roomClosed = false;
+  const onChange = jest.fn();
+  const controller = createGameSession({
+    sessionId: 'session',
+    request: async (input) => {
+      if (input.type === 'ready') {
+        roomClosed = true;
+        throw Object.assign(new Error('Bộ đã chọn chưa chặn được bộ trên bàn.'), {
+          status: 422,
+        });
+      }
+      return roomClosed
+        ? { serverTime: 300, room: null }
+        : snapshot(input.type === 'bootstrap' ? 1 : 2);
+    },
+    subscribe: (_topic, _hint, onStatus) => {
+      status = onStatus;
+      return jest.fn();
+    },
+    onChange,
+    uuid: () => 'action',
+  });
+
+  controller.start();
+  await flush();
+  status(true);
+  await flush();
+  await controller.send({ type: 'ready', ready: true });
+  await flush();
+
+  expect(onChange.mock.calls.at(-1)?.[0]).toMatchObject({
+    error: null,
+    pending: false,
+    snapshot: { room: null },
+  });
+  controller.stop();
+});
+
 it('ignores responses from a stopped generation and older room versions', async () => {
   let resolve!: (value: GameSnapshot) => void;
   const request = jest.fn(

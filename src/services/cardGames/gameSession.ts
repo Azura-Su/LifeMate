@@ -142,7 +142,16 @@ export function createGameSession(deps: Dependencies) {
           snapshot.room.version < old.room.version))
     )
       return;
-    emit({ snapshot, loading: false });
+    const roomChanged =
+      !!old?.room &&
+      (!snapshot.room ||
+        snapshot.room.id !== old.room.id ||
+        snapshot.room.matchId !== old.room.matchId);
+    emit({
+      snapshot,
+      loading: false,
+      ...(roomChanged ? { error: null } : null),
+    });
     if (snapshot.room) {
       if (snapshot.room.topic !== topic) connect(snapshot.room.topic);
     } else {
