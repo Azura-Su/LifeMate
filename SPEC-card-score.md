@@ -25,6 +25,8 @@ One person keeps score for a group around one phone. A clear round-by-round matr
 
 ## User flows
 
+The optional `Chơi online` entry opens a separate online-game route, guarded by `EXPO_PUBLIC_CARD_GAMES_ENABLED`. It does not write online results into manual score tables or change their storage. See [SPEC-card-games.md](SPEC-card-games.md).
+
 1. Open Home menu → choose `Ghi điểm bài` → create a shared table, optionally name the game/table, enter player names, and optionally draw seats/dealer.
 2. View the score matrix. Tap `Thêm ván`, select each player, enter scores on the keypad, then save.
 3. Tap a round or score to edit it. Delete a round only after confirmation; totals are recalculated from the remaining history.

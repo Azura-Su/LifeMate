@@ -1,0 +1,44 @@
+{
+  "stage": "test",
+  "players": 4,
+  "uniqueCards": 52,
+  "idempotency": true,
+  "cas": true,
+  "privateHands": true,
+  "workerTimeout": true,
+  "mode": "closed",
+  "date": "2026-10-19",
+  "project": "xbhelntqytleiduzicuj",
+  "database": "PostgreSQL17.11",
+  "authenticatedGameTables": 6,
+  "rlsEnabled": true,
+  "directClientTableAccess": false,
+  "casStatuses": [
+    200,
+    409
+  ],
+  "fixtures": "synthetic-only",
+  "disposableAccountsDeleted": 8,
+  "realtime": {
+    "memberStatus": "CHANNEL_ERROR",
+    "secondMemberStatus": "CHANNEL_ERROR",
+    "outsiderStatus": "CHANNEL_ERROR",
+    "dataApiStatus": 401,
+    "dataApiCode": "PGRST301",
+    "gatePassed": false
+  },
+  "fixtureRuns": [
+    "four-player game and CAS",
+    "two members and one outsider gateway handshake"
+  ],
+  "afterCleanup": {
+    "cron_active": true,
+    "cron_schedule": "5 seconds",
+    "mode": "closed",
+    "receipts": 0,
+    "results": 0,
+    "rooms": 0,
+    "seats": 0,
+    "test_users": 0
+  }
+}

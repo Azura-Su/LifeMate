@@ -19,6 +19,7 @@
 | agenda              | Việc có ngày đến hạn, nhắc cục bộ, mở trình tạo sự kiện của lịch hệ thống                                                 | identity, notifications                                                                   |
 | home-today          | Thẻ Lịch/Việc trên Home; sheet lịch âm–dương, ngày lễ, ghi chú theo ngày và việc trong ngày                               | agenda, shell                                                                             |
 | card-score          | Bảng điểm chung cho mọi trò: ma trận theo ván/người chơi, nhập điểm nhanh, bốc thăm và lịch sử mã hóa theo UID            | identity, shell                                                                           |
+| card-games          | Tiến lên miền Nam online 2–4 người qua mã phòng; đang kiểm chứng, mặc định tắt. Miền Bắc và Phỏm ở giai đoạn sau          | identity, shell, Supabase Postgres/Edge/Realtime                                             |
 | checklists          | Danh sách mua sắm/chuẩn bị theo mẫu, số lượng, đánh dấu hoàn tất, dùng lại và lưu mã hóa offline theo UID                 | identity, shell                                                                           |
 
 Thứ tự: foundation → identity → profile → notifications → shell → kiểm thử.
