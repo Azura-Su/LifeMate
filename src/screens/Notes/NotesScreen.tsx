@@ -162,13 +162,17 @@ export function NotesScreen({
     }
     setSaving(true);
     try {
-      await model.save(model.uid, {
-        id: editing?.id ?? makeId(),
-        ownerId: model.uid,
-        title: title.trim(),
-        body: noteBody,
-        updatedAt: Date.now(),
-      });
+      await model.save(
+        model.uid,
+        {
+          id: editing?.id ?? makeId(),
+          ownerId: model.uid,
+          title: title.trim(),
+          body: noteBody,
+          updatedAt: Date.now(),
+        },
+        editing,
+      );
       setVisible(false);
     } catch (cause) {
       setError((cause as Error).message || 'Chưa lưu được ghi chú.');

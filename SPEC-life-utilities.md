@@ -90,3 +90,11 @@ Make daily use of LifeMate faster by improving the finance ledger, adding study-
 ## Implementation plan
 
 See [tasks/lifemate-utilities-plan.md](tasks/lifemate-utilities-plan.md) and [tasks/lifemate-utilities-todo.md](tasks/lifemate-utilities-todo.md).
+
+## Bảo vệ bản đang sửa khi tải lại dữ liệu
+
+Form sửa Tài chính, Ghi chú/ngày lịch và Công việc giữ snapshot lúc mở và truyền
+qua store xuống service. Nếu cache đã đổi hoặc mục bị xóa trước khi lưu, kiểm tra
+trong hàng đợi UID phải từ chối trước mọi ghi cache/cloud/nhắc lịch, thông báo rõ
+và giữ nội dung đang soạn. Tạo mới gửi expected=null; các lần sửa offline tiếp theo
+vẫn giữ pending base gốc để xử lý xung đột cloud hiện có.

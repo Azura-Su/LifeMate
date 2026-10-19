@@ -4,10 +4,7 @@ import { ActivityIndicator, Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { FinanceTransaction } from '../../types/finance';
 import { colors, typography } from '../../theme';
-import {
-  formatFinanceAmount,
-  getFinanceReportContribution,
-} from '../../utils/finance';
+import { formatFinanceAmount } from '../../utils/finance';
 import {
   getMonthGrid,
   isSameDay,
@@ -101,11 +98,16 @@ export function HomeFinanceCard({
   const transactionsByDate = useMemo(() => {
     const totals = new Map<string, DayTotals>();
     for (const transaction of transactions) {
-      if (transaction.sharedExpenseReceipt) continue;
+      // Home shows daily activity; repayments do not offset new spending.
+      if (
+        transaction.sharedExpenseReceipt ||
+        (transaction.type === 'income' &&
+          transaction.incomeSource === 'loan_repayment')
+      )
+        continue;
       const dateKey = toDateKey(new Date(transaction.createdAt));
       const day = totals.get(dateKey) ?? { income: 0, expense: 0 };
-      const contribution = getFinanceReportContribution(transaction);
-      day[contribution.kind] += contribution.amount;
+      day[transaction.type] += transaction.amount;
       totals.set(dateKey, day);
     }
     return totals;

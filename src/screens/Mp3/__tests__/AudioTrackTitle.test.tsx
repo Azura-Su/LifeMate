@@ -1,7 +1,11 @@
 import { fireEvent, render } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { AppState, StyleSheet } from 'react-native';
 import { AudioTrackTitle } from '../AudioTrackTitle';
 import { styles } from '../Mp3Screen.styles';
+
+beforeEach(() => {
+  AppState.currentState = 'active';
+});
 
 jest.mock('@expo/vector-icons/Feather', () => ({
   __esModule: true,

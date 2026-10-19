@@ -32,7 +32,7 @@ type Props = {
   initialDate?: Date;
   busy?: boolean;
   onClose: () => void;
-  onSave: (item: AgendaItem) => Promise<void>;
+  onSave: (item: AgendaItem, expected: AgendaItem | null) => Promise<void>;
 };
 const newId = () =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -183,16 +183,19 @@ export function AgendaTaskFormDialog({
       return;
     }
     try {
-      await onSave({
-        id: item?.id ?? newId(),
-        ownerId: item?.ownerId ?? '',
-        title: title.trim(),
-        details: details.trim(),
-        dueAt,
-        completed: item?.completed ?? false,
-        reminderAt: remind ? dueAt - 10 * 60_000 : null,
-        updatedAt: Date.now(),
-      });
+      await onSave(
+        {
+          id: item?.id ?? newId(),
+          ownerId: item?.ownerId ?? '',
+          title: title.trim(),
+          details: details.trim(),
+          dueAt,
+          completed: item?.completed ?? false,
+          reminderAt: remind ? dueAt - 10 * 60_000 : null,
+          updatedAt: Date.now(),
+        },
+        item ?? null,
+      );
       onClose();
     } catch (cause) {
       setError((cause as Error).message || 'Chưa lưu được công việc.');

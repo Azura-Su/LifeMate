@@ -44,7 +44,11 @@ export function HomeDayDetailsCard({
   uid: string | null;
   notes: LifeNote[];
   synced: boolean;
-  onSave: (uid: string, note: LifeNote) => Promise<void>;
+  onSave: (
+    uid: string,
+    note: LifeNote,
+    expected: LifeNote | null,
+  ) => Promise<void>;
   onDelete: (uid: string, noteId: string) => Promise<void>;
   onSaved?: () => void;
   checklists?: PrepChecklist[];
@@ -134,7 +138,7 @@ export function HomeDayDetailsCard({
         body: body.trim(),
         updatedAt: Date.now(),
       };
-      await onSave(uid, savedNote);
+      await onSave(uid, savedNote, activeNote);
       setError(null);
       setPopupVisible(false);
       setActiveNote(null);

@@ -69,16 +69,20 @@ export function AgendaScreen({
     }
   }
 
-  async function save(item: AgendaItem) {
+  async function save(item: AgendaItem, expected: AgendaItem | null) {
     if (!model.uid) return;
     setFeedback(null);
     setFeedbackIsError(false);
     setSaving(true);
     try {
-      const reminderStatus = await model.save(model.uid, {
-        ...item,
-        ownerId: model.uid,
-      });
+      const reminderStatus = await model.save(
+        model.uid,
+        {
+          ...item,
+          ownerId: model.uid,
+        },
+        expected,
+      );
       if (reminderStatus === 'denied')
         setFeedback(
           'Công việc đã lưu. Cho phép thông báo trong cài đặt để nhận lời nhắc.',

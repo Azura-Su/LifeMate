@@ -9,7 +9,11 @@ type NoteState = {
   loading: boolean;
   error: string | null;
   load: (uid: string | null) => Promise<void>;
-  save: (uid: string, note: LifeNote) => Promise<void>;
+  save: (
+    uid: string,
+    note: LifeNote,
+    expected: LifeNote | null,
+  ) => Promise<void>;
   remove: (uid: string, id: string) => Promise<void>;
 };
 
@@ -44,10 +48,10 @@ export const useNoteStore = create<NoteState>((set, get) => ({
         set({ loading: false, error: 'Chưa tải được ghi chú. Hãy thử lại.' });
     }
   },
-  save: async (uid, note) => {
+  save: async (uid, note, expected) => {
     if (get().uid !== uid)
       throw new Error('Tài khoản đã thay đổi. Hãy thử lại.');
-    const result = await saveNote(uid, note);
+    const result = await saveNote(uid, note, expected);
     if (get().uid === uid)
       set({ notes: result.notes, synced: result.synced, error: null });
   },

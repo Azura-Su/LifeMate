@@ -26,7 +26,11 @@ type Props = {
   noteUid: string | null;
   notes: LifeNote[];
   notesSynced: boolean;
-  onSaveNote: (uid: string, note: LifeNote) => Promise<void>;
+  onSaveNote: (
+    uid: string,
+    note: LifeNote,
+    expected: LifeNote | null,
+  ) => Promise<void>;
   onDeleteNote: (uid: string, noteId: string) => Promise<void>;
   onOpenAgenda: () => void;
   onOpenChecklist?: (checklistId: string) => void;

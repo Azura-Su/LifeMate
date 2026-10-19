@@ -369,11 +369,20 @@ function cacheIsSynced(cache: Cache) {
 export function saveAgendaItem(
   uid: string,
   value: AgendaItem,
+  expected?: AgendaItem | null,
 ): Promise<AgendaStorageResult> {
   return enqueue(uid, async () => {
     const item = parseItem(value, uid);
     if (!item) throw new Error('Thông tin công việc chưa hợp lệ.');
     const cache = await readCache(uid);
+    const cached = cache.items.find((entry) => entry.id === item.id);
+    if (
+      expected !== undefined &&
+      (expected === null ? !!cached : !cached || !sameItem(cached, expected))
+    )
+      throw new Error(
+        'Công việc đã thay đổi. Hãy tải lại trước khi lưu; nội dung đang nhập vẫn được giữ.',
+      );
     if (cache.deletedIds.includes(item.id))
       throw new Error('Công việc này đã bị xóa. Hãy tạo công việc mới.');
     const items = [

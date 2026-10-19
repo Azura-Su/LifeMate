@@ -24,6 +24,7 @@ type AgendaState = {
   save: (
     uid: string,
     item: AgendaItem,
+    expected: AgendaItem | null,
   ) => Promise<AgendaState['reminderStatus']>;
   complete: (uid: string, id: string, completed: boolean) => Promise<void>;
   remove: (uid: string, id: string) => Promise<void>;
@@ -78,10 +79,10 @@ export const useAgendaStore = create<AgendaState>((set, get) => ({
         });
     }
   },
-  save: async (uid, item) => {
+  save: async (uid, item, expected) => {
     if (get().uid !== uid || !isActiveAccount(uid))
       throw new Error('Tài khoản đã thay đổi. Hãy thử lại.');
-    const result = await saveAgendaItem(uid, item);
+    const result = await saveAgendaItem(uid, item, expected);
     let reminderStatus: AgendaState['reminderStatus'] = null;
     if (get().uid !== uid || !isActiveAccount(uid)) return null;
     if (!item.completed && item.reminderAt !== null) {
@@ -110,7 +111,7 @@ export const useAgendaStore = create<AgendaState>((set, get) => ({
     const current = get().items.find((item) => item.id === id);
     if (!current) return;
     const item = { ...current, completed, updatedAt: Date.now() };
-    const result = await saveAgendaItem(uid, item);
+    const result = await saveAgendaItem(uid, item, current);
     if (get().uid !== uid || !isActiveAccount(uid)) return;
     if (completed) await cancelAgendaReminder(uid, id);
     else if (item.reminderAt !== null)

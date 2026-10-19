@@ -1,8 +1,17 @@
 import { act, fireEvent, render, within } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { AppState, StyleSheet, type AppStateStatus } from 'react-native';
 import { useQueuePlaybackStore } from '../../../store/queuePlaybackStore';
 import { Mp3Screen } from '../Mp3Screen';
 import { SpinningRecord } from '../SpinningRecord';
+import { AudioTrackTitle } from '../AudioTrackTitle';
+
+const initialAppState = AppState.currentState;
+beforeEach(() => {
+  AppState.currentState = 'active';
+});
+afterEach(() => {
+  AppState.currentState = initialAppState;
+});
 
 const title = 'Tên bài hát rất dài cần chạy ngang để nhìn thấy toàn bộ tiêu đề';
 const track = {
@@ -287,4 +296,36 @@ it('hides current-track repeat when whole-list repeat is enabled', () => {
   ).toBe(true);
   expect(view.queryByLabelText('Lặp lại bài hiện tại')).toBeNull();
   expect(view.getByText('Đang lặp lại cả danh sách')).toBeTruthy();
+});
+
+it('stops visible player animations in background without pausing requested audio', () => {
+  let changed!: (state: AppStateStatus) => void;
+  const subscription = jest
+    .spyOn(AppState, 'addEventListener')
+    .mockImplementation((_event, callback) => {
+      changed = callback;
+      return { remove: jest.fn() };
+    });
+  mockQueue.pause.mockClear();
+  const view = render(<Mp3Screen />);
+  try {
+    expect(view.UNSAFE_getAllByType(AudioTrackTitle)[0].props.active).toBe(
+      true,
+    );
+    act(() => changed('background'));
+    expect(
+      view
+        .UNSAFE_getAllByType(AudioTrackTitle)
+        .every((title) => !title.props.active),
+    ).toBe(true);
+    expect(
+      view
+        .UNSAFE_getAllByType(SpinningRecord)
+        .every((record) => !record.props.playing),
+    ).toBe(true);
+    expect(mockQueue.pause).not.toHaveBeenCalled();
+  } finally {
+    view.unmount();
+    subscription.mockRestore();
+  }
 });

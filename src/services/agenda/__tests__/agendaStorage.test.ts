@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   deleteDoc,
+  doc,
+  getFirestore,
   getDocsFromServer,
   setDoc,
 } from '@react-native-firebase/firestore';
@@ -140,4 +142,31 @@ it('keeps the agenda unsynced until legacy tasks have also been migrated', async
 
   expect(saved.synced).toBe(false);
   expect((await readAgenda('u1')).synced).toBe(true);
+});
+
+it('rejects an editor snapshot older than the refreshed task before persistence', async () => {
+  const original = task();
+  await saveAgendaItem('u1', original);
+  const remote = {
+    ...original,
+    details: 'New server details',
+    updatedAt: original.updatedAt + 1,
+  };
+  await setDoc(
+    doc(getFirestore(), 'agendaAccounts', 'u1', 'items', original.id),
+    remote,
+  );
+  await readAgenda('u1');
+  await expect(
+    saveAgendaItem(
+      'u1',
+      {
+        ...original,
+        details: 'Old draft edit',
+        updatedAt: original.updatedAt + 2,
+      },
+      original,
+    ),
+  ).rejects.toThrow('thay đổi');
+  expect((await readAgenda('u1')).items).toEqual([remote]);
 });

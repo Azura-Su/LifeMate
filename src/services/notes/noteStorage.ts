@@ -339,11 +339,20 @@ function cacheIsSynced(cache: Cache) {
 export function saveNote(
   uid: string,
   value: LifeNote,
+  expected?: LifeNote | null,
 ): Promise<NoteStorageResult> {
   return enqueue(uid, async () => {
     const note = parseNote(value, uid);
     if (!note) throw new Error('Ghi chú chưa hợp lệ.');
     const cache = await readCache(uid);
+    const cached = cache.notes.find((entry) => entry.id === note.id);
+    if (
+      expected !== undefined &&
+      (expected === null ? !!cached : !cached || !sameNote(cached, expected))
+    )
+      throw new Error(
+        'Ghi chú đã thay đổi. Hãy tải lại trước khi lưu; nội dung đang nhập vẫn được giữ.',
+      );
     if (cache.deletedIds.includes(note.id))
       throw new Error('Ghi chú này đã bị xóa. Hãy tạo ghi chú mới.');
     const notes = [note, ...cache.notes.filter((item) => item.id !== note.id)];

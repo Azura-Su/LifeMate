@@ -1,7 +1,11 @@
 import { fireEvent, render, within } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { AppState, StyleSheet } from 'react-native';
 import type { useQueuePlayer } from '../useQueuePlayer';
 import { QueuePlayerBar } from '../QueuePlayerBar';
+
+beforeEach(() => {
+  AppState.currentState = 'active';
+});
 
 jest.mock('@react-native-community/slider', () => ({
   __esModule: true,

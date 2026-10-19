@@ -69,6 +69,7 @@ it('shows the date and holiday, then opens and updates an existing day note', as
       title: 'Gọi cho cả nhà',
       body: 'Đã gọi cho gia đình',
     }),
+    existing,
   );
 });
 
@@ -113,6 +114,7 @@ it('creates a new account-scoped note without reusing the date’s existing note
       title: 'Hẹn khám',
       body: 'Hẹn khám lúc 10 giờ',
     }),
+    null,
   );
   expect(saved.id).not.toBe(existing.id);
   expect(getCalendarNoteDateKey(saved.id)).toBe('2026-10-09');

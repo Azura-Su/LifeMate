@@ -1,5 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { deleteDoc, setDoc } from '@react-native-firebase/firestore';
+import {
+  deleteDoc,
+  setDoc,
+  doc,
+  getFirestore,
+} from '@react-native-firebase/firestore';
 import { resetFirestoreMock } from '../../../testing/firestoreMock';
 import type { LifeNote } from '../../../types/note';
 import { deleteNote, readNotes, saveNote } from '../noteStorage';
@@ -107,4 +112,22 @@ it('keeps notes unsynced until legacy notes have also been migrated', async () =
 
   expect(saved.synced).toBe(false);
   expect((await readNotes('u1')).synced).toBe(true);
+});
+
+it('rejects an editor snapshot older than the refreshed cache without losing either version', async () => {
+  await saveNote('u1', dateNote);
+  const remote = { ...dateNote, body: 'New server text', updatedAt: 20 };
+  await setDoc(
+    doc(getFirestore(), 'noteAccounts', 'u1', 'notes', dateNote.id),
+    remote,
+  );
+  await readNotes('u1');
+  await expect(
+    saveNote(
+      'u1',
+      { ...dateNote, body: 'Old draft edit', updatedAt: 30 },
+      dateNote,
+    ),
+  ).rejects.toThrow('thay đổi');
+  expect((await readNotes('u1')).notes).toEqual([remote]);
 });

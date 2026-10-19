@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { accountTask } from '../../services/security/accountLifecycle';
 import type { AudioTrack } from '../../types/audio';
 import {
   isPlaylistNameTaken,
@@ -19,7 +20,9 @@ function persistPlaylist(uid: string, value: string) {
   const previous = playlistWrites.get(uid) ?? Promise.resolve();
   const next = previous
     .catch(() => undefined)
-    .then(() => AsyncStorage.setItem(playlistKey(uid), value));
+    .then(() =>
+      accountTask(uid, () => AsyncStorage.setItem(playlistKey(uid), value)),
+    );
   playlistWrites.set(uid, next);
   void next
     .finally(() => {

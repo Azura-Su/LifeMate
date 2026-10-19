@@ -1,6 +1,11 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import type { Playback } from '../useMp3Screen';
 import { AudioPlayer } from '../AudioPlayer';
+import { AppState } from 'react-native';
+
+beforeEach(() => {
+  AppState.currentState = 'active';
+});
 
 const mockUseAudioPlayback = jest.fn();
 

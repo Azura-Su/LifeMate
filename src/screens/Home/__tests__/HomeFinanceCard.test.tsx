@@ -132,6 +132,47 @@ it('does not show shared-expense repayments as Home activity on their receipt da
   expect(screen.getByText('98.000 ₫')).toBeTruthy();
 });
 
+it('keeps new spending separate from loan repayments on Home', () => {
+  const repayment: FinanceTransaction = {
+    id: 'loan-meal-paid',
+    ownerId: 'u1',
+    type: 'income',
+    incomeSource: 'loan_repayment',
+    loanId: 'meal',
+    repaymentId: 'paid',
+    amount: 10_000,
+    category: 'Thu hồi cho mượn',
+    note: 'Nhận lại tiền ăn',
+    createdAt: today.getTime(),
+  };
+  const expense: FinanceTransaction = {
+    id: 'new-lunch',
+    ownerId: 'u1',
+    type: 'expense',
+    amount: 30_000,
+    category: 'Ăn uống',
+    note: '',
+    createdAt: today.getTime() + 1000,
+  };
+  const view = renderCard({ transactions: [repayment, expense] });
+  expect(screen.getByText('30.000 ₫')).toBeTruthy();
+  expect(screen.getByText('0 ₫')).toBeTruthy();
+  expect(screen.queryByText('20.000 ₫')).toBeNull();
+  fireEvent.press(screen.getByRole('button', { name: 'Chọn ngày, hôm nay' }));
+  expect(
+    screen.getByTestId('home-finance-picker-day-2026-10-11').props
+      .accessibilityLabel,
+  ).toContain('chi 30.000 ₫');
+  fireEvent.press(screen.getByRole('button', { name: 'Đóng bộ chọn ngày' }));
+  view.rerender(cardElement({ transactions: [repayment] }));
+  expect(screen.getAllByText('0 ₫')).toHaveLength(2);
+  fireEvent.press(screen.getByRole('button', { name: 'Chọn ngày, hôm nay' }));
+  expect(
+    screen.getByTestId('home-finance-picker-day-2026-10-11').props
+      .accessibilityLabel,
+  ).toContain('chưa có giao dịch');
+});
+
 it('opens the month picker to choose any date without expanding the Home card', () => {
   renderCard();
 

@@ -59,16 +59,20 @@ export function HomeAgendaCard({
     }
   }
 
-  async function save(item: AgendaItem) {
+  async function save(item: AgendaItem, expected: AgendaItem | null) {
     if (!model.uid) return;
     setFeedback(null);
     setFeedbackIsError(false);
     setSaving(true);
     try {
-      const reminderStatus = await model.save(model.uid, {
-        ...item,
-        ownerId: model.uid,
-      });
+      const reminderStatus = await model.save(
+        model.uid,
+        {
+          ...item,
+          ownerId: model.uid,
+        },
+        expected,
+      );
       if (reminderStatus === 'denied')
         setFeedback('Việc đã lưu. Bật thông báo để nhận lời nhắc.');
       else if (reminderStatus === 'past')
