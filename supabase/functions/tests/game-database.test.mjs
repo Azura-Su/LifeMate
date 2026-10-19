@@ -16,6 +16,13 @@ const workerSql = await readFile(
   ),
   'utf8',
 );
+const closedCleanupSql = await readFile(
+  new URL(
+    '../../migrations/202610190005_card_game_closed_cleanup.sql',
+    import.meta.url,
+  ),
+  'utf8',
+);
 const uid = 'game-a',
   other = 'game-b';
 const session = '11111111-1111-4111-8111-111111111111';
@@ -42,6 +49,7 @@ async function setup() {
   `);
   await db.exec(sql);
   await db.exec(workerSql);
+  await db.exec(closedCleanupSql);
   await db.exec("update public.lifemate_game_config set mode='open'");
   return db;
 }
@@ -218,6 +226,50 @@ test('deadline worker is durable, batch-expiry cancels and foreground renewal fe
       false,
     ]);
     assert.equal(loaded.room.state.phase, 'lobby');
+  } finally {
+    await db.close();
+  }
+});
+
+test('closed mode still cancels due rooms and starts private-state retention', async () => {
+  const db = await setup();
+  try {
+    await create(db);
+    await db.query(
+      "update public.lifemate_game_rooms set state=$1::jsonb,match_id=$2,next_due=now()-interval '1 second' where id=$3",
+      [
+        JSON.stringify({
+          phase: 'playing',
+          members: [{ uid, name: 'An', ready: true, wins: 0 }],
+          host: uid,
+          game: { hand: [0, 1], stock: [2, 3] },
+        }),
+        crypto.randomUUID(),
+        room,
+      ],
+    );
+    await db.exec("update public.lifemate_game_config set mode='closed'");
+    const token = crypto.randomUUID();
+    const claimed = await rpc(db, 'lifemate_game_claim_due', [token]);
+    assert.equal(claimed.rooms.length, 1);
+    assert.deepEqual(claimed.rooms[0].expired, [uid]);
+    assert.equal(
+      await rpc(db, 'lifemate_game_commit_worker', [
+        room,
+        token,
+        claimed.rooms[0].version,
+        { phase: 'closed', members: [], host: null, game: null },
+        [uid],
+      ]),
+      true,
+    );
+    const { rows } = await db.query(
+      "select state->>'phase' as phase,private_until,(select count(*)::integer from public.lifemate_game_seats) as seats from public.lifemate_game_rooms where id=$1",
+      [room],
+    );
+    assert.equal(rows[0].phase, 'closed');
+    assert.equal(rows[0].seats, 0);
+    assert.ok(rows[0].private_until);
   } finally {
     await db.close();
   }

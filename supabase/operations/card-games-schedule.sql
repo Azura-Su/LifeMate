@@ -7,10 +7,9 @@ returns void language plpgsql security definer set search_path='' as $$
 declare v_secret text;
 begin
   if not (
-    exists(select 1 from public.lifemate_game_rooms r cross join public.lifemate_game_config c
+    exists(select 1 from public.lifemate_game_rooms r
       where r.next_due<=now() and r.state->>'phase'<>'closed'
-        and (r.worker_until is null or r.worker_until<now())
-        and (c.mode<>'closed' or exists(select 1 from public.lifemate_game_seats s where s.room_id=r.id and s.uid=any(c.test_uids))))
+        and (r.worker_until is null or r.worker_until<now()))
     or exists(select 1 from public.lifemate_game_rooms where private_until<=now())
     or exists(select 1 from public.lifemate_game_rooms where state->>'phase'='closed' and expires_at<now())
     or exists(select 1 from public.lifemate_game_results where created_at<now()-interval '30 days')
