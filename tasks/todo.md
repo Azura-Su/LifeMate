@@ -95,3 +95,37 @@
 ## Giới hạn kiểm chứng
 
 Native builds Android/iOS đã pass. Chưa có tài khoản Auth thử nghiệm hoặc APNs credentials để xác minh login thành công/push thật. Chi tiết trong `docs/verification.md`.
+
+## Avatar: bottom sheet và kéo cắt ảnh — 17/10/2026
+
+- [x] Hình học crop + tests ảnh ngang/dọc, zoom/pan biên.
+- [x] Hook chọn/chỉnh/cắt ảnh, giữ draft khi hủy/lỗi, cleanup và UID guards + regression tests.
+- [x] Badge camera nhỏ, sheet hai lựa chọn và crop tương tác + component tests.
+- [x] Typecheck/lint/Jest/export và kiểm tra UI khả dụng; final reviewer; SPEC và ghi nhận kết quả.
+
+- [x] Yêu cầu bổ sung: camera đổi ngay sang spinner khi mở sheet, giữ loading khi chuẩn bị ảnh, tự reset khi sheet hiện/hủy; 2 regression tests ở ProfileAvatarLoading.
+
+## Audit fixes — 17/10/2026
+
+- [x] Unique Supabase migration versions and verified production history state.
+- [x] Four default CardScore rows and visible finish-save error/retry.
+- [x] Held-money dialogs obey Finance lock; stale callbacks and Android date picker covered.
+- [x] Memory orphan originals cleaned after durable cache changes; failures retry.
+- [x] Failed photo isolated so other memories still synchronize.
+- [x] Targeted/full checks and independent read-only review. See audit-fixes-result-2026-10-17.md.
+
+## Memory latency/loading — 17/10/2026
+
+- [x] Identify and reproduce repeated cached-original verification and overlapping loads.
+- [x] Persist local verified-R2 proof safely; keep legacy verification, recovery and snapshot compatibility.
+- [x] Coalesce loads, retain trailing server refresh, suppress unused friend feed.
+- [x] Finish confirmed sharing without awaiting whole-library refresh; guard late/unknown state.
+- [x] Add selected-action, timeline-sync and photo loading indicators.
+- [x] Regression tests/full Jest568, typecheck/lint/export, native smoke and independent review. See memory-loading-performance-2026-10-17.md.
+
+## Memory text-only edit — 17/10/2026
+
+- [x] Existing edit form changes text only; new-memory controls retained.
+- [x] Delete overlay on photo top-right; photoless fallback retained.
+- [x] Legacy text-only save validated before revocation; unverified-owner edits remain available.
+- [x] Targeted44/full576 tests, typecheck/lint, native smoke and final review completed. See memory-text-only-edit-2026-10-17.md.

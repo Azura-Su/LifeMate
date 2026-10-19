@@ -84,3 +84,41 @@ Luôn tách UI/logic/service/store, validate remote data, dùng API Firebase mod
 - https://rnfirebase.io/
 - https://rnfirebase.io/remote-config/usage
 - https://rnfirebase.io/messaging/usage
+
+## Avatar: bottom sheet và kéo cắt ảnh — 17/10/2026
+
+Theo yêu cầu người dùng “lên plan và làm”; giữ nguyên các công việc cũ còn mở. Không thay backend hoặc hợp đồng lưu ảnh.
+
+1. Hình học crop: hàm thuần tính ảnh cover trong khung vuông, zoom 1–3x, giới hạn pan và quy đổi sang pixel nguồn. Regression tests ảnh ngang/dọc, zoom và kéo quá biên.
+2. Chuẩn bị ảnh: picker không dùng native crop, trả ảnh vào preview; chỉnh avatar hiện tại dùng draft hoặc tải URL riêng còn hiệu lực về cache. Xác nhận crop mới tạo JPEG384×384<=512KiB; hủy giữ draft cũ. Dọn file tự tạo và chặn kết quả trễ khi UID/unmount thay đổi; giữ Save hiện có. Kiểm thử hook trước/sau thay đổi, review độc lập vì xử lý ảnh riêng.
+3. Giao diện: camera badge20/icon12 trên avatar64. Sheet 2 lựa chọn, crop kéo ảnh/zoom/reset/hủy/dùng ảnh, safe area và vùng chạm >=44. Đóng sheet trước native picker; không đổi tên/ảnh khi hủy. Kiểm thử component và Simulator nếu có phiên phù hợp.
+4. Checkpoint: targeted Jest, npm run typecheck, ESLint file thay đổi, export iOS/Android khi phù hợp; final review/diff và cập nhật SPEC-profile.md. Không lưu ảnh thử vào tài khoản thật.
+
+Phụ thuộc: 1 -> 2 -> 3 -> 4. Không thêm dependency. Ảnh avatar đã lưu chỉ còn bản crop hiện có; chỉnh lại ảnh đó không khôi phục phần ảnh gốc đã cắt mất, người dùng có thể chọn lại ảnh thư viện.
+
+
+## Audit fixes — 17/10/2026
+
+1. Rename preserve-memory-invites to version 202610140003; regression check unique prefixes and dependency order. Read-only production query confirms schema_migrations absent; document safe baseline/repair rather than guessing applied history.
+2. CardScore: four default rows on every setup, retain 2–8 via remove; finish-save errors inside confirmation, retry remains available.
+3. Held money: propagate suspension, close all dialogs including native Android dates and replace native delete alerts; invalidate callbacks on lock/UID change/unmount.
+4. Memory: isolate photo transfer failures, persist successful items incrementally, retain failed intents; prune only unreferenced validated photo filenames within UID queue after durable cache reads, retry cleanup.
+5. Targeted regression tests, typecheck, affected lint, functions tests, full Jest, final read-only review. Prior work preserved.
+
+Plan reviewed by r2_review before implementation; native dialogs and interaction-generation safeguards incorporated.
+
+Completed all audit steps; full Jest547, functions84, typecheck/lint/export passed. Database reset and physical-device cleanup remain unverified; production history baseline prerequisite documented. Result: tasks/audit-fixes-result-2026-10-17.md.
+
+## Memory latency/loading — 17/10/2026
+
+1. Measure cached-photo requests and sharing completion dependencies. Baseline: intact photos still verify R2 every sync; timeline entry/listener add overlapping refreshes; visibility confirmation awaits entire-library refresh.
+2. Cache per-original verified R2 proof locally (filename/size), never in Firestore; verify legacy once and clear on replacement. Reuse only exact same file/disk size; keep account guards and missing-file recovery. Exclude local proof only from optimistic editor/conflict snapshot comparisons. Plan reviewer consulted before implementation.
+3. Coalesce same-account loads, retain a trailing refresh for server listener changes; avoid unused friend feed on mine. Do not bypass UID queue or permission checks. Existing in-flight first legacy migration may still delay a cache mutation; remove the unnecessary full-library wait after confirmed sharing.
+4. Show busy spinner on selected sharing option, inline sync indicator and image decode loading. Finish share UI only after server confirmation and queued local persistence; invalidate old state requests before patching confirmed result, refresh in background.
+5. Regression request counts/loading/deferred publish+sync/rollback/account switches, typecheck/lint, full suite and final review; platform smoke where available. No backend deployment needed.
+
+Memory latency/loading completed. Confirmed request count5→0 for previously verified cached originals; overlap4→1active+1trailing. All568 Jest tests, typecheck/lint and iOS/Android export passed; reviewer findings resolved and Simulator timeline smoke passed. Limits and release status: tasks/memory-loading-performance-2026-10-17.md.
+
+## Text-only memory editing / photo delete — 17/10/2026
+
+Implement existing-memory form with text only and keep immutable photo/date/initial visibility in submitted draft. Keep create controls. Move delete overlay to image top-right with44pt touch area and photoless fallback. Plan reviewed before implementation; include storage support for legacy photoless text, validating empty input before revocation. Targeted regressions, full suite, typecheck/lint and native smoke; final review findings resolved. Result: tasks/memory-text-only-edit-2026-10-17.md.

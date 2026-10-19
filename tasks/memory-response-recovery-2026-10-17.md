@@ -1,0 +1,7 @@
+# Sharing response recovery — 17/10/2026
+
+- Screenshot error means successful HTTP body read/parse failed, not Firebase quota. The original recurring transport/JSON failure is not conclusively diagnosed. Reloaded native app state succeeded; earlier server invocation returned200 and nonemptyJSON. These observations do not prove which layer truncated or failed to decode the response.
+- Temporary body-length/status diagnostics were removed. No tokens, response contents or memory payloads logged. No server changes/deployment.
+- Installed whatwg-fetch JSON uses text + JSON.parse; replacing that alone cannot fix the issue. Its XHR abort handler detaches before FileReader finishes. Added an explicit rejection deadline raced against both fetch and response.json, so abort-insensitive native reads cannot hold the UI indefinitely.
+- Successful unreadable response: state/feed/photo may retry once using fresh request/controller and same expiry budget. UID guards and independent one-time email verification refresh retained. Mutations never retry on unreadable successful response; uncertainty remains explicit.
+- Service regression tests18 passed: recovery, exhausted retry, mutation not resent, fetch/body stall, shared deadline, account change and existing verification/error paths. Typecheck, affected lint and independent final review passed. Full run:601/602 passed; existing HeldMoneyLedger StrictMode retry test timed out (all7 tests passed on targeted rerun). Native Simulator then resolved all five cards to Friends with no sharing error.
