@@ -19,10 +19,16 @@ module.exports = defineConfig([
     ],
   },
   {
-    // Deno resolves these through supabase/functions/memory-access/deno.json.
-    files: ['supabase/functions/memory-access/**'],
+    // Deno resolves AWS imports through each Edge Function's deno.json.
+    files: [
+      'supabase/functions/memory-access/**',
+      'supabase/functions/user-admin/**',
+    ],
     rules: {
-      'import/no-unresolved': ['error', { ignore: ['^@aws-sdk/'] }],
+      'import/no-unresolved': [
+        'error',
+        { ignore: ['^@aws-sdk/', '^@smithy/fetch-http-handler$'] },
+      ],
     },
   },
 ]);

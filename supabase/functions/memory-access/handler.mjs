@@ -1,4 +1,15 @@
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
+const PRIVATE_ACTIONS = ['private-upload', 'private-head', 'private-download'];
+const PHOTO = /^[A-Za-z0-9_-]{1,128}\.(jpg|jpeg|png|webp|heic|heif|gif)$/;
+const PHOTO_TYPES = {
+  jpg: 'jpeg',
+  jpeg: 'jpeg',
+  png: 'png',
+  webp: 'webp',
+  heic: 'heic',
+  heif: 'heif',
+  gif: 'gif',
+};
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_BODY_BYTES = 8192;
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
@@ -40,6 +51,9 @@ async function readInput(request) {
   if (!input || typeof input !== 'object' || Array.isArray(input))
     throw new Error('Invalid input');
   const allowed = {
+    'private-upload': ['action', 'id', 'fileName', 'sizeBytes'],
+    'private-head': ['action', 'id', 'fileName'],
+    'private-download': ['action', 'id', 'fileName'],
     state: ['action', 'displayName'],
     invite: ['action', 'displayName', 'email'],
     accept: ['action', 'displayName', 'uid'],
@@ -59,19 +73,23 @@ async function readInput(request) {
     ],
     confirm: ['action', 'displayName', 'id'],
     unshare: ['action', 'displayName', 'id'],
+    'delete-own': ['action', 'displayName', 'id'],
     migrate: ['action', 'displayName', 'id'],
   };
   if (
     typeof input.action !== 'string' ||
     !allowed[input.action] ||
     Object.keys(input).some((key) => !allowed[input.action].includes(key)) ||
-    typeof input.displayName !== 'string' ||
-    !input.displayName.trim() ||
-    input.displayName.trim().length > 60 ||
-    /[\u0000-\u001f\u007f]/.test(input.displayName)
+    (!PRIVATE_ACTIONS.includes(input.action) &&
+      (typeof input.displayName !== 'string' ||
+        !input.displayName.trim() ||
+        input.displayName.trim().length > 60 ||
+        /[\u0000-\u001f\u007f]/.test(input.displayName)))
   )
     throw new Error('Invalid input');
-  return { ...input, displayName: input.displayName.trim() };
+  return PRIVATE_ACTIONS.includes(input.action)
+    ? input
+    : { ...input, displayName: input.displayName.trim() };
 }
 
 function validDateKey(key) {
@@ -203,6 +221,140 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
 
   async function handle(identity, input) {
     const uid = identity.uid;
+    if (PRIVATE_ACTIONS.includes(input.action)) {
+      if (
+        !ID.test(uid) ||
+        typeof input.id !== 'string' ||
+        !ID.test(input.id) ||
+        typeof input.fileName !== 'string' ||
+        !PHOTO.test(input.fileName) ||
+        (input.action === 'private-upload' &&
+          (!Number.isSafeInteger(input.sizeBytes) ||
+            input.sizeBytes < 1 ||
+            input.sizeBytes > 15728640))
+      )
+        return json(400, { code: 'invalid-private-photo' });
+      const path = `private/${uid}/${input.id}/${input.fileName}`;
+      const contentType = `image/${PHOTO_TYPES[input.fileName.split('.').at(-1)]}`;
+      const photo = await r2('head', path);
+      if (
+        photo &&
+        (!Number.isSafeInteger(photo.sizeBytes) ||
+          photo.sizeBytes < 1 ||
+          photo.sizeBytes > 15728640 ||
+          photo.contentType !== contentType ||
+          (input.action === 'private-upload' &&
+            photo.sizeBytes !== input.sizeBytes))
+      )
+        return json(409, { code: 'private-photo-mismatch' });
+      if (input.action === 'private-upload' && !photo)
+        return json(200, {
+          uploadUrl: await r2('upload', path, input.sizeBytes),
+        });
+      if (input.action === 'private-download' && photo)
+        return json(200, {
+          photo: { sizeBytes: photo.sizeBytes },
+          downloadUrl: await r2('download', path),
+        });
+      return json(200, {
+        photo: photo ? { sizeBytes: photo.sizeBytes } : null,
+      });
+    }
+    if (input.action === 'delete-own' || input.action === 'unshare') {
+      if (typeof input.id !== 'string' || !ID.test(input.id))
+        return json(400, { code: 'invalid-memory' });
+      if (input.action === 'delete-own') {
+        const row = await database(
+          'rpc/tombstone_lifemate_shared_memory',
+          'POST',
+          {},
+          {
+            p_owner_uid: uid,
+            p_id: input.id,
+          },
+        );
+        if (row.busy) return json(409, { code: 'memory-migrating' });
+        if (row.photo_path)
+          await photoStorage(row.photo_backend, 'delete', row.photo_path);
+        if (row.supabase_cleanup_pending)
+          await storage('delete', row.photo_path);
+        await database(
+          'lifemate_memory_deletions',
+          'PATCH',
+          { owner_uid: `eq.${uid}`, id: `eq.${input.id}` },
+          {
+            photo_path: null,
+            photo_backend: null,
+            supabase_cleanup_pending: false,
+          },
+        );
+        return json(200, { shared: false });
+      }
+      const token = crypto.randomUUID();
+      const deleting = await database(
+        'rpc/claim_lifemate_memory_revocation',
+        'POST',
+        {},
+        {
+          p_owner_uid: uid,
+          p_id: input.id,
+          p_token: token,
+        },
+      );
+      if (deleting.missing) return json(200, { shared: false });
+      if (deleting.busy)
+        return json(409, {
+          code: deleting.migrating ? 'memory-migrating' : 'memory-revoking',
+        });
+      // A delayed claim response must not start cleanup after its lease expired
+      // or another worker took ownership. Leave time for the bounded storage call.
+      const ownsLease = async () => {
+        const rows = await database(MEMORIES, 'GET', {
+          owner_uid: `eq.${uid}`,
+          id: `eq.${input.id}`,
+          status: 'eq.revoking',
+          revoke_token: `eq.${token}`,
+          revoke_until: `gte.${new Date(Date.now() + 30000).toISOString()}`,
+          select: 'revoke_until',
+          limit: 1,
+        });
+        return (
+          rows.length > 0 &&
+          Date.parse(rows[0].revoke_until) > Date.now() + 30000
+        );
+      };
+      if (deleting.photo_path) {
+        if (!(await ownsLease())) return json(409, { code: 'memory-revoking' });
+        await photoStorage(
+          deleting.photo_backend,
+          'delete',
+          deleting.photo_path,
+        );
+      }
+      if (deleting.supabase_cleanup_pending) {
+        if (!(await ownsLease())) return json(409, { code: 'memory-revoking' });
+        await storage('delete', deleting.photo_path);
+      }
+      // Failures retain both lease and cleanup pointers. A timeout is ambiguous:
+      // do not allow a republish while an earlier storage DELETE could be in flight.
+      const removed = await database(MEMORIES, 'DELETE', {
+        owner_uid: `eq.${uid}`,
+        id: `eq.${input.id}`,
+        status: 'eq.revoking',
+        revoke_token: `eq.${token}`,
+        revoke_until: `gte.${new Date().toISOString()}`,
+      });
+      if (!removed.length) {
+        const current = await database(MEMORIES, 'GET', {
+          owner_uid: `eq.${uid}`,
+          id: `eq.${input.id}`,
+          select: 'id',
+          limit: 1,
+        });
+        if (current.length) return json(409, { code: 'memory-revoking' });
+      }
+      return json(200, { shared: false });
+    }
     await profile(identity, input.displayName);
     await database(
       'rpc/claim_lifemate_memory_email_invites',
@@ -490,25 +642,18 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
         select: 'id,status,photo_path,photo_backend,supabase_cleanup_pending',
         limit: 1,
       });
+      if (existing[0]?.status === 'revoking')
+        return json(409, { code: 'memory-revoking' });
       if (existing[0]?.status === 'active')
         return json(409, { code: 'already-shared' });
-      if (existing[0]?.status === 'pending' && existing[0].photo_path) {
-        await photoStorage(
-          existing[0].photo_backend,
-          'delete',
-          existing[0].photo_path,
-        );
-        if (existing[0].supabase_cleanup_pending)
-          await storage('delete', existing[0].photo_path);
-      }
-      if (!existing.length) {
-        const total = await database(MEMORIES, 'GET', {
-          owner_uid: `eq.${uid}`,
-          select: 'id',
-          limit: 101,
-        });
-        if (total.length >= 100) return json(429, { code: 'memory-limit' });
-      }
+      // Retried R2 PUTs replace the same pending object. Deleting here from an
+      // earlier GET could outlive revocation and delete a later publication.
+      if (
+        existing[0]?.status === 'pending' &&
+        existing[0].photo_path &&
+        !input.hasPhoto
+      )
+        return json(409, { code: 'memory-pending' });
       const photoPath = input.hasPhoto
         ? `shared/${uid}/${input.id}/photo.jpg`
         : null;
@@ -524,14 +669,23 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
         status: input.hasPhoto ? 'pending' : 'active',
         updated_at: new Date().toISOString(),
       };
-      if (existing.length)
-        await database(
-          MEMORIES,
-          'PATCH',
-          { owner_uid: `eq.${uid}`, id: `eq.${input.id}` },
-          row,
-        );
-      else await database(MEMORIES, 'POST', {}, row);
+      const outcome = await database(
+        'rpc/reserve_lifemate_shared_memory',
+        'POST',
+        {},
+        { p_memory: row },
+      );
+      if (outcome === 'memory-pending')
+        return json(409, { code: 'memory-pending' });
+      if (outcome === 'memory-deleted')
+        return json(409, { code: 'memory-deleted' });
+      if (outcome === 'memory-revoking')
+        return json(409, { code: 'memory-revoking' });
+      if (outcome === 'already-shared')
+        return json(409, { code: 'already-shared' });
+      if (outcome === 'memory-limit')
+        return json(429, { code: 'memory-limit' });
+      if (outcome !== 'saved') throw new Error('Unexpected reservation result');
       return json(
         200,
         input.hasPhoto
@@ -548,7 +702,8 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
       const rows = await database(MEMORIES, 'GET', {
         owner_uid: `eq.${uid}`,
         id: `eq.${input.id}`,
-        select: 'status,photo_path,photo_backend,supabase_cleanup_pending',
+        select:
+          'status,photo_path,photo_backend,supabase_cleanup_pending,reservation_token',
         limit: 1,
       });
       const row = rows[0];
@@ -563,8 +718,43 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
       if (row.status !== 'active') return json(200, { migrated: false });
       if (row.photo_backend !== 'supabase')
         return json(409, { code: 'invalid-memory' });
+      const token = crypto.randomUUID();
+      const claim = await database(
+        'rpc/claim_lifemate_memory_migration',
+        'POST',
+        {},
+        {
+          p_owner_uid: uid,
+          p_id: input.id,
+          p_expected_token: row.reservation_token,
+          p_token: token,
+        },
+      );
+      if (claim.missing) return json(200, { migrated: false });
+      if (claim.busy) return json(409, { code: 'memory-migrating' });
+      // Check ownership again after the claim response; leave time for the
+      // bounded source download, conditional PUT and destination verification.
+      const owned = await database(MEMORIES, 'GET', {
+        owner_uid: `eq.${uid}`,
+        id: `eq.${input.id}`,
+        status: 'eq.active',
+        photo_backend: 'eq.supabase',
+        photo_path: `eq.${path}`,
+        reservation_token: `eq.${row.reservation_token}`,
+        migration_token: `eq.${token}`,
+        migration_until: `gte.${new Date(Date.now() + 120000).toISOString()}`,
+        select: 'migration_until',
+        limit: 1,
+      });
+      if (
+        !owned.length ||
+        Date.parse(owned[0].migration_until) <= Date.now() + 120000
+      )
+        return json(409, { code: 'memory-migrating' });
       const source = await storage('download', path);
-      const sizeBytes = await r2('copy', path, source);
+      // IfNoneMatch is also enforced by the adapter, protecting a later upload
+      // even if this worker's network request outlives its SQL lease.
+      const sizeBytes = await r2('copy', path, source, row.reservation_token);
       const verified = await r2('head', path);
       if (
         !verified ||
@@ -582,39 +772,32 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
           status: 'eq.active',
           photo_backend: 'eq.supabase',
           photo_path: `eq.${path}`,
+          reservation_token: `eq.${row.reservation_token}`,
+          migration_token: `eq.${token}`,
+          migration_until: `gte.${new Date().toISOString()}`,
         },
         {
           photo_backend: 'r2',
           photo_size_bytes: sizeBytes,
           supabase_cleanup_pending: true,
+          migration_token: null,
+          migration_until: null,
         },
       );
       if (!changed.length) {
-        const current = await database(MEMORIES, 'GET', {
-          owner_uid: `eq.${uid}`,
-          id: `eq.${input.id}`,
-          select: 'photo_backend,photo_path,supabase_cleanup_pending',
-          limit: 1,
-        });
-        if (
-          current[0]?.photo_backend === 'r2' &&
-          current[0]?.photo_path === path &&
-          current[0]?.supabase_cleanup_pending
-        )
-          await finishSupabaseCleanup(uid, input.id, path);
         return json(200, { migrated: false });
       }
       await finishSupabaseCleanup(uid, input.id, path);
       return json(200, { migrated: true });
     }
-    if (input.action === 'confirm' || input.action === 'unshare') {
+    if (input.action === 'confirm') {
       if (typeof input.id !== 'string' || !ID.test(input.id))
         return json(400, { code: 'invalid-memory' });
       const rows = await database(MEMORIES, 'GET', {
         owner_uid: `eq.${uid}`,
         id: `eq.${input.id}`,
         select:
-          'photo_path,photo_backend,photo_size_bytes,supabase_cleanup_pending,status',
+          'photo_path,photo_backend,photo_size_bytes,supabase_cleanup_pending,status,updated_at,reservation_token',
         limit: 1,
       });
       const row = rows[0];
@@ -638,6 +821,9 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
               id: `eq.${input.id}`,
               status: 'eq.pending',
               photo_backend: 'eq.r2',
+              photo_path: `eq.${row.photo_path}`,
+              updated_at: `eq.${row.updated_at}`,
+              reservation_token: `eq.${row.reservation_token}`,
             },
             { status: 'active', updated_at: new Date().toISOString() },
           );
@@ -652,43 +838,13 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
           {
             p_owner_uid: uid,
             p_id: input.id,
+            p_expected_token: row.reservation_token,
           },
         );
         return confirmed === true
           ? json(200, { shared: true })
           : json(409, { code: 'photo-not-ready' });
       }
-      let deleting = row;
-      if (row?.status === 'active' && row.photo_path) {
-        const hidden = await database(
-          MEMORIES,
-          'PATCH',
-          {
-            owner_uid: `eq.${uid}`,
-            id: `eq.${input.id}`,
-            status: 'eq.active',
-          },
-          { status: 'pending', updated_at: new Date().toISOString() },
-        );
-        deleting = hidden[0] ?? null;
-        if (!deleting) return json(409, { code: 'memory-changed' });
-      }
-      if (deleting?.photo_path)
-        await photoStorage(
-          deleting.photo_backend,
-          'delete',
-          deleting.photo_path,
-        );
-      if (deleting?.supabase_cleanup_pending)
-        await storage('delete', deleting.photo_path);
-      await database(MEMORIES, 'DELETE', {
-        owner_uid: `eq.${uid}`,
-        id: `eq.${input.id}`,
-        ...(deleting?.photo_path
-          ? { status: 'eq.pending' }
-          : { status: 'eq.active' }),
-      });
-      return json(200, { shared: false });
     }
     return json(400, { code: 'invalid-action' });
   }
@@ -707,14 +863,25 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
     } catch {
       return json(401, { code: 'unauthenticated' });
     }
-    if (identity.emailVerified !== true)
-      return json(403, { code: 'email-not-verified' });
     let input;
     try {
       input = await readInput(request);
     } catch {
       return json(400, { code: 'invalid-input' });
     }
+    // Recheck the live account gate after input; a slow body can outlive access.
+    try {
+      const current = await verifyIdentity(authorization.slice(7));
+      if (current.uid !== identity.uid) throw new Error('Identity changed');
+      identity = current;
+    } catch {
+      return json(401, { code: 'unauthenticated' });
+    }
+    if (
+      identity.emailVerified !== true &&
+      !['unshare', 'delete-own', ...PRIVATE_ACTIONS].includes(input.action)
+    )
+      return json(403, { code: 'email-not-verified' });
     try {
       return await handle(identity, input);
     } catch {

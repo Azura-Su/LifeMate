@@ -1,9 +1,26 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    function owns(uid) {
+      return request.auth != null && request.auth.uid == uid
+        && (!firestore.exists(/databases/(default)/documents/accountAccess/$(uid))
+          || (firestore.get(/databases/(default)/documents/accountAccess/$(uid)).data.status == 'active'
+            && request.auth.token.auth_time >= firestore.get(/databases/(default)/documents/accountAccess/$(uid)).data.validSince));
+    }
+    match /memories/{uid}/{memoryId}/{fileName} {
+      allow read, delete: if owns(uid);
+      // Unique photo filenames are immutable. An update gets a new filename.
+      allow create: if resource == null && owns(uid)
+        && memoryId.matches('^[A-Za-z0-9_-]{1,128}$')
+        && fileName.matches('^[A-Za-z0-9_-]{1,128}\\.(jpg|jpeg|png|webp|heic|heif|gif)$')
+        && request.resource.size > 0 && request.resource.size <= 15728640
+        && request.resource.contentType.matches('^image/(jpeg|png|webp|heic|heif|gif)$')
+        && request.resource.metadata.ownerId == uid
+        && request.resource.metadata.memoryId == memoryId;
+    }
     match /audio/{uid}/{trackId}/{fileName} {
-      allow read, delete: if request.auth != null && request.auth.uid == uid;
-      allow create, update: if request.auth != null && request.auth.uid == uid
+      allow read, delete: if owns(uid);
+      allow create, update: if owns(uid)
         && trackId.matches('^[a-zA-Z0-9_-]{1,128}$')
         && fileName.matches('^' + trackId + '\\.(mp3|m4a|aac|wav|flac|ogg|opus|aif|aiff|caf)$')
         && request.resource.size > 0 && request.resource.size <= 209715200

@@ -36,6 +36,7 @@ export function createFirebaseIdentityVerifier(projectId, jwks = keys) {
       uid: payload.sub,
       email,
       emailVerified: payload.email_verified === true,
+      authTime: payload.auth_time,
     };
   };
 }

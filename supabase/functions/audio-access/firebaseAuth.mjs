@@ -7,7 +7,11 @@ const googleKeys = createRemoteJWKSet(
   { timeoutDuration: 5000, cacheMaxAge: 300000 },
 );
 
-export function createFirebaseVerifier(projectId, keys = googleKeys) {
+export function createFirebaseVerifier(
+  projectId,
+  keys = googleKeys,
+  identity = false,
+) {
   if (!projectId) throw new Error('Missing Firebase project ID');
   return async (token) => {
     const { payload } = await jwtVerify(token, keys, {
@@ -27,6 +31,8 @@ export function createFirebaseVerifier(projectId, keys = googleKeys) {
       payload.auth_time > now
     )
       throw new Error('Invalid Firebase identity');
-    return payload.sub;
+    return identity
+      ? { uid: payload.sub, authTime: payload.auth_time }
+      : payload.sub;
   };
 }

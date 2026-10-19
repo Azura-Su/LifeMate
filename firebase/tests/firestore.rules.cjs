@@ -87,6 +87,72 @@ async function main() {
   try {
     const owner = environment.authenticatedContext('u1').firestore();
     const outsider = environment.authenticatedContext('u2').firestore();
+    // Every persisted namespace must keep reads scoped to its UID path.
+    const isolationPaths = [
+      'audioLibraries/u1/tracks/isolation-probe',
+      'financeAccounts/u1/transactions/isolation-probe',
+      'financeAccounts/u1/settings/preferences',
+      'financeAccounts/u1/loans/isolation-probe',
+      'financeAccounts/u1/heldFunds/isolation-probe',
+      'financeAccounts/u1/deletedLoans/isolation-probe',
+      'financeAccounts/u1/deletedLoanRepayments/isolation-probe',
+      'noteAccounts/u1/notes/isolation-probe',
+      'noteAccounts/u1/deletedNotes/isolation-probe',
+      'agendaAccounts/u1/items/isolation-probe',
+      'agendaAccounts/u1/deletedItems/isolation-probe',
+      'memoryAccounts/u1/items/isolation-probe',
+    ];
+    await environment.withSecurityRulesDisabled(async (context) => {
+      for (const path of isolationPaths)
+        await context.firestore().doc(path).set({ ownerId: 'u1' });
+    });
+    const unauthenticated = environment.unauthenticatedContext().firestore();
+    for (const path of isolationPaths) {
+      await assertSucceeds(owner.doc(path).get());
+      await assertFails(outsider.doc(path).get());
+      await assertFails(unauthenticated.doc(path).get());
+    }
+    await environment.withSecurityRulesDisabled(async (context) => {
+      for (const path of isolationPaths)
+        await context.firestore().doc(path).delete();
+    });
+
+    const privateMemory = owner.doc('memoryAccounts/u1/items/memory-1');
+    const privateMemoryData = {
+      id: 'memory-1',
+      ownerId: 'u1',
+      revision: 'first',
+      deleted: false,
+      dateKey: '2026-10-16',
+      text: 'Private memory',
+      photoFileName: 'photo.jpg',
+      photoSizeBytes: 3,
+      visibility: 'private',
+      createdAt: 100,
+      updatedAt: 100,
+    };
+    // Email verification is not required for one's private backup.
+    await assertSucceeds(privateMemory.set(privateMemoryData));
+    await assertSucceeds(privateMemory.get());
+    await assertFails(outsider.doc(privateMemory.path).get());
+    await assertFails(outsider.doc(privateMemory.path).set(privateMemoryData));
+    await assertFails(
+      unauthenticated.doc(privateMemory.path).set(privateMemoryData),
+    );
+    await assertFails(privateMemory.update({ ownerId: 'u2' }));
+    await assertFails(privateMemory.update({ photoSizeBytes: 15728641 }));
+    await assertFails(privateMemory.update({ photoFileName: '../other.jpg' }));
+    await assertFails(privateMemory.delete());
+    await assertSucceeds(
+      privateMemory.set({
+        id: 'memory-1',
+        ownerId: 'u1',
+        revision: 'deleted',
+        deleted: true,
+        updatedAt: 200,
+      }),
+    );
+    await assertSucceeds(privateMemory.get());
     const fund = owner.doc('financeAccounts/u1/heldFunds/fund-1');
     const audio = owner.doc('audioLibraries/u1/tracks/audio-1');
     const base = heldRecord();
@@ -257,8 +323,47 @@ async function main() {
     await assertFails(audio.update({ title: 'Đổi tên' }));
     await assertSucceeds(audio.delete());
     assert.equal((await audio.get()).exists, false);
+    const access = owner.doc('accountAccess/u1');
+    await assertFails(access.set({ status: 'active' }));
+    for (const status of ['disabled', 'deleting', 'deleted']) {
+      await environment.withSecurityRulesDisabled(async (context) => {
+        await context
+          .firestore()
+          .doc('accountAccess/u1')
+          .set({ status, validSince: 0 });
+      });
+      await assertSucceeds(access.get());
+      await assertFails(outsider.doc('accountAccess/u1').get());
+      await assertFails(owner.collection('accountAccess').get());
+      await assertFails(fund.get());
+      await assertFails(privateMemory.get());
+      await assertFails(audio.set(audioRecord()));
+    }
+    await environment.withSecurityRulesDisabled(async (context) => {
+      await context
+        .firestore()
+        .doc('accountAccess/u1')
+        .set({ status: 'active', validSince: 0 });
+    });
+    await assertSucceeds(fund.get());
+    await environment.withSecurityRulesDisabled(async (context) => {
+      await context
+        .firestore()
+        .doc('accountAccess/u1')
+        .set({ status: 'active', validSince: 100 });
+    });
+    const revoked = environment
+      .authenticatedContext('u1', { auth_time: 99 })
+      .firestore();
+    const fresh = environment
+      .authenticatedContext('u1', { auth_time: 100 })
+      .firestore();
+    await assertFails(revoked.doc(fund.path).get());
+    await assertFails(revoked.doc(privateMemory.path).get());
+    await assertSucceeds(fresh.doc(privateMemory.path).get());
+    await assertSucceeds(fresh.doc(fund.path).get());
     process.stdout.write(
-      'Firestore rules: held funds, loans, shared expenses, and audio deletion passed.\n',
+      'Firestore rules: all UID namespace reads isolated; held funds, loans, shared expenses, and audio deletion passed.\n',
     );
   } finally {
     await environment.cleanup();

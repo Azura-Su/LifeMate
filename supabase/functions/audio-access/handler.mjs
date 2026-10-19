@@ -102,6 +102,13 @@ export function createHandler({
     } catch {
       return json(400, { code: 'invalid-audio' });
     }
+    // Reading a streamed body must not extend an expired or revoked session.
+    try {
+      if ((await verifyToken(authorization.slice(7))) !== uid)
+        throw new Error('Identity changed');
+    } catch {
+      return json(401, { code: 'unauthenticated' });
+    }
     try {
       const path = `audio/${uid}/${input.id}/${input.fileName}`;
       if (input.action === 'confirm')

@@ -5,3 +5,11 @@ verify_jwt = false
 [functions.memory-access]
 # Firebase JWT is verified in the handler; it is not a Supabase-issued JWT.
 verify_jwt = false
+
+[functions.user-admin]
+# Firebase JWT + pinned, live admin identity; cron uses a separate server secret.
+verify_jwt = false
+
+[functions.profile-access]
+# Firebase JWT and account access are checked inside the handler.
+verify_jwt = false
