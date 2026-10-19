@@ -317,6 +317,9 @@ export function MemoryScreen() {
   const [shareState, setShareState] = useState<MemoryShareState | null>(null);
   const [friendItems, setFriendItems] = useState<FriendMemory[]>([]);
   const [friendFeedUid, setFriendFeedUid] = useState<string | null>(null);
+  const friendFeedScope = useRef<{ uid: string; friendsKey: string } | null>(
+    null,
+  );
   const [friendNextOffset, setFriendNextOffset] = useState<number | null>(null);
   const [loadingMoreFriends, setLoadingMoreFriends] = useState(false);
   const [cloudLoading, setCloudLoading] = useState(false);
@@ -354,6 +357,11 @@ export function MemoryScreen() {
   const moreFriendsInFlight = useRef(false);
   const loadGeneration = useRef(0);
   const cloudGeneration = useRef(0);
+  const cloudRequest = useRef<{
+    uid: string;
+    includeFeed: boolean;
+    generation: number;
+  } | null>(null);
   const migrationInFlight = useRef(false);
   const chooseInitialTimelineTab = useRef(false);
   const friendsPreferenceVersion = useRef(0);
@@ -434,21 +442,35 @@ export function MemoryScreen() {
       keepVerifiedState = false,
     ) => {
       const generation = ++cloudGeneration.current;
+      cloudRequest.current = { uid: accountId, includeFeed, generation };
       let stateReceived = false;
       setCloudLoading(true);
       setCloudError(null);
       setEmailVerificationNeeded(false);
       if (!keepVerifiedState) setShareState(null);
-      setFriendItems([]);
-      setFriendFeedUid(null);
-      setFriendNextOffset(null);
+      if (includeFeed) {
+        friendFeedScope.current = null;
+        setFriendItems([]);
+        setFriendFeedUid(null);
+        setFriendNextOffset(null);
+      }
       try {
         const state = await getMemoryShareState(accountId, displayName);
+        const friendsKey = JSON.stringify(
+          [...new Set(state.friends.map(({ uid }) => uid))].sort(),
+        );
         stateReceived = true;
         if (
           generation === cloudGeneration.current &&
           useAuthStore.getState().user?.uid === accountId
         ) {
+          const scope = friendFeedScope.current;
+          if (scope?.uid === accountId && scope.friendsKey !== friendsKey) {
+            friendFeedScope.current = null;
+            setFriendItems([]);
+            setFriendFeedUid(null);
+            setFriendNextOffset(null);
+          }
           setShareState(state);
           friendsPreferenceVersion.current += 1;
           friendsPreference.current = {
@@ -504,6 +526,7 @@ export function MemoryScreen() {
             generation === cloudGeneration.current &&
             useAuthStore.getState().user?.uid === accountId
           ) {
+            friendFeedScope.current = { uid: accountId, friendsKey };
             setFriendItems(feed.items);
             setFriendNextOffset(feed.nextOffset);
             setFriendFeedUid(accountId);
@@ -522,6 +545,8 @@ export function MemoryScreen() {
           setEmailVerificationNeeded(memoryEmailVerificationNeeded(cause));
         }
       } finally {
+        if (cloudRequest.current?.generation === generation)
+          cloudRequest.current = null;
         if (generation === cloudGeneration.current) setCloudLoading(false);
       }
     },
@@ -606,23 +631,45 @@ export function MemoryScreen() {
   }, [isFocused]);
 
   useEffect(() => {
-    if (isFocused && screenActive && uid)
+    if (isFocused && screenActive && uid) {
+      // A completed feed, including an empty one, survives tab navigation.
+      if (
+        viewMode === 'timeline' &&
+        timelineTab === 'friends' &&
+        (friendFeedUid === uid ||
+          (cloudRequest.current?.uid === uid &&
+            cloudRequest.current.includeFeed &&
+            cloudRequest.current.generation === cloudGeneration.current))
+      )
+        return;
       void loadCloud(
         uid,
         name,
         viewMode === 'timeline' && timelineTab === 'friends',
         true,
       );
-  }, [isFocused, screenActive, uid, viewMode, timelineTab, loadCloud, name]);
+    }
+  }, [
+    isFocused,
+    screenActive,
+    uid,
+    viewMode,
+    timelineTab,
+    friendFeedUid,
+    loadCloud,
+    name,
+  ]);
 
   useEffect(() => {
     setGallery(null);
+    setError(null);
     setPublishWarning(null);
     setItems([]);
     setOwnSynced(false);
     setOwnSyncWarning(null);
     setOwnConflict(null);
     setShareState(null);
+    friendFeedScope.current = null;
     setFriendItems([]);
     setFriendFeedUid(null);
     setFriendNextOffset(null);
@@ -637,8 +684,32 @@ export function MemoryScreen() {
     setVisibilityTarget(null);
     setVisibilityPending(null);
     setInitialPhoto(null);
-    if (uid) void load(uid);
-    else setLoading(false);
+    // Opening the camera only needs the local cache. A full cloud sync holds
+    // the same storage queue as createMemory and used to stall the first save.
+    const generation = ++loadGeneration.current;
+    if (uid) {
+      setLoading(true);
+      void readMemories(uid)
+        .then((saved) => {
+          if (
+            generation !== loadGeneration.current ||
+            useAuthStore.getState().user?.uid !== uid
+          )
+            return;
+          setItems(saved);
+          setLoadedUid(uid);
+        })
+        .catch((cause) => {
+          if (
+            generation === loadGeneration.current &&
+            useAuthStore.getState().user?.uid === uid
+          )
+            setError((cause as Error).message || 'Chưa đọc được dòng ký ức.');
+        })
+        .finally(() => {
+          if (generation === loadGeneration.current) setLoading(false);
+        });
+    } else setLoading(false);
     return () => {
       loadGeneration.current += 1;
       ownLoad.current = null;
@@ -809,7 +880,7 @@ export function MemoryScreen() {
       } else saved = await createMemory(uid, draft);
       if (draft.visibility === 'friends') {
         try {
-          await shareMemory(uid, name, saved);
+          saved = await shareMemory(uid, name, saved);
         } catch (cause) {
           if (cause instanceof MemoryShareUnconfirmedError) {
             if (useAuthStore.getState().user?.uid === uid)
@@ -820,16 +891,40 @@ export function MemoryScreen() {
         }
       }
       if (useAuthStore.getState().user?.uid !== uid) return;
-      await load(uid);
-      if (useAuthStore.getState().user?.uid !== uid) return;
-      // A pre-save read must not label newly published/edited content using
-      // its older snapshot while the next background refresh is pending.
+      // Local commit is complete. Never hold the editor open for backup uploads
+      // or a full timeline refresh; keep those in the existing coalesced loader.
+      loadGeneration.current += 1;
+      setItems((previous) =>
+        [saved, ...previous.filter((entry) => entry.id !== saved.id)].sort(
+          (a, b) =>
+            b.dateKey.localeCompare(a.dateKey) ||
+            b.createdAt - a.createdAt ||
+            b.id.localeCompare(a.id),
+        ),
+      );
+      setLoadedUid(uid);
+      setOwnSynced(false);
+      void load(uid, true);
+      // A confirmed content edit already knows the final visibility. Preserve
+      // that badge while refreshing; brand-new/unknown items still need state.
       cloudGeneration.current += 1;
-      setShareState(null);
+      if (editing) {
+        setShareState((known) =>
+          known
+            ? {
+                ...known,
+                sharedIds: [
+                  ...known.sharedIds.filter((id) => id !== saved.id),
+                  ...(saved.visibility === 'friends' ? [saved.id] : []),
+                ],
+              }
+            : null,
+        );
+      } else setShareState(null);
       setCloudLoading(false);
       setPublishWarning(publishError);
       if (viewMode === 'timeline')
-        void loadCloud(uid, name, timelineTab === 'friends');
+        void loadCloud(uid, name, timelineTab === 'friends', !!editing);
       setTimelineTab('mine');
       setViewMode('timeline');
     } catch (cause) {
@@ -1052,7 +1147,7 @@ export function MemoryScreen() {
   );
 
   const friendFeedLoading =
-    cloudLoading || (!!uid && friendFeedUid !== uid && !cloudError);
+    !!uid && friendFeedUid !== uid && (cloudLoading || !cloudError);
 
   const timelineHeader = (
     <View style={styles.timelineHeader}>
@@ -1258,7 +1353,7 @@ export function MemoryScreen() {
             )}
             ListHeaderComponent={timelineHeader}
             ListEmptyComponent={
-              friendFeedUid === uid && !cloudLoading && !cloudError ? (
+              friendFeedUid === uid && !friendFeedLoading && !cloudError ? (
                 <View style={styles.emptyCard}>
                   <Feather name="users" size={28} color={colors.sky} />
                   <Text style={styles.emptyTitle}>Chưa có ký ức từ bạn bè</Text>

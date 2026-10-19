@@ -11,6 +11,7 @@ import {
   setMemoryVisibility,
   shareMemory,
   createMemory,
+  updateMemory,
 } from '../../../services/memories/memoryStorage';
 import { observeOwnMemories } from '../../../services/memories/memoryCloud';
 import type { MemoryEntry } from '../../../types/memory';
@@ -84,6 +85,7 @@ jest.mock('../../../services/memories/memoryStorage', () => ({
   setMemoryVisibility: jest.fn(),
   shareMemory: jest.fn(),
   createMemory: jest.fn(),
+  updateMemory: jest.fn(),
   MemoryShareUnconfirmedError: class extends Error {},
   synchronizeMemories: jest
     .fn()
@@ -116,6 +118,7 @@ let appStateChanged: (state: AppStateStatus) => void;
 
 beforeEach(() => {
   mockFocused = true;
+  jest.mocked(updateMemory).mockReset();
   jest.mocked(readMemoryFriendsPreference).mockReset().mockResolvedValue(null);
   jest
     .mocked(writeMemoryFriendsPreference)
@@ -127,7 +130,13 @@ beforeEach(() => {
     .mockReset()
     .mockResolvedValue({ entries: [], synced: true });
   jest.mocked(setMemoryVisibility).mockReset().mockResolvedValue(undefined);
-  jest.mocked(shareMemory).mockReset().mockResolvedValue(undefined);
+  jest
+    .mocked(shareMemory)
+    .mockReset()
+    .mockImplementation(async (_uid, _name, entry) => ({
+      ...entry,
+      visibility: 'friends',
+    }));
   jest.mocked(unshareMemory).mockReset().mockResolvedValue(undefined);
   jest.mocked(changeMemoryFriend).mockReset().mockResolvedValue(undefined);
   jest
@@ -319,9 +328,9 @@ it('does not reuse a pre-save sharing snapshot for a newly published photo', asy
   jest.mocked(createMemory).mockResolvedValueOnce(created);
   let publish!: () => void;
   jest.mocked(shareMemory).mockImplementationOnce(
-    () =>
+    (_uid, _name, entry) =>
       new Promise((resolve) => {
-        publish = resolve;
+        publish = () => resolve({ ...entry, visibility: 'friends' });
       }),
   );
   let saving!: Promise<void>;
@@ -424,27 +433,253 @@ it('keeps only Friends-tab management and waits for the feed with one inline loa
   expect(screen.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(false);
 });
 
-it('does not reuse an earlier empty feed when returning from My tab', async () => {
+it.each([
+  { description: 'empty', items: [], content: 'Chưa có ký ức từ bạn bè' },
+  { description: 'populated', items: [friendPhoto], content: friendPhoto.text },
+])(
+  'reuses the $description Friends feed across tab changes without loading again',
+  async ({ items, content }) => {
+    await openMine();
+    jest
+      .mocked(getFriendMemories)
+      .mockResolvedValueOnce({ items, nextOffset: null });
+    fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Bạn bè' }));
+    await screen.findByText(content);
+    const feedRequests = jest.mocked(getFriendMemories).mock.calls.length;
+
+    for (let visit = 0; visit < 2; visit += 1) {
+      let finishState!: () => void;
+      jest.mocked(getMemoryShareState).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishState = () => resolve(verifiedState);
+          }),
+      );
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Xem ký ức Của tôi' }),
+      );
+      const stateRequests = jest.mocked(getMemoryShareState).mock.calls.length;
+      fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Bạn bè' }));
+      expect(screen.getByText(content)).toBeTruthy();
+      expect(screen.queryByLabelText('Đang tải ký ức bạn bè')).toBeNull();
+      expect(getFriendMemories).toHaveBeenCalledTimes(feedRequests);
+      expect(getMemoryShareState).toHaveBeenCalledTimes(stateRequests);
+      await act(async () => finishState());
+    }
+    act(() => appStateChanged('background'));
+    await act(async () => appStateChanged('active'));
+    expect(screen.getByText(content)).toBeTruthy();
+    expect(screen.queryByLabelText('Đang tải ký ức bạn bè')).toBeNull();
+    expect(getFriendMemories).toHaveBeenCalledTimes(feedRequests);
+  },
+);
+
+it('keeps loaded friend pages when switching tabs and replaces them on pull-to-refresh', async () => {
   await openMine();
+  const olderPhoto = { ...friendPhoto, id: 'older', text: 'Ảnh cũ của An' };
+  const newPhoto = { ...friendPhoto, id: 'new', text: 'Ảnh mới của An' };
+  jest
+    .mocked(getFriendMemories)
+    .mockResolvedValueOnce({ items: [friendPhoto], nextOffset: 30 })
+    .mockResolvedValueOnce({ items: [olderPhoto], nextOffset: null });
+  fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Bạn bè' }));
+  await screen.findByText(friendPhoto.text);
+  fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Của tôi' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Bạn bè' }));
+  expect(getFriendMemories).toHaveBeenCalledTimes(1);
+  fireEvent.press(
+    await screen.findByRole('button', { name: 'Xem thêm ký ức của bạn bè' }),
+  );
+  await screen.findByText(olderPhoto.text);
+  expect(getFriendMemories).toHaveBeenLastCalledWith('u1', 'Asher', 30);
+  fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Của tôi' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Bạn bè' }));
+  expect(screen.getByText(friendPhoto.text)).toBeTruthy();
+  expect(screen.getByText(olderPhoto.text)).toBeTruthy();
+  expect(getFriendMemories).toHaveBeenCalledTimes(2);
+  jest
+    .mocked(getFriendMemories)
+    .mockResolvedValueOnce({ items: [newPhoto], nextOffset: null });
+  act(() => fireEvent(screen.UNSAFE_getByType(RefreshControl), 'refresh'));
+  await screen.findByText(newPhoto.text);
+  expect(screen.queryByText(olderPhoto.text)).toBeNull();
+  expect(getFriendMemories).toHaveBeenCalledTimes(3);
+});
+
+it('clears cached friend memories when the signed-in account changes', async () => {
+  await openMine();
+  jest
+    .mocked(getFriendMemories)
+    .mockResolvedValueOnce({ items: [friendPhoto], nextOffset: null });
+  fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Bạn bè' }));
+  await screen.findByText(friendPhoto.text);
+  await act(async () =>
+    useAuthStore
+      .getState()
+      .setUser({ uid: 'u2', email: 'b@example.com', displayName: 'B' }),
+  );
+  expect(screen.queryByText(friendPhoto.text)).toBeNull();
   fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Bạn bè' }));
   await screen.findByText('Chưa có ký ức từ bạn bè');
+  expect(getFriendMemories).toHaveBeenLastCalledWith('u2', 'Asher');
+});
+
+it.each(['removed', 'added'] as const)(
+  'reloads cached Friends once when a returning Mine response detects a remotely %s friend',
+  async (change) => {
+    await openMine();
+    const friend = {
+      uid: friendPhoto.ownerId,
+      email: 'friend@example.com',
+      name: 'An',
+    };
+    const initial = {
+      ...verifiedState,
+      friends: change === 'removed' ? [friend] : [],
+    };
+    const changed = {
+      ...verifiedState,
+      friends: change === 'added' ? [friend] : [],
+    };
+    jest.mocked(getMemoryShareState).mockResolvedValue(initial);
+    jest.mocked(getFriendMemories).mockResolvedValueOnce({
+      items: change === 'removed' ? [friendPhoto] : [],
+      nextOffset: change === 'removed' ? 30 : null,
+    });
+    fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Bạn bè' }));
+    await screen.findByText(
+      change === 'removed' ? friendPhoto.text : 'Chưa có ký ức từ bạn bè',
+    );
+    let finishState!: () => void;
+    jest
+      .mocked(getMemoryShareState)
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishState = () => resolve(changed);
+          }),
+      )
+      .mockResolvedValue(changed);
+    jest.mocked(getFriendMemories).mockResolvedValueOnce({
+      items: change === 'added' ? [friendPhoto] : [],
+      nextOffset: null,
+    });
+    fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Của tôi' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Bạn bè' }));
+    expect(screen.queryByLabelText('Đang tải ký ức bạn bè')).toBeNull();
+    await act(async () => finishState());
+    await screen.findByText(
+      change === 'added' ? friendPhoto.text : 'Chưa có ký ức từ bạn bè',
+    );
+    expect(getFriendMemories).toHaveBeenCalledTimes(2);
+    expect(
+      jest
+        .mocked(getFriendMemories)
+        .mock.calls.every((args) => args.length === 2),
+    ).toBe(true);
+    expect(
+      screen.queryByRole('button', { name: 'Xem thêm ký ức của bạn bè' }),
+    ).toBeNull();
+  },
+);
+
+it('retains cached pages when friend order or profile details change', async () => {
+  await openMine();
+  const friends = [
+    { uid: friendPhoto.ownerId, email: 'friend@example.com', name: 'An' },
+    { uid: 'another', email: 'another@example.com', name: 'Bình' },
+  ];
+  jest
+    .mocked(getMemoryShareState)
+    .mockResolvedValue({ ...verifiedState, friends });
+  jest
+    .mocked(getFriendMemories)
+    .mockResolvedValueOnce({ items: [friendPhoto], nextOffset: 30 });
+  fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Bạn bè' }));
+  await screen.findByText(friendPhoto.text);
+  jest.mocked(getMemoryShareState).mockResolvedValue({
+    ...verifiedState,
+    friends: [...friends]
+      .reverse()
+      .map((friend) => ({ ...friend, name: 'Updated name' })),
+  });
+  jest.mocked(writeMemoryFriendsPreference).mockClear();
   fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Của tôi' }));
-  await screen.findByText('Đã đồng bộ theo tài khoản');
-  let finishState!: () => void;
-  jest.mocked(getMemoryShareState).mockImplementationOnce(
-    () =>
-      new Promise((resolve) => {
-        finishState = () => resolve(verifiedState);
-      }),
+  await waitFor(() =>
+    expect(writeMemoryFriendsPreference).toHaveBeenCalledWith('u1', true),
   );
   fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Bạn bè' }));
-  expect(screen.queryByText('Chưa có ký ức từ bạn bè')).toBeNull();
-  expect(screen.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(false);
-  expect(screen.getByLabelText('Đang tải ký ức bạn bè')).toBeTruthy();
-  expect(screen.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(1);
-  await act(async () => finishState());
+  expect(screen.getByText(friendPhoto.text)).toBeTruthy();
+  expect(
+    screen.getByRole('button', { name: 'Xem thêm ký ức của bạn bè' }),
+  ).toBeTruthy();
+  expect(getFriendMemories).toHaveBeenCalledTimes(1);
+});
+
+it('discards a pending page and its offset when the accepted friends change', async () => {
+  await openMine();
+  jest.mocked(getMemoryShareState).mockResolvedValue({
+    ...verifiedState,
+    friends: [
+      { uid: friendPhoto.ownerId, email: 'friend@example.com', name: 'An' },
+    ],
+  });
+  const older = {
+    ...friendPhoto,
+    id: 'stale-page',
+    text: 'Stale page from removed friend',
+  };
+  let finishPage!: () => void;
+  jest
+    .mocked(getFriendMemories)
+    .mockResolvedValueOnce({ items: [friendPhoto], nextOffset: 30 })
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishPage = () => resolve({ items: [older], nextOffset: 60 });
+        }),
+    );
+  fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Bạn bè' }));
+  fireEvent.press(
+    await screen.findByRole('button', { name: 'Xem thêm ký ức của bạn bè' }),
+  );
+  await waitFor(() => expect(getFriendMemories).toHaveBeenCalledTimes(2));
+  jest.mocked(getMemoryShareState).mockResolvedValue(verifiedState);
+  jest.mocked(writeMemoryFriendsPreference).mockClear();
+  fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Của tôi' }));
+  await waitFor(() =>
+    expect(writeMemoryFriendsPreference).toHaveBeenCalledWith('u1', false),
+  );
+  await act(async () => finishPage());
+  fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Bạn bè' }));
   await screen.findByText('Chưa có ký ức từ bạn bè');
-  expect(screen.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(false);
+  expect(screen.queryByText(older.text)).toBeNull();
+  expect(
+    screen.queryByRole('button', { name: 'Xem thêm ký ức của bạn bè' }),
+  ).toBeNull();
+  expect(getFriendMemories).toHaveBeenLastCalledWith('u1', 'Asher');
+});
+
+it('clears a previous account error when the new account cache loads successfully', async () => {
+  jest
+    .mocked(readMemories)
+    .mockRejectedValueOnce(new Error('Previous account cache error'));
+  render(<MemoryScreen />);
+  await screen.findByText('Previous account cache error');
+  jest.mocked(readMemories).mockResolvedValue([]);
+  await act(async () =>
+    useAuthStore
+      .getState()
+      .setUser({
+        uid: 'another-account',
+        email: 'b@example.com',
+        displayName: 'B',
+      }),
+  );
+  await waitFor(() =>
+    expect(readMemories).toHaveBeenCalledWith('another-account'),
+  );
+  expect(screen.queryByText('Previous account cache error')).toBeNull();
 });
 
 it('keeps the inline indicator until the friend feed finishes after acceptance and pull-to-refresh', async () => {
@@ -524,9 +759,9 @@ it('shows sharing feedback until server confirmation, then closes without waitin
   await openMine();
   let confirm!: () => void;
   jest.mocked(shareMemory).mockImplementationOnce(
-    () =>
-      new Promise<void>((resolve) => {
-        confirm = resolve;
+    (_uid, _name, entry) =>
+      new Promise((resolve) => {
+        confirm = () => resolve({ ...entry, visibility: 'friends' });
       }),
   );
   let finishSync!: () => void;
@@ -579,7 +814,7 @@ it('keeps a new-memory sharing failure visible when the timeline automatically l
   jest.mocked(createMemory).mockResolvedValue(local);
   jest.mocked(shareMemory).mockRejectedValueOnce(new Error('Upload failed'));
   render(<MemoryScreen />);
-  await waitFor(() => expect(synchronizeMemories).toHaveBeenCalled());
+  await waitFor(() => expect(readMemories).toHaveBeenCalled());
   act(() =>
     jest.mocked(MemoryCapture).mock.lastCall![0].onPhoto({
       uri: 'file:///new.jpg',
@@ -631,8 +866,8 @@ it('coalesces overlapping loads and retains one trailing server refresh', async 
       }),
   );
   render(<MemoryScreen />);
-  await waitFor(() => expect(synchronizeMemories).toHaveBeenCalledTimes(1));
   fireEvent.press(screen.getByRole('button', { name: 'Xem dòng ký ức' }));
+  await waitFor(() => expect(synchronizeMemories).toHaveBeenCalledTimes(1));
   await act(async () => {
     changed();
     changed();
@@ -646,9 +881,9 @@ it('does not apply a sharing completion to a different signed-in account', async
   await openMine();
   let finish!: () => void;
   jest.mocked(shareMemory).mockImplementationOnce(
-    () =>
-      new Promise<void>((resolve) => {
-        finish = resolve;
+    (_uid, _name, entry) =>
+      new Promise((resolve) => {
+        finish = () => resolve({ ...entry, visibility: 'friends' });
       }),
   );
   fireEvent.press(
@@ -695,9 +930,9 @@ it('keeps the confirmed sharing result when a pre-confirmation state refresh arr
   await openMine();
   let confirm!: () => void;
   jest.mocked(shareMemory).mockImplementationOnce(
-    () =>
-      new Promise<void>((resolve) => {
-        confirm = resolve;
+    (_uid, _name, entry) =>
+      new Promise((resolve) => {
+        confirm = () => resolve({ ...entry, visibility: 'friends' });
       }),
   );
   fireEvent.press(
@@ -1033,3 +1268,190 @@ it('does not fetch the feed from a superseded Friends request when refocusing in
   expect(screen.getByRole('button', { name: 'Xem dòng ký ức' })).toBeTruthy();
   expect(getFriendMemories).not.toHaveBeenCalled();
 });
+
+it('finishes a private capture save without waiting for original-photo cloud sync', async () => {
+  jest.mocked(getMemoryShareState).mockResolvedValue(verifiedState);
+  const view = render(<MemoryScreen />);
+  await waitFor(() => expect(readMemories).toHaveBeenCalled());
+  await act(async () => {});
+  expect(synchronizeMemories).not.toHaveBeenCalled();
+  const created = { ...local, id: 'quick-save', text: 'Saved locally' };
+  jest.mocked(createMemory).mockResolvedValueOnce(created);
+  jest.mocked(readMemories).mockResolvedValue([created]);
+  let finishSync!: () => void;
+  jest.mocked(synchronizeMemories).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finishSync = () => resolve({ entries: [created], synced: true });
+      }),
+  );
+  act(() =>
+    jest.mocked(MemoryCapture).mock.lastCall![0].onPhoto({
+      uri: 'file:///new.jpg',
+      mimeType: 'image/jpeg',
+      aspectRatio: 1,
+    }),
+  );
+  let finished = false;
+  let saving!: Promise<void>;
+  act(() => {
+    saving = jest
+      .mocked(MemoryEditor)
+      .mock.lastCall![0].onSave({
+        dateKey: created.dateKey,
+        text: created.text,
+        photoUri: 'file:///new.jpg',
+        photoChange: 'replace',
+        visibility: 'private',
+      })
+      .then(() => {
+        finished = true;
+      });
+  });
+  await waitFor(() => expect(finished).toBe(true));
+  expect(screen.getByText('Saved locally')).toBeTruthy();
+  expect(jest.mocked(MemoryEditor).mock.lastCall![0].busy).toBe(false);
+  expect(shareMemory).not.toHaveBeenCalled();
+  await act(async () => {
+    finishSync();
+    await saving;
+  });
+  view.unmount();
+});
+
+it('opens an immediate edit with the committed sharing snapshot before the background cache read finishes', async () => {
+  jest.mocked(getMemoryShareState).mockResolvedValue(verifiedState);
+  const view = render(<MemoryScreen />);
+  await waitFor(() => expect(readMemories).toHaveBeenCalled());
+  const created = { ...local, id: 'shared-snapshot', text: 'Shared snapshot' };
+  const committed: MemoryEntry = {
+    ...created,
+    visibility: 'friends',
+    updatedAt: created.updatedAt + 50,
+    pendingRevision: 'shared-revision',
+  };
+  jest.mocked(createMemory).mockResolvedValueOnce(created);
+  jest.mocked(shareMemory).mockResolvedValueOnce(committed);
+  let finishRead!: () => void;
+  jest.mocked(readMemories).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishRead = () => resolve([committed]);
+      }),
+  );
+  act(() =>
+    jest.mocked(MemoryCapture).mock.lastCall![0].onPhoto({
+      uri: 'file:///new.jpg',
+      mimeType: 'image/jpeg',
+      aspectRatio: 1,
+    }),
+  );
+  await act(async () =>
+    jest.mocked(MemoryEditor).mock.lastCall![0].onSave({
+      dateKey: created.dateKey,
+      text: created.text,
+      photoUri: 'file:///new.jpg',
+      photoChange: 'replace',
+      visibility: 'friends',
+    }),
+  );
+  fireEvent.press(screen.getByRole('button', { name: /Sửa ký ức ngày/ }));
+  const editingSnapshot = jest.mocked(MemoryEditor).mock.lastCall![0].entry;
+  view.unmount();
+  await act(async () => finishRead());
+  expect(editingSnapshot).toEqual(committed);
+});
+
+it('keeps the capture editor retryable when local persistence fails', async () => {
+  const view = render(<MemoryScreen />);
+  await waitFor(() => expect(readMemories).toHaveBeenCalled());
+  jest
+    .mocked(createMemory)
+    .mockRejectedValueOnce(new Error('Device storage full'));
+  act(() =>
+    jest.mocked(MemoryCapture).mock.lastCall![0].onPhoto({
+      uri: 'file:///new.jpg',
+      mimeType: 'image/jpeg',
+      aspectRatio: 1,
+    }),
+  );
+  let failure: unknown;
+  await act(async () => {
+    try {
+      await jest.mocked(MemoryEditor).mock.lastCall![0].onSave({
+        dateKey: local.dateKey,
+        text: 'Draft',
+        photoUri: 'file:///new.jpg',
+        photoChange: 'replace',
+        visibility: 'private',
+      });
+    } catch (cause) {
+      failure = cause;
+    }
+  });
+  expect((failure as Error).message).toBe('Device storage full');
+  expect(jest.mocked(MemoryEditor).mock.lastCall![0].visible).toBe(true);
+  expect(jest.mocked(MemoryEditor).mock.lastCall![0].busy).toBe(false);
+  expect(screen.getByRole('button', { name: 'Xem dòng ký ức' })).toBeTruthy();
+  expect(synchronizeMemories).not.toHaveBeenCalled();
+  view.unmount();
+});
+
+it.each(['private', 'friends'] as const)(
+  'keeps the %s visibility badge stable after a content edit while refreshing state',
+  async (visibility) => {
+    const entry = { ...local, visibility };
+    jest.mocked(readMemories).mockResolvedValue([entry]);
+    jest
+      .mocked(synchronizeMemories)
+      .mockResolvedValue({ entries: [entry], synced: true });
+    jest.mocked(getMemoryShareState).mockResolvedValue({
+      ...verifiedState,
+      sharedIds: visibility === 'friends' ? [entry.id] : [],
+    });
+    const view = render(<MemoryScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Xem dòng ký ức' }));
+    const label = visibility === 'friends' ? 'Bạn bè' : 'Chỉ mình tôi';
+    await screen.findByRole('button', { name: `Quyền xem: ${label}` });
+    const edited = {
+      ...entry,
+      text: 'Edited text',
+      visibility: 'private' as const,
+    };
+    jest.mocked(updateMemory).mockResolvedValue(edited);
+    jest.mocked(readMemories).mockResolvedValue([{ ...edited, visibility }]);
+    jest.mocked(synchronizeMemories).mockResolvedValue({
+      entries: [{ ...edited, visibility }],
+      synced: true,
+    });
+    let finish!: () => void;
+    jest.mocked(getMemoryShareState).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = () =>
+            resolve({
+              ...verifiedState,
+              sharedIds: visibility === 'friends' ? [entry.id] : [],
+            });
+        }),
+    );
+    fireEvent.press(screen.getByRole('button', { name: /Sửa ký ức ngày/ }));
+    await act(async () =>
+      jest.mocked(MemoryEditor).mock.lastCall![0].onSave({
+        dateKey: entry.dateKey,
+        text: edited.text,
+        photoUri: 'file:///photo.jpg',
+        photoChange: 'keep',
+        visibility,
+      }),
+    );
+    expect(
+      screen.getByRole('button', { name: `Quyền xem: ${label}` }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Quyền xem: Đang kiểm tra' }),
+    ).toBeNull();
+    await act(async () => finish());
+    view.unmount();
+  },
+);

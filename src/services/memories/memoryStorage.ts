@@ -390,7 +390,7 @@ export function shareMemory(
   uid: string,
   displayName: string,
   expected: MemoryEntry,
-): Promise<void> {
+): Promise<MemoryEntry> {
   requireUid(uid);
   if (!ID.test(expected.id))
     return Promise.reject(new Error('Ký ức không hợp lệ.'));
@@ -415,7 +415,7 @@ export function shareMemory(
     };
     try {
       await publishMemory(uid, displayName, current);
-      await persistShared();
+      return await persistShared();
     } catch (cause) {
       if (!memoryPublishDefinitelyNotStarted(cause)) {
         try {

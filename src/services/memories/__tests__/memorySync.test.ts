@@ -677,6 +677,32 @@ it('holds the queue until publication and visibility persistence finish', async 
   expect((await readMemories('alice'))[0].visibility).toBe('friends');
 });
 
+it('returns the committed sharing snapshot so an immediate edit uses the current version', async () => {
+  await seed([base]);
+  const shared = await shareMemory('alice', 'Asher', base);
+  const committed = (await readMemories('alice'))[0];
+  expect(shared).toEqual(committed);
+  expect(shared).toMatchObject({
+    visibility: 'friends',
+    pendingRevision: expect.any(String),
+  });
+  expect(committed.updatedAt).toBeGreaterThan(base.updatedAt);
+  await expect(
+    updateMemory(
+      'alice',
+      base.id,
+      {
+        dateKey: base.dateKey,
+        text: 'An immediate edit',
+        photoUri: null,
+        photoChange: 'keep',
+        visibility: 'friends',
+      },
+      shared,
+    ),
+  ).resolves.toMatchObject({ text: 'An immediate edit' });
+});
+
 it('revokes an ambiguous publication before releasing the queue', async () => {
   await seed([base]);
   jest

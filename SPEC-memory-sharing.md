@@ -44,7 +44,7 @@
 ## Phản hồi thao tác và thời gian chờ — 17/10/2026
 
 - Mở timeline hiện chỉ báo đồng bộ ngay, vẫn hiển thị ảnh/cache đang có. Mỗi ảnh hiện spinner đến khi load/decode xong hoặc có lỗi.
-- Tab Bạn bè chỉ dùng một chỉ báo tải danh sách ngay dưới dòng số lượng Bạn bè, theo toàn bộ yêu cầu state và feed (bao gồm sau kết bạn hoặc kéo tải lại). Kéo tải lại vẫn hoạt động nhưng không giữ thêm spinner hệ thống ở đầu trang hoặc trong khung rỗng. Chỉ hiện “Chưa có ký ức từ bạn bè” sau khi feed của UID hiện tại tải thành công và trả rỗng; trạng thái state tải xong chưa đủ để kết luận. Xóa dấu đã tải mỗi khi xóa feed, kể cả chuyển qua Của tôi; lỗi tải hiện lỗi và dừng loading.
+- Tab Bạn bè chỉ dùng một chỉ báo tải danh sách ngay dưới dòng số lượng Bạn bè, theo toàn bộ yêu cầu state và feed (bao gồm sau kết bạn hoặc kéo tải lại). Kéo tải lại vẫn hoạt động nhưng không giữ thêm spinner hệ thống ở đầu trang hoặc trong khung rỗng. Chỉ hiện “Chưa có ký ức từ bạn bè” sau khi feed của UID hiện tại tải thành công và trả rỗng; trạng thái state tải xong chưa đủ để kết luận. Sau lần tải thành công, giữ feed (kể cả rỗng), các trang đã tải và con trỏ trang trong bộ nhớ khi chuyển Của tôi/Bạn bè; quay lại Bạn bè không gọi tải lại hay hiện spinner danh sách. Đọc riêng trạng thái chia sẻ không xóa feed hoặc làm hiện spinner Bạn bè đã tải. Kéo refresh ở Bạn bè hoặc thay đổi quan hệ bạn bè vẫn tải mới; đổi tài khoản xóa cache. Xóa dấu đã tải mỗi khi xóa feed; lỗi tải hiện lỗi và dừng loading.
 - Khi đổi quyền xem, lựa chọn đang xử lý thay icon bằng spinner và mô tả tiến trình; chặn nhấn lặp. Chỉ hoàn tất sau publish/confirm hoặc unshare được xác nhận và lưu cache cục bộ. Đồng bộ toàn thư viện tiếp tục nền, không giữ popup chờ bước đó. Giữ rollback và thông báo lỗi/thử lại hiện có.
 - Khi chia sẻ, kiểm tra lại snapshot nội dung, publish/confirm và lưu quyền Bạn bè trong cùng hàng đợi theo UID. Nếu nội dung đã đổi trong lúc chờ đồng bộ thì từ chối trước khi publish. Lỗi sau publish phải thử gỡ chia sẻ trước khi nhả hàng đợi; không gỡ được phải báo chưa xác nhận quyền xem kể cả khi ghi cache cũng lỗi.
 - Phản hồi state cũ không ghi đè hành động vừa xác nhận; state chưa biết được kiểm tra lại, không đoán quyền riêng tư.
@@ -94,3 +94,16 @@
 - Ghi cache boolean có/không có bạn bè đã chấp nhận theo UID, mã hóa với key `lifemate:memory-friends-tab:v1:{uid}`. Không lưu email/danh sách bạn/token trong hint này; không dùng cache để cấp quyền chia sẻ hay ảnh.
 - Khi mở Dòng ký ức, ưu tiên trạng thái máy chủ đã có, sau đó cache đúng UID: có bạn bè mở Bạn bè ngay, chưa có mở Của tôi. Mạng lỗi giữ hint; lần nhận thành công không còn bạn bè cập nhật false. Lời mời chưa chấp nhận không tính.
 - Không cho phản hồi cache muộn thay thế thông tin máy chủ mới, tài khoản khác hoặc lựa chọn tab bằng tay của người dùng. Cache nằm trong namespace được dọn khi xóa tài khoản.
+- Feed đã tải gắn với UID tài khoản và tập UID bạn bè đã chấp nhận. Khi một phản hồi state mới phát hiện tập này thay đổi (kể cả từ thiết bị khác), bỏ feed và con trỏ phân trang cũ, rồi tải lại từ đầu khi xem Bạn bè. Đổi thứ tự hoặc tên bạn bè không làm mất cache; trang cũ đang tải không được khôi phục dữ liệu đã vô hiệu.
+
+
+## Thời điểm kết thúc lưu khoảnh khắc — 19/10/2026
+
+- Mở màn camera chỉ đọc cache riêng, chưa chạy đồng bộ ảnh gốc trong hàng đợi ghi. Mở Dòng ký ức mới bắt đầu đồng bộ riêng theo lịch focus hiện có.
+- Nút Lưu khoảnh khắc kết thúc khi ảnh và metadata đã ghi bền vững trên máy; thêm mục vừa lưu vào danh sách ngay, không đợi backup ảnh gốc và đồng bộ toàn bộ kho. Dùng loader coalescing hiện có chạy nền, không đánh dấu đã đồng bộ trước khi máy chủ xác nhận.
+- Nếu chọn Bạn bè, vẫn chờ xác nhận chia sẻ hiện có; lỗi chia sẻ/không xác định quyền được giữ đúng như trước. Sửa mục cũ vẫn gỡ quyền chia sẻ trước khi ghi theo quy tắc an toàn hiện có.
+- Nếu hàng đợi đang chạy đồng bộ từ lần xem Dòng ký ức trước đó, ghi mới vẫn tuần tự chờ tác vụ đang chạy để giữ nhất quán; không sửa cơ chế queue hoặc bỏ kiểm tra quyền nhằm làm nhanh.
+
+- Sau khi sửa nội dung thành công, giữ nhãn quyền xem đã xác nhận và cập nhật đúng ID từ kết quả lưu/chia sẻ; làm mới máy chủ ngầm không reset nhãn về loading. Nếu quyền trước đó chưa xác định hoặc chia sẻ chưa được xác nhận, không suy đoán quyền từ cache.
+- Chia sẻ thành công trả lại entry thực tế đã ghi bền vững, gồm updatedAt và revision mới. Dùng entry này khi cập nhật thẻ ngay để sửa/xóa tiếp không bị từ chối bởi snapshot trước chia sẻ; vẫn giữ rollback khi ghi cache thất bại và không chờ backup ảnh gốc.
+- Đổi tài khoản xóa thông báo lỗi đọc cache của phiên trước trước khi nạp cache mới.
