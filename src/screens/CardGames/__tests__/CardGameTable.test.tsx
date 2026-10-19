@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Dimensions } from 'react-native';
 import type { CardGameRoom } from '../../../types/cardGame';
 import { CardGameTable } from '../CardGameTable';
@@ -59,4 +59,30 @@ it('uses the wide table layout when the match is in landscape', () => {
   expect(screen.getByText('Bình')).toBeTruthy();
   expect(screen.getByRole('button', { name: '3 bích' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Đánh 0 lá' })).toBeTruthy();
+});
+
+it('keeps play disabled when a pair is selected against a single card', () => {
+  render(
+    <CardGameTable
+      room={{
+        ...room,
+        game: {
+          ...room.game!,
+          hand: [4, 5, 9],
+          table: { uid: 'b', cards: [0] },
+        },
+      }}
+      uid="a"
+      serverTime={Date.now()}
+      active
+      disabled={false}
+      busy={false}
+      onAction={jest.fn()}
+    />,
+  );
+
+  fireEvent.press(screen.getByRole('button', { name: '4 bích' }));
+  expect(screen.getByRole('button', { name: 'Đánh 1 lá' })).not.toBeDisabled();
+  fireEvent.press(screen.getByRole('button', { name: '4 chuồn' }));
+  expect(screen.getByRole('button', { name: 'Đánh 2 lá' })).toBeDisabled();
 });

@@ -7,6 +7,7 @@ import {
   View,
 } from 'react-native';
 import { Button } from '../../components/Button';
+import { canPlayTienLenSelection } from '../../services/cardGames/tienLenRules';
 import type { CardGameRoom, GameIntent } from '../../types/cardGame';
 import { PlayingCard, cardLabel } from './PlayingCard';
 import { styles } from './CardGamesScreen.styles';
@@ -63,6 +64,7 @@ export function CardGameTable({
   const mySeat = game.players.find((p) => p.uid === uid);
   const canAct =
     !disabled && !mySeat?.finished && !mySeat?.forfeited && seconds > 0;
+  const canPlay = canAct && canPlayTienLenSelection(selected, game, uid);
   const opponents = game.players
     .filter((p) => p.uid !== uid)
     .map((p) => {
@@ -182,9 +184,7 @@ export function CardGameTable({
           compact
           title={`Đánh ${selected.length} lá`}
           loading={busy}
-          disabled={
-            !canAct || !selected.length || (!mine && selected.length !== 8)
-          }
+          disabled={!canPlay}
           onPress={() =>
             onAction({
               type: 'play',
