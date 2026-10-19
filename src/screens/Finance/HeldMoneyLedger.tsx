@@ -1,6 +1,6 @@
 import Feather from '@expo/vector-icons/Feather';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { DialogModal } from '../../components/DialogModal';
 import type { useHeldMoneyLedger } from '../../hooks/useHeldMoneyLedger';
@@ -72,10 +72,12 @@ export function HeldMoneyLedger({
   uid,
   ledger,
   addRequestId,
+  suspended = false,
 }: {
   uid: string | null;
   ledger: Ledger;
   addRequestId: number;
+  suspended?: boolean;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -90,9 +92,41 @@ export function HeldMoneyLedger({
   } | null>(null);
   const [entryTarget, setEntryTarget] = useState<EntryTarget | null>(null);
   const [menuTarget, setMenuTarget] = useState<MenuTarget | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<
+    HeldMoneyRecord | MenuTarget | null
+  >(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const handledRequest = useRef(addRequestId);
+  const interaction = useRef({ uid, suspended, generation: 0, mounted: true });
+  if (
+    interaction.current.uid !== uid ||
+    interaction.current.suspended !== suspended
+  ) {
+    interaction.current = {
+      uid,
+      suspended,
+      generation: interaction.current.generation + 1,
+      mounted: true,
+    };
+  }
+  const generation = interaction.current.generation;
+  function canInteract() {
+    return (
+      !!uid &&
+      !suspended &&
+      interaction.current.mounted &&
+      interaction.current.generation === generation
+    );
+  }
+  useEffect(() => {
+    interaction.current.mounted = true;
+    return () => {
+      interaction.current.mounted = false;
+    };
+  }, []);
 
   function openCreate() {
+    if (!canInteract()) return;
     setRecordTarget(null);
     setCreateAttempt({
       id: newHeldMoneyId(),
@@ -105,8 +139,15 @@ export function HeldMoneyLedger({
   useEffect(() => {
     if (handledRequest.current === addRequestId) return;
     handledRequest.current = addRequestId;
-    openCreate();
-  }, [addRequestId]);
+    if (!uid || suspended) return;
+    setRecordTarget(null);
+    setCreateAttempt({
+      id: newHeldMoneyId(),
+      entryId: newHeldMoneyId(),
+      createdAt: Date.now(),
+    });
+    setRecordFormVisible(true);
+  }, [addRequestId, uid, suspended]);
 
   useEffect(() => {
     setExpandedId(null);
@@ -114,10 +155,15 @@ export function HeldMoneyLedger({
     setEntryTarget(null);
     setMenuTarget(null);
     setSearchQuery('');
-  }, [uid]);
+    setDeleteTarget(null);
+    setDeleteError(null);
+    setRecordTarget(null);
+    setCreateAttempt(null);
+  }, [uid, suspended]);
 
   async function saveRecord(draft: HeldMoneyRecordDraft) {
-    if (!uid) throw new Error('Bạn cần đăng nhập để dùng sổ đóng hộ.');
+    if (!canInteract() || !uid)
+      throw new Error('Hãy mở khóa Tài chính và mở lại biểu mẫu.');
     const senderName = requiredText(draft.senderName, 'người đưa tiền');
     const purpose = requiredText(draft.purpose, 'nội dung đóng hộ');
     if (recordTarget) {
@@ -143,7 +189,7 @@ export function HeldMoneyLedger({
       ],
     };
     await ledger.create(record);
-    setExpandedId(record.id);
+    if (canInteract()) setExpandedId(record.id);
   }
 
   function openEntry(
@@ -151,6 +197,7 @@ export function HeldMoneyLedger({
     entry: HeldMoneyEntry | null = null,
     kind: HeldMoneyEntryKind = 'paid',
   ) {
+    if (!canInteract()) return;
     setEntryTarget({
       record,
       entry,
@@ -160,6 +207,8 @@ export function HeldMoneyLedger({
   }
 
   async function saveEntry(draft: HeldMoneyEntryDraft) {
+    if (!canInteract())
+      throw new Error('Hãy mở khóa Tài chính và mở lại biểu mẫu.');
     if (!entryTarget) throw new Error('Hãy mở lại form ghi nhận.');
     const entry: HeldMoneyEntry = {
       id: entryTarget.attemptId,
@@ -174,52 +223,32 @@ export function HeldMoneyLedger({
   }
 
   function confirmDeleteRecord(record: HeldMoneyRecord) {
-    Alert.alert(
-      'Xóa khoản đóng hộ?',
-      `Xóa khoản của ${record.senderName} và toàn bộ lịch sử nhận, đóng hộ liên quan?`,
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa',
-          style: 'destructive',
-          onPress: () => {
-            void ledger
-              .removeRecord(record)
-              .catch((cause) =>
-                Alert.alert(
-                  'Chưa xóa được',
-                  (cause as Error).message || 'Vui lòng thử lại.',
-                ),
-              );
-          },
-        },
-      ],
-    );
+    if (!canInteract()) return;
+    setDeleteError(null);
+    setDeleteTarget(record);
   }
 
   function confirmDeleteEntry(target: MenuTarget) {
+    if (!canInteract()) return;
     setMenuTarget(null);
-    Alert.alert(
-      'Xóa mục lịch sử?',
-      'Số còn giữ sẽ được tính lại sau khi xóa.',
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa',
-          style: 'destructive',
-          onPress: () => {
-            void ledger
-              .removeEntry(target.record.id, target.entry)
-              .catch((cause) =>
-                Alert.alert(
-                  'Chưa xóa được',
-                  (cause as Error).message || 'Vui lòng thử lại.',
-                ),
-              );
-          },
-        },
-      ],
-    );
+    setDeleteError(null);
+    setDeleteTarget(target);
+  }
+
+  async function deleteConfirmed() {
+    if (!canInteract() || !deleteTarget || ledger.busy) return;
+    setDeleteError(null);
+    try {
+      if ('entry' in deleteTarget)
+        await ledger.removeEntry(deleteTarget.record.id, deleteTarget.entry);
+      else await ledger.removeRecord(deleteTarget);
+      if (canInteract()) setDeleteTarget(null);
+    } catch (cause) {
+      if (canInteract())
+        setDeleteError(
+          (cause as Error).message || 'Chưa xóa được. Vui lòng thử lại.',
+        );
+    }
   }
 
   const totalRemaining = ledger.records.reduce(
@@ -250,6 +279,8 @@ export function HeldMoneyLedger({
         : ledger.records,
     [ledger.records, searchQuery],
   );
+
+  if (suspended) return null;
 
   return (
     <View style={styles.root}>
@@ -392,6 +423,7 @@ export function HeldMoneyLedger({
                   disabled={ledger.busy}
                   hitSlop={8}
                   onPress={() => {
+                    if (!canInteract()) return;
                     setRecordTarget(record);
                     setRecordFormVisible(true);
                   }}
@@ -453,7 +485,9 @@ export function HeldMoneyLedger({
                   entries={receivedEntries}
                   busy={ledger.busy}
                   onAdd={() => openEntry(record, null, 'received')}
-                  onOpenEntry={(entry) => setMenuTarget({ record, entry })}
+                  onOpenEntry={(entry) => {
+                    if (canInteract()) setMenuTarget({ record, entry });
+                  }}
                 />
                 <HeldMoneyHistorySection
                   title="Lịch sử đóng hộ"
@@ -462,7 +496,9 @@ export function HeldMoneyLedger({
                   entries={outgoingEntries}
                   busy={ledger.busy}
                   onAdd={() => openEntry(record, null, 'paid')}
-                  onOpenEntry={(entry) => setMenuTarget({ record, entry })}
+                  onOpenEntry={(entry) => {
+                    if (canInteract()) setMenuTarget({ record, entry });
+                  }}
                 />
               </View>
             )}
@@ -470,11 +506,48 @@ export function HeldMoneyLedger({
         );
       })}
 
+      <DialogModal
+        visible={!!deleteTarget}
+        onRequestClose={() => !ledger.busy && setDeleteTarget(null)}
+        style={styles.dialog}
+      >
+        <Text accessibilityRole="header" style={styles.dialogTitle}>
+          {deleteTarget && 'entry' in deleteTarget
+            ? 'Xóa mục lịch sử?'
+            : 'Xóa khoản đóng hộ?'}
+        </Text>
+        <Text>
+          {deleteTarget && 'entry' in deleteTarget
+            ? 'Số còn giữ sẽ được tính lại sau khi xóa.'
+            : `Xóa khoản của ${deleteTarget?.senderName ?? ''} và toàn bộ lịch sử nhận, đóng hộ liên quan?`}
+        </Text>
+        {!!deleteError && (
+          <Text accessibilityRole="alert" style={styles.deleteText}>
+            {deleteError}
+          </Text>
+        )}
+        <View style={styles.actionRow}>
+          <Button
+            title="Hủy"
+            variant="secondary"
+            disabled={ledger.busy}
+            onPress={() => setDeleteTarget(null)}
+          />
+          <Button
+            title="Xác nhận xóa"
+            variant="danger"
+            loading={ledger.busy}
+            onPress={() => void deleteConfirmed()}
+          />
+        </View>
+      </DialogModal>
       <HeldMoneyRecordDialog
         visible={recordFormVisible}
         initial={recordTarget}
         busy={ledger.busy}
-        onClose={() => setRecordFormVisible(false)}
+        onClose={() => {
+          if (canInteract()) setRecordFormVisible(false);
+        }}
         onSave={saveRecord}
       />
       <HeldMoneyEntryDialog
@@ -485,7 +558,9 @@ export function HeldMoneyLedger({
           entryTarget ? getHeldMoneyTotals(entryTarget.record).remaining : 0,
         )}
         busy={ledger.busy}
-        onClose={() => setEntryTarget(null)}
+        onClose={() => {
+          if (canInteract()) setEntryTarget(null);
+        }}
         onSave={saveEntry}
       />
       <DialogModal

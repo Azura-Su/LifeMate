@@ -33,6 +33,7 @@ import {
   getSharedExpenseTotals,
 } from '../../utils/sharedExpense';
 import { FinanceDatePicker } from './FinanceDatePicker';
+import { useInteractionGuard } from '../../hooks/useInteractionGuard';
 import { styles } from './SharedExpenseModal.styles';
 
 type ReceiptDraft = {
@@ -54,11 +55,14 @@ type Props = {
   onDismiss?: () => void;
   onEditExpense: (transaction: FinanceTransaction) => void;
   onSaveReceipt: (
-    expenseId: string,
+    expected: FinanceTransaction,
     draft: ReceiptDraft,
     receiptId?: string,
   ) => Promise<void>;
-  onRemoveReceipt: (expenseId: string, receiptId: string) => Promise<void>;
+  onRemoveReceipt: (
+    expected: FinanceTransaction,
+    receiptId: string,
+  ) => Promise<void>;
 };
 
 export function SharedExpenseModal({
@@ -70,7 +74,12 @@ export function SharedExpenseModal({
   onSaveReceipt,
   onRemoveReceipt,
 }: Props) {
+  const canInteract = useInteractionGuard(
+    visible,
+    transaction ? `${transaction.ownerId}:${transaction.id}` : null,
+  );
   const [form, setForm] = useState<ReceiptDraft | null>(null);
+  const [expected, setExpected] = useState<FinanceTransaction | null>(null);
   const [editingReceiptId, setEditingReceiptId] = useState<string>();
   const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -101,6 +110,7 @@ export function SharedExpenseModal({
   useEffect(() => {
     if (!visible) {
       setForm(null);
+      setExpected(null);
       setEditingReceiptId(undefined);
       setDatePickerVisible(false);
       setError(null);
@@ -111,6 +121,7 @@ export function SharedExpenseModal({
 
   function openForm(participantId: string, receipt?: SharedExpenseReceipt) {
     if (busy) return;
+    setExpected(transaction);
     setForm({
       requestId: receipt?.id ?? makeReceiptId(),
       participantId,
@@ -134,6 +145,7 @@ export function SharedExpenseModal({
         mode: 'date',
         display: 'calendar',
         onChange: (event, date) => {
+          if (!canInteract()) return;
           if (event.type === 'set' && date)
             setForm(
               (previous) =>
@@ -145,12 +157,12 @@ export function SharedExpenseModal({
   }
 
   async function submit() {
-    if (!form || !canSave || busy || savingRef.current) return;
+    if (!form || !expected || !canSave || busy || savingRef.current) return;
     savingRef.current = true;
     setBusy(true);
     setError(null);
     try {
-      await onSaveReceipt(transaction!.id, form, editingReceiptId);
+      await onSaveReceipt(expected, form, editingReceiptId);
       setForm(null);
       setEditingReceiptId(undefined);
     } catch (cause) {
@@ -162,7 +174,8 @@ export function SharedExpenseModal({
   }
 
   function confirmRemove(receipt: SharedExpenseReceipt) {
-    if (busy) return;
+    if (!canInteract() || busy || savingRef.current) return;
+    const expected = transaction!;
     Alert.alert(
       'Xóa lần nhận lại?',
       'Chi tiêu của kỳ nhận tiền sẽ tăng lại tương ứng.',
@@ -172,12 +185,17 @@ export function SharedExpenseModal({
           text: 'Xóa',
           style: 'destructive',
           onPress: () => {
+            if (!canInteract() || savingRef.current) return;
+            savingRef.current = true;
             setBusy(true);
-            void onRemoveReceipt(transaction!.id, receipt.id)
+            void onRemoveReceipt(expected, receipt.id)
               .catch((cause) =>
                 setError((cause as Error).message || 'Chưa xóa được.'),
               )
-              .finally(() => setBusy(false));
+              .finally(() => {
+                savingRef.current = false;
+                setBusy(false);
+              });
           },
         },
       ],

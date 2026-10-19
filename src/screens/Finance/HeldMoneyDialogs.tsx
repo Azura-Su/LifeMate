@@ -220,6 +220,12 @@ export function HeldMoneyRecordDialog({
   const [submitting, setSubmitting] = useState(false);
   const [datePickerVisible, setDatePickerVisible] = useState(false);
   useEffect(() => {
+    if (!visible || Platform.OS !== 'android') return;
+    return () => {
+      DateTimePickerAndroid.dismiss('date');
+    };
+  }, [visible]);
+  useEffect(() => {
     if (!visible) return;
     setDraft({
       senderName: initial?.senderName ?? '',
@@ -383,6 +389,12 @@ export function HeldMoneyEntryDialog({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [datePickerVisible, setDatePickerVisible] = useState(false);
+  useEffect(() => {
+    if (!visible || Platform.OS !== 'android') return;
+    return () => {
+      DateTimePickerAndroid.dismiss('date');
+    };
+  }, [visible]);
   useEffect(() => {
     if (!visible) return;
     setDraft({

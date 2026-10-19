@@ -26,6 +26,7 @@ export function getFinanceErrorMessage(cause: unknown, fallback: string) {
     'Giao dịch đã thay đổi trên tài khoản. Tải lại để chọn bản cần giữ.',
     'Xung đột đã được xử lý. Hãy tải lại danh sách.',
     'Giao dịch trên thiết bị đã thay đổi. Hãy tải lại.',
+    'Giao dịch đã thay đổi. Hãy tải lại trước khi lưu; nội dung đang nhập vẫn được giữ.',
   ];
   return cause instanceof Error && localMessages.includes(cause.message)
     ? cause.message

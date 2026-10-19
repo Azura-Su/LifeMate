@@ -64,7 +64,7 @@ it('shows recovered cloud transactions when the device cache key is unavailable'
     });
 
     const edited = { ...row, amount: 30000000 };
-    await act(async () => useFinanceStore.getState().update('u1', edited));
+    await act(async () => useFinanceStore.getState().update('u1', edited, row));
 
     expect(useFinanceStore.getState()).toMatchObject({
       transactions: [edited],

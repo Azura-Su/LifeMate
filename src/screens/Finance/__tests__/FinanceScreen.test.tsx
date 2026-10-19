@@ -1,7 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getDocsFromServer, setDoc } from '@react-native-firebase/firestore';
+import {
+  getDocsFromServer,
+  runTransaction,
+  setDoc,
+} from '@react-native-firebase/firestore';
 import * as SecureStore from 'expo-secure-store';
-import { StyleSheet } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   act,
@@ -40,17 +44,20 @@ jest.mock('@react-native-firebase/firestore', () =>
   jest.requireActual('../../../testing/firestoreMock'),
 );
 
-function renderFinanceScreen() {
-  return render(
+function financeScreenElement(suspended = false) {
+  return (
     <SafeAreaProvider
       initialMetrics={{
         frame: { x: 0, y: 0, width: 390, height: 844 },
         insets: { top: 0, right: 0, bottom: 0, left: 0 },
       }}
     >
-      <FinanceScreen />
-    </SafeAreaProvider>,
+      <FinanceScreen suspended={suspended} />
+    </SafeAreaProvider>
   );
+}
+function renderFinanceScreen(suspended = false) {
+  return render(financeScreenElement(suspended));
 }
 
 function pressMeasuredPicker(button: ReturnType<typeof screen.getByRole>) {
@@ -81,6 +88,54 @@ beforeEach(async () => {
     error: null,
   });
 });
+
+it.each(['hidden', 'reopened'] as const)(
+  'rejects a transaction confirmation after Finance was %s',
+  async (state) => {
+    const transaction: FinanceTransaction = {
+      id: 'locked-delete',
+      ownerId: 'finance-user',
+      type: 'expense',
+      amount: 100,
+      category: 'Ăn uống',
+      note: 'Lock guarded',
+      createdAt: Date.now(),
+    };
+    seedFirestoreMock('finance-user', transaction);
+    let confirm: (() => void) | undefined;
+    const alert = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation((_title, _message, buttons) => {
+        confirm = buttons?.find(
+          (button) => button.style === 'destructive',
+        )?.onPress;
+      });
+    try {
+      const view = renderFinanceScreen();
+      fireEvent.press(
+        await screen.findByRole('button', {
+          name: 'Xóa giao dịch Lock guarded',
+        }),
+      );
+      expect(confirm).toBeDefined();
+      view.rerender(financeScreenElement(true));
+      if (state === 'reopened') view.rerender(financeScreenElement(false));
+      await act(async () => confirm?.());
+      expect(
+        useFinanceStore
+          .getState()
+          .transactions.some(({ id }) => id === transaction.id),
+      ).toBe(true);
+      expect(
+        (await readFinanceTransactions('finance-user')).some(
+          ({ id }) => id === transaction.id,
+        ),
+      ).toBe(true);
+    } finally {
+      alert.mockRestore();
+    }
+  },
+);
 
 it('shows cloud data and a recovery status when the encrypted cache is unavailable', async () => {
   const cloudRow: FinanceTransaction = {
@@ -296,6 +351,132 @@ it('adds a shared expense and records a partial repayment from its detail', asyn
       useFinanceStore.getState().transactions[0].sharedExpense?.receipts,
     ).toMatchObject([{ participantId: expect.any(String), amount: 100000 }]);
   });
+});
+
+it.each(['edit', 'delete'] as const)(
+  'rejects a stale receipt %s after a background refresh',
+  async (action) => {
+    const original: FinanceTransaction = {
+      id: 'shared-stale',
+      ownerId: 'finance-user',
+      type: 'expense',
+      amount: 500000,
+      category: 'Ăn uống',
+      note: 'Chi chung cũ',
+      createdAt: Date.now(),
+      sharedExpense: {
+        participants: [{ id: 'an', name: 'An', owedAmount: 300000 }],
+        receipts: [
+          {
+            id: 'receipt',
+            participantId: 'an',
+            amount: 100000,
+            receivedAt: Date.now(),
+            note: 'Cũ',
+          },
+        ],
+      },
+    };
+    seedFirestoreMock('finance-user', original);
+    renderFinanceScreen();
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'Xem chi tiết Chi chung cũ' }),
+    );
+    let confirmDelete: (() => void) | undefined;
+    const alert = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation((_title, _message, buttons) => {
+        confirmDelete = buttons?.find(
+          (button) => button.style === 'destructive',
+        )?.onPress;
+      });
+    try {
+      fireEvent.press(
+        screen.getByRole('button', {
+          name: action === 'edit' ? 'Sửa lần nhận từ An' : 'Xóa lần nhận từ An',
+        }),
+      );
+      const updated: FinanceTransaction = {
+        ...original,
+        sharedExpense: {
+          ...original.sharedExpense!,
+          receipts: [
+            {
+              ...original.sharedExpense!.receipts[0],
+              amount: 200000,
+              note: 'Mới từ thiết bị khác',
+            },
+          ],
+        },
+      };
+      seedFirestoreMock('finance-user', updated);
+      await act(async () => useFinanceStore.getState().load('finance-user'));
+      if (action === 'edit') {
+        fireEvent.changeText(
+          screen.getByLabelText('Ghi chú lần nhận lại'),
+          'Ghi đè từ form cũ',
+        );
+        fireEvent.press(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+      } else act(() => confirmDelete?.());
+      await waitFor(() =>
+        expect(screen.getAllByText(/thay đổi/).length).toBeGreaterThan(0),
+      );
+      expect(
+        useFinanceStore.getState().transactions[0].sharedExpense?.receipts,
+      ).toEqual(updated.sharedExpense!.receipts);
+      expect(
+        (await readFinanceTransactions('finance-user'))[0].sharedExpense
+          ?.receipts,
+      ).toEqual(updated.sharedExpense!.receipts);
+    } finally {
+      alert.mockRestore();
+    }
+  },
+);
+
+it('acknowledges an identical new-receipt retry without another write and rejects a changed request', async () => {
+  const original: FinanceTransaction = {
+    id: 'shared-retry',
+    ownerId: 'finance-user',
+    type: 'expense',
+    amount: 500000,
+    category: 'Ăn uống',
+    note: 'Chi chung',
+    createdAt: Date.now(),
+    sharedExpense: {
+      participants: [{ id: 'an', name: 'An', owedAmount: 300000 }],
+      receipts: [],
+    },
+  };
+  seedFirestoreMock('finance-user', original);
+  const { result } = renderHook(() => useFinanceScreen());
+  await waitFor(() =>
+    expect(useFinanceStore.getState().transactions).toHaveLength(1),
+  );
+  const draft = {
+    requestId: 'stable-request',
+    participantId: 'an',
+    amount: '100000',
+    date: '19/10/2026',
+    note: '  Lần nhận  ',
+  };
+  await act(async () => result.current.saveSharedReceipt(original, draft));
+  const writes = jest.mocked(runTransaction).mock.calls.length;
+  await act(async () => {
+    await expect(
+      result.current.saveSharedReceipt(original, draft),
+    ).resolves.toBeUndefined();
+    await expect(
+      result.current.saveSharedReceipt(original, {
+        ...draft,
+        amount: '200000',
+      }),
+    ).rejects.toThrow('Lần nhận này đã thay đổi');
+  });
+  expect(jest.mocked(runTransaction)).toHaveBeenCalledTimes(writes);
+  expect(
+    useFinanceStore.getState().transactions[0].sharedExpense?.receipts,
+  ).toHaveLength(1);
 });
 
 it('stops showing a shared expense as pending when its dated repayment is today before noon', async () => {
@@ -1096,4 +1277,31 @@ it('keeps monthly income, expense, and balance readable on one line', async () =
     expect(value.props.numberOfLines).toBe(1);
     expect(value.props.adjustsFontSizeToFit).toBe(true);
   }
+});
+
+it('hides the held-money creation modal when Finance is suspended', async () => {
+  const view = renderFinanceScreen();
+  fireEvent.press(await screen.findByRole('tab', { name: 'Sổ đóng hộ' }));
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: 'Thêm khoản đóng hộ' }),
+    ).toBeEnabled(),
+  );
+  fireEvent.press(screen.getByRole('button', { name: 'Thêm khoản đóng hộ' }));
+  expect(
+    await screen.findByRole('header', { name: 'Khoản đóng hộ mới' }),
+  ).toBeTruthy();
+  view.rerender(
+    <SafeAreaProvider
+      initialMetrics={{
+        frame: { x: 0, y: 0, width: 390, height: 844 },
+        insets: { top: 0, right: 0, bottom: 0, left: 0 },
+      }}
+    >
+      <FinanceScreen suspended />
+    </SafeAreaProvider>,
+  );
+  expect(
+    screen.queryByRole('header', { name: 'Khoản đóng hộ mới' }),
+  ).toBeNull();
 });

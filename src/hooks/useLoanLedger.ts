@@ -46,11 +46,12 @@ export function useLoanLedger(uid: string | null) {
   }, []);
 
   const captureSession = useCallback((owner: string) => {
-    const user = useAuthStore.getState().user;
+    const { user, sessionEpoch } = useAuthStore.getState();
     return () =>
       uidRef.current === owner &&
       user?.uid === owner &&
-      useAuthStore.getState().user === user;
+      useAuthStore.getState().user?.uid === owner &&
+      useAuthStore.getState().sessionEpoch === sessionEpoch;
   }, []);
 
   const load = useCallback(
@@ -106,7 +107,7 @@ export function useLoanLedger(uid: string | null) {
           setError('Chưa tải được danh sách cho vay. Hãy thử lại.');
         return false;
       } finally {
-        if (isCurrentLoad()) setLoading(false);
+        if (request === loadRequest.current) setLoading(false);
       }
     },
     [captureSession, publish, uid],

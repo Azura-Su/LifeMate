@@ -23,7 +23,11 @@ type FinanceState = {
   add: (uid: string, transaction: FinanceTransaction) => Promise<void>;
   addCommitted: (uid: string, transaction: FinanceTransaction) => Promise<void>;
   remove: (uid: string, id: string) => Promise<void>;
-  update: (uid: string, transaction: FinanceTransaction) => Promise<void>;
+  update: (
+    uid: string,
+    transaction: FinanceTransaction,
+    expected: FinanceTransaction,
+  ) => Promise<void>;
   resolveConflict: (
     uid: string,
     conflict: FinanceConflict,
@@ -139,11 +143,11 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       throw new Error(message);
     }
   },
-  update: async (uid, transaction) => {
+  update: async (uid, transaction, expected) => {
     if (get().uid !== uid)
       throw new Error('Tài khoản đã thay đổi. Hãy thử lại.');
     try {
-      const result = await updateFinanceTransaction(uid, transaction);
+      const result = await updateFinanceTransaction(uid, transaction, expected);
       if (get().uid === uid)
         set({
           transactions: result.transactions,

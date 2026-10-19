@@ -39,6 +39,7 @@ import {
 } from '../../utils/finance';
 import { FinanceListSearch } from './FinanceListSearch';
 import { loanStyles as styles } from './LoanLedgerModal.styles';
+import { useInteractionGuard } from '../../hooks/useInteractionGuard';
 import {
   getPendingAdvanceAttempt,
   getPendingNewLoanAttempt,
@@ -149,6 +150,7 @@ export function LoanLedgerModal({
   onDeleteAdvance,
   onDeleteInitialEntry,
 }: Props) {
+  const canInteract = useInteractionGuard(visible, uid);
   const loanListRef = useRef<ScrollView>(null);
   const refreshRequest = useRef<object | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -411,6 +413,7 @@ export function LoanLedgerModal({
   }
 
   function confirmDelete(loan: LoanRecord) {
+    if (!canInteract()) return;
     Alert.alert(
       'Xóa khoản cho vay?',
       loan.repayments.length === 0
@@ -422,6 +425,7 @@ export function LoanLedgerModal({
           text: 'Xóa',
           style: 'destructive',
           onPress: () => {
+            if (!canInteract()) return;
             setBusyAction({ loanId: loan.id, action: 'delete' });
             setActionError(null);
             void onDeleteLoan(loan.id)
@@ -440,7 +444,8 @@ export function LoanLedgerModal({
   }
 
   function confirmDeleteRepayment(loan: LoanRecord, repayment: LoanRepayment) {
-    if (repayment.status !== 'posted' || busyAction !== null) return;
+    if (!canInteract() || repayment.status !== 'posted' || busyAction !== null)
+      return;
     const amount = formatFinanceAmount(repayment.amount);
     const date = formatFinanceDate(new Date(repayment.receivedAt));
     Alert.alert(
@@ -452,6 +457,7 @@ export function LoanLedgerModal({
           text: 'Xóa lần nhận',
           style: 'destructive',
           onPress: () => {
+            if (!canInteract()) return;
             setBusyAction({
               loanId: loan.id,
               action: 'deleteRepayment',
@@ -478,7 +484,7 @@ export function LoanLedgerModal({
   }
 
   function confirmDeleteAdvance(loan: LoanRecord, advance: LoanAdvance) {
-    if (busyAction !== null) return;
+    if (!canInteract() || busyAction !== null) return;
     Alert.alert(
       'Xóa khoản vay thêm?',
       `Xóa ${formatFinanceAmount(advance.amount)} cho vay ngày ${formatFinanceDate(new Date(advance.lentAt))}? Khoản chi liên kết trong Tài chính cũng sẽ bị xóa.`,
@@ -488,6 +494,7 @@ export function LoanLedgerModal({
           text: 'Xóa khoản này',
           style: 'destructive',
           onPress: () => {
+            if (!canInteract()) return;
             setBusyAction({
               loanId: loan.id,
               action: 'deleteAdvance',
@@ -521,7 +528,7 @@ export function LoanLedgerModal({
   }
 
   function confirmDeleteInitial(loan: LoanRecord) {
-    if (busyAction !== null) return;
+    if (!canInteract() || busyAction !== null) return;
     if (!loan.advances?.length) {
       if (loan.repayments.length > 0) {
         Alert.alert(
@@ -543,6 +550,7 @@ export function LoanLedgerModal({
           text: 'Xóa khoản ban đầu',
           style: 'destructive',
           onPress: () => {
+            if (!canInteract()) return;
             setBusyAction({ loanId: loan.id, action: 'deleteInitial' });
             setActionError(null);
             void onDeleteInitialEntry(loan.id, loan.updatedAt)

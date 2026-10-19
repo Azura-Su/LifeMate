@@ -151,7 +151,11 @@ export function useFinanceScreen() {
     await remove(uid, id);
   }
 
-  async function updateTransaction(id: string, draft: Draft) {
+  async function updateTransaction(
+    id: string,
+    draft: Draft,
+    expected: FinanceTransaction,
+  ) {
     if (!uid) throw new Error('Bạn cần đăng nhập để sửa giao dịch.');
     const original = transactions.find((item) => item.id === id);
     if (!original) throw new Error('Không tìm thấy giao dịch cần sửa.');
@@ -183,11 +187,11 @@ export function useFinanceScreen() {
         );
       delete transaction.sharedExpense;
     }
-    await update(uid, transaction);
+    await update(uid, transaction, expected);
   }
 
   async function saveSharedReceipt(
-    expenseId: string,
+    original: FinanceTransaction,
     draft: {
       requestId: string;
       participantId: string;
@@ -202,14 +206,21 @@ export function useFinanceScreen() {
     const receivedAt = parseFinanceDate(draft.date);
     if (amount === null || receivedAt === null)
       throw new Error('Số tiền hoặc ngày nhận không hợp lệ.');
-    const original = useFinanceStore
-      .getState()
-      .transactions.find(({ id }) => id === expenseId);
-    if (!original?.sharedExpense)
+    if (original.ownerId !== uid || !original.sharedExpense)
       throw new Error('Không tìm thấy khoản chi cần cập nhật.');
-    const existingRequest = original.sharedExpense.receipts.find(
-      ({ id }) => id === draft.requestId,
-    );
+    // Only deduplication reads current state. The mutation below must keep the
+    // snapshot captured when the form opened as its CAS expectation.
+    const latest = useFinanceStore.getState();
+    const latestTransaction =
+      latest.uid === uid
+        ? latest.transactions.find(({ id }) => id === original.id)
+        : undefined;
+    const existingRequest =
+      !receiptId && latestTransaction?.ownerId === uid
+        ? latestTransaction.sharedExpense?.receipts.find(
+            ({ id }) => id === draft.requestId,
+          )
+        : undefined;
     if (!receiptId && existingRequest) {
       if (
         existingRequest.participantId === draft.participantId &&
@@ -252,25 +263,32 @@ export function useFinanceScreen() {
       throw new Error(
         'Số tiền nhận vượt phần người này cần trả hoặc dữ liệu chưa hợp lệ.',
       );
-    await update(uid, { ...original, sharedExpense });
+    await update(uid, { ...original, sharedExpense }, original);
   }
 
-  async function removeSharedReceipt(expenseId: string, receiptId: string) {
+  async function removeSharedReceipt(
+    original: FinanceTransaction,
+    receiptId: string,
+  ) {
     if (!uid) throw new Error('Bạn cần đăng nhập để xóa lần nhận lại.');
-    const original = useFinanceStore
-      .getState()
-      .transactions.find(({ id }) => id === expenseId);
-    if (!original?.sharedExpense?.receipts.some(({ id }) => id === receiptId))
+    if (
+      original.ownerId !== uid ||
+      !original.sharedExpense?.receipts.some(({ id }) => id === receiptId)
+    )
       throw new Error('Không tìm thấy lần nhận cần xóa.');
-    await update(uid, {
-      ...original,
-      sharedExpense: {
-        ...original.sharedExpense,
-        receipts: original.sharedExpense.receipts.filter(
-          ({ id }) => id !== receiptId,
-        ),
+    await update(
+      uid,
+      {
+        ...original,
+        sharedExpense: {
+          ...original.sharedExpense,
+          receipts: original.sharedExpense.receipts.filter(
+            ({ id }) => id !== receiptId,
+          ),
+        },
       },
-    });
+      original,
+    );
   }
 
   async function addTemplate(template: Omit<FinanceTransactionTemplate, 'id'>) {

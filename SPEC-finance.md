@@ -50,8 +50,8 @@ Theo cấu trúc screen/hook/styles và component hiện tại; validate dữ li
 - Người dùng có thể ghi giao dịch thu nhập/lương và chi tiêu với số tiền, danh mục, mô tả ngắn.
 - Khi nhập tiền trong Thu chi, Thu nhập, Chi tiêu, Cho vay hoặc Đóng hộ, ô nhập hiện số có dấu phân cách hàng nghìn và ký hiệu `đ`; dòng bên dưới đọc số tiền bằng chữ để đối chiếu trước khi lưu.
 - Thu chi mặc định là tháng hiện tại; người dùng tìm tháng bằng picker năm/tháng hoặc chuyển tháng trước/sau. Giao dịch mới cho chọn ngày phát sinh.
-- Thu nhập cộng mọi khoản thu; Chi tiêu chỉ cộng các khoản chi. Cả hai báo cáo giữ tên và số tiền của danh mục cũ hoặc tự tạo đã xóa để không bỏ sót giao dịch. Mỗi báo cáo mặc định cả năm hiện tại, có thể chọn từ tháng A/năm B đến tháng C/năm D.
-- Báo cáo có tổng kỳ, tổng danh mục có phát sinh và tổng từng tháng; chạm tháng để mở/thu gọn từng khoản. Home không hiển thị số liệu tài chính; tổng tháng xem trong tab Tài chính.
+- Thu nhập cộng các khoản thu thông thường (công ty/ngoài công ty). Khoản nhận lại từ cho vay hoặc chi chung được tính giảm chi trong báo cáo theo ngày nhận, không cộng vào thu nhập; tổng chi báo cáo vì vậy có thể âm trong kỳ chỉ nhận lại tiền. Cả hai báo cáo giữ tên và số tiền của danh mục cũ hoặc tự tạo đã xóa để không bỏ sót giao dịch. Mỗi báo cáo mặc định cả năm hiện tại, có thể chọn từ tháng A/năm B đến tháng C/năm D.
+- Báo cáo có tổng kỳ, tổng danh mục có phát sinh và tổng từng tháng; chạm tháng để mở/thu gọn từng khoản. Home hiển thị tổng Thu/Chi theo ngày: chỉ cộng các khoản phát sinh, không tính các khoản nhận lại từ cho mượn hoặc thu lại tiền đóng hộ và không trừ chúng vào Chi mới. Ví dụ nhận lại 10.000đ rồi chi ăn 30.000đ thì Chi trên Home là 30.000đ. Tổng tháng và quy tắc giảm chi trong báo cáo vẫn xem trong tab Tài chính.
 - Tab và nút thêm ở header cố định. Dấu cộng trong tháng điền sẵn ngày của tháng và loại thu/chi đang xem. Đóng picker chưa chọn tháng giữ kỳ đã áp dụng.
 - Giao dịch được lưu trong Firestore dưới UID chủ sở hữu để còn sau khi gỡ/cài lại; AsyncStorage giữ cache mã hóa và dữ liệu local cũ được chuyển lên cloud.
 - Chỉ người dùng đã đăng nhập đúng UID mới được đọc/ghi giao dịch của họ; khi cloud chưa kết nối, giao diện phân biệt rõ dữ liệu chưa sao lưu.
@@ -63,3 +63,16 @@ Theo cấu trúc screen/hook/styles và component hiện tại; validate dữ li
 ## Open Questions
 
 - Không có câu hỏi chặn. Firestore là nguồn dữ liệu bền; AsyncStorage giữ cache mã hóa/offline fallback.
+
+- Sửa giao dịch truyền snapshot lúc mở form đến service. Nếu cache đã đổi trong
+  lượt refresh, từ chối lưu trước khi ghi và giữ draft, không dùng cache mới làm
+  baseline để ghi đè các trường cũ của draft.
+- Sửa lần nhận lại chi chung dùng snapshot giao dịch lúc mở form; xóa dùng snapshot
+  lúc mở xác nhận. Refresh không đổi baseline của thao tác đang mở. Retry thêm mới
+  cùng requestId và nội dung đã lưu được xác nhận mà không ghi thêm lần nhận.
+- Refresh tên/email cùng UID không hủy tải sổ Cho vay; logout/đăng nhập lại vẫn
+  loại kết quả phiên trước và request kết thúc phải nhả trạng thái loading.
+- Xác nhận xóa giao dịch, nhận lại chi chung, khoản vay/các lần cho vay và nhận
+  lại, cùng lựa chọn xung đột phải mất hiệu lực khi lớp khóa xuất hiện, dialog
+  đóng, đổi chủ dữ liệu hoặc unmount. Mở lại dialog không khôi phục callback
+  xác nhận cũ. Android date picker cũng bỏ qua kết quả sau khi dialog đóng.

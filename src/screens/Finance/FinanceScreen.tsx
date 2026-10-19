@@ -52,6 +52,7 @@ import { FinanceTransactionDialog } from './FinanceTransactionDialog';
 import { LoanLedgerModal } from './LoanLedgerModal';
 import { HeldMoneyLedger } from './HeldMoneyLedger';
 import { SharedExpenseModal } from './SharedExpenseModal';
+import { useInteractionGuard } from '../../hooks/useInteractionGuard';
 import { styles } from './FinanceScreen.styles';
 import { useFinanceScreen } from './useFinanceScreen';
 
@@ -85,6 +86,7 @@ const reportTabs = [
 
 export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   const model = useFinanceScreen();
+  const canInteract = useInteractionGuard(!suspended, model.uid);
   const overviewPending = useMemo(() => {
     const current = new Date();
     const now = current.getTime();
@@ -178,7 +180,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
 
   function openFinanceConflict() {
     const conflict = model.conflicts[0];
-    if (!conflict || !model.uid) return;
+    if (!canInteract() || !conflict || !model.uid) return;
     const uid = model.uid;
     const describe = (item: FinanceTransaction) => {
       const shared = item.sharedExpense;
@@ -194,17 +196,21 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
         { text: 'Để sau', style: 'cancel' },
         {
           text: 'Giữ bản tài khoản',
-          onPress: () =>
+          onPress: () => {
+            if (!canInteract()) return;
             void model
               .resolveConflict(uid, conflict, 'server')
-              .catch(() => undefined),
+              .catch(() => undefined);
+          },
         },
         {
           text: 'Giữ bản thiết bị',
-          onPress: () =>
+          onPress: () => {
+            if (!canInteract()) return;
             void model
               .resolveConflict(uid, conflict, 'local')
-              .catch(() => undefined),
+              .catch(() => undefined);
+          },
         },
       ],
     );
@@ -427,6 +433,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   }
 
   function confirmDelete(transaction: FinanceTransaction) {
+    if (!canInteract()) return;
     if (deletingIdsRef.current.has(transaction.id)) return;
     if (transaction.sharedExpenseReceipt) {
       setSharedDetailId(transaction.sharedExpenseReceipt.expenseId);
@@ -451,7 +458,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   }
 
   async function deleteTransaction(transaction: FinanceTransaction) {
-    if (deletingIdsRef.current.has(transaction.id)) return;
+    if (!canInteract() || deletingIdsRef.current.has(transaction.id)) return;
     deletingIdsRef.current.add(transaction.id);
     setDeletingIds((current) => new Set(current).add(transaction.id));
     try {
@@ -479,7 +486,9 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     try {
       let savedId: string;
       if (id) {
-        await model.updateTransaction(id, draft);
+        if (!editTarget || editTarget.id !== id)
+          throw new Error('Không tìm thấy bản gốc đang sửa.');
+        await model.updateTransaction(id, draft, editTarget);
         savedId = id;
       } else {
         savedId = await model.addTransaction(draft);
@@ -863,6 +872,8 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
         </>
       ) : reportMode === 'held' ? (
         <HeldMoneyLedger
+          key={`held-${model.uid}`}
+          suspended={suspended}
           uid={model.uid}
           ledger={heldLedger}
           addRequestId={addHeldRequestId}

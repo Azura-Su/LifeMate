@@ -796,6 +796,7 @@ export function resolveFinanceConflict(
 export function updateFinanceTransaction(
   uid: string,
   transaction: FinanceTransaction,
+  expected?: FinanceTransaction,
 ): Promise<FinanceStorageResult> {
   requireUid(uid);
   if (transaction.ownerId !== uid)
@@ -814,6 +815,10 @@ export function updateFinanceTransaction(
     const current = await currentTransactionsForMutation(uid);
     const original = current.find(({ id }) => id === transaction.id);
     if (!original) throw new Error('Không tìm thấy giao dịch cần sửa.');
+    if (expected && !sameTransaction(original, expected))
+      throw new Error(
+        'Giao dịch đã thay đổi. Hãy tải lại trước khi lưu; nội dung đang nhập vẫn được giữ.',
+      );
     if (isLoanLedgerTransaction(original))
       throw new Error('Giao dịch cho vay chỉ sửa được trong sổ cho vay.');
     const synced = await pushChange(uid, transaction, 'edit', original);

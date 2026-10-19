@@ -83,6 +83,43 @@ beforeEach(() => {
   jest.mocked(cacheLoanRecord).mockResolvedValue(loaded);
 });
 
+it('finishes loading after a profile refresh replaces the user for the same UID', async () => {
+  const reading = deferred();
+  jest.mocked(readLoanData).mockImplementationOnce(async () => {
+    await reading.promise;
+    return loaded;
+  });
+  const { result } = renderHook(() => useLoanLedger('u1'));
+  await waitFor(() => expect(result.current.loading).toBe(true));
+  act(() => {
+    useAuthStore
+      .getState()
+      .setUser({ uid: 'u1', email: 'new@example.com', displayName: 'Updated' });
+  });
+  await act(async () => reading.resolve());
+  expect(result.current.loading).toBe(false);
+  expect(result.current.loans).toEqual([loan]);
+});
+
+it('discards a load from a previous login even when the same UID logs in again', async () => {
+  const reading = deferred();
+  jest.mocked(readLoanData).mockImplementationOnce(async () => {
+    await reading.promise;
+    return loaded;
+  });
+  const { result } = renderHook(() => useLoanLedger('u1'));
+  act(() => {
+    useAuthStore.getState().setUser(null);
+    useAuthStore
+      .getState()
+      .setUser({ uid: 'u1', email: null, displayName: null });
+  });
+  await act(async () => reading.resolve());
+  expect(result.current.loading).toBe(false);
+  expect(result.current.loans).toEqual([]);
+  expect(reconcileLoanReminders).not.toHaveBeenCalled();
+});
+
 it.each(['logout', 'unmount'] as const)(
   'does not schedule reminders after %s during a finance update',
   async (endSession) => {

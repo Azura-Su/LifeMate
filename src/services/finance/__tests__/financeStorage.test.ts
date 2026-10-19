@@ -4,9 +4,14 @@ import {
   deleteFinanceTransaction,
   financeStorageKey,
   readFinanceTransactions,
+  readFinanceData,
+  updateFinanceTransaction,
 } from '../financeStorage';
 import type { FinanceTransaction } from '../../../types/finance';
-import { resetFirestoreMock } from '../../../testing/firestoreMock';
+import {
+  resetFirestoreMock,
+  seedFirestoreMock,
+} from '../../../testing/firestoreMock';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
   jest.requireActual(
@@ -78,4 +83,15 @@ it('preserves invalid storage instead of silently overwriting it', async () => {
   expect(stored).toMatch(/^lifemate:aes-gcm:v1:/);
   await expect(readFinanceTransactions('u1')).rejects.toThrow('đọc được');
   expect(await AsyncStorage.getItem(financeStorageKey('u1'))).toBe(stored);
+});
+
+it('does not overwrite a refreshed amount with fields from a stale editor snapshot', async () => {
+  await addFinanceTransaction('u1', row);
+  const remote = { ...row, amount: 30000000, note: 'New server value' };
+  seedFirestoreMock('u1', remote);
+  await readFinanceData('u1');
+  await expect(
+    updateFinanceTransaction('u1', { ...row, note: 'Old draft edit' }, row),
+  ).rejects.toThrow('thay đổi');
+  expect(await readFinanceTransactions('u1')).toEqual([remote]);
 });
