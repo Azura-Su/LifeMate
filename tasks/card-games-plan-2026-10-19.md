@@ -1,6 +1,6 @@
 # Kế hoạch: Chơi bài online trong LifeMate
 
-Ngày: 19/10/2026. Người dùng đã yêu cầu triển khai. Engine, phòng, API, client và UI miền Nam đã có; hai migration game, game-access, user-admin và cron đã triển khai trên Supabase với mode `open`. Firebase Third-party Auth/Realtime chưa cấu hình được nên client dùng Edge polling foreground làm dự phòng; smoke test iOS simulator đã tạo phòng thật, kiểm chứng native nhiều thiết bị vẫn còn. Miền Bắc và Phỏm chưa triển khai. Trạng thái chi tiết và bằng chứng trong [runbook](../docs/card-games-online.md).
+Ngày: 19/10/2026. Người dùng đã yêu cầu triển khai. Engine, phòng, API, client và UI miền Nam đã có; ba migration game, game-access, user-admin và cron đã triển khai trên Supabase với mode `open`. Firebase Third-party Auth/Realtime chưa cấu hình được nên client dùng Edge polling foreground làm dự phòng; smoke test iOS simulator đã tạo phòng thật và rollback closed đã dọn phòng thử đúng hạn, kiểm chứng native nhiều thiết bị vẫn còn. Miền Bắc và Phỏm chưa triển khai. Trạng thái chi tiết và bằng chứng trong [runbook](../docs/card-games-online.md).
 
 Checklist triển khai: [card-games-todo-2026-10-19.md](card-games-todo-2026-10-19.md).
 

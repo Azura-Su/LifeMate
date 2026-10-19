@@ -18,4 +18,6 @@ If history records140001 for memory_r2 and the invitation fix already exists, ve
 
 On17/10/2026, read-only SQL Editor check of production project `xbhelntqytleiduzicuj` returned NULL for that relation, consistent with earlier manual SQL deployments. There was no conflicting history row to repair. No production history or schema was changed for this audit. Before adopting CLI push on this manually managed database, compare **every** migration with its actual schema/functions/policies and establish an accurate baseline; do not replay all historical SQL or mark everything applied blindly.
 
+Ngày 19/10/2026, ba migration game `202610190003_card_game_rooms.sql`, `202610190004_card_game_deadlines.sql` và `202610190005_card_game_closed_cleanup.sql` được áp dụng riêng lên production. Migration 005 và schedule cập nhật giữ worker cleanup hoạt động khi mode closed. Chưa tạo hay sửa bảng `supabase_migrations.schema_migrations`; đây vẫn là deployment thủ công cần đối chiếu trước khi dùng `db push`.
+
 Fresh local reset also needs a working Supabase local configuration and Docker. These prerequisites are unavailable in the current shell, so this change validates filename uniqueness/order, not a full fresh PostgreSQL reset.

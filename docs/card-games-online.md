@@ -18,13 +18,13 @@ Giới hạn hiện tại theo UID: tìm mã 15/phút, tạo phòng 5/phút, tak
 
 - Client: mặc định bật khi Supabase URL/publishable key hợp lệ; đặt `EXPO_PUBLIC_CARD_GAMES_ENABLED=false` để tắt ở build kế tiếp. Route import lười, SDK game không khởi tạo ở Home.
 - Server: `public.lifemate_game_config.mode`: `closed` chặn game, `drain` không cho tạo/join/start mới, `open` mở. `test_uids` cho phép UID thử khi closed. Không dùng tài khoản thật làm fixture.
-- Để dừng sự cố, đặt mode closed và test_uids rỗng. Không xóa bảng hay rollback migration phá dữ liệu. Cron vẫn dọn dữ liệu đến hạn.
+- Để dừng sự cố, đặt mode closed và test_uids rỗng. Worker sẽ hủy phòng đến hạn, gỡ ghế và bắt đầu mốc xóa private state 24 giờ; client không được gửi tiếp action. Không xóa bảng hay rollback migration phá dữ liệu.
 
 ## Triển khai
 
-Project hiện tại `xbhelntqytleiduzicuj`, Singapore, PostgreSQL 17.11. Ngày 19/10/2026 đã áp dụng riêng `202610190003_card_game_rooms.sql` và `202610190004_card_game_deadlines.sql` trong một transaction, deploy `game-access` và `user-admin`. Không chạy `db push` toàn bộ: project dùng lịch sử migration thủ công, chưa có schema_migrations. Xem [migration history](supabase-migration-history.md).
+Project hiện tại `xbhelntqytleiduzicuj`, Singapore, PostgreSQL 17.11. Ngày 19/10/2026 đã áp dụng riêng ba migration game `202610190003`–`202610190005`, deploy `game-access` và `user-admin`. Migration 005 cho phép worker đóng/dọn phòng khi máy chủ ở mode closed. Không chạy `db push` toàn bộ: project dùng lịch sử migration thủ công, chưa có schema_migrations. Xem [migration history](supabase-migration-history.md).
 
-Thứ tự dựng lại: hai migration game → secret ngẫu nhiên riêng `GAME_WORKER_SECRET` ở Edge và cùng giá trị trong Vault `lifemate_game_worker_secret` → deploy game-access/user-admin với config verify_jwt=false (handler tự xác minh Firebase) → chạy `supabase/operations/card-games-schedule.sql`. Không commit/in log secret; không thay secret cleanup tài khoản hiện có. Cron chứa lời gọi function, không chứa bearer.
+Thứ tự dựng lại: ba migration game → secret ngẫu nhiên riêng `GAME_WORKER_SECRET` ở Edge và cùng giá trị trong Vault `lifemate_game_worker_secret` → deploy game-access/user-admin với config verify_jwt=false (handler tự xác minh Firebase) → chạy `supabase/operations/card-games-schedule.sql`. Không commit/in log secret; không thay secret cleanup tài khoản hiện có. Cron chứa lời gọi function, không chứa bearer.
 
 `npm audit`: 64 advisory (52 high, 12 moderate, 0 critical); đối chiếu lockfile với commit gốc 2dbe2e8 không có advisory thuộc dependency game mới. Không thay dependency ngoài phạm vi.
 
@@ -39,6 +39,7 @@ CLI 2.121.0 `config pull/diff` đọc được cấu hình hosted, nhưng diff b
 - Supabase cloud: thử 4 người chia 52 lá duy nhất, snapshot chỉ tay mình; create retry giữ nguyên phòng; hai lệnh cùng version trả 200/409; worker/cron tự xử timeout khi không có listener. Cả 6 bảng game RLS bật, role authenticated không có quyền bảng. [Báo cáo đã loại danh tính](card-games-cloud-check-2026-10-19.json).
 - Handshake thật với hai thành viên và một người ngoài đều CHANNEL_ERROR; Data API trả 401/PGRST301 với Firebase JWT đã có role authenticated. Chưa qua lớp xác thực Firebase ở gateway nên chưa chứng minh được quyền kênh hay broadcast native. Cần bật Third-party Firebase integration trước khi thử lại.
 - Server đã mở ngày 19/10/2026 sau smoke test tạo phòng trên iOS simulator; client giữ kill switch tường minh. Realtime Firebase vẫn chưa đạt nên độ trễ giữa người chơi hiện phụ thuộc polling foreground tối đa khoảng 3 giây.
+- Đã thử rollback thật `open → closed`: cron đóng toàn bộ phòng active thử nghiệm, xóa ghế và đặt `private_until`; sau đó server được mở lại. Regression PostgreSQL dùng phòng phase playing có bài riêng.
 - Chưa đạt đủ gate mở rộng: Realtime thật, native 2–4 thiết bị, ngắt mạng/đổi tài khoản/thu hồi quyền khi đang kết nối, tải nhiều phòng, latency/battery và thử TestFlight/Android release.
 
 Đã dọn 8 tài khoản Firebase tổng hợp, phòng/seat/receipt/result và allowlist của các fixture; secret worker chỉ giữ tại Edge/Vault. Sau khi người dùng báo đã bật trình duyệt, cả lần mở mới và reset phiên CUA vẫn trả “Local browser use is disabled in Work settings”; chưa thao tác dashboard hay thêm integration.
