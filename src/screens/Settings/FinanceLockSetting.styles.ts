@@ -10,9 +10,9 @@ export const styles = StyleSheet.create({
     borderColor: colors.line,
     backgroundColor: colors.surface,
   },
-  compactCard: { gap: 7, padding: 10, borderRadius: 15 },
+  compactCard: { gap: 8, padding: 12, borderRadius: 0, borderWidth: 0 },
   notificationRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  compactNotificationRow: { gap: 8 },
+  compactNotificationRow: { gap: 8, minHeight: 40 },
   notificationText: { flex: 1, gap: 2 },
   cardTitle: {
     fontSize: 16,
@@ -30,6 +30,6 @@ export const styles = StyleSheet.create({
     borderRadius: 13,
   },
   securityIcon: { backgroundColor: colors.primarySoft },
-  compactIconBadge: { width: 34, height: 34, borderRadius: 11 },
+  compactIconBadge: { width: 32, height: 32, borderRadius: 11 },
   error: { ...typography.small, color: colors.danger },
 });

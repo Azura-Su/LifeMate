@@ -17,12 +17,63 @@ import { useConfigStore } from '../store/configStore';
 import { useFinanceStore } from '../store/financeStore';
 import { useNoteStore } from '../store/noteStore';
 import { useNotificationStore } from '../store/notificationStore';
+import { useProfileStore } from '../store/profileStore';
+import {
+  observeAccountAccess,
+  recoverAccountCleanup,
+} from '../services/admin/accountCleanup';
 
 const PUSH_RECHECK_MS = 30 * 60 * 1000;
 
 export function useAppBootstrap() {
   const uid = useAuthStore((state) => state.user?.uid);
   const initializing = useAuthStore((state) => state.initializing);
+  useEffect(() => {
+    useProfileStore.getState().reset();
+    if (!uid) return;
+    void useProfileStore.getState().load(uid);
+    const refreshAvatar = setInterval(() => {
+      if (AppState.currentState === 'active')
+        void useProfileStore.getState().load(uid);
+    }, 4 * 60000);
+    const listener = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void useProfileStore.getState().load(uid);
+    });
+    return () => {
+      clearInterval(refreshAvatar);
+      listener.remove();
+      useProfileStore.getState().reset();
+    };
+  }, [uid]);
+  useEffect(() => {
+    if (!uid) return;
+    return observeAccountAccess(uid);
+  }, [uid]);
+  useEffect(() => {
+    let controller: AbortController | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const recover = () => {
+      controller?.abort();
+      if (timer) clearTimeout(timer);
+      controller = new AbortController();
+      const signal = controller.signal;
+      timer = setTimeout(() => controller?.abort(), 15000);
+      void recoverAccountCleanup(signal).catch(() => undefined);
+    };
+    recover();
+    const retry = setInterval(() => {
+      if (AppState.currentState === 'active') recover();
+    }, 60000);
+    const listener = AppState.addEventListener('change', (state) => {
+      if (state === 'active') recover();
+    });
+    return () => {
+      controller?.abort();
+      clearInterval(retry);
+      if (timer) clearTimeout(timer);
+      listener.remove();
+    };
+  }, []);
   useEffect(
     () =>
       observeAuth(

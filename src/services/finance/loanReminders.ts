@@ -4,6 +4,7 @@ import * as Notifications from 'expo-notifications';
 import type { LoanRecord } from '../../types/loan';
 import { getLoanStatus } from '../../types/loan';
 import { useAuthStore } from '../../store/authStore';
+import { isAccountDeleting } from '../security/accountLifecycle';
 
 const idsKey = (uid: string) =>
   `lifemate:loan-reminders:v1:${encodeURIComponent(uid)}`;
@@ -63,7 +64,8 @@ async function cancel(
       () => undefined,
     );
   delete current[loanId];
-  await AsyncStorage.setItem(idsKey(uid), JSON.stringify(current));
+  if (!isAccountDeleting(uid))
+    await AsyncStorage.setItem(idsKey(uid), JSON.stringify(current));
 }
 
 async function schedule(
@@ -108,7 +110,8 @@ async function schedule(
     },
   });
   ids[loanId] = `${notificationId}|${at}`;
-  await AsyncStorage.setItem(idsKey(uid), JSON.stringify(ids));
+  if (!isAccountDeleting(uid))
+    await AsyncStorage.setItem(idsKey(uid), JSON.stringify(ids));
   if (!isActive()) {
     await cancel(uid, loanId, ids);
     return 'none';
@@ -124,7 +127,9 @@ export function reconcileLoanReminders(
 ) {
   const user = useAuthStore.getState().user;
   const isActive = () =>
-    user?.uid === uid && useAuthStore.getState().user === user;
+    !isAccountDeleting(uid) &&
+    user?.uid === uid &&
+    useAuthStore.getState().user === user;
   return serial(uid, async () => {
     if (!isActive()) return 'none';
     const active = new Map(

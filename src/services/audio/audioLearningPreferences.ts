@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { accountTask } from '../security/accountLifecycle';
 
 export type AudioBookmark = {
   id: string;
@@ -74,5 +75,7 @@ export function writeAudioLearningPreferences(
   uid: string,
   preferences: AudioLearningPreferences,
 ) {
-  return AsyncStorage.setItem(keyFor(uid), JSON.stringify(preferences));
+  return accountTask(uid, () =>
+    AsyncStorage.setItem(keyFor(uid), JSON.stringify(preferences)),
+  );
 }

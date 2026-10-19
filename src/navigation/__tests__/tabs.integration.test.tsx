@@ -42,6 +42,11 @@ jest.mock('@react-native-firebase/auth', () => ({
 jest.mock('@react-native-firebase/firestore', () =>
   jest.requireActual('../../testing/firestoreMock'),
 );
+jest.mock('../../services/memories/memoryCloud', () => ({
+  assertMemorySession: jest.fn(),
+  readCloudMemories: jest.fn(async () => []),
+  observeOwnMemories: jest.fn(() => jest.fn()),
+}));
 jest.mock('../../screens/Mp3/AudioPlayer', () => ({ AudioPlayer: () => null }));
 jest.mock('expo-audio', () => {
   // The native hook keeps one player for the lifetime of the screen.
@@ -174,7 +179,7 @@ it('shows the configured name, opens all tabs, and returns to Login on logout', 
   const hiddenTabItems = screen
     .UNSAFE_getAllByType(View)
     .filter((item) => StyleSheet.flatten(item.props.style)?.display === 'none');
-  expect(hiddenTabItems).toHaveLength(4);
+  expect(hiddenTabItems).toHaveLength(5);
   expect(await screen.findByText('Asher')).toBeTruthy();
   expect(screen.getByLabelText('Home, tab, 1 of 4')).toBeTruthy();
   expect(screen.getByLabelText('Tài chính, tab, 2 of 4')).toBeTruthy();
@@ -189,9 +194,9 @@ it('shows the configured name, opens all tabs, and returns to Login on logout', 
   expect(screen.queryByText('Cài đặt')).toBeNull();
   expect(screen.queryByText('Ghi chú')).toBeNull();
   fireEvent.press(screen.getByRole('button', { name: 'Mở menu' }));
-  expect(await screen.findByText('Face ID cho tab Tài chính')).toBeTruthy();
+  expect(await screen.findByText('Khóa Tài chính')).toBeTruthy();
   expect(screen.queryByText('Face ID · chưa bật')).toBeNull();
-  expect(screen.getByText('Bật thông báo')).toBeTruthy();
+  expect(screen.getByText('Thông báo')).toBeTruthy();
   expect(screen.getByText('LifeMate · 1.0.0')).toBeTruthy();
   expect(
     StyleSheet.flatten(

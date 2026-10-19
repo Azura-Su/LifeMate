@@ -2,6 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import type { AudioTrack } from '../../types/audio';
 import {
+  accountTask,
+  assertAccountWritable,
+} from '../security/accountLifecycle';
+import {
   MAX_AUDIO_BYTES,
   normalizeAudioTitle,
   parseCloudTrack,
@@ -51,14 +55,16 @@ function writeAudioIndex(
   const previous = queues.get(uid) ?? Promise.resolve();
   const next = previous
     .catch(() => undefined)
-    .then(async () => {
-      const tracks = await readAudioIndex(uid);
-      const updated = (await update(tracks)).sort(
-        (a, b) => b.createdAt - a.createdAt,
-      );
-      await AsyncStorage.setItem(indexKey(uid), JSON.stringify(updated));
-      return updated;
-    });
+    .then(() =>
+      accountTask(uid, async () => {
+        const tracks = await readAudioIndex(uid);
+        const updated = (await update(tracks)).sort(
+          (a, b) => b.createdAt - a.createdAt,
+        );
+        await AsyncStorage.setItem(indexKey(uid), JSON.stringify(updated));
+        return updated;
+      }),
+    );
   queues.set(uid, next);
   void next
     .finally(() => {
@@ -136,6 +142,7 @@ export function mergeAudioIndex(
 }
 
 export async function ensureAudioDirectory(uid: string) {
+  assertAccountWritable(uid);
   await FileSystem.makeDirectoryAsync(audioDirectory(uid), {
     intermediates: true,
   });
@@ -152,6 +159,12 @@ export async function audioExists(track: AudioTrack) {
 }
 
 export async function saveAudioFile(track: AudioTrack, sourceUri: string) {
+  return accountTask(track.ownerId, () =>
+    saveAudioFileForAccount(track, sourceUri),
+  );
+}
+
+async function saveAudioFileForAccount(track: AudioTrack, sourceUri: string) {
   await ensureAudioDirectory(track.ownerId);
   const info = await FileSystem.getInfoAsync(sourceUri);
   if (

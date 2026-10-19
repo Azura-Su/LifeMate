@@ -1,11 +1,17 @@
 import {
   createAccount,
+  changeAccountPassword,
   currentSessionUser,
   refreshAccountVerification,
   sendAccountVerificationEmail,
   updateAccountDisplayName,
 } from '../authService';
 
+import { blockAccountWrites } from '../../security/accountLifecycle';
+import { useAuthStore } from '../../../store/authStore';
+const mockReauth = jest.fn();
+const mockPassword = jest.fn();
+const mockCredential = jest.fn((email, password) => ({ email, password }));
 const mockAuth = { currentUser: null as null | Record<string, unknown> };
 const mockCreate = jest.fn();
 const mockUpdate = jest.fn();
@@ -14,6 +20,11 @@ const mockReload = jest.fn();
 const mockTokenResult = jest.fn();
 jest.mock('@react-native-firebase/auth', () => ({
   getAuth: () => mockAuth,
+  EmailAuthProvider: {
+    credential: (...args: unknown[]) => mockCredential(args[0], args[1]),
+  },
+  reauthenticateWithCredential: (...args: unknown[]) => mockReauth(...args),
+  updatePassword: (...args: unknown[]) => mockPassword(...args),
   createUserWithEmailAndPassword: (...args: unknown[]) => mockCreate(...args),
   updateProfile: (...args: unknown[]) => mockUpdate(...args),
   sendEmailVerification: (...args: unknown[]) => mockSend(...args),
@@ -114,4 +125,85 @@ describe('Firebase registration service', () => {
     finish({ claims: { sub: 'u1', email_verified: true } });
     await expect(checking).rejects.toThrow('Phiên tài khoản');
   });
+});
+
+describe('change password', () => {
+  const user = {
+    uid: 'password-user',
+    email: 'p@example.com',
+    providerData: [{ providerId: 'password' }],
+  };
+  beforeEach(() => {
+    mockAuth.currentUser = user;
+    useAuthStore
+      .getState()
+      .setUser({ uid: user.uid, email: user.email, displayName: null });
+    mockReauth.mockReset().mockResolvedValue({ user });
+    mockPassword.mockReset().mockResolvedValue(undefined);
+    mockCredential.mockClear();
+  });
+  it('reauthenticates first and preserves all password bytes', async () => {
+    await changeAccountPassword(user.uid, ' old password ', ' new password ');
+    expect(mockCredential).toHaveBeenCalledWith(user.email, ' old password ');
+    expect(mockReauth).toHaveBeenCalledWith(user, {
+      email: user.email,
+      password: ' old password ',
+    });
+    expect(mockPassword).toHaveBeenCalledWith(user, ' new password ');
+    expect(mockReauth.mock.invocationCallOrder[0]).toBeLessThan(
+      mockPassword.mock.invocationCallOrder[0],
+    );
+  });
+  it('never changes a password when the old credential is rejected', async () => {
+    mockReauth.mockRejectedValueOnce({ code: 'auth/invalid-credential' });
+    await expect(
+      changeAccountPassword(user.uid, 'wrong', 'new-password'),
+    ).rejects.toMatchObject({ code: 'auth/invalid-credential' });
+    expect(mockPassword).not.toHaveBeenCalled();
+  });
+  it('stops if UID changes while reauthentication is running', async () => {
+    mockReauth.mockImplementationOnce(async () => {
+      mockAuth.currentUser = { uid: 'other' };
+      useAuthStore
+        .getState()
+        .setUser({ uid: 'other', email: null, displayName: null });
+    });
+    await expect(
+      changeAccountPassword(user.uid, 'old-password', 'new-password'),
+    ).rejects.toThrow();
+    expect(mockPassword).not.toHaveBeenCalled();
+  });
+  it('rejects other providers and invalid new passwords without reauth', async () => {
+    await expect(
+      changeAccountPassword(user.uid, 'old', 'short'),
+    ).rejects.toThrow();
+    mockAuth.currentUser = {
+      ...user,
+      providerData: [{ providerId: 'google.com' }],
+    };
+    await expect(
+      changeAccountPassword(user.uid, 'old-password', 'new-password'),
+    ).rejects.toThrow();
+    expect(mockReauth).not.toHaveBeenCalled();
+  });
+});
+
+it('does not update a password if account deletion starts during reauthentication', async () => {
+  const user = {
+    uid: 'deletion-password-user',
+    email: 'p@example.com',
+    providerData: [{ providerId: 'password' }],
+  };
+  mockAuth.currentUser = user;
+  useAuthStore
+    .getState()
+    .setUser({ uid: user.uid, email: user.email, displayName: null });
+  mockPassword.mockClear();
+  mockReauth.mockImplementationOnce(async () => {
+    blockAccountWrites(user.uid);
+  });
+  await expect(
+    changeAccountPassword(user.uid, 'old-password', 'new-password'),
+  ).rejects.toThrow('đang được xóa');
+  expect(mockPassword).not.toHaveBeenCalled();
 });

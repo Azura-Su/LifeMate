@@ -15,6 +15,7 @@ import {
   type Task,
 } from '@react-native-firebase/storage';
 import * as FileSystem from 'expo-file-system/legacy';
+import { accountTask } from '../security/accountLifecycle';
 import type { AudioTrack } from '../../types/audio';
 import { parseCloudTrack, trackStoragePath } from '../../utils/audio';
 import { abortable, assertAudioSession } from '../audio/audioSession';
@@ -178,6 +179,16 @@ export async function deleteAudioTrackRemote(
 }
 
 export async function downloadAudioTrack(
+  track: AudioTrack,
+  signal: AbortSignal,
+  onProgress: (progress: number) => void,
+): Promise<AudioTrack> {
+  return accountTask(track.ownerId, () =>
+    downloadAudioForAccount(track, signal, onProgress),
+  );
+}
+
+async function downloadAudioForAccount(
   track: AudioTrack,
   signal: AbortSignal,
   onProgress: (progress: number) => void,

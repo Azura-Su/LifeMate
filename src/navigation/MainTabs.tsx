@@ -2,6 +2,7 @@ import Feather from '@expo/vector-icons/Feather';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useEffect } from 'react';
 import { HomeScreen } from '../screens/Home/HomeScreen';
+import { ProfileScreen } from '../screens/Profile/ProfileScreen';
 import { ProtectedFinanceScreen } from '../screens/Finance/ProtectedFinanceScreen';
 import { AppState } from 'react-native';
 import { useFinancePrivacy } from '../hooks/useFinancePrivacy';
@@ -13,10 +14,15 @@ import { AgendaScreen } from '../screens/Agenda/AgendaScreen';
 import { CardScoreScreen } from '../screens/CardScore/CardScoreScreen';
 import { ChecklistsScreen } from '../screens/Checklists/ChecklistsScreen';
 import { colors } from '../theme';
+import { UserManagementScreen } from '../screens/UserManagement/UserManagementScreen';
+import { isUserAdmin } from '../config/userAdmin';
+import { useAuthStore } from '../store/authStore';
 import type { MainTabParams } from './types';
 
 const Tab = createBottomTabNavigator<MainTabParams>();
 const icons = {
+  Profile: 'user',
+  UserManagement: 'users',
   Home: 'home',
   Finance: 'pie-chart',
   Memories: 'camera',
@@ -28,6 +34,7 @@ const icons = {
 } as const;
 
 export function MainTabs() {
+  const admin = useAuthStore((state) => isUserAdmin(state.user));
   const privacy = useFinancePrivacy();
   const { lock, setAppActive } = privacy;
   useEffect(() => {
@@ -95,9 +102,29 @@ export function MainTabs() {
         component={Mp3Screen}
         options={{ tabBarAccessibilityLabel: 'MP3, tab, 4 of 4' }}
       />
+      {admin && (
+        <Tab.Screen
+          name="UserManagement"
+          component={UserManagementScreen}
+          options={{
+            tabBarButton: () => null,
+            tabBarItemStyle: { display: 'none' },
+            tabBarStyle: { display: 'none' },
+          }}
+        />
+      )}
       <Tab.Screen
         name="Notes"
         component={ProtectedNotesScreen}
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
         options={{
           tabBarButton: () => null,
           tabBarItemStyle: { display: 'none' },

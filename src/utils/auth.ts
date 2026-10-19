@@ -6,19 +6,23 @@ export function validateLogin(email: string, password: string): string | null {
   return null;
 }
 
+export function validateDisplayName(name: string): string | null {
+  const value = name.trim();
+  return !value ||
+    value.length > 60 ||
+    /[\u0000-\u001f\u007f-\u009f]/.test(value)
+    ? 'Tên hiển thị phải có từ 1 đến 60 ký tự hợp lệ.'
+    : null;
+}
+
 export function validateRegistration(
   name: string,
   email: string,
   password: string,
   confirmation: string,
 ): string | null {
-  const displayName = name.trim();
-  if (
-    !displayName ||
-    displayName.length > 60 ||
-    /[\u0000-\u001f\u007f-\u009f]/.test(displayName)
-  )
-    return 'Tên hiển thị phải có từ 1 đến 60 ký tự hợp lệ.';
+  const nameError = validateDisplayName(name);
+  if (nameError) return nameError;
   if (!isValidEmail(email)) return 'Vui lòng nhập địa chỉ email hợp lệ.';
   if (password.length < 8) return 'Mật khẩu cần ít nhất 8 ký tự.';
   if (password !== confirmation) return 'Mật khẩu xác nhận chưa khớp.';
@@ -66,5 +70,45 @@ export function getAuthErrorMessage(error: unknown): string {
       return 'Tài khoản đang bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.';
     default:
       return 'Chưa thể đăng nhập lúc này. Vui lòng thử lại sau.';
+  }
+}
+
+export function validatePasswordChange(
+  current: string,
+  next: string,
+  confirmation: string,
+): string | null {
+  if (!current) return 'Vui lòng nhập mật khẩu hiện tại.';
+  if (next.length < 8) return 'Mật khẩu mới cần ít nhất 8 ký tự.';
+  if (next === current) return 'Mật khẩu mới cần khác mật khẩu hiện tại.';
+  if (next !== confirmation) return 'Mật khẩu xác nhận chưa khớp.';
+  return null;
+}
+export function getPasswordChangeErrorMessage(error: unknown): string {
+  const code =
+    error && typeof error === 'object' && 'code' in error ? error.code : null;
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/invalid-login-credentials':
+    case 'auth/wrong-password':
+      return 'Mật khẩu hiện tại chưa đúng. Hãy kiểm tra lại.';
+    case 'auth/weak-password':
+    case 'auth/password-does-not-meet-requirements':
+      return 'Mật khẩu mới chưa đáp ứng yêu cầu bảo mật. Hãy chọn mật khẩu mạnh hơn.';
+    case 'auth/requires-recent-login':
+    case 'auth/user-token-expired':
+    case 'auth/session-changed':
+      return 'Phiên đăng nhập đã thay đổi hoặc hết hạn. Hãy đăng nhập lại.';
+    case 'auth/password-provider-required':
+      return 'Tài khoản này không đăng nhập bằng email và mật khẩu.';
+    case 'auth/network-request-failed':
+      return 'Chưa kết nối được Firebase. Hãy thử lại; nếu lần trước đã đổi thành công, dùng mật khẩu mới để đăng nhập.';
+    case 'auth/too-many-requests':
+      return 'Bạn đã thử quá nhiều lần. Hãy đợi rồi thử lại.';
+    case 'auth/user-disabled':
+    case 'auth/user-not-found':
+      return 'Tài khoản không còn khả dụng. Hãy đăng nhập lại.';
+    default:
+      return 'Chưa xác nhận được việc đổi mật khẩu. Hãy thử lại; nếu cần, đăng nhập bằng mật khẩu mới.';
   }
 }

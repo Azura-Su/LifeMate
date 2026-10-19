@@ -109,7 +109,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "LifeMate dùng album để bạn chọn ảnh cho Dòng ký ức và chọn video để tách âm thanh.",
+          "photosPermission": "LifeMate dùng album để bạn chọn ảnh đại diện, ảnh cho Dòng ký ức và video để tách âm thanh.",
           "cameraPermission": "LifeMate dùng máy ảnh khi bạn chọn chụp khoảnh khắc cho Dòng ký ức.",
           "microphonePermission": false
         }

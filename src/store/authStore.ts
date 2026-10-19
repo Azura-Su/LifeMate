@@ -3,6 +3,8 @@ import type { SessionUser } from '../types/models';
 
 type AuthState = {
   user: SessionUser | null;
+  /** Changes only across account boundaries, not profile metadata refreshes. */
+  sessionEpoch: number;
   initializing: boolean;
   authView: 'login' | 'register';
   registrationPhase: 'idle' | 'creating' | 'created';
@@ -18,15 +20,19 @@ type AuthState = {
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
+  sessionEpoch: 0,
   initializing: true,
   authView: 'login',
   registrationPhase: 'idle',
   registrationUid: null,
   setUser: (user) =>
     set((state) => {
+      const sessionEpoch =
+        state.sessionEpoch + (state.user?.uid !== user?.uid ? 1 : 0);
       if (!user)
         return {
           user: null,
+          sessionEpoch,
           initializing: false,
           authView: 'login',
           registrationPhase: 'idle',
@@ -38,11 +44,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       )
         return {
           user,
+          sessionEpoch,
           initializing: false,
           registrationUid: user.uid,
         };
       return {
         user,
+        sessionEpoch,
         initializing: false,
         authView: 'login',
         registrationPhase: 'idle',

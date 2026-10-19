@@ -72,6 +72,16 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.earth,
   },
-  footer: { gap: 10, marginTop: 28, paddingBottom: 12 },
-  line: { width: 40, height: 3, backgroundColor: colors.primary },
+  footer: {
+    marginTop: 'auto',
+    alignItems: 'center',
+    paddingTop: 28,
+    paddingBottom: 8,
+  },
+  footerText: {
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    color: colors.muted,
+  },
 });

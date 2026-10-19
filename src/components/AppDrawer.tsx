@@ -12,13 +12,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import appConfig from '../../app.json';
-import { BrandAvatar } from './BrandAvatar';
+import { UserAvatar } from './UserAvatar';
 import { Button } from './Button';
 import type { useFinancePrivacy } from '../hooks/useFinancePrivacy';
 import { FinanceLockSetting } from '../screens/Settings/FinanceLockSetting';
 import { useSettingsScreen } from '../screens/Settings/useSettingsScreen';
 import { colors, typography } from '../theme';
 import { styles } from './AppDrawer.styles';
+import { isUserAdmin } from '../config/userAdmin';
 
 type Props = {
   visible: boolean;
@@ -26,6 +27,8 @@ type Props = {
   onOpenNotes: () => void;
   onOpenCardScore: () => void;
   onOpenChecklists: () => void;
+  onOpenUserManagement?: () => void;
+  onOpenProfile?: () => void;
   privacy: ReturnType<typeof useFinancePrivacy>;
 };
 
@@ -35,6 +38,8 @@ export function AppDrawer({
   onOpenNotes,
   onOpenCardScore,
   onOpenChecklists,
+  onOpenUserManagement,
+  onOpenProfile,
   privacy,
 }: Props) {
   const { width } = useWindowDimensions();
@@ -46,10 +51,10 @@ export function AppDrawer({
   const model = useSettingsScreen();
   const pushReady = model.permission === 'granted' && !!model.token;
   const notificationDescription = pushReady
-    ? 'Đang bật trên thiết bị này.'
+    ? 'Đã bật trên thiết bị'
     : model.permission === 'denied'
-      ? 'Đang tắt. Mở cài đặt để bật.'
-      : 'Bật để nhận cập nhật từ LifeMate.';
+      ? 'Đang tắt trong thiết bị'
+      : 'Chưa bật';
 
   useEffect(() => {
     if (!visible) return;
@@ -136,125 +141,180 @@ export function AppDrawer({
               contentContainerStyle={styles.content}
               keyboardShouldPersistTaps="handled"
             >
-              <View style={styles.profile}>
-                <BrandAvatar size={36} />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Mở hồ sơ cá nhân"
+                onPress={() => close(onOpenProfile)}
+                style={styles.profile}
+              >
+                <UserAvatar size={44} />
                 <View style={styles.profileText}>
                   <Text numberOfLines={1} style={styles.name}>
                     {model.name}
                   </Text>
-                  <Text numberOfLines={1} selectable style={typography.small}>
+                  <Text numberOfLines={1} style={styles.profileEmail}>
                     {model.user?.email}
                   </Text>
                 </View>
-              </View>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Ghi chú"
-                onPress={() => close(onOpenNotes)}
-                style={({ pressed }) => [
-                  styles.actionRow,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <View style={[styles.iconBadge, styles.notesIcon]}>
-                  <Feather name="edit-3" size={18} color={colors.earth} />
-                </View>
-                <Text style={styles.actionTitle}>Ghi chú</Text>
-                <View style={styles.actionSpacer} />
-                <Feather name="chevron-right" size={20} color={colors.muted} />
+                <Feather name="chevron-right" size={18} color={colors.muted} />
               </Pressable>
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Danh sách chuẩn bị"
-                onPress={() => close(onOpenChecklists)}
-                style={({ pressed }) => [
-                  styles.actionRow,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <View style={[styles.iconBadge, styles.checklistIcon]}>
-                  <Feather name="check-square" size={18} color={colors.sky} />
-                </View>
-                <View style={styles.scoreActionText}>
-                  <Text style={styles.actionTitle}>Danh sách chuẩn bị</Text>
-                  <Text numberOfLines={1} style={typography.small}>
-                    Mua sắm, du lịch, về quê
-                  </Text>
-                </View>
-                <View style={styles.actionSpacer} />
-                <Feather name="chevron-right" size={20} color={colors.muted} />
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Ghi điểm bài"
-                onPress={() => close(onOpenCardScore)}
-                style={({ pressed }) => [
-                  styles.actionRow,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <View style={[styles.iconBadge, styles.cardScoreIcon]}>
-                  <Feather name="award" size={18} color={colors.earth} />
-                </View>
-                <View style={styles.scoreActionText}>
-                  <Text style={styles.actionTitle}>Ghi điểm bài</Text>
-                  <Text numberOfLines={1} style={typography.small}>
-                    Dùng chung cho mọi trò chơi
-                  </Text>
-                </View>
-                <View style={styles.actionSpacer} />
-                <Feather name="chevron-right" size={20} color={colors.muted} />
-              </Pressable>
-
-              <View style={styles.card}>
-                <View style={styles.settingRow}>
-                  <View style={[styles.iconBadge, styles.notificationIcon]}>
-                    <Feather name="bell" size={18} color={colors.sky} />
-                  </View>
-                  <View style={styles.settingText}>
-                    <Text style={styles.actionTitle}>Bật thông báo</Text>
-                    <Text numberOfLines={2} style={typography.small}>
-                      {notificationDescription}
-                    </Text>
-                  </View>
-                  {!pushReady && (
-                    <Button
-                      compact
-                      title={pushTitle}
-                      onPress={model.enablePush}
-                      loading={model.busy === 'push'}
-                      disabled={model.busy === 'logout'}
-                      variant="secondary"
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Tiện ích</Text>
+                <View style={styles.group}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Ghi chú"
+                    onPress={() => close(onOpenNotes)}
+                    style={({ pressed }) => [
+                      styles.actionRow,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <View style={[styles.iconBadge, styles.notesIcon]}>
+                      <Feather name="edit-3" size={18} color={colors.earth} />
+                    </View>
+                    <Text style={styles.actionTitle}>Ghi chú</Text>
+                    <View style={styles.actionSpacer} />
+                    <Feather
+                      name="chevron-right"
+                      size={20}
+                      color={colors.muted}
                     />
-                  )}
-                </View>
-                {model.pushError && (
-                  <Text accessibilityRole="alert" style={styles.error}>
-                    {model.pushError}
-                  </Text>
-                )}
-                {__DEV__ && model.token && (
-                  <Button
-                    compact
-                    title={
-                      model.copied
-                        ? 'Đã sao chép FCM token'
-                        : 'Sao chép FCM token để kiểm thử'
-                    }
-                    onPress={model.copyToken}
-                    variant="secondary"
-                  />
-                )}
-              </View>
+                  </Pressable>
 
-              <FinanceLockSetting
-                privacy={privacy}
-                disabled={model.busy !== null}
-                compact
-              />
+                  <View style={styles.divider} />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Danh sách chuẩn bị"
+                    onPress={() => close(onOpenChecklists)}
+                    style={({ pressed }) => [
+                      styles.actionRow,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <View style={[styles.iconBadge, styles.checklistIcon]}>
+                      <Feather
+                        name="check-square"
+                        size={18}
+                        color={colors.sky}
+                      />
+                    </View>
+                    <View style={styles.scoreActionText}>
+                      <Text style={styles.actionTitle}>Danh sách chuẩn bị</Text>
+                    </View>
+                    <View style={styles.actionSpacer} />
+                    <Feather
+                      name="chevron-right"
+                      size={20}
+                      color={colors.muted}
+                    />
+                  </Pressable>
+
+                  <View style={styles.divider} />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Ghi điểm bài"
+                    onPress={() => close(onOpenCardScore)}
+                    style={({ pressed }) => [
+                      styles.actionRow,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <View style={[styles.iconBadge, styles.cardScoreIcon]}>
+                      <Feather name="award" size={18} color={colors.earth} />
+                    </View>
+                    <View style={styles.scoreActionText}>
+                      <Text style={styles.actionTitle}>Ghi điểm bài</Text>
+                    </View>
+                    <View style={styles.actionSpacer} />
+                    <Feather
+                      name="chevron-right"
+                      size={20}
+                      color={colors.muted}
+                    />
+                  </Pressable>
+                </View>
+              </View>
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Cài đặt</Text>
+                <View style={styles.group}>
+                  <View style={styles.card}>
+                    <View style={styles.settingRow}>
+                      <View style={[styles.iconBadge, styles.notificationIcon]}>
+                        <Feather name="bell" size={18} color={colors.sky} />
+                      </View>
+                      <View style={styles.settingText}>
+                        <Text style={styles.actionTitle}>Thông báo</Text>
+                        <Text style={styles.settingDescription}>
+                          {notificationDescription}
+                        </Text>
+                      </View>
+                      {!pushReady && (
+                        <Button
+                          compact
+                          title={pushTitle}
+                          onPress={model.enablePush}
+                          loading={model.busy === 'push'}
+                          disabled={model.busy === 'logout'}
+                          variant="secondary"
+                        />
+                      )}
+                    </View>
+                    {model.pushError && (
+                      <Text accessibilityRole="alert" style={styles.error}>
+                        {model.pushError}
+                      </Text>
+                    )}
+                    {__DEV__ && model.token && (
+                      <Button
+                        compact
+                        title={
+                          model.copied
+                            ? 'Đã sao chép FCM token'
+                            : 'Sao chép FCM token để kiểm thử'
+                        }
+                        onPress={model.copyToken}
+                        variant="secondary"
+                      />
+                    )}
+                  </View>
+
+                  <View style={styles.divider} />
+                  <FinanceLockSetting
+                    privacy={privacy}
+                    disabled={model.busy !== null}
+                    compact
+                  />
+                </View>
+              </View>
+              {isUserAdmin(model.user) && onOpenUserManagement && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Quản trị</Text>
+                  <View style={styles.group}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Quản lý người dùng"
+                      onPress={() => close(onOpenUserManagement)}
+                      style={({ pressed }) => [
+                        styles.actionRow,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <View style={[styles.iconBadge, styles.notesIcon]}>
+                        <Feather name="users" size={18} color={colors.earth} />
+                      </View>
+                      <Text style={styles.actionTitle}>Quản lý người dùng</Text>
+                      <View style={styles.actionSpacer} />
+                      <Feather
+                        name="chevron-right"
+                        size={20}
+                        color={colors.muted}
+                      />
+                    </Pressable>
+                  </View>
+                </View>
+              )}
             </ScrollView>
 
             <View testID="drawer-bottom-actions" style={styles.bottomDock}>

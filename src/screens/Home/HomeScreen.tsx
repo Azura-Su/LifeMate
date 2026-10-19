@@ -2,7 +2,7 @@ import { styles } from './HomeScreen.styles';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { Pressable, RefreshControl, Text, View } from 'react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BrandAvatar } from '../../components/BrandAvatar';
+import { UserAvatar } from '../../components/UserAvatar';
 import { AppDrawer } from '../../components/AppDrawer';
 import { Screen } from '../../components/Screen';
 import type { MainTabParams } from '../../navigation/types';
@@ -121,7 +121,7 @@ export function HomeScreen({
             onPress={() => setDrawerVisible(true)}
             style={styles.menuButton}
           >
-            <BrandAvatar size={32} />
+            <UserAvatar size={32} />
           </Pressable>
         </View>
       }
@@ -178,6 +178,8 @@ export function HomeScreen({
         onOpenNotes={() => navigation.navigate('Notes')}
         onOpenCardScore={() => navigation.navigate('CardScore')}
         onOpenChecklists={() => navigation.navigate('Checklists')}
+        onOpenUserManagement={() => navigation.navigate('UserManagement')}
+        onOpenProfile={() => navigation.navigate('Profile')}
         privacy={model.privacy}
       />
       <HomeCalendarSheet

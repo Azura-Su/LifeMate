@@ -30,6 +30,7 @@ describe('Remote Config users', () => {
 
   it('resolves the current account without accidentally showing another account name', () => {
     const users = [{ mail: 'asher@example.com', name: 'Asher' }];
+    expect(resolveUserName({email:'asher@example.com',displayName:'Tên tự đặt'},users)).toBe('Tên tự đặt');
     expect(
       resolveUserName({ email: 'asher@example.com', displayName: null }, users),
     ).toBe('Asher');

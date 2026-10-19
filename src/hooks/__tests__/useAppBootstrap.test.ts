@@ -17,6 +17,11 @@ import { cancelAllAgendaReminders } from '../../services/agenda/agendaReminders'
 import { migrateSensitiveCache } from '../../services/security/encryptedLocalStorage';
 import { observeRemoteConfig } from '../../services/firebase/remoteConfigService';
 
+jest.mock('../../services/admin/accountCleanup',()=>({
+  observeAccountAccess:jest.fn().mockReturnValue(jest.fn()),
+  recoverAccountCleanup:jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock('@react-native-firebase/firestore', () =>
   jest.requireActual('../../testing/firestoreMock'),
 );

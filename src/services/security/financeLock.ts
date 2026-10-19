@@ -1,6 +1,7 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { accountTask } from './accountLifecycle';
 import {
   authenticateDevice,
   type DeviceAuthenticationResult,
@@ -24,9 +25,11 @@ export async function readFinanceLock(uid: string) {
 }
 
 export async function writeFinanceLock(uid: string, enabled: boolean) {
-  await SecureStore.setItemAsync(lockKey(uid), enabled ? 'on' : 'off', {
-    keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-  });
+  await accountTask(uid, () =>
+    SecureStore.setItemAsync(lockKey(uid), enabled ? 'on' : 'off', {
+      keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+    }),
+  );
 }
 
 export async function getFinanceBiometrics() {

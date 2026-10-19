@@ -8,6 +8,7 @@ import {
   digestStringAsync,
 } from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
+import { accountTask } from './accountLifecycle';
 
 const ENCRYPTED_PREFIX = 'lifemate:aes-gcm:v1:';
 const KEY_PREFIX = 'lifemate-storage-key-v1-';
@@ -96,16 +97,18 @@ async function decryptValue(uid: string, storageKey: string, value: string) {
 
 /** Reads encrypted data and upgrades legacy plaintext values in place. */
 export async function getEncryptedItem(uid: string, storageKey: string) {
-  return withItemLock(storageKey, async () => {
-    const stored = await AsyncStorage.getItem(storageKey);
-    if (stored === null) return null;
-    if (stored.startsWith(ENCRYPTED_PREFIX))
-      return decryptValue(uid, storageKey, stored);
+  return withItemLock(storageKey, () =>
+    accountTask(uid, async () => {
+      const stored = await AsyncStorage.getItem(storageKey);
+      if (stored === null) return null;
+      if (stored.startsWith(ENCRYPTED_PREFIX))
+        return decryptValue(uid, storageKey, stored);
 
-    const encrypted = await encryptValue(uid, storageKey, stored);
-    await AsyncStorage.setItem(storageKey, encrypted);
-    return stored;
-  });
+      const encrypted = await encryptValue(uid, storageKey, stored);
+      await AsyncStorage.setItem(storageKey, encrypted);
+      return stored;
+    }),
+  );
 }
 
 export async function setEncryptedItem(
@@ -113,12 +116,20 @@ export async function setEncryptedItem(
   storageKey: string,
   value: string,
 ) {
-  return withItemLock(storageKey, async () => {
-    await AsyncStorage.setItem(
-      storageKey,
-      await encryptValue(uid, storageKey, value),
-    );
-  });
+  return withItemLock(storageKey, () =>
+    accountTask(uid, async () => {
+      await AsyncStorage.setItem(
+        storageKey,
+        await encryptValue(uid, storageKey, value),
+      );
+    }),
+  );
+}
+
+export async function removeAccountEncryptionKey(uid: string) {
+  await keyLoads.get(uid)?.catch(() => undefined);
+  const hash = await digestStringAsync(CryptoDigestAlgorithm.SHA256, uid);
+  await SecureStore.deleteItemAsync(`${KEY_PREFIX}${hash}`, secureKeyOptions());
 }
 
 export function removeEncryptedItem(storageKey: string) {

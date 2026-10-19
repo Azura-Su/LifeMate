@@ -35,17 +35,21 @@ export function FinanceLockSetting({
         </View>
         <View style={styles.notificationText}>
           <Text style={[styles.cardTitle, compact && styles.compactCardTitle]}>
-            Face ID cho tab Tài chính
+            {compact ? 'Khóa Tài chính' : 'Face ID cho tab Tài chính'}
           </Text>
-          {!(compact && privacy.enabled === false) && (
-            <Text
-              style={[typography.small, compact && styles.compactDescription]}
-            >
-              {privacy.enabled === null
-                ? 'Đang kiểm tra thiết lập'
-                : `${privacy.biometricLabel} · đang bật`}
-            </Text>
-          )}
+          <Text
+            style={[typography.small, compact && styles.compactDescription]}
+          >
+            {privacy.enabled === null
+              ? 'Đang kiểm tra thiết lập'
+              : privacy.enabled
+                ? compact
+                  ? privacy.biometricLabel
+                  : `${privacy.biometricLabel} · đang bật`
+                : privacy.ready && !privacy.canEnable
+                  ? 'Chưa thiết lập sinh trắc học'
+                  : 'Chưa bật'}
+          </Text>
         </View>
         {busy ? (
           <ActivityIndicator
@@ -69,15 +73,13 @@ export function FinanceLockSetting({
           />
         )}
       </View>
-      <Text style={[typography.small, compact && styles.compactDescription]}>
-        {compact
-          ? privacy.ready && !privacy.enabled && !privacy.canEnable
-            ? 'Thiết lập Face ID hoặc vân tay để khóa tab Tài chính.'
-            : 'Tóm tắt Home luôn hiển thị. Bật khóa để yêu cầu Face ID khi mở tab Tài chính.'
-          : privacy.ready && !privacy.enabled && !privacy.canEnable
+      {!compact && (
+        <Text style={typography.small}>
+          {privacy.ready && !privacy.enabled && !privacy.canEnable
             ? 'Thiết lập Face ID hoặc vân tay trong cài đặt thiết bị để khóa tab Tài chính.'
             : 'Tóm tắt Home luôn hiển thị. Bật khóa để yêu cầu Face ID khi mở tab Tài chính trên thiết bị này.'}
-      </Text>
+        </Text>
+      )}
       {privacy.error && (
         <Text accessibilityRole="alert" style={styles.error}>
           {privacy.error}

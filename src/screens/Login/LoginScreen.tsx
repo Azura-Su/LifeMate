@@ -138,8 +138,9 @@ export function LoginScreen() {
           )}
         </View>
         <View style={styles.footer}>
-          <View style={styles.line} />
-          <Text style={typography.small}>Chậm lại một chút. Gần mình hơn.</Text>
+          <Text style={styles.footerText}>
+            Chậm lại một chút. Gần mình hơn.
+          </Text>
         </View>
       </Screen>
     </KeyboardAvoidingView>

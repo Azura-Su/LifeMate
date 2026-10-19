@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import type { AgendaItem } from '../../types/agenda';
+import { isAccountDeleting } from '../security/accountLifecycle';
 
 const keyFor = (uid: string) =>
   `lifemate:agenda-reminders:v1:${encodeURIComponent(uid)}`;
@@ -28,6 +29,7 @@ function parseEntry(value: string | undefined) {
     : { id: value.slice(0, split), at: Number(value.slice(split + 1)) };
 }
 async function saveIds(uid: string, ids: Record<string, string>) {
+  if (isAccountDeleting(uid)) return;
   await AsyncStorage.setItem(keyFor(uid), JSON.stringify(ids));
 }
 
@@ -133,6 +135,7 @@ async function scheduleReminder(
   askPermission: boolean,
   keepIfUnchanged: boolean,
 ) {
+  if (isAccountDeleting(uid)) throw new Error('Tài khoản đang được xóa.');
   if (
     keepIfUnchanged &&
     parseEntry((await readIds(uid))[taskId])?.at === reminderAt
@@ -167,6 +170,10 @@ async function scheduleReminder(
   });
   const ids = await readIds(uid);
   ids[taskId] = `${notificationId}|${reminderAt}`;
+  if (isAccountDeleting(uid)) {
+    await Notifications.cancelScheduledNotificationAsync(notificationId);
+    throw new Error('Tài khoản đang được xóa.');
+  }
   await saveIds(uid, ids);
   return 'scheduled' as const;
 }

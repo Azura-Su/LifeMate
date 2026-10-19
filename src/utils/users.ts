@@ -38,8 +38,8 @@ export function resolveUserName(
   if (!user) return 'Bạn';
   const email = normalizeEmail(user.email ?? '');
   return (
-    users.find((row) => row.mail === email)?.name ||
     user.displayName?.trim() ||
+    users.find((row) => row.mail === email)?.name ||
     email.split('@')[0] ||
     'Bạn'
   );
