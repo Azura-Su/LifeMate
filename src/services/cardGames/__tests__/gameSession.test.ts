@@ -188,6 +188,49 @@ it('keeps one intent ID across an ambiguous acknowledgement failure', async () =
   controller.stop();
 });
 
+it('does not expose an in-flight action as an uncertain action', async () => {
+  let status!: (value: boolean) => void;
+  let resolveReady!: (value: GameSnapshot) => void;
+  const onChange = jest.fn();
+  const controller = createGameSession({
+    sessionId: 'session',
+    request: (input) =>
+      input.type === 'ready'
+        ? new Promise<GameSnapshot>((resolve) => {
+            resolveReady = resolve;
+          })
+        : Promise.resolve(snapshot()),
+    subscribe: (_topic, _hint, onStatus) => {
+      status = onStatus;
+      return jest.fn();
+    },
+    onChange,
+    uuid: () => 'action',
+  });
+
+  controller.start();
+  await flush();
+  status(true);
+  await flush();
+
+  const sending = controller.send({ type: 'ready', ready: true });
+  await flush();
+  expect(onChange.mock.calls.at(-1)?.[0]).toMatchObject({
+    busy: true,
+    pending: false,
+    error: null,
+  });
+
+  resolveReady(snapshot(2));
+  await sending;
+  expect(onChange.mock.calls.at(-1)?.[0]).toMatchObject({
+    busy: false,
+    pending: false,
+    error: null,
+  });
+  controller.stop();
+});
+
 it('ignores responses from a stopped generation and older room versions', async () => {
   let resolve!: (value: GameSnapshot) => void;
   const request = jest.fn(

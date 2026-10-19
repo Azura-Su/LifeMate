@@ -37,6 +37,7 @@ export function createGameSession(deps: Dependencies) {
     error: null,
   };
   let pending: GameRequest | null = null;
+  let uncertain = false;
   let topic: string | null = null,
     unsubscribe: (() => void) | null = null;
   let lease: ReturnType<typeof setTimeout> | undefined,
@@ -47,7 +48,11 @@ export function createGameSession(deps: Dependencies) {
     queued: 'sync' | 'lease' | null = null;
   let readError = false;
   const emit = (patch: Partial<GameSessionState>) => {
-    state = { ...state, ...patch, pending: pending !== null };
+    state = {
+      ...state,
+      ...patch,
+      pending: uncertain && pending !== null,
+    };
     deps.onChange(state);
   };
   const call = async (input: GameRequest) => {
@@ -192,11 +197,13 @@ export function createGameSession(deps: Dependencies) {
     if (!active || state.busy) return;
     const current = generation;
     pending = input;
+    uncertain = false;
     emit({ busy: true, error: null });
     try {
       const snapshot = await call(input);
       if (active && current === generation) {
         pending = null;
+        uncertain = false;
         accept(snapshot);
         emit({ error: null });
       }
@@ -209,6 +216,7 @@ export function createGameSession(deps: Dependencies) {
             : null;
         if (typeof status === 'number' && status >= 400 && status < 500)
           pending = null;
+        uncertain = pending !== null;
         emit({
           error:
             error instanceof Error
@@ -224,6 +232,7 @@ export function createGameSession(deps: Dependencies) {
   const stop = () => {
     active = false;
     generation++;
+    uncertain = pending !== null;
     clearTimeout(lease);
     clearTimeout(joinTimeout);
     clearTimeout(poll);
@@ -248,7 +257,7 @@ export function createGameSession(deps: Dependencies) {
       readError = false;
       emit({
         loading: true,
-        error: pending
+        error: uncertain
           ? 'Thao tác trước chưa được xác nhận. Hãy kiểm tra lại để tiếp tục.'
           : null,
       });
