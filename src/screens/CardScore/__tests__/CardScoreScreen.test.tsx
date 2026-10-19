@@ -1,3 +1,4 @@
+import * as cardStorage from '../../../services/cardScore/cardScoreStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   fireEvent,
@@ -180,11 +181,9 @@ it('creates a shared game table, records and edits scores with the keypad, then 
       name: 'Tạo',
     }),
   ).toBeTruthy();
-  expect(screen.queryByLabelText('Tên người chơi 3')).toBeNull();
+  expect(screen.getByLabelText('Tên người chơi 4')).toBeTruthy();
   expect(screen.queryByText(/tùy chọn/)).toBeNull();
   expect(screen.queryByText(/Dùng chung cho mọi trò/)).toBeNull();
-  fireEvent.press(screen.getByRole('button', { name: 'Thêm người chơi' }));
-  fireEvent.press(screen.getByRole('button', { name: 'Thêm người chơi' }));
   fireEvent.changeText(screen.getByLabelText('Tên bàn chơi'), 'Phỏm');
   const names = ['An', 'Bình', 'Chi', 'Dung'];
   for (let index = 0; index < names.length; index += 1)
@@ -375,6 +374,8 @@ it('closes setup with the X, keeps multiple active tables, and switches between 
   fireEvent.press(screen.getByRole('button', { name: 'Tạo bàn chơi' }));
   fireEvent.changeText(screen.getByLabelText('Tên bàn chơi'), 'Bàn An');
   fireEvent.changeText(screen.getByLabelText('Tên người chơi 1'), 'An');
+  fireEvent.press(screen.getByRole('button', { name: 'Bỏ người chơi 4' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Bỏ người chơi 3' }));
   fireEvent.changeText(screen.getByLabelText('Tên người chơi 2'), 'Bình');
   fireEvent.press(screen.getByRole('button', { name: 'Tạo' }));
   expect(await screen.findByText('Bàn An')).toBeTruthy();
@@ -415,6 +416,8 @@ it('closes setup with the X, keeps multiple active tables, and switches between 
   );
   fireEvent.changeText(screen.getByLabelText('Tên bàn chơi'), 'Bàn Bình');
   fireEvent.changeText(screen.getByLabelText('Tên người chơi 1'), 'Thu');
+  fireEvent.press(screen.getByRole('button', { name: 'Bỏ người chơi 4' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Bỏ người chơi 3' }));
   fireEvent.changeText(screen.getByLabelText('Tên người chơi 2'), 'Minh');
   fireEvent.press(screen.getByRole('button', { name: 'Tạo' }));
   expect(await screen.findByText('Các bàn đang chơi · 2')).toBeTruthy();
@@ -443,6 +446,8 @@ it('adds a player to an active table without changing scores from earlier rounds
   fireEvent.press(await screen.findByText('Tạo bàn chơi'));
   fireEvent.changeText(screen.getByLabelText('Tên bàn chơi'), 'Bàn đang chơi');
   fireEvent.changeText(screen.getByLabelText('Tên người chơi 1'), 'An');
+  fireEvent.press(screen.getByRole('button', { name: 'Bỏ người chơi 4' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Bỏ người chơi 3' }));
   fireEvent.changeText(screen.getByLabelText('Tên người chơi 2'), 'Bình');
   fireEvent.press(screen.getByRole('button', { name: 'Tạo' }));
   expect(await screen.findByText('Bàn đang chơi')).toBeTruthy();
@@ -539,6 +544,8 @@ it('redraws only the dealer without changing player positions', async () => {
   fireEvent.press(await screen.findByText('Tạo bàn chơi'));
   fireEvent.changeText(screen.getByLabelText('Tên bàn chơi'), 'Bàn thử');
   fireEvent.changeText(screen.getByLabelText('Tên người chơi 1'), 'An');
+  fireEvent.press(screen.getByRole('button', { name: 'Bỏ người chơi 4' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Bỏ người chơi 3' }));
   fireEvent.changeText(screen.getByLabelText('Tên người chơi 2'), 'Bình');
   fireEvent.press(screen.getByRole('button', { name: 'Tạo' }));
   await screen.findByText('Bàn thử');
@@ -588,6 +595,8 @@ it('renames and removes a player without changing the remaining player IDs', asy
     'Bàn có chỉnh sửa',
   );
   fireEvent.changeText(screen.getByLabelText('Tên người chơi 1'), 'An');
+  fireEvent.press(screen.getByRole('button', { name: 'Bỏ người chơi 4' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Bỏ người chơi 3' }));
   fireEvent.changeText(screen.getByLabelText('Tên người chơi 2'), 'Bình');
   fireEvent.press(screen.getByRole('button', { name: 'Tạo' }));
   expect(await screen.findByText('Bàn có chỉnh sửa')).toBeTruthy();
@@ -634,4 +643,44 @@ it('renames and removes a player without changing the remaining player IDs', asy
       .backgroundColor,
   ).toBe(colors.dangerSoft);
   confirmRemoval.mockRestore();
+});
+
+it('shows a failed finish inside the confirmation and allows retry', async () => {
+  await cardStorage.createCardScoreMatch(uid, {
+    title: 'Retry table',
+    players: [
+      { id: 'a', name: 'An' },
+      { id: 'b', name: 'Bình' },
+    ],
+    seatOrder: ['a', 'b'],
+    dealerPlayerId: 'a',
+  });
+  renderScreen();
+  fireEvent.press(
+    await screen.findByRole('button', { name: 'Kết thúc bàn chơi' }),
+  );
+  const update = jest
+    .spyOn(cardStorage, 'updateCardScoreMatch')
+    .mockRejectedValueOnce(new Error('Disk full'));
+  try {
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Xác nhận kết thúc bàn' }),
+    );
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId('card-score-finish-content')).getByRole(
+          'alert',
+        ),
+      ).toHaveTextContent('Disk full'),
+    );
+    expect((await readCardScoreMatches(uid))[0].status).toBe('active');
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Xác nhận kết thúc bàn' }),
+    );
+    await waitFor(async () =>
+      expect((await readCardScoreMatches(uid))[0].status).toBe('finished'),
+    );
+  } finally {
+    update.mockRestore();
+  }
 });

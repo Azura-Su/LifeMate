@@ -78,7 +78,7 @@ export function CardScoreScreen({
     null,
   );
   const [matchTitle, setMatchTitle] = useState('');
-  const [playerNames, setPlayerNames] = useState(['', '']);
+  const [playerNames, setPlayerNames] = useState(['', '', '', '']);
   const [drawnSeats, setDrawnSeats] = useState<string[] | null>(null);
   const [roundVisible, setRoundVisible] = useState(false);
   const [finishDialogVisible, setFinishDialogVisible] = useState(false);
@@ -136,7 +136,7 @@ export function CardScoreScreen({
 
   function openSetup() {
     setMatchTitle('');
-    setPlayerNames(['', '']);
+    setPlayerNames(['', '', '', '']);
     setDrawnSeats(null);
     setError(null);
     setSetupVisible(true);
@@ -401,6 +401,7 @@ export function CardScoreScreen({
 
   function finishMatch() {
     if (!currentMatch) return;
+    setError(null);
     setFinishDialogVisible(true);
   }
 
@@ -856,6 +857,7 @@ export function CardScoreScreen({
       <CardScoreFinishDialog
         visible={finishDialogVisible}
         busy={busy}
+        error={error}
         onCancel={() => setFinishDialogVisible(false)}
         onConfirm={() => void confirmFinishMatch()}
       />

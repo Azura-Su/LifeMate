@@ -17,7 +17,7 @@ One person keeps score for a group around one phone. A clear round-by-round matr
 - Calculate every round's sum internally. Balanced rounds sum to zero; show an unbalanced row with a red background, without adding a separate sum column.
 - A quick-entry keypad selects one player at a time, with each player's entered score visible before saving the round.
 - Allow several active tables at once and provide a compact selector to switch between them.
-- A table can be finished and stays in history.
+- A table can be finished and stays in history. If saving fails, show the error inside the finish confirmation and allow retry without closing the table.
 - Put a clear `×` close control in the create-table dialog.
 - Randomize seats and select the first person to deal; this is a casual draw, not a gambling feature.
 - History is encrypted in local storage and scoped to the signed-in UID. Cross-device sync, betting/payment, and automatic game-rule scoring are out of scope.
