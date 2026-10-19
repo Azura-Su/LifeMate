@@ -78,7 +78,7 @@ export function createGameSession(deps: Dependencies) {
         });
         startPolling();
       }
-    }, 10000);
+    }, 2000);
   };
   const armLease = () => {
     clearTimeout(lease);

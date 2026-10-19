@@ -39,7 +39,7 @@ it('falls back to polling when realtime never reports a status', async () => {
   });
   controller.start();
   await flush();
-  jest.advanceTimersByTime(10000);
+  jest.advanceTimersByTime(2000);
   await flush();
   expect(onChange.mock.calls.at(-1)?.[0].error).toBeNull();
   expect(onChange.mock.calls.at(-1)?.[0].connected).toBe(true);
