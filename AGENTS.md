@@ -22,3 +22,8 @@ Consult the read-only reviewer before finalizing high-risk changes, including
 authentication, access rules, financial calculations, persisted data, and migrations;
 request plan review before implementation and final diff review for those changes.
 Report unavailable checks and existing failures without weakening validation.
+
+UI conventions: screens opened from Home use `components/ScreenHeader` (back ·
+title · `HeaderIconButton` actions). Use `fontSize`, `radius`, `spacing` and
+`typography` tokens from `src/theme` instead of ad-hoc values; circles use
+size / 2. The card-game table keeps its own tuned sizes.

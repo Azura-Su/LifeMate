@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sunlightSoft,
     borderWidth: 1,
     borderColor: colors.sunlightLine,
-    borderRadius: 18,
+    borderRadius: 16,
   },
   confirmed: {
     backgroundColor: 'transparent',

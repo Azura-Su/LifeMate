@@ -9,6 +9,8 @@ import {
   Text,
   View,
   useWindowDimensions,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import appConfig from '../../app.json';
@@ -27,6 +29,7 @@ type Props = {
   onOpenNotes: () => void;
   onOpenCardScore: () => void;
   onOpenChecklists: () => void;
+  onOpenAgenda?: () => void;
   onOpenUserManagement?: () => void;
   onOpenProfile?: () => void;
   privacy: ReturnType<typeof useFinancePrivacy>;
@@ -38,6 +41,7 @@ export function AppDrawer({
   onOpenNotes,
   onOpenCardScore,
   onOpenChecklists,
+  onOpenAgenda,
   onOpenUserManagement,
   onOpenProfile,
   privacy,
@@ -147,7 +151,7 @@ export function AppDrawer({
                 onPress={() => close(onOpenProfile)}
                 style={styles.profile}
               >
-                <UserAvatar size={44} />
+                <UserAvatar size={52} />
                 <View style={styles.profileText}>
                   <Text numberOfLines={1} style={styles.name}>
                     {model.name}
@@ -155,85 +159,49 @@ export function AppDrawer({
                   <Text numberOfLines={1} style={styles.profileEmail}>
                     {model.user?.email}
                   </Text>
+                  <Text style={styles.profileLink}>Xem hồ sơ</Text>
                 </View>
-                <Feather name="chevron-right" size={18} color={colors.muted} />
+                <Feather name="chevron-right" size={20} color={colors.muted} />
               </Pressable>
 
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Tiện ích</Text>
                 <View style={styles.group}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Ghi chú"
+                  <MenuRow
+                    icon="edit-3"
+                    tint={colors.earth}
+                    badgeStyle={styles.notesIcon}
+                    label="Ghi chú"
                     onPress={() => close(onOpenNotes)}
-                    style={({ pressed }) => [
-                      styles.actionRow,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <View style={[styles.iconBadge, styles.notesIcon]}>
-                      <Feather name="edit-3" size={18} color={colors.earth} />
-                    </View>
-                    <Text style={styles.actionTitle}>Ghi chú</Text>
-                    <View style={styles.actionSpacer} />
-                    <Feather
-                      name="chevron-right"
-                      size={20}
-                      color={colors.muted}
-                    />
-                  </Pressable>
-
-                  <View style={styles.divider} />
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Danh sách chuẩn bị"
-                    onPress={() => close(onOpenChecklists)}
-                    style={({ pressed }) => [
-                      styles.actionRow,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <View style={[styles.iconBadge, styles.checklistIcon]}>
-                      <Feather
-                        name="check-square"
-                        size={18}
-                        color={colors.sky}
+                  />
+                  {onOpenAgenda && (
+                    <>
+                      <View style={styles.divider} />
+                      <MenuRow
+                        icon="calendar"
+                        tint={colors.success}
+                        badgeStyle={styles.agendaIcon}
+                        label="Lịch và việc"
+                        onPress={() => close(onOpenAgenda)}
                       />
-                    </View>
-                    <View style={styles.scoreActionText}>
-                      <Text style={styles.actionTitle}>Danh sách chuẩn bị</Text>
-                    </View>
-                    <View style={styles.actionSpacer} />
-                    <Feather
-                      name="chevron-right"
-                      size={20}
-                      color={colors.muted}
-                    />
-                  </Pressable>
-
+                    </>
+                  )}
                   <View style={styles.divider} />
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Ghi điểm bài"
+                  <MenuRow
+                    icon="check-square"
+                    tint={colors.sky}
+                    badgeStyle={styles.checklistIcon}
+                    label="Danh sách chuẩn bị"
+                    onPress={() => close(onOpenChecklists)}
+                  />
+                  <View style={styles.divider} />
+                  <MenuRow
+                    icon="award"
+                    tint={colors.sunlight}
+                    badgeStyle={styles.cardScoreIcon}
+                    label="Trò chơi & điểm số"
                     onPress={() => close(onOpenCardScore)}
-                    style={({ pressed }) => [
-                      styles.actionRow,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <View style={[styles.iconBadge, styles.cardScoreIcon]}>
-                      <Feather name="award" size={18} color={colors.earth} />
-                    </View>
-                    <View style={styles.scoreActionText}>
-                      <Text style={styles.actionTitle}>Ghi điểm bài</Text>
-                    </View>
-                    <View style={styles.actionSpacer} />
-                    <Feather
-                      name="chevron-right"
-                      size={20}
-                      color={colors.muted}
-                    />
-                  </Pressable>
+                  />
                 </View>
               </View>
               <View style={styles.section}>
@@ -292,26 +260,13 @@ export function AppDrawer({
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Quản trị</Text>
                   <View style={styles.group}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Quản lý người dùng"
+                    <MenuRow
+                      icon="users"
+                      tint={colors.earth}
+                      badgeStyle={styles.notesIcon}
+                      label="Quản lý người dùng"
                       onPress={() => close(onOpenUserManagement)}
-                      style={({ pressed }) => [
-                        styles.actionRow,
-                        pressed && styles.pressed,
-                      ]}
-                    >
-                      <View style={[styles.iconBadge, styles.notesIcon]}>
-                        <Feather name="users" size={18} color={colors.earth} />
-                      </View>
-                      <Text style={styles.actionTitle}>Quản lý người dùng</Text>
-                      <View style={styles.actionSpacer} />
-                      <Feather
-                        name="chevron-right"
-                        size={20}
-                        color={colors.muted}
-                      />
-                    </Pressable>
+                    />
                   </View>
                 </View>
               )}
@@ -341,20 +296,49 @@ export function AppDrawer({
                 {model.busy === 'logout' ? (
                   <ActivityIndicator color={colors.danger} />
                 ) : (
-                  <Feather name="log-out" size={19} color={colors.danger} />
+                  <Feather name="log-out" size={18} color={colors.danger} />
                 )}
                 <Text style={styles.logoutText}>Đăng xuất</Text>
               </Pressable>
 
-              <View style={styles.footer}>
-                <Text style={typography.small}>
-                  LifeMate · {appConfig.expo.version}
-                </Text>
-              </View>
+              <Text style={styles.footer}>
+                LifeMate · {appConfig.expo.version}
+              </Text>
             </View>
           </View>
         </Animated.View>
       </View>
     </Modal>
+  );
+}
+
+function MenuRow({
+  icon,
+  tint,
+  badgeStyle,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  tint: string;
+  badgeStyle: StyleProp<ViewStyle>;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => [styles.actionRow, pressed && styles.rowPressed]}
+    >
+      <View style={[styles.iconBadge, badgeStyle]}>
+        <Feather name={icon} size={17} color={tint} />
+      </View>
+      <Text numberOfLines={1} style={styles.actionTitle}>
+        {label}
+      </Text>
+      <Feather name="chevron-right" size={18} color={colors.muted} />
+    </Pressable>
   );
 }

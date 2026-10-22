@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import type { AgendaItem } from '../../types/agenda';
+import { useAuthStore } from '../../store/authStore';
 import { isAccountDeleting } from '../security/accountLifecycle';
 
 const keyFor = (uid: string) =>
@@ -79,6 +80,14 @@ export function cancelAllAgendaReminders(uid: string) {
   });
 }
 
+function sessionGuard(uid: string) {
+  const epoch = useAuthStore.getState().sessionEpoch;
+  return () =>
+    !isAccountDeleting(uid) &&
+    useAuthStore.getState().user?.uid === uid &&
+    useAuthStore.getState().sessionEpoch === epoch;
+}
+
 export function scheduleAgendaReminder(
   uid: string,
   taskId: string,
@@ -88,15 +97,25 @@ export function scheduleAgendaReminder(
   // scheduled is kept instead of being cancelled and re-created.
   keepIfUnchanged = false,
 ) {
+  const isActive = sessionGuard(uid);
   return serial(uid, () =>
-    scheduleReminder(uid, taskId, reminderAt, askPermission, keepIfUnchanged),
+    scheduleReminder(
+      uid,
+      taskId,
+      reminderAt,
+      askPermission,
+      keepIfUnchanged,
+      isActive,
+    ),
   );
 }
 
 // Reconcile the full set after a cloud sync so reminders for items completed
 // or deleted on another device are cancelled as well as newly added ones.
 export function reconcileAgendaReminders(uid: string, items: AgendaItem[]) {
+  const isActive = sessionGuard(uid);
   return serial(uid, async () => {
+    if (!isActive()) return;
     const active = new Map(
       items
         .filter(
@@ -110,6 +129,7 @@ export function reconcileAgendaReminders(uid: string, items: AgendaItem[]) {
     const ids = await readIds(uid);
     let changed = false;
     for (const [taskId, value] of Object.entries(ids)) {
+      if (!isActive()) return;
       const entry = parseEntry(value);
       if (!active.has(taskId) || active.get(taskId) !== entry?.at) {
         if (entry?.id)
@@ -120,11 +140,17 @@ export function reconcileAgendaReminders(uid: string, items: AgendaItem[]) {
         changed = true;
       }
     }
+    if (!isActive()) return;
     if (changed) await saveIds(uid, ids);
     for (const [taskId, reminderAt] of active)
-      await scheduleReminder(uid, taskId, reminderAt, false, true).catch(
-        () => undefined,
-      );
+      await scheduleReminder(
+        uid,
+        taskId,
+        reminderAt,
+        false,
+        true,
+        isActive,
+      ).catch(() => undefined);
   });
 }
 
@@ -134,23 +160,28 @@ async function scheduleReminder(
   reminderAt: number,
   askPermission: boolean,
   keepIfUnchanged: boolean,
+  isActive: () => boolean,
 ) {
-  if (isAccountDeleting(uid)) throw new Error('Tài khoản đang được xóa.');
+  if (!isActive()) return null;
   if (
     keepIfUnchanged &&
     parseEntry((await readIds(uid))[taskId])?.at === reminderAt
   )
-    return 'scheduled' as const;
+    return isActive() ? ('scheduled' as const) : null;
   await cancelReminder(uid, taskId);
+  if (!isActive()) return null;
   if (reminderAt <= Date.now()) return 'past' as const;
   if (Platform.OS === 'android')
     await Notifications.setNotificationChannelAsync('lifemate', {
       name: 'LifeMate',
       importance: Notifications.AndroidImportance.HIGH,
     });
+  if (!isActive()) return null;
   let permission = await Notifications.getPermissionsAsync();
+  if (!isActive()) return null;
   if (!permission.granted && askPermission)
     permission = await Notifications.requestPermissionsAsync();
+  if (!isActive()) return null;
   if (
     !permission.granted &&
     permission.ios?.status !== Notifications.IosAuthorizationStatus.PROVISIONAL
@@ -168,12 +199,27 @@ async function scheduleReminder(
       channelId: 'lifemate',
     },
   });
-  const ids = await readIds(uid);
-  ids[taskId] = `${notificationId}|${reminderAt}`;
-  if (isAccountDeleting(uid)) {
-    await Notifications.cancelScheduledNotificationAsync(notificationId);
-    throw new Error('Tài khoản đang được xóa.');
+  try {
+    if (!isActive()) {
+      await Notifications.cancelScheduledNotificationAsync(notificationId);
+      return null;
+    }
+    const ids = await readIds(uid);
+    if (!isActive()) {
+      await Notifications.cancelScheduledNotificationAsync(notificationId);
+      return null;
+    }
+    ids[taskId] = `${notificationId}|${reminderAt}`;
+    await saveIds(uid, ids);
+    if (!isActive()) {
+      await cancelReminder(uid, taskId);
+      return null;
+    }
+    return 'scheduled' as const;
+  } catch (error) {
+    await Notifications.cancelScheduledNotificationAsync(notificationId).catch(
+      () => undefined,
+    );
+    throw error;
   }
-  await saveIds(uid, ids);
-  return 'scheduled' as const;
 }

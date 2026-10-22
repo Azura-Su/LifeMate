@@ -206,3 +206,46 @@ Kiểm chứng: fixtures/invariant/SQL integration, UI/native 2–4 người; re
 - [ ] Các tiêu chí trong kế hoạch đều có bằng chứng, tài liệu và phiên bản luật khớp triển khai.
 - [ ] Ghi điểm cũ, điều hướng, đăng nhập và dữ liệu UID không hồi quy; typecheck/lint/Jest/function/SQL/native và review đạt.
 - [ ] Từng trò có thể tắt riêng; hướng dẫn tạo/vào phòng, reconnect và luật đủ cho người dùng mới.
+
+## H — Bàn điểm liên kết và tính tiền online (yêu cầu 20/10)
+
+- [x] H1. Mức tiền mỗi lá được thiết lập lúc tạo phòng, validate server-side, giữ bất biến theo phòng; client cũ/room cũ tương thích với rate 0.
+- [x] H2. Kết quả Tiến lên miền Nam ghi số lá còn và delta zero-sum; mỗi match chỉ cộng balance một lần, ván hủy không ghi điểm.
+- [x] H3. Mỗi tài khoản tham gia có bàn CardScore liên kết room; kết quả được thêm idempotent theo matchId và tồn tại qua lần mở app.
+- [x] H4. Người chơi thấy rate và balance trên lobby/bàn/kết quả; bảng Ghi điểm bài hiện delta và tổng tiền.
+- [ ] H5. Rà quyền và chuyển đổi cũ; kiểm tra logic, typecheck/lint và kiểm chứng native hai người. Chưa deploy backend đến khi được yêu cầu.
+- [x] H6. Tại số dư riêng từng ghế, animate delta từ dưới lên rồi count-up/down từ `balance akhir - moneyDelta` đến balance server; không sửa game state, delta 0/hủy không chạy; nhiều người và kết thúc liên tiếp đúng vị trí.
+
+Kiểm chứng H6: `CardGameTable` Jest (30 tests), typecheck, ESLint, Prettier và `git diff --check` đều đạt; coverage gồm portrait/landscape, 4 ghế, delta âm/dương, ván hủy, ván kết thúc liên tiếp và remount. Animation chưa được đo FPS trên thiết bị native.
+
+Ghi chú thực hiện 20/10/2026: typecheck, lint, Prettier và cú pháp JavaScript đạt. Chưa chạy Jest/function/SQL/native hoặc deploy. Reviewer độc lập không khởi chạy được do host không hỗ trợ model reviewer.
+
+## I — Nâng cấp UI/UX và animation bàn bài (yêu cầu 20/10)
+
+- [x] I1. Chọn/bỏ chọn bài mượt 150ms bằng native driver; xếp bài có layout transition và giữ nguyên selection.
+- [x] I2. Xáo bài úp và chia theo số lá/seat trong snapshot theo thứ tự luân phiên; sau đó stagger reveal hand. Reconnect/mount giữa ván hiển thị ngay, không replay.
+- [x] I3. Bài đã được server chấp nhận bay vào giữa bàn từ đúng ghế; snapshot lặp không replay; bộ cũ fade/thu nhỏ khi vòng đổi.
+- [ ] I4. Nổi bật ghế đến lượt, đổi sắc thái timer theo deadline server (đã có); còn thiếu cung tròn tiến trình quanh avatar.
+- [x] I5. Hiệu ứng nhãn bỏ lượt fade/scale; hủy sạch animation khi unmount.
+- [x] I6. Kết quả/điểm theo ghế và pháo hoa người thắng (H6).
+- [x] I7. Kết quả kết thúc gọn khi matchId mới bắt đầu, không sửa luồng readiness/server.
+- [ ] I8. Rà phản hồi nút (đã thêm scale); sound/haptic chưa làm vì repo không có sound asset, cài đặt âm thanh game hoặc haptics package.
+- [ ] I9. Jest/typecheck/lint/format đạt; cần kiểm tra animation trên bàn chơi native khi có phòng test khả dụng.
+
+Kiểm thử theo lát cắt: card component tests; table tests cho play/passed/turn/match snapshot; regression tests giữ selection, deadline, reconnect/remount và hai orientation. Mỗi animation chỉ hiển thị state đã xác nhận từ server.
+
+Ghi chú 20/10/2026: 116 Jest suites / 807 tests đạt; sau thay đổi ngưỡng màu timer, 2 suites bàn chơi / 35 tests đạt. Typecheck, ESLint, Prettier và `git diff --check` đạt. Simulator đang ở màn chọn game; chưa có phòng test, nên chưa xác minh animation trên bàn native/FPS.
+
+## I10–I12 — UI/animation bàn bài (yêu cầu 20/10)
+
+- [x] Đưa ready/start vào giữa handArea ổn định và bỏ action riêng ở footer/cột phải.
+- [x] Giữ z-index bài theo thứ tự ổn định; selected chỉ nâng Y, overlap luôn giữ góc số/chất và target chạm.
+- [x] Thêm PASS_TURN card-back tượng trưng từ ghế đến bàn; không dùng lá thật/không đổi hand; không phát lại snapshot trùng.
+- [x] Hồi quy layout dọc/ngang, thời lượng/cleanup animation và trạng thái server; typecheck/lint/Prettier + targeted Jest.
+
+## I13 — Ván tiếp tự động
+
+- [x] Ready tường minh ở tất cả ghế sau kết quả; ready cuối tạo match mới phía server, host không còn nút start ván tiếp.
+- [x] Giữ CAS/receipt, matchId mới, gate drain, tính điểm và lưu result cả khi instant-win.
+- [x] Giữa bàn chỉ là bộ bài thu gọn; ready status và điểm vẫn gắn đúng từng ghế.
+- [x] Test reducer/handler/UI, function tests, typecheck, lint/format; không tuyên bố deploy nếu chưa thực hiện.

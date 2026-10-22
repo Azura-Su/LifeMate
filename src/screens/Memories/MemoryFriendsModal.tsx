@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     padding: 12,
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   emailIcon: {
     width: 34,
     height: 34,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.skySoft,
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 8,
     padding: 10,
-    borderRadius: 10,
+    borderRadius: 12,
     backgroundColor: colors.successSoft,
   },
   deliveryNoticeText: {

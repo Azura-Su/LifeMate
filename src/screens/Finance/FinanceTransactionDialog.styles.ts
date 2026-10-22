@@ -45,7 +45,7 @@ export const styles = StyleSheet.create({
   typeRow: {
     flexDirection: 'row',
     padding: 4,
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: colors.skySoft,
   },
   typeButton: {
@@ -53,7 +53,7 @@ export const styles = StyleSheet.create({
     minHeight: 42,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 11,
+    borderRadius: 12,
   },
   typeSelected: { backgroundColor: colors.surface },
   typeText: { fontSize: 14, fontWeight: '600', color: colors.muted },
@@ -85,7 +85,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 18,
+    borderRadius: 16,
     backgroundColor: colors.surface,
   },
   templateAction: {

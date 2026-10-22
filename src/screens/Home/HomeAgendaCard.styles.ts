@@ -6,7 +6,7 @@ export const styles = StyleSheet.create({
   card: {
     gap: 10,
     padding: 14,
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surface,
@@ -21,7 +21,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
   },
   heading: { flex: 1, gap: 2 },
-  title: { fontSize: 17, fontWeight: '700', color: colors.ink },
+  title: { fontSize: 16, fontWeight: '700', color: colors.ink },
   smallAction: {
     width: 38,
     height: 40,

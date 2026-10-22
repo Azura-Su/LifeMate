@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     height: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 9,
+    borderRadius: 8,
   },
   add: {
     minHeight: 36,
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 10,
-    borderRadius: 11,
+    borderRadius: 12,
     backgroundColor: colors.skySoft,
   },
   addText: { color: colors.earth, fontSize: 12, fontWeight: '700' },

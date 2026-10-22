@@ -1,0 +1,90 @@
+import type { CardGameRoom, GameSnapshot } from '../../../types/cardGame';
+import {
+  clearCachedRoomSnapshot,
+  getCachedRoomSnapshot,
+  loadCachedRoomSnapshot,
+  saveRoomSnapshot,
+} from '../roomSnapshotCache';
+import {
+  getEncryptedItem,
+  removeEncryptedItem,
+  setEncryptedItem,
+} from '../../security/encryptedLocalStorage';
+
+jest.mock('../../security/encryptedLocalStorage', () => ({
+  getEncryptedItem: jest.fn(),
+  removeEncryptedItem: jest.fn(),
+  setEncryptedItem: jest.fn(),
+}));
+
+const uid = 'a';
+const finishedRoom: CardGameRoom = {
+  id: '123e4567-e89b-42d3-a456-426614174000',
+  code: 'ABCDEFGH',
+  version: 4,
+  epoch: '123e4567-e89b-42d3-a456-426614174001',
+  matchId: '123e4567-e89b-42d3-a456-426614174002',
+  phase: 'finished',
+  host: uid,
+  controller: true,
+  topic:
+    'card-room:123e4567-e89b-42d3-a456-426614174000:123e4567-e89b-42d3-a456-426614174001',
+  members: [
+    { uid, name: 'An', ready: false, wins: 1 },
+    { uid: 'b', name: 'Bình', ready: false, wins: 0 },
+  ],
+  game: {
+    rulesVersion: 'south-v1',
+    status: 'finished',
+    hand: [1, 2, 3],
+    players: [
+      { uid, count: 0, finished: true, forfeited: false },
+      { uid: 'b', count: 13, finished: false, forfeited: false },
+    ],
+    turn: null,
+    table: null,
+    passed: [],
+    openingCard: null,
+    deadline: null,
+    result: { reason: 'completed', ranking: [] },
+  },
+};
+const snapshot: GameSnapshot = { room: finishedRoom, serverTime: 100 };
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  void clearCachedRoomSnapshot(uid);
+});
+
+it('caches only a redacted finished snapshot in memory and encrypted storage', async () => {
+  await saveRoomSnapshot(uid, snapshot);
+
+  const cached = getCachedRoomSnapshot(uid, 'abcdefgh');
+  expect(cached?.room?.id).toBe(finishedRoom.id);
+  expect(cached?.room?.game?.hand).toEqual([]);
+  expect(setEncryptedItem).toHaveBeenCalledWith(
+    uid,
+    expect.stringContaining(uid),
+    expect.stringContaining('"hand":[]'),
+  );
+
+  await saveRoomSnapshot(uid, {
+    ...snapshot,
+    room: { ...finishedRoom, phase: 'playing' },
+  });
+  expect(getCachedRoomSnapshot(uid, finishedRoom.code)).toBeNull();
+  expect(removeEncryptedItem).toHaveBeenCalled();
+});
+
+it('loads and validates an encrypted finished snapshot for the same account and room', async () => {
+  jest.mocked(getEncryptedItem).mockResolvedValue(JSON.stringify(snapshot));
+
+  const cached = await loadCachedRoomSnapshot(uid, finishedRoom.code);
+
+  expect(cached?.room?.id).toBe(finishedRoom.id);
+  expect(cached?.room?.game?.hand).toEqual([]);
+  expect(
+    await loadCachedRoomSnapshot('other-user', finishedRoom.code),
+  ).toBeNull();
+  expect(await loadCachedRoomSnapshot(uid, 'ZZZZZZZZ')).toBeNull();
+});

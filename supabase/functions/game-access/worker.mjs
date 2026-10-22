@@ -3,9 +3,11 @@ import { finishRoom } from './rooms.mjs';
 
 export function advanceExpiredRoom(record, now) {
   const state = structuredClone(record.state);
+  state.ownerUid ??=
+    state.scoreMembers?.[0]?.uid ?? state.members[0]?.uid ?? null;
   const expired = new Set(record.expired);
-  if (record.expires_at && Date.parse(record.expires_at) <= now)
-    state.members.forEach((p) => expired.add(p.uid));
+  const roomExpired = record.expires_at && Date.parse(record.expires_at) <= now;
+  if (roomExpired) state.members.forEach((p) => expired.add(p.uid));
   if (state.phase === 'playing') {
     const remove = [...expired].filter((uid) =>
       state.game.players.some((p) => p.uid === uid),
@@ -18,8 +20,7 @@ export function advanceExpiredRoom(record, now) {
   state.members = state.members.filter((p) => !expired.has(p.uid));
   if (!state.members.some((p) => p.uid === state.host))
     state.host = state.members[0]?.uid ?? null;
-  if (!state.members.length) state.phase = 'closed';
-  else if (expired.size)
+  if (expired.size)
     state.members.forEach((p) => {
       p.ready = false;
     });

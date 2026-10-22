@@ -28,6 +28,7 @@ import { useNotesLockStore } from '../../store/notesLockStore';
 
 // Native font loading is outside this navigation integration test.
 jest.mock('@expo/vector-icons/Feather', () => 'Feather');
+jest.mock('../../config/cardGames', () => ({ cardGamesEnabled: () => true }));
 jest.mock('@react-native-async-storage/async-storage', () =>
   jest.requireActual(
     '@react-native-async-storage/async-storage/jest/async-storage-mock',
@@ -101,6 +102,10 @@ jest.mock('../../services/firebase/messagingService', () => ({
 }));
 
 beforeEach(() => {
+  useConfigStore.setState({ gameUsers: ['test@example.com'] });
+  useConfigStore.setState({
+    users: [{ mail: 'test@example.com', name: 'Asher' }],
+  });
   AppState.currentState = 'active';
   jest.mocked(SecureStore.getItemAsync).mockResolvedValue(null);
   jest
@@ -158,6 +163,66 @@ function pressFinanceTab() {
   fireEvent.press(screen.getByLabelText('Tài chính, tab, 2 of 4'));
 }
 
+it('removes the online route when usergame no longer includes the account', async () => {
+  renderApp();
+  fireEvent.press(await screen.findByRole('button', { name: 'Mở menu' }));
+  fireEvent.press(
+    await screen.findByRole('button', { name: 'Trò chơi & điểm số' }),
+  );
+  fireEvent.press(await screen.findByRole('tab', { name: 'Chơi online' }));
+  expect(await screen.findByText('Chơi cùng bạn bè')).toBeTruthy();
+  act(() => useConfigStore.setState({ gameUsers: [] }));
+  expect(screen.queryByRole('tab', { name: 'Chơi online' })).toBeNull();
+  expect(await screen.findByRole('button', { name: 'Mở menu' })).toBeTruthy();
+});
+
+it.each(['unknown@example.com', null, ''])(
+  'hides Memories for an unlisted email %s',
+  (email) => {
+    useAuthStore
+      .getState()
+      .setUser({ uid: 'other-user', email, displayName: 'Other' });
+    renderApp();
+    expect(screen.queryByLabelText('Ký ức, tab, 3 of 4')).toBeNull();
+    expect(screen.getByLabelText('Home, tab, 1 of 3')).toBeTruthy();
+    expect(screen.getByLabelText('Tài chính, tab, 2 of 3')).toBeTruthy();
+    expect(screen.getByLabelText('MP3, tab, 3 of 3')).toBeTruthy();
+  },
+);
+
+it('hides Memories for an empty directory and adds it when the email is configured', () => {
+  useConfigStore.setState({ users: [] });
+  renderApp();
+  expect(screen.queryByLabelText('Ký ức, tab, 3 of 4')).toBeNull();
+  act(() =>
+    useConfigStore.setState({
+      users: [{ mail: ' TEST@EXAMPLE.COM ', name: 'Test' }],
+    }),
+  );
+  expect(screen.getByLabelText('Ký ức, tab, 3 of 4')).toBeTruthy();
+});
+
+it('removes the focused Memories route when the configured email is removed', async () => {
+  renderApp();
+  fireEvent.press(screen.getByLabelText('Ký ức, tab, 3 of 4'));
+  act(() => useConfigStore.setState({ users: [] }));
+  expect(screen.queryByLabelText('Ký ức, tab, 3 of 4')).toBeNull();
+  expect(await screen.findByRole('button', { name: 'Mở menu' })).toBeTruthy();
+});
+
+it('hides Memories immediately when switching to an unlisted account', () => {
+  renderApp();
+  expect(screen.getByLabelText('Ký ức, tab, 3 of 4')).toBeTruthy();
+  act(() =>
+    useAuthStore.getState().setUser({
+      uid: 'other',
+      email: 'other@example.com',
+      displayName: 'Other',
+    }),
+  );
+  expect(screen.queryByLabelText('Ký ức, tab, 3 of 4')).toBeNull();
+});
+
 it('shows the configured name, opens all tabs, and returns to Login on logout', async () => {
   useAuthStore.getState().setUser({
     uid: 'test-user',
@@ -166,6 +231,7 @@ it('shows the configured name, opens all tabs, and returns to Login on logout', 
   });
   useConfigStore.setState({
     users: [{ mail: 'asher@example.com', name: 'Asher' }],
+    gameUsers: ['asher@example.com'],
   });
   resetFirestoreMock();
   useFinanceStore.setState({
@@ -213,9 +279,13 @@ it('shows the configured name, opens all tabs, and returns to Login on logout', 
 
   fireEvent.press(screen.getByRole('button', { name: 'Quay về Home' }));
   fireEvent.press(screen.getByRole('button', { name: 'Mở menu' }));
-  fireEvent.press(await screen.findByRole('button', { name: 'Ghi điểm bài' }));
+  fireEvent.press(
+    await screen.findByRole('button', { name: 'Trò chơi & điểm số' }),
+  );
   expect(await screen.findByText('Sẵn sàng ghi điểm?')).toBeTruthy();
-  expect(screen.getByRole('header', { name: 'Bảng điểm' })).toBeTruthy();
+  expect(
+    screen.getByRole('header', { name: 'Trò chơi & điểm số' }),
+  ).toBeTruthy();
   expect(screen.queryByText('TIỆN ÍCH')).toBeNull();
   expect(screen.queryByLabelText('Home, tab, 1 of 4')).toBeNull();
   expect(screen.queryByLabelText('Tài chính, tab, 2 of 4')).toBeNull();

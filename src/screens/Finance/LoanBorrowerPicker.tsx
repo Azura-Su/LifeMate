@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,
-    borderRadius: 9,
+    borderRadius: 8,
   },
   modeSelected: { backgroundColor: colors.surface },
   modeText: { ...typography.small, textAlign: 'center', fontWeight: '600' },

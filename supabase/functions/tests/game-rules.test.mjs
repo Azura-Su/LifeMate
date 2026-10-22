@@ -233,7 +233,7 @@ test('timeouts use legal moves and fresh deadlines rather than replaying overdue
   assert.equal(timeoutTienLen(game, 99), null);
   const next = timeoutTienLen(game, 90000);
   assert.deepEqual(next.table.cards, [4]);
-  assert.equal(next.deadline, 120000);
+  assert.equal(next.deadline, 130000);
   assert.equal(timeoutTienLen(next, 90001), null);
 });
 
@@ -284,6 +284,22 @@ test('instant wins use declared priority and do not rank untouched hands arbitra
   assert.equal(game.status, 'finished');
   assert.equal(game.result.reason, 'dragon');
   assert.equal(game.result.ranking[0].uid, 'a');
+});
+
+test('a four-of-a-kind counts as one rank toward the six distinct-rank pairs rule', () => {
+  const hand = [0, 13, 26, 39];
+  for (let rank = 1; rank <= 4; rank++) hand.push(rank, rank + 13);
+  hand.push(5);
+  const excluded = new Set(hand);
+  const rest = Array.from({ length: 52 }, (_, card) => card).filter(
+    (card) => !excluded.has(card),
+  );
+  const deck = hand.flatMap((card, index) => [card, rest[index]]);
+  deck.push(...rest.slice(hand.length));
+
+  const game = newTienLenGame(['a', 'b'], deck, 100);
+
+  assert.equal(game.status, 'playing');
 });
 
 test('random legal timeout games terminate and conserve all 52 unique cards', () => {

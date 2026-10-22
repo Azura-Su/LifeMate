@@ -150,6 +150,7 @@ it('keeps the pull-to-refresh indicator hidden during background loads', () => {
 it('shows the pull-to-refresh indicator only while a manual refresh runs', async () => {
   let finishConfig!: (value: {
     users: [];
+    gameUsers: [];
     registrationEnabled: false;
     warning: null;
   }) => void;
@@ -165,7 +166,12 @@ it('shows the pull-to-refresh indicator only while a manual refresh runs', async
   expect(screen.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(true);
 
   await act(async () =>
-    finishConfig({ users: [], registrationEnabled: false, warning: null }),
+    finishConfig({
+      users: [],
+      gameUsers: [],
+      registrationEnabled: false,
+      warning: null,
+    }),
   );
   await waitFor(() =>
     expect(screen.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(

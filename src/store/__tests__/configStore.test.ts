@@ -24,6 +24,7 @@ describe('Remote Config state', () => {
   it('keeps a realtime change when a prior refresh finishes later', async () => {
     let finish!: (value: {
       users: [];
+      gameUsers: [];
       registrationEnabled: boolean;
       warning: null;
     }) => void;
@@ -34,12 +35,18 @@ describe('Remote Config state', () => {
       );
     jest.mocked(readActivatedRemoteConfig).mockReturnValue({
       users: [],
+      gameUsers: [],
       registrationEnabled: true,
     });
 
     const refresh = useConfigStore.getState().refresh();
     useConfigStore.getState().applyActivated();
-    finish({ users: [], registrationEnabled: false, warning: null });
+    finish({
+      users: [],
+      gameUsers: [],
+      registrationEnabled: false,
+      warning: null,
+    });
     await refresh;
 
     expect(useConfigStore.getState().registrationEnabled).toBe(true);

@@ -20,7 +20,7 @@ export function DialogCloseButton({
       accessibilityHint="Đóng hộp thoại"
       accessibilityState={{ disabled }}
       disabled={disabled}
-      hitSlop={6}
+      hitSlop={8}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
@@ -28,18 +28,20 @@ export function DialogCloseButton({
         disabled && styles.disabled,
       ]}
     >
-      <Feather name="x" size={20} color={colors.ink} />
+      <Feather name="x" size={18} color={colors.muted} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  // Soft round close button, the same in every popup.
   button: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 13,
+    borderRadius: 18,
+    backgroundColor: colors.skySoft,
   },
   pressed: { opacity: 0.7 },
   disabled: { opacity: 0.4 },

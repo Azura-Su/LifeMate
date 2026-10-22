@@ -63,7 +63,7 @@ it('keeps the player panel compact without shrinking its touch controls', () => 
   );
   const play = StyleSheet.flatten(view.getByLabelText('Phát').props.style);
 
-  expect(panelStyle).toMatchObject({ padding: 12, borderRadius: 18 });
+  expect(panelStyle).toMatchObject({ padding: 12, borderRadius: 16 });
   expect(settings).toMatchObject({ width: 44, height: 44 });
   expect(play).toMatchObject({ width: 56, height: 56 });
 });

@@ -225,10 +225,10 @@ export function PlaylistSelector({
 }
 
 const styles = StyleSheet.create({
-  container: { gap: 8 },
+  container: { gap: 6 },
   captionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   caption: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.muted,
   },

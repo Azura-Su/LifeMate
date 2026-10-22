@@ -668,13 +668,11 @@ it('clears a previous account error when the new account cache loads successfull
   await screen.findByText('Previous account cache error');
   jest.mocked(readMemories).mockResolvedValue([]);
   await act(async () =>
-    useAuthStore
-      .getState()
-      .setUser({
-        uid: 'another-account',
-        email: 'b@example.com',
-        displayName: 'B',
-      }),
+    useAuthStore.getState().setUser({
+      uid: 'another-account',
+      email: 'b@example.com',
+      displayName: 'B',
+    }),
   );
   await waitFor(() =>
     expect(readMemories).toHaveBeenCalledWith('another-account'),

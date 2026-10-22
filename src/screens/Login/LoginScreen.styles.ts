@@ -13,7 +13,7 @@ export const styles = StyleSheet.create({
   intro: { gap: 12, marginTop: 16, marginBottom: 8 },
   title: {
     ...typography.title,
-    fontSize: 30,
+    fontSize: 28,
     lineHeight: 38,
     letterSpacing: -1,
   },
@@ -23,7 +23,7 @@ export const styles = StyleSheet.create({
     minHeight: 56,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 14,
+    borderRadius: 16,
     paddingHorizontal: 16,
     fontSize: 16,
     color: colors.ink,
@@ -33,7 +33,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: colors.surface,
   },
   passwordInput: {

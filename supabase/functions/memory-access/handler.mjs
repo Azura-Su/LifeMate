@@ -16,7 +16,6 @@ const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 const PROFILES = 'lifemate_memory_profiles';
 const REQUESTS = 'lifemate_memory_friend_requests';
 const EMAIL_INVITES = 'lifemate_memory_email_invites';
-const ATTEMPTS = 'lifemate_memory_invite_attempts';
 const FRIENDS = 'lifemate_memory_friendships';
 const MEMORIES = 'lifemate_shared_memories';
 const json = (status, value) =>
@@ -397,99 +396,18 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
       if (!EMAIL.test(email) || email.length > 254)
         return json(400, { code: 'invalid-email' });
       if (email === identity.email) return json(400, { code: 'self-invite' });
-      const since = new Date(Date.now() - 86400000).toISOString();
-      const attempts = await database(ATTEMPTS, 'GET', {
-        uid: `eq.${uid}`,
-        created_at: `gte.${since}`,
-        select: 'id',
-        limit: 21,
-      });
-      if (attempts.length >= 20) return json(429, { code: 'invite-limit' });
-      await database(ATTEMPTS, 'POST', {}, { id: crypto.randomUUID(), uid });
-      const target = await database(PROFILES, 'GET', {
-        email: `eq.${email}`,
-        select: 'uid',
-        limit: 1,
-      });
-      // Keep the response identical for unknown and already connected accounts.
-      if (!target.length) {
-        const [outgoingPending, targetPending, outgoingKnown] =
-          await Promise.all([
-            database(EMAIL_INVITES, 'GET', {
-              requester_uid: `eq.${uid}`,
-              select: 'target_email',
-              limit: 21,
-            }),
-            database(EMAIL_INVITES, 'GET', {
-              target_email: `eq.${email}`,
-              select: 'requester_uid',
-              limit: 21,
-            }),
-            database(REQUESTS, 'GET', {
-              requester_uid: `eq.${uid}`,
-              select: 'target_uid',
-              limit: 21,
-            }),
-          ]);
-        if (
-          outgoingPending.length + outgoingKnown.length < 20 &&
-          targetPending.length < 20 &&
-          !outgoingPending.some((row) => row.target_email === email)
-        )
-          await database(
-            EMAIL_INVITES,
-            'POST',
-            {},
-            {
-              requester_uid: uid,
-              target_email: email,
-            },
-          );
-        return json(200, { sent: true });
-      }
-      const targetUid = target[0].uid;
-      const pair = friendPair(uid, targetUid);
-      const [existing, outgoing, outgoingPending, incoming] = await Promise.all(
-        [
-          database(FRIENDS, 'GET', {
-            ...Object.fromEntries(
-              Object.entries(pair).map(([k, v]) => [k, `eq.${v}`]),
-            ),
-            select: 'left_uid',
-            limit: 1,
-          }),
-          database(REQUESTS, 'GET', {
-            requester_uid: `eq.${uid}`,
-            select: 'target_uid',
-            limit: 21,
-          }),
-          database(EMAIL_INVITES, 'GET', {
-            requester_uid: `eq.${uid}`,
-            select: 'target_email',
-            limit: 21,
-          }),
-          database(REQUESTS, 'GET', {
-            target_uid: `eq.${targetUid}`,
-            select: 'requester_uid',
-            limit: 21,
-          }),
-        ],
-      );
-      if (
-        existing.length ||
-        outgoing.some((row) => row.target_uid === targetUid)
-      )
-        return json(200, { sent: true });
-      if (outgoing.length + outgoingPending.length >= 20)
-        return json(200, { sent: true });
-      if (incoming.length >= 20) return json(200, { sent: true });
-      await database(
-        REQUESTS,
+      const result = await database(
+        'rpc/invite_lifemate_memory_friend',
         'POST',
         {},
-        { requester_uid: uid, target_uid: targetUid },
+        {
+          p_uid: uid,
+          p_email: email,
+        },
       );
-      return json(200, { sent: true });
+      return result.limited
+        ? json(429, { code: 'invite-limit' })
+        : json(200, { sent: true });
     }
     if (input.action === 'cancel') {
       const email =

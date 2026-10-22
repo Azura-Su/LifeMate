@@ -8,6 +8,7 @@ import {
 
 type ConfigState = {
   users: DirectoryUser[];
+  gameUsers: string[];
   registrationEnabled: boolean;
   loading: boolean;
   warning: string | null;
@@ -19,13 +20,14 @@ let activeRevision = 0;
 
 export const useConfigStore = create<ConfigState>((set, get) => ({
   users: DEFAULT_USERS,
+  gameUsers: [],
   registrationEnabled: false,
   loading: false,
   warning: null,
   applyActivated: () => {
     activeRevision += 1;
     set((state) => ({
-      ...readActivatedRemoteConfig(state.users),
+      ...readActivatedRemoteConfig(state.users, state.gameUsers),
     }));
   },
   refresh: async () => {
@@ -33,12 +35,12 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     const revision = activeRevision;
     set({ loading: true });
     try {
-      const result = await loadRemoteConfig(get().users);
+      const result = await loadRemoteConfig(get().users, get().gameUsers);
       set(
         activeRevision === revision
           ? result
           : {
-              ...readActivatedRemoteConfig(get().users),
+              ...readActivatedRemoteConfig(get().users, get().gameUsers),
               warning: result.warning,
             },
       );

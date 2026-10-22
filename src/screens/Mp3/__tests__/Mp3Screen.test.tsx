@@ -255,7 +255,7 @@ it('uses a compact static MP3 header and an icon-only library button', () => {
   expect(header.paddingBottom).toBe(8);
   expect(title.props.numberOfLines).toBe(1);
   expect(title.props.children).toBe('Danh sách nghe');
-  expect(titleStyle).toMatchObject({ fontSize: 26, lineHeight: 32 });
+  expect(titleStyle).toMatchObject({ fontSize: 24, lineHeight: 32 });
   expect(libraryButtonStyle).toMatchObject({ width: 44, height: 44 });
   expect(view.queryByText('Thư viện')).toBeNull();
 

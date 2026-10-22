@@ -26,7 +26,7 @@ const rules = [
   ],
   [
     'Thời gian và kết nối',
-    '30 giây/lượt. Hết giờ tự bỏ; nếu mở vòng thì đánh lá nhỏ nhất hợp lệ. Mất kết nối/vào nền giữ ghế 90 giây nhưng thời gian lượt vẫn chạy. Quá hạn hoặc tự rời thì bỏ cuộc, xếp cuối. Tất cả mất kết nối cùng lúc thì hủy ván.',
+    '40 giây/lượt. Hết giờ tự bỏ; nếu mở vòng thì đánh lá nhỏ nhất hợp lệ. Mất kết nối/vào nền giữ ghế 90 giây nhưng thời gian lượt vẫn chạy. Quá hạn hoặc tự rời thì bỏ cuộc, xếp cuối. Tất cả mất kết nối cùng lúc thì hủy ván.',
   ],
   [
     'Quy ước của bàn',
@@ -42,6 +42,7 @@ export function CardGameRules({
 }) {
   return (
     <DialogModal
+      supportedOrientations={['portrait', 'landscape-left', 'landscape-right']}
       visible={visible}
       onRequestClose={onClose}
       style={styles.ruleCard}

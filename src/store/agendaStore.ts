@@ -32,8 +32,9 @@ type AgendaState = {
 
 let request = 0;
 
-function isActiveAccount(uid: string) {
-  return useAuthStore.getState().user?.uid === uid;
+function isActiveAccount(uid: string, epoch: number) {
+  const auth = useAuthStore.getState();
+  return auth.user?.uid === uid && auth.sessionEpoch === epoch;
 }
 
 export const useAgendaStore = create<AgendaState>((set, get) => ({
@@ -44,6 +45,7 @@ export const useAgendaStore = create<AgendaState>((set, get) => ({
   error: null,
   reminderStatus: null,
   load: async (uid) => {
+    const epoch = useAuthStore.getState().sessionEpoch;
     const previousUid = get().uid;
     if (previousUid && previousUid !== uid)
       void cancelAllAgendaReminders(previousUid);
@@ -59,7 +61,11 @@ export const useAgendaStore = create<AgendaState>((set, get) => ({
     if (!uid) return;
     try {
       const result = await readAgenda(uid);
-      if (mine === request && get().uid === uid && isActiveAccount(uid)) {
+      if (
+        mine === request &&
+        get().uid === uid &&
+        isActiveAccount(uid, epoch)
+      ) {
         set({
           items: result.items,
           synced: result.synced,
@@ -72,7 +78,7 @@ export const useAgendaStore = create<AgendaState>((set, get) => ({
           );
       }
     } catch {
-      if (mine === request && get().uid === uid)
+      if (mine === request && get().uid === uid && isActiveAccount(uid, epoch))
         set({
           loading: false,
           error: 'Chưa tải được danh sách việc. Hãy thử lại.',
@@ -80,23 +86,30 @@ export const useAgendaStore = create<AgendaState>((set, get) => ({
     }
   },
   save: async (uid, item, expected) => {
-    if (get().uid !== uid || !isActiveAccount(uid))
+    const epoch = useAuthStore.getState().sessionEpoch;
+    if (get().uid !== uid || !isActiveAccount(uid, epoch))
       throw new Error('Tài khoản đã thay đổi. Hãy thử lại.');
     const result = await saveAgendaItem(uid, item, expected);
     let reminderStatus: AgendaState['reminderStatus'] = null;
-    if (get().uid !== uid || !isActiveAccount(uid)) return null;
-    if (!item.completed && item.reminderAt !== null) {
+    if (get().uid !== uid || !isActiveAccount(uid, epoch)) return null;
+    // A sync conflict can replace this id with the remote version and move the
+    // local edit to a conflict copy, so schedule from what was actually saved.
+    const saved = result.items.find((current) => current.id === item.id);
+    if (saved && !saved.completed && saved.reminderAt !== null) {
       try {
         reminderStatus = await scheduleAgendaReminder(
           uid,
-          item.id,
-          item.reminderAt,
+          saved.id,
+          saved.reminderAt,
         );
       } catch {
         reminderStatus = 'denied';
       }
     } else await cancelAgendaReminder(uid, item.id);
-    if (get().uid === uid && isActiveAccount(uid))
+    if (get().uid !== uid || !isActiveAccount(uid, epoch)) return null;
+    if (saved !== item)
+      void reconcileAgendaReminders(uid, result.items).catch(() => undefined);
+    if (get().uid === uid && isActiveAccount(uid, epoch))
       set({
         items: result.items,
         synced: result.synced,
@@ -106,28 +119,27 @@ export const useAgendaStore = create<AgendaState>((set, get) => ({
     return reminderStatus;
   },
   complete: async (uid, id, completed) => {
-    if (get().uid !== uid || !isActiveAccount(uid))
+    const epoch = useAuthStore.getState().sessionEpoch;
+    if (get().uid !== uid || !isActiveAccount(uid, epoch))
       throw new Error('Tài khoản đã thay đổi. Hãy thử lại.');
     const current = get().items.find((item) => item.id === id);
     if (!current) return;
     const item = { ...current, completed, updatedAt: Date.now() };
     const result = await saveAgendaItem(uid, item, current);
-    if (get().uid !== uid || !isActiveAccount(uid)) return;
-    if (completed) await cancelAgendaReminder(uid, id);
-    else if (item.reminderAt !== null)
-      await scheduleAgendaReminder(uid, id, item.reminderAt, false).catch(
-        () => undefined,
-      );
-    if (get().uid === uid && isActiveAccount(uid))
+    if (get().uid !== uid || !isActiveAccount(uid, epoch)) return;
+    // Sync may retain the remote row and move this edit to a conflict copy.
+    await reconcileAgendaReminders(uid, result.items).catch(() => undefined);
+    if (get().uid === uid && isActiveAccount(uid, epoch))
       set({ items: result.items, synced: result.synced, error: null });
   },
   remove: async (uid, id) => {
-    if (get().uid !== uid || !isActiveAccount(uid))
+    const epoch = useAuthStore.getState().sessionEpoch;
+    if (get().uid !== uid || !isActiveAccount(uid, epoch))
       throw new Error('Tài khoản đã thay đổi. Hãy thử lại.');
     const result = await deleteAgendaItem(uid, id);
-    if (get().uid !== uid || !isActiveAccount(uid)) return;
+    if (get().uid !== uid || !isActiveAccount(uid, epoch)) return;
     await cancelAgendaReminder(uid, id);
-    if (get().uid === uid && isActiveAccount(uid))
+    if (get().uid === uid && isActiveAccount(uid, epoch))
       set({ items: result.items, synced: result.synced, error: null });
   },
 }));

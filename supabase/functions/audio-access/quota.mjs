@@ -26,7 +26,7 @@ export function createAudioQuota(projectUrl, serviceKey, request = fetch) {
         p_owner_uid: uid,
         p_object_path: path,
         // Signed upload URLs cannot cap the eventual Content-Length. Reserve
-        // the bucket's per-file maximum until storage confirms the true size.
+        // the bucket's per-file maximum while signed upsert URLs remain usable.
         p_size_bytes: Math.max(sizeBytes, 50 * 1024 * 1024),
       })) === true,
     confirmUpload: async (uid, path) =>

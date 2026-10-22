@@ -18,6 +18,12 @@ type Props = {
   busy: boolean;
   onEditRound: (round: CardScoreRound, index: number) => void;
   onDeleteRound: (round: CardScoreRound, index: number) => void;
+  readOnly?: boolean;
+  allowDelete?: boolean;
+  /** Null hides the hint; undefined uses the default. */
+  hint?: string | null;
+  /** Rendered inside a parent card: no own border or radius. */
+  embedded?: boolean;
 };
 
 const ROUND_COLUMN_WIDTH = 44;
@@ -32,15 +38,20 @@ export function CardScoreTable({
   busy,
   onEditRound,
   onDeleteRound,
+  readOnly = false,
+  allowDelete = true,
+  hint,
+  embedded = false,
 }: Props) {
   const { width: windowWidth } = useWindowDimensions();
   const orderedPlayers = match.seatOrder
     .map((playerId) => match.players.find((player) => player.id === playerId))
     .filter((player) => player !== undefined);
+  const actionWidth = allowDelete ? ROUND_ACTION_COLUMN_WIDTH : 0;
   const cardContentWidth =
     Math.min(windowWidth, layout.contentMaxWidth) - layout.screenGutter * 2 - 2;
   const preferredPlayerWidth =
-    (cardContentWidth - ROUND_COLUMN_WIDTH - ROUND_ACTION_COLUMN_WIDTH) /
+    (cardContentWidth - ROUND_COLUMN_WIDTH - actionWidth) /
     orderedPlayers.length;
   const playerColumnWidth = Math.max(
     MIN_PLAYER_COLUMN_WIDTH,
@@ -49,10 +60,14 @@ export function CardScoreTable({
   const tableWidth =
     ROUND_COLUMN_WIDTH +
     playerColumnWidth * orderedPlayers.length +
-    ROUND_ACTION_COLUMN_WIDTH;
+    actionWidth;
+  // Read-only tables have no delete control, so drop the empty column.
+  const actionColumnStyle = allowDelete
+    ? { width: ROUND_ACTION_COLUMN_WIDTH }
+    : styles.hiddenColumn;
 
   return (
-    <View style={styles.card}>
+    <View style={embedded ? styles.embeddedCard : styles.card}>
       <ScrollView horizontal showsHorizontalScrollIndicator>
         <View testID="card-score-table-grid" style={{ width: tableWidth }}>
           <View style={[styles.row, styles.headerRow]}>
@@ -91,7 +106,7 @@ export function CardScoreTable({
               style={[
                 styles.roundActionColumn,
                 styles.roundActionHeader,
-                { width: ROUND_ACTION_COLUMN_WIDTH },
+                actionColumnStyle,
               ]}
             />
           </View>
@@ -116,8 +131,8 @@ export function CardScoreTable({
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`Sửa điểm ván ${index + 1}`}
-                    accessibilityState={{ disabled: busy }}
-                    disabled={busy}
+                    accessibilityState={{ disabled: busy || readOnly }}
+                    disabled={busy || readOnly}
                     onPress={() => onEditRound(round, index)}
                     style={[
                       styles.roundNumberButton,
@@ -134,8 +149,8 @@ export function CardScoreTable({
                       key={player.id}
                       accessibilityRole="button"
                       accessibilityLabel={`Sửa điểm ván ${index + 1} của ${player.name}: ${scoreLabel(score)}`}
-                      accessibilityState={{ disabled: busy }}
-                      disabled={busy}
+                      accessibilityState={{ disabled: busy || readOnly }}
+                      disabled={busy || readOnly}
                       onPress={() => onEditRound(round, index)}
                       style={[
                         styles.playerCell,
@@ -155,25 +170,24 @@ export function CardScoreTable({
                     </Pressable>
                   );
                 })}
-                <View
-                  style={[
-                    styles.roundActionColumn,
-                    { width: ROUND_ACTION_COLUMN_WIDTH },
-                  ]}
-                >
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Xóa điểm ván ${index + 1}`}
-                    accessibilityState={{ disabled: busy }}
-                    disabled={busy}
-                    onPress={() => onDeleteRound(round, index)}
-                    style={[
-                      styles.deleteRoundButton,
-                      busy && styles.disabledAction,
-                    ]}
-                  >
-                    <Feather name="x" size={14} color={colors.danger} />
-                  </Pressable>
+                <View style={[styles.roundActionColumn, actionColumnStyle]}>
+                  {allowDelete ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Xóa điểm ván ${index + 1}`}
+                      accessibilityState={{ disabled: busy || readOnly }}
+                      disabled={busy || readOnly}
+                      onPress={() => onDeleteRound(round, index)}
+                      style={[
+                        styles.deleteRoundButton,
+                        (busy || readOnly) && styles.disabledAction,
+                      ]}
+                    >
+                      <Feather name="x" size={14} color={colors.danger} />
+                    </Pressable>
+                  ) : (
+                    <View style={{ width: ROUND_ACTION_COLUMN_WIDTH }} />
+                  )}
                 </View>
               </View>
             );
@@ -206,20 +220,20 @@ export function CardScoreTable({
                 </View>
               );
             })}
-            <View
-              style={[
-                styles.roundActionColumn,
-                { width: ROUND_ACTION_COLUMN_WIDTH },
-              ]}
-            />
+            <View style={[styles.roundActionColumn, actionColumnStyle]} />
           </View>
         </View>
       </ScrollView>
-      <View style={styles.hint}>
-        <Text style={styles.hintText}>
-          Tên người chia bài được tô màu · chạm điểm để sửa
-        </Text>
-      </View>
+      {hint !== null && (
+        <View style={styles.hint}>
+          <Text style={styles.hintText}>
+            {hint ??
+              (readOnly
+                ? 'Điểm được cập nhật tự động theo kết quả phòng online.'
+                : 'Tên người chia bài được tô màu · chạm điểm để sửa')}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -233,14 +247,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: colors.surface,
   },
+  embeddedCard: { width: '100%', backgroundColor: colors.surface },
   disabledAction: { opacity: 0.45 },
+  hiddenColumn: { display: 'none' },
   row: {
-    minHeight: 43,
+    minHeight: 40,
     flexDirection: 'row',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.line,
   },
-  headerRow: { minHeight: 52, backgroundColor: colors.skySoft },
+  headerRow: { minHeight: 36, backgroundColor: colors.skySoft },
   alternateRow: { backgroundColor: colors.background },
   invalidRound: { backgroundColor: colors.dangerSoft },
   roundColumn: {
@@ -272,7 +288,7 @@ const styles = StyleSheet.create({
   headerPlayer: {
     width: '100%',
     color: colors.ink,
-    fontSize: 10,
+    fontSize: 11,
     lineHeight: 13,
     fontWeight: '700',
     textAlign: 'center',
@@ -283,7 +299,7 @@ const styles = StyleSheet.create({
     height: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
+    borderRadius: 12,
     backgroundColor: colors.skySoft,
   },
   roundNumber: { color: colors.sky, fontSize: 11, fontWeight: '700' },
@@ -305,7 +321,7 @@ const styles = StyleSheet.create({
   negative: { color: colors.danger },
   positive: { color: colors.success },
   totalRow: {
-    minHeight: 48,
+    minHeight: 42,
     borderBottomWidth: 0,
     backgroundColor: colors.sunlightFaint,
   },
@@ -313,10 +329,10 @@ const styles = StyleSheet.create({
   totalCell: { borderRightWidth: 0 },
   total: {
     color: colors.ink,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
   },
-  hint: { paddingHorizontal: 10, paddingVertical: 8, gap: 3 },
+  hint: { paddingHorizontal: 10, paddingVertical: 5, gap: 3 },
   hintText: { color: colors.muted, fontSize: 10, lineHeight: 14 },
 });

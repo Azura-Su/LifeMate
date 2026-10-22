@@ -1,3 +1,4 @@
+import { TabHeader } from '../../components/ScreenHeader';
 import Feather from '@expo/vector-icons/Feather';
 import { useIsFocused } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -69,14 +70,7 @@ export function ProtectedFinanceScreen({
 
   const lockScreen = (
     <Screen
-      fixedHeader={
-        <Text
-          accessibilityRole="header"
-          style={[typography.title, financeStyles.headerTitle]}
-        >
-          Tài chính
-        </Text>
-      }
+      fixedHeader={<TabHeader title="Tài chính" />}
       fixedHeaderStyle={financeStyles.header}
       contentStyle={styles.content}
     >

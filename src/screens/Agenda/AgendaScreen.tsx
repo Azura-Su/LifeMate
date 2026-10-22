@@ -1,8 +1,11 @@
+import { useAgendaStore } from '../../store/agendaStore';
+import { animateNextLayout } from '../../utils/motion';
+import { HeaderIconButton, ScreenHeader } from '../../components/ScreenHeader';
 import Feather from '@expo/vector-icons/Feather';
 import { useFocusEffect } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Text, View } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { useAgendaAccount } from '../../hooks/useAgendaAccount';
 import type { MainTabParams } from '../../navigation/types';
@@ -11,6 +14,7 @@ import { colors, typography } from '../../theme';
 import type { AgendaItem } from '../../types/agenda';
 import { AgendaTaskFormDialog } from './AgendaTaskFormDialog';
 import { AgendaTaskRow } from './AgendaTaskRow';
+import { groupAgendaItems } from '../../utils/agenda';
 import { styles } from './AgendaScreen.styles';
 
 type AgendaAction = 'complete' | 'delete' | 'calendar';
@@ -19,6 +23,20 @@ export function AgendaScreen({
   navigation,
 }: BottomTabScreenProps<MainTabParams, 'Agenda'>) {
   const model = useAgendaAccount();
+  // Animate rows moving between groups / disappearing whenever the list
+  // itself changes (complete, delete, add), not on the first load.
+  useEffect(
+    () =>
+      useAgendaStore.subscribe((state, previous) => {
+        if (
+          state.items !== previous.items &&
+          previous.items.length > 0 &&
+          state.uid === previous.uid
+        )
+          animateNextLayout();
+      }),
+    [],
+  );
   const { uid, refresh } = model;
   const [editing, setEditing] = useState<AgendaItem | null>(null);
   const [formVisible, setFormVisible] = useState(false);
@@ -120,33 +138,20 @@ export function AgendaScreen({
       <Screen
         fixedHeaderStyle={styles.fixedHeader}
         fixedHeader={
-          <View style={styles.header}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Quay về Home"
-              onPress={() => navigation.navigate('Home')}
-              style={styles.back}
-            >
-              <Feather name="arrow-left" size={21} color={colors.earth} />
-            </Pressable>
-            <Text
-              accessibilityRole="header"
-              style={[typography.title, styles.headerTitle]}
-            >
-              Lịch và việc
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Thêm việc cần làm"
-              onPress={() => {
-                setEditing(null);
-                setFormVisible(true);
-              }}
-              style={styles.add}
-            >
-              <Feather name="plus" size={22} color={colors.earth} />
-            </Pressable>
-          </View>
+          <ScreenHeader
+            title="Lịch và việc"
+            onBack={() => navigation.navigate('Home')}
+            right={
+              <HeaderIconButton
+                icon="plus"
+                label="Thêm việc cần làm"
+                onPress={() => {
+                  setEditing(null);
+                  setFormVisible(true);
+                }}
+              />
+            }
+          />
         }
         contentStyle={styles.content}
       >
@@ -186,34 +191,54 @@ export function AgendaScreen({
             </Text>
           </View>
         ) : (
-          model.items.map((item) => (
-            <AgendaTaskRow
-              key={item.id}
-              item={item}
-              pendingAction={pendingActions[item.id]}
-              onComplete={() =>
-                model.uid &&
-                void runItemAction(
-                  item,
-                  'complete',
-                  () => model.complete(model.uid!, item.id, !item.completed),
-                  'Chưa cập nhật được công việc. Hãy thử lại.',
-                )
-              }
-              onEdit={() => {
-                setEditing(item);
-                setFormVisible(true);
-              }}
-              onDelete={() => remove(item)}
-              onAddToCalendar={() =>
-                void runItemAction(
-                  item,
-                  'calendar',
-                  () => addAgendaItemToCalendar(item),
-                  'Chưa mở được lịch trên thiết bị này.',
-                )
-              }
-            />
+          groupAgendaItems(model.items).map((group) => (
+            <View key={group.key} style={styles.group}>
+              <View style={styles.groupHeader}>
+                <Text
+                  accessibilityRole="header"
+                  style={[
+                    styles.groupTitle,
+                    group.key === 'overdue' && styles.groupTitleOverdue,
+                  ]}
+                >
+                  {group.title}
+                </Text>
+                <Text style={styles.groupCount}>{group.items.length}</Text>
+              </View>
+              <View style={styles.groupCard}>
+                {group.items.map((item, index) => (
+                  <AgendaTaskRow
+                    key={item.id}
+                    divider={index > 0}
+                    item={item}
+                    pendingAction={pendingActions[item.id]}
+                    onComplete={() =>
+                      model.uid &&
+                      void runItemAction(
+                        item,
+                        'complete',
+                        () =>
+                          model.complete(model.uid!, item.id, !item.completed),
+                        'Chưa cập nhật được công việc. Hãy thử lại.',
+                      )
+                    }
+                    onEdit={() => {
+                      setEditing(item);
+                      setFormVisible(true);
+                    }}
+                    onDelete={() => remove(item)}
+                    onAddToCalendar={() =>
+                      void runItemAction(
+                        item,
+                        'calendar',
+                        () => addAgendaItemToCalendar(item),
+                        'Chưa mở được lịch trên thiết bị này.',
+                      )
+                    }
+                  />
+                ))}
+              </View>
+            </View>
           ))
         )}
       </Screen>

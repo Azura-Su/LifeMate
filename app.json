@@ -32,7 +32,7 @@
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#F7FAFC"
+        "backgroundColor": "#F7F5F1"
       }
     },
     "plugins": [
@@ -80,14 +80,14 @@
         "expo-notifications",
         {
           "defaultChannel": "lifemate",
-          "color": "#9C701D",
+          "color": "#87601A",
           "icon": "./assets/notification-icon.png"
         }
       ],
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#F7FAFC",
+          "backgroundColor": "#F7F5F1",
           "image": "./assets/icon.png",
           "imageWidth": 160
         }

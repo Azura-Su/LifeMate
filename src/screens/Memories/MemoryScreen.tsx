@@ -1,3 +1,4 @@
+import { HeaderIconButton, TabHeader } from '../../components/ScreenHeader';
 import {
   readMemoryFriendsPreference,
   writeMemoryFriendsPreference,
@@ -1282,40 +1283,28 @@ export function MemoryScreen() {
         }
         fixedHeaderStyle={styles.fixedHeader}
         fixedHeader={
-          <View style={styles.header}>
-            <View style={styles.headerTitleBlock}>
-              <Text accessibilityRole="header" style={styles.headerTitle}>
-                Dòng ký ức
-              </Text>
-              <Text style={styles.headerSubtitle}>
-                {viewMode === 'capture'
-                  ? 'Lưu khoảnh khắc của bạn'
-                  : 'Những ngày đáng nhớ'}
-              </Text>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
-                viewMode === 'capture' ? 'Xem dòng ký ức' : 'Mở máy ảnh'
-              }
-              accessibilityState={{ disabled: !uid || busy || capturePending }}
-              disabled={!uid || busy || capturePending}
-              onPress={() => {
-                if (viewMode === 'capture') showTimeline();
-                else {
-                  chooseInitialTimelineTab.current = false;
-                  setViewMode('capture');
-                }
-              }}
-              style={styles.headerAdd}
-            >
-              <Feather
-                name={viewMode === 'capture' ? 'grid' : 'camera'}
-                size={20}
-                color={colors.earth}
+          <TabHeader
+            title="Dòng ký ức"
+            subtitle={
+              viewMode === 'capture'
+                ? 'Lưu khoảnh khắc của bạn'
+                : 'Những ngày đáng nhớ'
+            }
+            right={
+              <HeaderIconButton
+                icon={viewMode === 'capture' ? 'grid' : 'camera'}
+                label={viewMode === 'capture' ? 'Xem dòng ký ức' : 'Mở máy ảnh'}
+                disabled={!uid || busy || capturePending}
+                onPress={() => {
+                  if (viewMode === 'capture') showTimeline();
+                  else {
+                    chooseInitialTimelineTab.current = false;
+                    setViewMode('capture');
+                  }
+                }}
               />
-            </Pressable>
-          </View>
+            }
+          />
         }
         fixedContent={viewMode === 'timeline' ? timelineTabs : undefined}
         fixedContentStyle={styles.timelineTabsContainer}

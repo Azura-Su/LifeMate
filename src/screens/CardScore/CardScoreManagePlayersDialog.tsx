@@ -3,13 +3,19 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { DialogModal } from '../../components/DialogModal';
 import { AppTextInput as TextInput } from '../../components/AppTextInput';
-import { MAX_CARD_SCORE_PLAYERS } from '../../utils/cardScore';
+import {
+  MAX_CARD_SCORE_PLAYERS,
+  MIN_CARD_SCORE_PLAYERS,
+} from '../../utils/cardScore';
 import { colors } from '../../theme';
 import type { CardScorePlayer } from '../../types/cardScore';
 import { styles } from './CardScoreScreen.styles';
 
 type Props = {
   visible: boolean;
+  maxPlayers?: number;
+  minPlayers?: number;
+  maxNameLength?: number;
   busy: boolean;
   error: string | null;
   players: CardScorePlayer[];
@@ -25,6 +31,9 @@ type Props = {
 
 export function CardScoreManagePlayersDialog({
   visible,
+  maxPlayers = MAX_CARD_SCORE_PLAYERS,
+  minPlayers = MIN_CARD_SCORE_PLAYERS,
+  maxNameLength = 32,
   busy,
   error,
   players,
@@ -49,7 +58,9 @@ export function CardScoreManagePlayersDialog({
             Quản lý người chơi
           </Text>
           <Text style={styles.playerCount}>
-            {players.length}/{MAX_CARD_SCORE_PLAYERS}
+            {Number.isFinite(maxPlayers)
+              ? `${players.length}/${maxPlayers}`
+              : `${players.length} người`}
           </Text>
         </View>
         <Pressable
@@ -82,26 +93,28 @@ export function CardScoreManagePlayersDialog({
               editable={!busy}
               value={player.name}
               onChangeText={(value) => onPlayerNameChange(player.id, value)}
-              maxLength={32}
+              maxLength={maxNameLength}
               returnKeyType="done"
               style={[styles.input, styles.managePlayerInput]}
             />
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Xóa người chơi ${player.name || index + 1}`}
-              accessibilityState={{ disabled: busy || players.length <= 2 }}
-              disabled={busy || players.length <= 2}
+              accessibilityState={{
+                disabled: busy || players.length <= minPlayers,
+              }}
+              disabled={busy || players.length <= minPlayers}
               onPress={() => onRemovePlayer(player.id)}
               style={[
                 styles.managePlayerDelete,
-                (busy || players.length <= 2) && styles.disabledAction,
+                (busy || players.length <= minPlayers) && styles.disabledAction,
               ]}
             >
               <Feather name="x" size={17} color={colors.danger} />
             </Pressable>
           </View>
         ))}
-        {players.length < MAX_CARD_SCORE_PLAYERS && (
+        {players.length < maxPlayers && (
           <View style={styles.managePlayerRow}>
             <View style={styles.nameNumberSpacer} />
             <TextInput
@@ -111,7 +124,7 @@ export function CardScoreManagePlayersDialog({
               placeholderTextColor={colors.muted}
               value={newPlayerName}
               onChangeText={onNewPlayerNameChange}
-              maxLength={32}
+              maxLength={maxNameLength}
               returnKeyType="done"
               onSubmitEditing={onAddPlayer}
               style={[styles.input, styles.managePlayerInput]}

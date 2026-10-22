@@ -8,6 +8,6 @@ export type MainTabParams = {
   Notes: undefined;
   Agenda: undefined;
   CardScore: undefined;
-  CardGames: undefined;
+  CardGames: { roomCode?: string } | undefined;
   Checklists: { checklistId?: string } | undefined;
 };

@@ -37,6 +37,23 @@ function createWorld(options = {}) {
   const calls = [];
   async function database(table, method, query = {}, body) {
     calls.push({ table, method, query, body });
+    if (table === 'rpc/invite_lifemate_memory_friend') {
+      if (options.inviteLimited) return { limited: true };
+      const target = rows('lifemate_memory_profiles').find(
+        (row) => row.email === body.p_email,
+      );
+      if (target)
+        rows('lifemate_memory_friend_requests').push({
+          requester_uid: body.p_uid,
+          target_uid: target.uid,
+        });
+      else
+        rows('lifemate_memory_email_invites').push({
+          requester_uid: body.p_uid,
+          target_email: body.p_email,
+        });
+      return { limited: false };
+    }
     if (table === 'rpc/claim_lifemate_memory_email_invites') return null;
     if (table === 'rpc/tombstone_lifemate_shared_memory') {
       const markers = rows('lifemate_memory_deletions');
@@ -257,6 +274,30 @@ test('answers invites the same way for unknown and existing accounts', async () 
       .body.code,
     'self-invite',
   );
+});
+
+test('uses the verified sender and maps the atomic invite quota to HTTP 429', async () => {
+  const world = createWorld({ inviteLimited: true });
+  assert.deepEqual(
+    await world.call('alice', { action: 'invite', email: ' BOB@example.com ' }),
+    {
+      status: 429,
+      body: { code: 'invite-limit' },
+    },
+  );
+  assert.deepEqual(
+    world.calls.find(
+      (call) => call.table === 'rpc/invite_lifemate_memory_friend',
+    ),
+    {
+      table: 'rpc/invite_lifemate_memory_friend',
+      method: 'POST',
+      query: {},
+      body: { p_uid: 'alice', p_email: 'bob@example.com' },
+    },
+  );
+  assert.equal(world.rows('lifemate_memory_friend_requests').length, 0);
+  assert.equal(world.rows('lifemate_memory_email_invites').length, 0);
 });
 
 test('only friends see shared memories and photos', async () => {

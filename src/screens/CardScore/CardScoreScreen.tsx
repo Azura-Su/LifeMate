@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -13,32 +14,49 @@ import {
 import { Button } from '../../components/Button';
 import { Screen } from '../../components/Screen';
 import { useAuthStore } from '../../store/authStore';
+import {
+  hasOnlineGameAccess,
+  useOnlineGameAccess,
+} from '../../hooks/useOnlineGameAccess';
 import type { MainTabParams } from '../../navigation/types';
 import {
   createCardScoreMatch,
   deleteCardScoreMatch,
   readCardScoreMatches,
   updateCardScoreMatch,
+  setCardScoreLocalFinished,
 } from '../../services/cardScore/cardScoreStorage';
 import { colors } from '../../theme';
+import { gameRequest } from '../../services/cardGames/gameApi';
+import { getGameDeviceSessionId } from '../../services/cardGames/gameDeviceSession';
 import { cardGamesEnabled } from '../../config/cardGames';
 import type {
   CardScoreMatch,
   CardScorePlayer,
   CardScoreRound,
 } from '../../types/cardScore';
+import type { GameRoomStatus } from '../../types/cardGame';
 import {
   calculatePlayerTotals,
   drawCardScoreSeats,
+  MIN_CARD_SCORE_PLAYERS,
+  SHARED_CARD_SCORE_PLAYER_RULES,
   validatePlayerNames,
   validateRoundScores,
 } from '../../utils/cardScore';
 import { CardScoreFinishDialog } from './CardScoreFinishDialog';
+import { CardHubHeader, CardHubModeTabs } from './CardHubChrome';
 import { CardScoreManagePlayersDialog } from './CardScoreManagePlayersDialog';
 import { CardScoreRoundDialog } from './CardScoreRoundDialog';
 import { CardScoreSetupDialog } from './CardScoreSetupDialog';
 import { CardScoreTable } from './CardScoreTable';
 import { styles } from './CardScoreScreen.styles';
+import { useSharedCardScores } from './useSharedCardScores';
+import { useScoreRoomStatuses } from './useScoreRoomStatuses';
+import { CardScoreAuditDialog } from './CardScoreAuditDialog';
+import { CardScoreHistoryCard } from './CardScoreHistoryCard';
+import { CardScoreRoomActions } from './CardScoreRoomActions';
+import { CardScoreSyncNotice } from './CardScoreSyncNotice';
 
 const formatDate = (timestamp: number) =>
   new Intl.DateTimeFormat('vi-VN', {
@@ -49,18 +67,29 @@ const formatDate = (timestamp: number) =>
     minute: '2-digit',
   }).format(timestamp);
 
-const formatScore = (score: number) => (score > 0 ? `+${score}` : `${score}`);
-
 export function CardScoreScreen({
   navigation,
 }: BottomTabScreenProps<MainTabParams, 'CardScore'>) {
   const uid = useAuthStore((state) => state.user?.uid);
+  const displayName = useAuthStore((state) => state.user?.displayName);
+  const sessionEpoch = useAuthStore((state) => state.sessionEpoch);
+  const onlineGameAccess = useOnlineGameAccess();
+  const isCurrentSession = () => {
+    const live = useAuthStore.getState();
+    return live.user?.uid === uid && live.sessionEpoch === sessionEpoch;
+  };
   const [matches, setMatches] = useState<CardScoreMatch[]>([]);
   const [loadedUid, setLoadedUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshToken = useRef<symbol | null>(null);
   const [busy, setBusy] = useState(false);
   // Alert callbacks capture stale state, so they read the live flag instead.
   const busyRef = useRef(false);
+  const roomEntryRequest = useRef<AbortController | null>(null);
+  useEffect(() => {
+    if (!onlineGameAccess) roomEntryRequest.current?.abort();
+  }, [onlineGameAccess]);
   const markBusy = (value: boolean) => {
     busyRef.current = value;
     setBusy(value);
@@ -83,8 +112,37 @@ export function CardScoreScreen({
   const [drawnSeats, setDrawnSeats] = useState<string[] | null>(null);
   const [roundVisible, setRoundVisible] = useState(false);
   const [finishDialogVisible, setFinishDialogVisible] = useState(false);
+  const [finishLocally, setFinishLocally] = useState(false);
+  const finishSession = useRef<{
+    uid: string | undefined;
+    epoch: number;
+  } | null>(null);
   const [editingRound, setEditingRound] = useState<CardScoreRound | null>(null);
   const [scoreInputs, setScoreInputs] = useState<Record<string, string>>({});
+  const [editorMatch, setEditorMatch] = useState<CardScoreMatch | null>(null);
+  const [auditSelection, setAuditSelection] = useState<{
+    match: CardScoreMatch;
+    uid: string;
+    epoch: number;
+  } | null>(null);
+  const auditMatch =
+    auditSelection !== null &&
+    auditSelection.uid === uid &&
+    auditSelection.epoch === sessionEpoch
+      ? auditSelection.match
+      : null;
+  const showAudit = (match: CardScoreMatch) => {
+    if (uid && isCurrentSession())
+      setAuditSelection({ match, uid, epoch: sessionEpoch });
+  };
+  const shared = useSharedCardScores(
+    uid,
+    sessionEpoch,
+    reloadKey,
+    navigation,
+    setMatches,
+    cardGamesEnabled(),
+  );
 
   useEffect(() => {
     if (!uid) {
@@ -99,7 +157,7 @@ export function CardScoreScreen({
     setSelectedMatchId(null);
     setLoading(true);
     setError(null);
-    void readCardScoreMatches(uid)
+    void readCardScoreMatches(uid, { includeDeleted: true })
       .then((stored) => {
         if (current) {
           setMatches(stored);
@@ -118,22 +176,280 @@ export function CardScoreScreen({
     return () => {
       current = false;
     };
-  }, [uid, reloadKey]);
+  }, [uid, sessionEpoch, reloadKey]);
+
+  useEffect(() => {
+    refreshToken.current = null;
+    setRefreshing(false);
+    setEditorMatch(null);
+    setAuditSelection(null);
+    setRoundVisible(false);
+    setManagePlayersVisible(false);
+    setFinishDialogVisible(false);
+    setSetupVisible(false);
+    busyRef.current = false;
+    setBusy(false);
+  }, [uid, sessionEpoch]);
+
+  useEffect(
+    () => navigation.addListener('focus', () => setReloadKey((key) => key + 1)),
+    [navigation],
+  );
+
+  useEffect(() => {
+    const cancel = () => {
+      roomEntryRequest.current?.abort();
+      refreshToken.current = null;
+      setRefreshing(false);
+    };
+    const offBlur = navigation.addListener('blur', cancel);
+    return () => {
+      cancel();
+      offBlur();
+    };
+  }, [navigation, uid, sessionEpoch]);
+
+  async function refreshScores() {
+    if (
+      !uid ||
+      !isCurrentSession() ||
+      loading ||
+      busyRef.current ||
+      refreshToken.current
+    )
+      return;
+    const token = Symbol();
+    refreshToken.current = token;
+    setRefreshing(true);
+    try {
+      await shared.retry();
+      if (!isCurrentSession() || refreshToken.current !== token) return;
+      const stored = await readCardScoreMatches(uid, { includeDeleted: true });
+      if (!isCurrentSession() || refreshToken.current !== token) return;
+      setMatches(stored);
+      setLoadedUid(uid);
+      setError(null);
+    } catch (cause) {
+      if (isCurrentSession() && refreshToken.current === token)
+        setError((cause as Error).message || 'Chưa tải lại được bảng điểm.');
+    } finally {
+      if (refreshToken.current === token) {
+        refreshToken.current = null;
+        setRefreshing(false);
+      }
+    }
+  }
 
   const accountMatches = useMemo(
-    () => (loadedUid === uid ? matches : []),
+    () =>
+      loadedUid === uid ? matches.filter((match) => !match.deletedAt) : [],
     [loadedUid, matches, uid],
   );
   const loadFailed = !loading && !!uid && loadedUid !== uid;
   const activeMatches = useMemo(
-    () => accountMatches.filter((match) => match.status === 'active'),
+    () =>
+      accountMatches.filter(
+        (match) =>
+          match.status === 'active' &&
+          !match.localFinished &&
+          (!match.onlineRoomId ||
+            !!match.sharedVersion ||
+            match.localScoreEditable === true),
+      ),
     [accountMatches],
   );
   const currentMatch =
     activeMatches.find((match) => match.id === selectedMatchId) ??
     activeMatches[0] ??
     null;
-  const history = accountMatches.filter((match) => match.status === 'finished');
+  const onlineMatch = !!currentMatch?.onlineRoomId;
+  const history = accountMatches.filter(
+    (match) =>
+      match.status === 'finished' ||
+      !!match.localFinished ||
+      (!!match.onlineRoomId &&
+        !match.sharedVersion &&
+        match.localScoreEditable !== true),
+  );
+  const roomStatuses = useScoreRoomStatuses(
+    uid,
+    sessionEpoch,
+    reloadKey,
+    accountMatches.filter(
+      (match) =>
+        match.id === expandedHistoryId ||
+        (match.id === currentMatch?.id &&
+          !!match.onlineRoomId &&
+          !match.sharedVersion),
+    ),
+    navigation,
+  );
+  const canManageScore = (match: CardScoreMatch) =>
+    match.onlineRoomId && !match.sharedVersion
+      ? roomStatuses.isOwner(match.onlineRoomId)
+      : shared.canEdit(match);
+  const editable = !!currentMatch && canManageScore(currentMatch);
+  const playerManagementRules = (editorMatch ?? currentMatch)?.sharedVersion
+    ? SHARED_CARD_SCORE_PLAYER_RULES
+    : undefined;
+
+  async function assertLegacyScoreOwner(match: CardScoreMatch) {
+    if (!uid || !isCurrentSession())
+      throw new Error('Phiên bảng điểm đã thay đổi.');
+    if (!match.onlineRoomId || match.sharedVersion) return;
+    try {
+      const controller = new AbortController();
+      const sessionId = await getGameDeviceSessionId();
+      if (!isCurrentSession()) throw new Error('Phiên bảng điểm đã thay đổi.');
+      const status = await gameRequest(
+        uid,
+        { type: 'room-status', roomId: match.onlineRoomId, sessionId },
+        controller.signal,
+      );
+      if (
+        !isCurrentSession() ||
+        !roomStatuses.isOwner(match.onlineRoomId) ||
+        !status.owner
+      )
+        throw new Error('Chỉ chủ phòng hiện tại mới được sửa/xóa bảng điểm.');
+    } catch (cause) {
+      if (isCurrentSession()) roomStatuses.invalidate(match.onlineRoomId);
+      throw cause;
+    }
+  }
+
+  async function enterOnlineRoom(
+    match: CardScoreMatch | null = currentMatch,
+    code = match?.onlineRoomCode ??
+      match?.title.match(/· ([ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8})$/)?.[1],
+  ) {
+    if (
+      !uid ||
+      !match?.onlineRoomId ||
+      !isCurrentSession() ||
+      !hasOnlineGameAccess() ||
+      busyRef.current
+    )
+      return;
+    const controller = new AbortController();
+    roomEntryRequest.current = controller;
+    const current = () =>
+      !controller.signal.aborted && isCurrentSession() && hasOnlineGameAccess();
+    markBusy(true);
+    setError(null);
+    try {
+      const sessionId = await getGameDeviceSessionId();
+      if (!current()) return;
+      const status = await gameRequest(
+        uid,
+        { type: 'room-status', roomId: match.onlineRoomId, sessionId },
+        controller.signal,
+      );
+      if (!current()) return;
+      if (!status.exists)
+        throw new Error('Phòng này đã bị xóa hoặc không còn tồn tại.');
+      if (status.canReopen && status.version !== null) {
+        const snapshot = await gameRequest(
+          uid,
+          {
+            type: 'reopen',
+            roomId: match.onlineRoomId,
+            sessionId,
+            actionId: randomUUID(),
+            expectedVersion: status.version,
+            matchId: status.matchId,
+            name: displayName?.trim().slice(0, 30) || 'Người chơi',
+          },
+          controller.signal,
+        );
+        if (!current()) return;
+        if (!snapshot.room)
+          throw new Error('Chưa mở lại được phòng. Hãy thử lại.');
+        code = snapshot.room.code;
+      } else if (!status.canRejoin) {
+        if (status.expired)
+          throw new Error(
+            'Phòng đã ngưng hoạt động. Hãy chờ chủ phòng mở lại.',
+          );
+        if (
+          !status.owner &&
+          (status.phase === 'lobby' || status.phase === 'finished')
+        )
+          throw new Error('Phòng đang chờ chủ phòng vào lại.');
+        throw new Error('Hiện chưa thể vào lại phòng này.');
+      }
+      if (!code) throw new Error('Không tìm thấy mã phòng để vào lại.');
+      navigation.navigate('CardGames', { roomCode: code });
+    } catch (cause) {
+      if (current())
+        setError(
+          (cause as Error).message || 'Chưa vào lại được phòng. Hãy thử lại.',
+        );
+    } finally {
+      if (roomEntryRequest.current === controller) {
+        roomEntryRequest.current = null;
+        if (isCurrentSession()) markBusy(false);
+      }
+    }
+  }
+
+  async function deleteOnlineRoom(
+    match: CardScoreMatch,
+    status: GameRoomStatus | null,
+  ) {
+    if (
+      !uid ||
+      !match?.onlineRoomId ||
+      !status?.canDelete ||
+      status.version === null ||
+      !isCurrentSession() ||
+      busyRef.current
+    )
+      return;
+    markBusy(true);
+    try {
+      const sessionId = await getGameDeviceSessionId();
+      const controller = new AbortController();
+      await gameRequest(
+        uid,
+        {
+          type: 'delete-room',
+          roomId: match.onlineRoomId,
+          sessionId,
+          actionId: randomUUID(),
+          expectedVersion: status.version,
+          matchId: status.matchId,
+        },
+        controller.signal,
+      );
+      if (isCurrentSession()) setReloadKey((key) => key + 1);
+    } catch (cause) {
+      if (isCurrentSession()) {
+        setReloadKey((key) => key + 1);
+        setError((cause as Error).message || 'Chưa xóa được phòng.');
+      }
+    } finally {
+      if (isCurrentSession()) markBusy(false);
+    }
+  }
+
+  function confirmDeleteOnlineRoom(
+    match: CardScoreMatch,
+    status: GameRoomStatus | null,
+  ) {
+    Alert.alert(
+      'Xóa phòng đã kết thúc?',
+      'Mọi người sẽ không thể vào lại phòng này. Bảng điểm và lịch sử thay đổi vẫn được giữ.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa phòng',
+          style: 'destructive',
+          onPress: () => void deleteOnlineRoom(match, status),
+        },
+      ],
+    );
+  }
 
   function openSetup() {
     setMatchTitle('');
@@ -144,7 +460,8 @@ export function CardScoreScreen({
   }
 
   function openManagePlayers() {
-    if (!currentMatch) return;
+    if (!currentMatch || !editable) return;
+    setEditorMatch(currentMatch);
     setManagedPlayers(currentMatch.players.map((player) => ({ ...player })));
     setManagedNewPlayerName('');
     setManagePlayersError(null);
@@ -173,7 +490,7 @@ export function CardScoreScreen({
   }
 
   async function createMatch() {
-    if (!uid || busyRef.current) return;
+    if (!uid || !isCurrentSession() || busyRef.current) return;
     const validationError = validatePlayerNames(playerNames);
     if (validationError) {
       setError(validationError);
@@ -200,37 +517,61 @@ export function CardScoreScreen({
         players,
         ...draw,
       });
+      if (!isCurrentSession()) return;
       setLoadedUid(uid);
       setMatches((current) => [match, ...current]);
       setSelectedMatchId(match.id);
       setSetupVisible(false);
     } catch (cause) {
-      setError((cause as Error).message || 'Chưa tạo được bàn chơi.');
+      if (isCurrentSession())
+        setError((cause as Error).message || 'Chưa tạo được bàn chơi.');
     } finally {
-      markBusy(false);
+      if (isCurrentSession()) markBusy(false);
     }
   }
 
   async function saveMatch(
     match: CardScoreMatch,
+    base: CardScoreMatch,
     onError?: (message: string) => void,
+    options: { resume?: boolean } = {},
   ) {
-    if (!uid || busyRef.current) return null;
+    if (!uid || !isCurrentSession() || busyRef.current || match.deletedAt)
+      return null;
+    if (!canManageScore(match)) {
+      const message = 'Chỉ chủ phòng đang kết nối mới được sửa/xóa bảng điểm.';
+      setError(message);
+      onError?.(message);
+      return null;
+    }
     markBusy(true);
     setError(null);
     try {
-      const saved = await updateCardScoreMatch(uid, match);
+      await assertLegacyScoreOwner(match);
+      let saved = match.sharedVersion
+        ? await shared.mutate(match, 'save', base)
+        : await updateCardScoreMatch(uid, match, {
+            ...options,
+            actorName: displayName ?? undefined,
+          });
+      if (options.resume && (saved.localFinished || match.localFinished)) {
+        const stored = await setCardScoreLocalFinished(uid, saved.id, false);
+        saved = stored.find((item) => item.id === saved.id)!;
+        if (isCurrentSession()) setMatches(stored);
+      }
+      if (!isCurrentSession()) return null;
       setMatches((current) =>
         current.map((item) => (item.id === saved.id ? saved : item)),
       );
       return saved;
     } catch (cause) {
+      if (!isCurrentSession()) return null;
       const message = (cause as Error).message || 'Chưa lưu được thay đổi.';
       setError(message);
       onError?.(message);
       return null;
     } finally {
-      markBusy(false);
+      if (isCurrentSession()) markBusy(false);
     }
   }
 
@@ -244,8 +585,10 @@ export function CardScoreScreen({
   }
 
   function removeManagedPlayer(id: string) {
-    if (managedPlayers.length <= 2) {
-      setManagePlayersError('Mỗi bàn chơi cần có ít nhất 2 người.');
+    const minPlayers =
+      playerManagementRules?.minPlayers ?? MIN_CARD_SCORE_PLAYERS;
+    if (managedPlayers.length <= minPlayers) {
+      setManagePlayersError(`Mỗi bàn chơi cần có ít nhất ${minPlayers} người.`);
       return;
     }
     setManagedPlayers((current) =>
@@ -256,10 +599,11 @@ export function CardScoreScreen({
 
   function addManagedPlayer() {
     const name = managedNewPlayerName.trim();
-    const validationError = validatePlayerNames([
-      ...managedPlayers.map((player) => player.name),
-      name,
-    ]);
+    const validationError = validatePlayerNames(
+      [...managedPlayers.map((player) => player.name), name],
+      (editorMatch ?? currentMatch)?.onlineRoomId ? Infinity : undefined,
+      playerManagementRules,
+    );
     if (validationError) {
       setManagePlayersError(validationError);
       return;
@@ -271,9 +615,12 @@ export function CardScoreScreen({
   }
 
   async function saveManagedPlayers() {
+    const currentMatch = editorMatch;
     if (!uid || !currentMatch || busy) return;
     const validationError = validatePlayerNames(
       managedPlayers.map((player) => player.name),
+      currentMatch.onlineRoomId ? Infinity : undefined,
+      playerManagementRules,
     );
     if (validationError) {
       setManagePlayersError(validationError);
@@ -309,10 +656,24 @@ export function CardScoreScreen({
         ? currentMatch.dealerPlayerId
         : (seatOrder[0] ?? ''),
       rounds,
+      ...(currentMatch.onlineRoomId && removedPlayers.length
+        ? {
+            ignoredOnlinePlayerIds: [
+              ...new Set([
+                ...(currentMatch.ignoredOnlinePlayerIds ?? []),
+                ...removedPlayers.map(({ id }) => id),
+              ]),
+            ],
+          }
+        : {}),
     };
 
     const persistChanges = async () => {
-      const saved = await saveMatch(updatedMatch, setManagePlayersError);
+      const saved = await saveMatch(
+        updatedMatch,
+        currentMatch,
+        setManagePlayersError,
+      );
       if (saved) {
         setManagePlayersError(null);
         setManagePlayersVisible(false);
@@ -340,7 +701,8 @@ export function CardScoreScreen({
   }
 
   function openRound(round?: CardScoreRound) {
-    if (!currentMatch) return;
+    if (!currentMatch || !editable) return;
+    setEditorMatch(currentMatch);
     setEditingRound(round ?? null);
     setScoreInputs(
       Object.fromEntries(
@@ -355,6 +717,7 @@ export function CardScoreScreen({
   }
 
   async function saveRound() {
+    const currentMatch = editorMatch;
     if (!currentMatch) return;
     const result = validateRoundScores(
       currentMatch.players.map(({ id }) => id),
@@ -374,12 +737,12 @@ export function CardScoreScreen({
           item.id === editingRound.id ? round : item,
         )
       : [...currentMatch.rounds, round];
-    const saved = await saveMatch({ ...currentMatch, rounds });
+    const saved = await saveMatch({ ...currentMatch, rounds }, currentMatch);
     if (saved) setRoundVisible(false);
   }
 
   function confirmDeleteRound(round: CardScoreRound, index: number) {
-    if (!currentMatch) return;
+    if (!currentMatch || !editable) return;
     Alert.alert(
       `Xóa điểm ván ${index + 1}?`,
       'Tổng điểm sẽ được tính lại ngay.',
@@ -388,27 +751,77 @@ export function CardScoreScreen({
         {
           text: 'Xóa ván',
           style: 'destructive',
-          onPress: () =>
-            void saveMatch({
-              ...currentMatch,
-              rounds: currentMatch.rounds.filter(
-                (item) => item.id !== round.id,
-              ),
-            }),
+          onPress: () => {
+            const ignoredOnlineRoundIds = currentMatch.onlineRoomId
+              ? [
+                  ...new Set([
+                    ...(currentMatch.ignoredOnlineRoundIds ?? []),
+                    round.id,
+                  ]),
+                ]
+              : currentMatch.ignoredOnlineRoundIds;
+            void saveMatch(
+              {
+                ...currentMatch,
+                rounds: currentMatch.rounds.filter(
+                  (item) => item.id !== round.id,
+                ),
+                ...(ignoredOnlineRoundIds ? { ignoredOnlineRoundIds } : {}),
+              },
+              currentMatch,
+            );
+          },
         },
       ],
     );
   }
 
   function finishMatch() {
-    if (!currentMatch) return;
+    if (!currentMatch || busyRef.current || !isCurrentSession()) return;
+    setEditorMatch(currentMatch);
+    setFinishLocally(!!currentMatch.onlineRoomId && !editable);
+    finishSession.current = { uid, epoch: sessionEpoch };
     setError(null);
     setFinishDialogVisible(true);
   }
 
   async function confirmFinishMatch() {
-    if (!currentMatch) return;
-    const saved = await saveMatch({ ...currentMatch, status: 'finished' });
+    const currentMatch = editorMatch;
+    if (
+      !currentMatch ||
+      finishSession.current?.uid !== uid ||
+      finishSession.current?.epoch !== sessionEpoch
+    )
+      return;
+    if (finishLocally) {
+      if (!uid || !isCurrentSession() || busyRef.current) return;
+      markBusy(true);
+      setError(null);
+      try {
+        const stored = await setCardScoreLocalFinished(
+          uid,
+          currentMatch.id,
+          true,
+        );
+        if (isCurrentSession()) {
+          setMatches(stored);
+          setSelectedMatchId(null);
+          setFinishDialogVisible(false);
+        }
+      } catch (cause) {
+        if (isCurrentSession())
+          setError(
+            (cause as Error).message || 'Chưa lưu được bàn vào lịch sử.',
+          );
+      } finally {
+        if (isCurrentSession()) markBusy(false);
+      }
+      return;
+    }
+    const saved = await saveMatch(
+      { ...currentMatch, status: 'finished' },
+      currentMatch,
+    );
     if (saved) {
       setSelectedMatchId(null);
       setFinishDialogVisible(false);
@@ -416,7 +829,41 @@ export function CardScoreScreen({
   }
 
   async function resumeMatch(match: CardScoreMatch) {
-    const saved = await saveMatch({ ...match, status: 'active' });
+    if (match.deletedAt) return;
+    if (match.localFinished && match.status === 'active') {
+      if (!uid || !isCurrentSession() || busyRef.current) return;
+      markBusy(true);
+      setError(null);
+      try {
+        const stored = await setCardScoreLocalFinished(uid, match.id, false);
+        if (isCurrentSession()) {
+          setMatches(stored);
+          setSelectedMatchId(match.id);
+          setExpandedHistoryId(null);
+        }
+      } catch (cause) {
+        if (isCurrentSession())
+          setError((cause as Error).message || 'Chưa mở lại được bàn.');
+      } finally {
+        if (isCurrentSession()) markBusy(false);
+      }
+      return;
+    }
+    if (!canManageScore(match)) return;
+    const saved = await saveMatch(
+      {
+        ...match,
+        status: 'active',
+        ...(match.onlineRoomId && !match.sharedVersion
+          ? { localScoreEditable: true }
+          : {}),
+      },
+      match,
+      undefined,
+      {
+        resume: true,
+      },
+    );
     if (saved) {
       setSelectedMatchId(saved.id);
       setExpandedHistoryId(null);
@@ -428,33 +875,70 @@ export function CardScoreScreen({
   }
 
   function confirmDeleteMatch(match: CardScoreMatch) {
-    Alert.alert('Xóa bàn chơi?', 'Lịch sử các ván của bàn này sẽ bị xóa.', [
-      { text: 'Giữ lại', style: 'cancel' },
-      {
-        text: 'Xóa bàn',
-        style: 'destructive',
-        onPress: () => {
-          if (!uid || busyRef.current) return;
-          markBusy(true);
-          void deleteCardScoreMatch(uid, match.id)
-            .then(setMatches)
-            .catch((cause) =>
-              setError((cause as Error).message || 'Chưa xóa được bàn chơi.'),
+    if (match.deletedAt || !canManageScore(match)) return;
+    Alert.alert(
+      match.onlineRoomId && !match.sharedVersion
+        ? 'Xóa bản lưu trên thiết bị?'
+        : 'Xóa bàn chơi?',
+      match.onlineRoomId && !match.sharedVersion
+        ? 'Bản lưu sẽ bị xóa khỏi danh sách và không thể khôi phục. Phòng online không bị xóa.'
+        : 'Bảng điểm sẽ bị xóa khỏi danh sách và không thể khôi phục.',
+      [
+        { text: 'Giữ lại', style: 'cancel' },
+        {
+          text: 'Xóa bàn',
+          style: 'destructive',
+          onPress: () => {
+            if (
+              !uid ||
+              !isCurrentSession() ||
+              busyRef.current ||
+              !canManageScore(match)
             )
-            .finally(() => markBusy(false));
+              return;
+            markBusy(true);
+            void assertLegacyScoreOwner(match)
+              .then(() =>
+                match.sharedVersion
+                  ? shared
+                      .mutate(match, 'delete')
+                      .then(() =>
+                        readCardScoreMatches(uid, { includeDeleted: true }),
+                      )
+                  : deleteCardScoreMatch(
+                      uid,
+                      match.id,
+                      displayName ?? undefined,
+                    ).then(() =>
+                      readCardScoreMatches(uid, { includeDeleted: true }),
+                    ),
+              )
+              .then((stored) => {
+                if (isCurrentSession()) setMatches(stored);
+              })
+              .catch((cause) => {
+                if (isCurrentSession())
+                  setError(
+                    (cause as Error).message || 'Chưa xóa được bàn chơi.',
+                  );
+              })
+              .finally(() => {
+                if (isCurrentSession()) markBusy(false);
+              });
+          },
         },
-      },
-    ]);
+      ],
+    );
   }
 
   const totals = currentMatch
     ? calculatePlayerTotals(currentMatch.players, currentMatch.rounds)
     : {};
   const hasManagedPlayerChanges = Boolean(
-    currentMatch &&
-    (managedPlayers.length !== currentMatch.players.length ||
+    editorMatch &&
+    (managedPlayers.length !== editorMatch.players.length ||
       managedPlayers.some((player) => {
-        const currentPlayer = currentMatch.players.find(
+        const currentPlayer = editorMatch.players.find(
           ({ id }) => id === player.id,
         );
         return !currentPlayer || currentPlayer.name !== player.name.trim();
@@ -466,33 +950,30 @@ export function CardScoreScreen({
       <Screen
         fixedHeaderStyle={styles.fixedHeader}
         fixedHeader={
-          <View style={styles.header}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Quay về Home"
-              onPress={() => navigation.navigate('Home')}
-              style={styles.headerButton}
-            >
-              <Feather name="arrow-left" size={21} color={colors.earth} />
-            </Pressable>
-            <View style={styles.headerTitleGroup}>
-              <Text accessibilityRole="header" style={styles.headerTitle}>
-                Bảng điểm
-              </Text>
-            </View>
-            <View style={styles.headerButtonSpacer} />
-          </View>
+          <CardHubHeader onBack={() => navigation.navigate('Home')} />
         }
-        contentStyle={styles.content}
-      >
-        {cardGamesEnabled() && (
-          <Button
-            title="Chơi online"
-            variant="secondary"
-            compact
-            onPress={() => navigation.navigate('CardGames')}
+        fixedContent={
+          <CardHubModeTabs
+            active="score"
+            onlineEnabled={cardGamesEnabled()}
+            onSelectScore={() => undefined}
+            onSelectOnline={() => navigation.navigate('CardGames')}
           />
-        )}
+        }
+        fixedContentStyle={styles.fixedModes}
+        contentStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void refreshScores()}
+            enabled={!!uid && !loading && !busy}
+            tintColor={colors.earth}
+            colors={[colors.earth]}
+            progressBackgroundColor={colors.surface}
+            accessibilityLabel="Kéo xuống để tải lại bảng điểm"
+          />
+        }
+      >
         {error && (
           <Text accessibilityRole="alert" style={styles.error}>
             {error}
@@ -517,7 +998,7 @@ export function CardScoreScreen({
             />
           </View>
         ) : currentMatch ? (
-          <View style={styles.section}>
+          <View testID="card-score-open-table" style={styles.section}>
             <View style={styles.activeTablesSection}>
               <View
                 testID="card-score-active-tables-heading"
@@ -577,91 +1058,180 @@ export function CardScoreScreen({
                       </Text>
                       <Text style={styles.activeTableMeta}>
                         {match.players.length} người
+                        {match.amountPerCard
+                          ? ` · ${match.amountPerCard.toLocaleString('vi-VN')} đ/lá`
+                          : ''}
                       </Text>
                     </Pressable>
                   ))}
                 </ScrollView>
               )}
             </View>
-            <View
-              testID="card-score-current-match-heading"
-              style={styles.sectionHeading}
-            >
-              <View style={styles.headingCopy}>
-                {activeMatches.length === 1 && (
-                  <Text style={styles.sectionTitle}>{currentMatch.title}</Text>
-                )}
-                <Text style={styles.sectionMeta}>
-                  {activeMatches.length === 1 &&
-                    `${currentMatch.players.length} người · `}
-                  Bắt đầu {formatDate(currentMatch.createdAt)}
-                </Text>
+            <View style={styles.tablePanel}>
+              <View
+                testID="card-score-current-match-heading"
+                style={styles.tablePanelHeader}
+              >
+                <View style={styles.headingCopy}>
+                  {activeMatches.length === 1 && (
+                    <Text numberOfLines={1} style={styles.tablePanelTitle}>
+                      {currentMatch.title}
+                    </Text>
+                  )}
+                  <Text numberOfLines={1} style={styles.tablePanelMeta}>
+                    {activeMatches.length === 1 &&
+                      `${currentMatch.players.length} người · `}
+                    {currentMatch.amountPerCard
+                      ? `${currentMatch.amountPerCard.toLocaleString('vi-VN')} đ/lá · `
+                      : ''}
+                    Bắt đầu {formatDate(currentMatch.createdAt)}
+                  </Text>
+                </View>
+                <View style={styles.tablePanelIcons}>
+                  <CardScoreRoomActions
+                    compact
+                    match={currentMatch}
+                    status={null}
+                    busy={busy}
+                    allowRejoin={onlineGameAccess}
+                    onRejoin={(roomCode) =>
+                      void enterOnlineRoom(currentMatch, roomCode)
+                    }
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Lịch sử sửa/xóa"
+                    onPress={() => showAudit(currentMatch)}
+                    style={({ pressed }) => [
+                      styles.tablePanelIcon,
+                      pressed && styles.disabledAction,
+                    ]}
+                  >
+                    <Feather name="clock" size={16} color={colors.earth} />
+                  </Pressable>
+                  {editable && (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Quản lý người chơi"
+                      accessibilityState={{ disabled: busy || !editable }}
+                      disabled={busy || !editable}
+                      onPress={openManagePlayers}
+                      style={[
+                        styles.tablePanelIcon,
+                        (busy || !editable) && styles.disabledAction,
+                      ]}
+                    >
+                      <Feather name="users" size={16} color={colors.earth} />
+                    </Pressable>
+                  )}
+                </View>
               </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Quản lý người chơi"
-                accessibilityState={{ disabled: busy }}
-                disabled={busy}
-                onPress={openManagePlayers}
-                style={[
-                  styles.selectedMatchAddAction,
-                  busy && styles.disabledAction,
-                ]}
-              >
-                <Feather name="users" size={14} color={colors.earth} />
-                <Text style={styles.selectedMatchAddActionText}>Quản lý</Text>
-              </Pressable>
-            </View>
-            <CardScoreTable
-              match={currentMatch}
-              totals={totals}
-              busy={busy}
-              onEditRound={openRound}
-              onDeleteRound={confirmDeleteRound}
-            />
-
-            <View style={styles.roundHeading}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Bốc thăm người chia bài"
-                accessibilityState={{ disabled: busy }}
-                disabled={busy}
-                onPress={() => {
-                  const draw = drawCardScoreSeats(currentMatch.players);
-                  void saveMatch({
-                    ...currentMatch,
-                    dealerPlayerId: draw.dealerPlayerId,
-                  });
-                }}
-                style={[styles.drawAction, busy && styles.disabledAction]}
-              >
-                <Feather name="shuffle" size={16} color={colors.earth} />
-                <Text style={styles.drawActionText}>Bốc thăm</Text>
-              </Pressable>
-              <Button
-                title="Thêm ván"
-                onPress={() => openRound()}
-                disabled={busy}
-                compact
+              <CardScoreTable
+                embedded
+                match={currentMatch}
+                totals={totals}
+                busy={busy}
+                readOnly={!editable}
+                allowDelete={editable}
+                hint={
+                  currentMatch.sharedVersion
+                    ? editable
+                      ? 'Điểm dùng chung · chỉ chủ phòng được sửa/xóa'
+                      : 'Điểm dùng chung · bạn chỉ có quyền xem'
+                    : onlineMatch
+                      ? null
+                      : undefined
+                }
+                onEditRound={openRound}
+                onDeleteRound={confirmDeleteRound}
               />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Kết thúc bàn chơi"
-                accessibilityState={{ disabled: busy }}
-                disabled={busy}
-                onPress={finishMatch}
-                style={[styles.finishAction, busy && styles.disabledAction]}
-              >
-                <Feather name="check" size={16} color={colors.success} />
-                <Text style={styles.finishActionText}>Kết thúc</Text>
-              </Pressable>
+              <View style={styles.tablePanelFooter}>
+                {editable && (
+                  <>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Bốc thăm người chia bài"
+                      accessibilityState={{ disabled: busy || !editable }}
+                      disabled={busy || !editable}
+                      onPress={() => {
+                        const draw = drawCardScoreSeats(currentMatch.players);
+                        void saveMatch(
+                          {
+                            ...currentMatch,
+                            dealerPlayerId: draw.dealerPlayerId,
+                          },
+                          currentMatch,
+                        );
+                      }}
+                      style={[
+                        styles.footerAction,
+                        (busy || !editable) && styles.disabledAction,
+                      ]}
+                    >
+                      <Feather name="shuffle" size={15} color={colors.earth} />
+                      <Text style={styles.drawActionText}>Bốc thăm</Text>
+                    </Pressable>
+                    <View style={styles.footerPrimary}>
+                      <Button
+                        title="Thêm ván"
+                        onPress={() => openRound()}
+                        disabled={busy || !editable}
+                        compact
+                      />
+                    </View>
+                  </>
+                )}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Kết thúc bàn chơi"
+                  accessibilityState={{ disabled: busy }}
+                  disabled={busy}
+                  onPress={finishMatch}
+                  style={[styles.footerAction, busy && styles.disabledAction]}
+                >
+                  <Feather name="check" size={15} color={colors.success} />
+                  <Text style={styles.finishActionText}>Kết thúc</Text>
+                </Pressable>
+              </View>
             </View>
+            {onlineMatch && (
+              <CardScoreSyncNotice
+                scoreError={
+                  currentMatch.sharedVersion
+                    ? shared.error
+                    : roomStatuses.failedRooms[currentMatch.onlineRoomId!]
+                      ? 'Chưa xác nhận được quyền chủ phòng.'
+                      : null
+                }
+                onSync={
+                  currentMatch.sharedVersion ? shared.retry : roomStatuses.retry
+                }
+              />
+            )}
             {currentMatch.rounds.length === 0 && (
               <Text style={styles.sectionMeta}>
-                Thêm ván mới để bắt đầu ghi điểm. Chạm vào một dòng điểm để sửa.
+                {currentMatch.sharedVersion
+                  ? 'Kết quả các ván online sẽ tự động ghi vào bàn này.'
+                  : 'Thêm ván mới để bắt đầu ghi điểm. Chạm vào một dòng điểm để sửa.'}
               </Text>
             )}
           </View>
+        ) : history.length ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Tạo bàn chơi"
+            onPress={openSetup}
+            style={styles.newScorePrompt}
+          >
+            <View style={styles.newScorePromptIcon}>
+              <Feather name="plus" size={20} color={colors.earth} />
+            </View>
+            <View style={styles.headingCopy}>
+              <Text style={styles.newScorePromptTitle}>Tạo bàn chơi</Text>
+              <Text style={styles.sectionMeta}>Bắt đầu bảng điểm mới</Text>
+            </View>
+            <Feather name="chevron-right" size={18} color={colors.muted} />
+          </Pressable>
         ) : (
           <View style={styles.emptyMatch}>
             <View style={styles.emptyMatchIcon}>
@@ -682,7 +1252,7 @@ export function CardScoreScreen({
               <View style={styles.headingCopy}>
                 <Text style={styles.sectionTitle}>Lịch sử bàn chơi</Text>
                 <Text style={styles.sectionMeta}>
-                  Lưu riêng trên thiết bị và theo tài khoản này
+                  Bàn online đồng bộ · bàn thủ công lưu trên máy
                 </Text>
               </View>
               <Feather name="archive" size={18} color={colors.muted} />
@@ -692,129 +1262,62 @@ export function CardScoreScreen({
                 Các bàn đã kết thúc sẽ lưu ở đây.
               </Text>
             ) : (
-              history.map((match) => {
-                const historyTotals = calculatePlayerTotals(
-                  match.players,
-                  match.rounds,
-                );
-                return (
-                  <View
-                    key={match.id}
-                    testID={`card-score-history-${match.id}`}
-                    style={styles.historyCard}
-                  >
-                    <View style={styles.historyTopLine}>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`Xem lịch sử bàn ${match.title}`}
-                        accessibilityState={{
-                          expanded: expandedHistoryId === match.id,
-                        }}
-                        onPress={() => toggleHistory(match.id)}
-                        style={styles.historyTitleButton}
-                      >
-                        <Text numberOfLines={1} style={styles.historyTitle}>
-                          {match.title}
-                        </Text>
-                      </Pressable>
-                      <View style={styles.historyActions}>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`Tiếp tục chơi bàn ${match.title}`}
-                          accessibilityState={{ disabled: busy }}
-                          disabled={busy}
-                          onPress={() => void resumeMatch(match)}
-                          style={[
-                            styles.historyResume,
-                            busy && styles.disabledAction,
-                          ]}
-                        >
-                          <Feather name="play" size={15} color={colors.earth} />
-                        </Pressable>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`Xóa lịch sử bàn ${formatDate(match.createdAt)}`}
-                          accessibilityState={{ disabled: busy }}
-                          disabled={busy}
-                          onPress={() => confirmDeleteMatch(match)}
-                          style={[
-                            styles.historyDelete,
-                            busy && styles.disabledAction,
-                          ]}
-                        >
-                          <Feather
-                            name="trash-2"
-                            size={17}
-                            color={colors.danger}
-                          />
-                        </Pressable>
-                      </View>
-                    </View>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Xem lịch sử bàn ${formatDate(match.createdAt)}`}
-                      accessibilityState={{
-                        expanded: expandedHistoryId === match.id,
-                      }}
-                      onPress={() => toggleHistory(match.id)}
-                      style={styles.historyMain}
-                    >
-                      <View
-                        testID={`card-score-history-scores-${match.id}`}
-                        style={styles.historyScores}
-                      >
-                        {match.players.map((player) => (
-                          <View key={player.id} style={styles.historyScoreChip}>
-                            <Text
-                              numberOfLines={1}
-                              style={styles.historyScoreName}
-                            >
-                              {player.name}
-                            </Text>
-                            <Text style={styles.historyScoreValue}>
-                              {formatScore(historyTotals[player.id] ?? 0)}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                      <Text style={styles.historySubtitle}>
-                        {formatDate(match.createdAt)} · {match.rounds.length}{' '}
-                        ván
-                      </Text>
-                    </Pressable>
-                    {expandedHistoryId === match.id && (
-                      <View style={styles.historyRounds}>
-                        {match.rounds.length === 0 ? (
-                          <Text style={styles.historySubtitle}>
-                            Bàn chưa có ván được ghi điểm.
-                          </Text>
-                        ) : (
-                          match.rounds.map((round, index) => (
-                            <View key={round.id} style={styles.historyRoundRow}>
-                              <Text style={styles.historyRoundTitle}>
-                                Ván {index + 1}
-                              </Text>
-                              <Text style={styles.historySubtitle}>
-                                {match.players
-                                  .map(
-                                    (player) =>
-                                      `${player.name} ${formatScore(round.scores[player.id] ?? 0)}`,
-                                  )
-                                  .join('  ·  ')}
-                              </Text>
-                            </View>
-                          ))
-                        )}
-                      </View>
-                    )}
-                  </View>
-                );
-              })
+              history.map((match) => (
+                <CardScoreHistoryCard
+                  key={match.id}
+                  match={match}
+                  date={formatDate(match.createdAt)}
+                  expanded={expandedHistoryId === match.id}
+                  busy={busy}
+                  canManage={canManageScore(match)}
+                  onToggle={() => toggleHistory(match.id)}
+                  onResume={() => void resumeMatch(match)}
+                  onDelete={() => confirmDeleteMatch(match)}
+                  onAudit={() => showAudit(match)}
+                >
+                  <CardScoreRoomActions
+                    match={match}
+                    status={
+                      match.onlineRoomId
+                        ? (roomStatuses.statuses[match.onlineRoomId] ?? null)
+                        : null
+                    }
+                    busy={busy}
+                    allowRejoin={false}
+                    onRejoin={() => undefined}
+                    onReopen={
+                      onlineGameAccess
+                        ? () => void enterOnlineRoom(match)
+                        : undefined
+                    }
+                    onDelete={() =>
+                      confirmDeleteOnlineRoom(
+                        match,
+                        match.onlineRoomId
+                          ? (roomStatuses.statuses[match.onlineRoomId] ?? null)
+                          : null,
+                      )
+                    }
+                  />
+                  {match.onlineRoomId && (
+                    <CardScoreSyncNotice
+                      scoreError={match.sharedVersion ? shared.error : null}
+                      onSync={shared.retry}
+                    />
+                  )}
+                </CardScoreHistoryCard>
+              ))
             )}
           </View>
         )}
       </Screen>
 
+      <CardScoreAuditDialog
+        uid={uid}
+        epoch={sessionEpoch}
+        match={auditMatch}
+        onClose={() => setAuditSelection(null)}
+      />
       <CardScoreSetupDialog
         visible={setupVisible}
         busy={busy}
@@ -835,6 +1338,11 @@ export function CardScoreScreen({
       />
       <CardScoreManagePlayersDialog
         visible={managePlayersVisible}
+        minPlayers={playerManagementRules?.minPlayers}
+        maxNameLength={playerManagementRules?.maxNameLength}
+        maxPlayers={
+          (editorMatch ?? currentMatch)?.onlineRoomId ? Infinity : undefined
+        }
         busy={busy}
         error={managePlayersError}
         players={managedPlayers}
@@ -854,7 +1362,7 @@ export function CardScoreScreen({
         visible={roundVisible}
         busy={busy}
         error={error}
-        match={currentMatch}
+        match={editorMatch ?? currentMatch}
         editingRound={editingRound}
         scores={scoreInputs}
         onClose={() => setRoundVisible(false)}
@@ -865,6 +1373,7 @@ export function CardScoreScreen({
       />
       <CardScoreFinishDialog
         visible={finishDialogVisible}
+        localOnly={finishLocally}
         busy={busy}
         error={error}
         onCancel={() => setFinishDialogVisible(false)}

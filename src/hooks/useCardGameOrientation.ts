@@ -1,5 +1,6 @@
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 
 let orientationChange = Promise.resolve();
 
@@ -11,18 +12,37 @@ function lock(orientation: ScreenOrientation.OrientationLock) {
   return orientationChange;
 }
 
-export function useCardGameOrientation(playing: boolean, active: boolean) {
-  const landscape = playing && active;
+export function useCardGameOrientation(
+  rotationAllowed: boolean,
+  active: boolean,
+) {
+  const canRotate = rotationAllowed && active;
 
   useEffect(() => {
+    if (!active) {
+      orientationChange = orientationChange
+        .catch(() => undefined)
+        .then(() => ScreenOrientation.unlockAsync())
+        .catch(() => undefined);
+      return;
+    }
+    // ALL includes upside-down portrait, unsupported on notched iPhones.
     void lock(
-      landscape
-        ? ScreenOrientation.OrientationLock.LANDSCAPE
+      canRotate
+        ? Platform.OS === 'ios'
+          ? ScreenOrientation.OrientationLock.DEFAULT
+          : ScreenOrientation.OrientationLock.ALL
         : ScreenOrientation.OrientationLock.PORTRAIT_UP,
     );
-    if (!landscape) return;
-    return () => {
-      void lock(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-    };
-  }, [landscape]);
+  }, [active, canRotate]);
+
+  useEffect(
+    () => () => {
+      orientationChange = orientationChange
+        .catch(() => undefined)
+        .then(() => ScreenOrientation.unlockAsync())
+        .catch(() => undefined);
+    },
+    [],
+  );
 }

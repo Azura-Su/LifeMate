@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import Feather from '@expo/vector-icons/Feather';
-import { colors, layout } from '../../theme';
+import { colors, layout, typography } from '../../theme';
 import { AvatarCropPreview } from './AvatarCropPreview';
 import type { AvatarCropRect, AvatarCropSource } from './avatarCrop';
 
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  title: { flex: 1, color: colors.ink, fontSize: 19, fontWeight: '700' },
+  title: { flex: 1, ...typography.dialogTitle },
   close: {
     width: 44,
     height: 44,
@@ -224,13 +224,13 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: colors.surface,
   },
   optionIcon: {
     width: 34,
     height: 34,
-    borderRadius: 11,
+    borderRadius: 12,
     backgroundColor: colors.sunlightSoft,
     alignItems: 'center',
     justifyContent: 'center',

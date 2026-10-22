@@ -1,4 +1,9 @@
-import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
+import type {
+  PropsWithChildren,
+  ReactElement,
+  ReactNode,
+  RefObject,
+} from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -14,6 +19,7 @@ import { colors, layout } from '../theme';
 type Props = PropsWithChildren<{
   scrollable?: boolean;
   refreshControl?: ReactElement<RefreshControlProps>;
+  scrollRef?: RefObject<ScrollView | null>;
   contentStyle?: StyleProp<ViewStyle>;
   fixedHeader?: ReactNode;
   fixedHeaderStyle?: StyleProp<ViewStyle>;
@@ -28,6 +34,7 @@ export function Screen({
   children,
   scrollable = true,
   refreshControl,
+  scrollRef,
   contentStyle,
   fixedHeader,
   fixedHeaderStyle,
@@ -68,6 +75,7 @@ export function Screen({
       )}
       {scrollable ? (
         <ScrollView
+          ref={scrollRef}
           testID="screen-scroll-area"
           style={[styles.scroll, screenColorStyle]}
           contentContainerStyle={[

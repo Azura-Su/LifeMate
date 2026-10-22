@@ -1,3 +1,5 @@
+import { animateNextLayout } from '../../utils/motion';
+import { HeaderIconButton, ScreenHeader } from '../../components/ScreenHeader';
 import Feather from '@expo/vector-icons/Feather';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { randomUUID } from 'expo-crypto';
@@ -30,7 +32,6 @@ import type {
   PrepChecklistItem,
 } from '../../types/prepChecklist';
 import { colors } from '../../theme';
-import { actionIconStyles } from '../../theme/actionIcons';
 import { parseDateKey, toDateKey } from '../../utils/vietnameseCalendar';
 import {
   MAX_CHECKLIST_ITEMS,
@@ -331,6 +332,7 @@ export function ChecklistsScreen({ navigation, route }: Props) {
     try {
       const saved = await updatePrepChecklist(uid, next);
       if (uid !== useAuthStore.getState().user?.uid) return false;
+      animateNextLayout();
       setChecklists((current) =>
         current.map((item) => (item.id === saved.id ? saved : item)),
       );
@@ -462,56 +464,34 @@ export function ChecklistsScreen({ navigation, route }: Props) {
     <Screen
       fixedHeaderStyle={styles.fixedHeader}
       fixedHeader={
-        <View style={styles.header}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={
-              selected ? 'Quay lại danh sách' : 'Quay về Home'
-            }
-            onPress={() =>
-              selected ? returnToOverview() : navigation.navigate('Home')
-            }
-            style={styles.backButton}
-          >
-            <Feather name="arrow-left" size={19} color={colors.earth} />
-          </Pressable>
-          <View style={styles.headerText}>
-            <Text
-              accessibilityRole="header"
-              numberOfLines={1}
-              style={styles.title}
-            >
-              {selected ? selected.title : 'Danh sách chuẩn bị'}
-            </Text>
-            <Text numberOfLines={1} style={styles.subtitle}>
-              {selected
-                ? 'Đánh dấu món đã chuẩn bị'
-                : 'Mua sắm, đi chơi và việc cần mang theo'}
-            </Text>
-          </View>
-          {!selected && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Tạo danh sách mới"
-              accessibilityState={{ disabled: loadFailed }}
-              disabled={loadFailed}
-              onPress={() => openCreate()}
-              style={[styles.iconButton, actionIconStyles.add]}
-            >
-              <Feather name="plus" size={22} color={colors.earth} />
-            </Pressable>
-          )}
-          {selected && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Đổi tên danh sách"
-              onPress={() => openRename(selected)}
-              style={styles.iconButton}
-            >
-              <Feather name="edit-2" size={17} color={colors.earth} />
-            </Pressable>
-          )}
-        </View>
+        <ScreenHeader
+          title={selected ? selected.title : 'Danh sách chuẩn bị'}
+          subtitle={
+            selected
+              ? 'Đánh dấu món đã chuẩn bị'
+              : 'Mua sắm, đi chơi và việc cần mang theo'
+          }
+          backLabel={selected ? 'Quay lại danh sách' : 'Quay về Home'}
+          onBack={() =>
+            selected ? returnToOverview() : navigation.navigate('Home')
+          }
+          right={
+            selected ? (
+              <HeaderIconButton
+                icon="edit-2"
+                label="Đổi tên danh sách"
+                onPress={() => openRename(selected)}
+              />
+            ) : (
+              <HeaderIconButton
+                icon="plus"
+                label="Tạo danh sách mới"
+                disabled={loadFailed}
+                onPress={() => openCreate()}
+              />
+            )
+          }
+        />
       }
       contentStyle={selected ? styles.detailContent : styles.content}
     >
@@ -535,20 +515,12 @@ export function ChecklistsScreen({ navigation, route }: Props) {
         </View>
       ) : selected ? (
         <>
-          <View style={styles.progressCard}>
+          <View style={styles.summaryCard}>
             <View style={styles.progressSummary}>
-              <View>
-                <Text style={styles.progressTitle}>
-                  {checkedCount}/{selected.items.length} mục đã chuẩn bị
-                </Text>
-                <Text style={styles.sectionHint}>
-                  {selected.items.length === 0
-                    ? 'Chưa có món nào'
-                    : remainingCount === 0
-                      ? 'Đã chuẩn bị xong hết'
-                      : `${remainingCount} món còn lại`}
-                </Text>
-              </View>
+              <Text style={styles.progressTitle}>
+                {checkedCount}/{selected.items.length} mục đã chuẩn bị
+              </Text>
+              <Text style={styles.progressPercent}>{percent}%</Text>
             </View>
             <View
               accessibilityRole="progressbar"
@@ -558,34 +530,40 @@ export function ChecklistsScreen({ navigation, route }: Props) {
             >
               <View style={[styles.progressFill, { width: `${percent}%` }]} />
             </View>
-          </View>
-
-          <View style={styles.scheduledDateCard}>
-            <View style={styles.scheduledDateCopy}>
-              <Text style={styles.scheduledDateTitle}>Ngày chuẩn bị</Text>
-              <Text style={styles.sectionHint}>
-                {selected.scheduledDateKey
-                  ? formatChecklistDate(selected.scheduledDateKey)
-                  : 'Chưa gắn ngày trên lịch'}
-              </Text>
+            <Text style={styles.sectionHint}>
+              {selected.items.length === 0
+                ? 'Chưa có món nào'
+                : remainingCount === 0
+                  ? 'Đã chuẩn bị xong hết'
+                  : `${remainingCount} món còn lại`}
+            </Text>
+            <View style={styles.scheduledDateRow}>
+              <Feather name="calendar" size={16} color={colors.muted} />
+              <View style={styles.scheduledDateCopy}>
+                <Text style={styles.scheduledDateTitle}>Ngày chuẩn bị</Text>
+                <Text style={styles.sectionHint}>
+                  {selected.scheduledDateKey
+                    ? formatChecklistDate(selected.scheduledDateKey)
+                    : 'Chưa gắn ngày trên lịch'}
+                </Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  selected.scheduledDateKey
+                    ? 'Đổi ngày chuẩn bị'
+                    : 'Gắn danh sách vào ngày'
+                }
+                accessibilityState={{ disabled: busy }}
+                disabled={busy}
+                onPress={openDatePicker}
+                style={styles.scheduledDateButton}
+              >
+                <Text style={styles.scheduledDateButtonText}>
+                  {selected.scheduledDateKey ? 'Đổi ngày' : 'Gắn ngày'}
+                </Text>
+              </Pressable>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
-                selected.scheduledDateKey
-                  ? 'Đổi ngày chuẩn bị'
-                  : 'Gắn danh sách vào ngày'
-              }
-              accessibilityState={{ disabled: busy }}
-              disabled={busy}
-              onPress={openDatePicker}
-              style={styles.scheduledDateButton}
-            >
-              <Feather name="calendar" size={15} color={colors.earth} />
-              <Text style={styles.scheduledDateButtonText}>
-                {selected.scheduledDateKey ? 'Đổi ngày' : 'Gắn ngày'}
-              </Text>
-            </Pressable>
           </View>
 
           <View style={styles.listHeading}>
@@ -594,66 +572,71 @@ export function ChecklistsScreen({ navigation, route }: Props) {
               <Text style={styles.itemCountText}>{selected.items.length}</Text>
             </View>
           </View>
-          <View style={styles.itemList}>
-            {selected.items.map((item) => (
-              <View key={item.id} style={styles.itemRow}>
-                <Pressable
-                  accessibilityRole="checkbox"
-                  accessibilityLabel={
-                    item.checked
-                      ? `Bỏ đánh dấu: ${item.name}`
-                      : `Đánh dấu đã xong: ${item.name}`
-                  }
-                  accessibilityState={{
-                    checked: item.checked,
-                    disabled: busy,
-                  }}
-                  hitSlop={9}
-                  disabled={busy}
-                  onPress={() => void toggleItem(selected, item)}
-                  style={[
-                    styles.checkbox,
-                    item.checked && styles.checkboxChecked,
-                  ]}
+          {selected.items.length > 0 && (
+            <View style={styles.itemList}>
+              {selected.items.map((item, index) => (
+                <View
+                  key={item.id}
+                  style={[styles.itemRow, index > 0 && styles.itemDivider]}
                 >
-                  {item.checked && (
-                    <Feather name="check" size={16} color={colors.surface} />
-                  )}
-                </Pressable>
-                <View style={styles.itemInfo}>
-                  <Text
+                  <Pressable
+                    accessibilityRole="checkbox"
+                    accessibilityLabel={
+                      item.checked
+                        ? `Bỏ đánh dấu: ${item.name}`
+                        : `Đánh dấu đã xong: ${item.name}`
+                    }
+                    accessibilityState={{
+                      checked: item.checked,
+                      disabled: busy,
+                    }}
+                    hitSlop={9}
+                    disabled={busy}
+                    onPress={() => void toggleItem(selected, item)}
                     style={[
-                      styles.itemName,
-                      item.checked && styles.itemChecked,
+                      styles.checkbox,
+                      item.checked && styles.checkboxChecked,
                     ]}
                   >
-                    {item.name}
-                  </Text>
-                  {!!item.quantity && (
-                    <Text style={styles.itemQuantity}>{item.quantity}</Text>
-                  )}
+                    {item.checked && (
+                      <Feather name="check" size={16} color={colors.surface} />
+                    )}
+                  </Pressable>
+                  <View style={styles.itemInfo}>
+                    <Text
+                      style={[
+                        styles.itemName,
+                        item.checked && styles.itemChecked,
+                      ]}
+                    >
+                      {item.name}
+                    </Text>
+                    {!!item.quantity && (
+                      <Text style={styles.itemQuantity}>{item.quantity}</Text>
+                    )}
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Sửa mục ${item.name}`}
+                    disabled={busy}
+                    onPress={() => openItemEditor(selected, item)}
+                    style={styles.itemAction}
+                  >
+                    <Feather name="edit-2" size={16} color={colors.earth} />
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Xóa mục ${item.name}`}
+                    disabled={busy}
+                    onPress={() => confirmRemoveItem(selected, item)}
+                    style={styles.itemAction}
+                  >
+                    <Feather name="trash-2" size={16} color={colors.danger} />
+                  </Pressable>
                 </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Sửa mục ${item.name}`}
-                  disabled={busy}
-                  onPress={() => openItemEditor(selected, item)}
-                  style={styles.itemAction}
-                >
-                  <Feather name="edit-2" size={16} color={colors.earth} />
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Xóa mục ${item.name}`}
-                  disabled={busy}
-                  onPress={() => confirmRemoveItem(selected, item)}
-                  style={styles.itemAction}
-                >
-                  <Feather name="trash-2" size={16} color={colors.danger} />
-                </Pressable>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          )}
 
           <View style={styles.addCard}>
             <Text style={styles.addTitle}>Thêm món cần chuẩn bị</Text>
@@ -697,40 +680,6 @@ export function ChecklistsScreen({ navigation, route }: Props) {
         </>
       ) : (
         <>
-          <View style={styles.section}>
-            <View>
-              <Text style={styles.sectionHeading}>Bắt đầu nhanh</Text>
-              <Text style={styles.sectionHint}>
-                Chọn mẫu rồi tùy chỉnh theo nhu cầu.
-              </Text>
-            </View>
-            <View style={styles.templateGrid}>
-              {templates.map((template) => (
-                <Pressable
-                  key={template.title}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Tạo từ mẫu ${template.title}`}
-                  onPress={() => openCreate(template)}
-                  style={styles.templateButton}
-                >
-                  <View style={styles.templateIcon}>
-                    <Feather
-                      name={template.icon}
-                      size={16}
-                      color={colors.sky}
-                    />
-                  </View>
-                  <Text style={styles.templateLabel}>{template.title}</Text>
-                  <Text style={styles.templateHint}>
-                    {template.items.length
-                      ? `${template.items.length} mục gợi ý`
-                      : 'Tự thêm món'}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-
           <View style={styles.section}>
             <View>
               <Text style={styles.sectionHeading}>Danh sách của bạn</Text>
@@ -839,11 +788,44 @@ export function ChecklistsScreen({ navigation, route }: Props) {
                 </View>
                 <Text style={styles.emptyTitle}>Chưa có danh sách nào</Text>
                 <Text style={styles.emptyText}>
-                  Chọn một mẫu ở trên hoặc tạo danh sách trống để ghi lại những
-                  thứ cần mua, cần mang theo.
+                  Chọn một mẫu bên dưới hoặc tạo danh sách trống để ghi lại
+                  những thứ cần mua, cần mang theo.
                 </Text>
               </View>
             )}
+          </View>
+          <View style={styles.section}>
+            <View>
+              <Text style={styles.sectionHeading}>Bắt đầu nhanh</Text>
+              <Text style={styles.sectionHint}>
+                Chọn mẫu rồi tùy chỉnh theo nhu cầu.
+              </Text>
+            </View>
+            <View style={styles.templateGrid}>
+              {templates.map((template) => (
+                <Pressable
+                  key={template.title}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Tạo từ mẫu ${template.title}`}
+                  onPress={() => openCreate(template)}
+                  style={styles.templateButton}
+                >
+                  <View style={styles.templateIcon}>
+                    <Feather
+                      name={template.icon}
+                      size={16}
+                      color={colors.sky}
+                    />
+                  </View>
+                  <Text style={styles.templateLabel}>{template.title}</Text>
+                  <Text style={styles.templateHint}>
+                    {template.items.length
+                      ? `${template.items.length} mục gợi ý`
+                      : 'Tự thêm món'}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
         </>
       )}

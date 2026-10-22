@@ -16,7 +16,8 @@ import { AudioTrackTitle } from './AudioTrackTitle';
 import { SpinningRecord } from './SpinningRecord';
 import { styles } from './Mp3Screen.styles';
 
-const QUEUE_ROW_GAP = 8;
+// Rows sit edge to edge inside one card, separated by hairlines.
+const QUEUE_ROW_GAP = 0;
 const DRAG_SPRING = {
   damping: 20,
   stiffness: 240,
@@ -185,7 +186,8 @@ const QueueTrackRow = memo(function QueueTrackRow({
       }}
       style={[
         styles.queueItem,
-        current && styles.trackSelected,
+        index > 0 && styles.queueDivider,
+        current && styles.queueCurrent,
         dragging && styles.queueDragging,
         animatedStyle,
       ]}
@@ -324,28 +326,26 @@ function QueueTrackControlsView({
   onPlayAll,
 }: ControlsProps) {
   return (
-    <>
-      <View style={styles.row}>
-        <Text style={[typography.heading, styles.flex]}>
-          {itemCount} bài · phát lần lượt
-        </Text>
-        <Pressable
-          accessibilityRole="switch"
-          accessibilityLabel="Lặp lại toàn bộ danh sách nghe"
-          accessibilityHint="Phát lại từ bài đầu sau khi bài cuối kết thúc"
-          accessibilityState={{ checked: repeatAll }}
-          onPress={onToggleRepeatAll}
-          style={[styles.icon, repeatAll && styles.repeatOn]}
-        >
-          <Feather
-            name="repeat"
-            size={20}
-            color={repeatAll ? colors.onPrimary : colors.earth}
-          />
-        </Pressable>
-      </View>
+    <View style={styles.queueControls}>
+      <Text numberOfLines={1} style={styles.queueSummary}>
+        {itemCount} bài · phát lần lượt
+      </Text>
+      <Pressable
+        accessibilityRole="switch"
+        accessibilityLabel="Lặp lại toàn bộ danh sách nghe"
+        accessibilityHint="Phát lại từ bài đầu sau khi bài cuối kết thúc"
+        accessibilityState={{ checked: repeatAll }}
+        onPress={onToggleRepeatAll}
+        style={[styles.icon, repeatAll && styles.repeatOn]}
+      >
+        <Feather
+          name="repeat"
+          size={20}
+          color={repeatAll ? colors.onPrimary : colors.earth}
+        />
+      </Pressable>
       <PlayAllButton currentId={currentId} busy={busy} onPress={onPlayAll} />
-    </>
+    </View>
   );
 }
 

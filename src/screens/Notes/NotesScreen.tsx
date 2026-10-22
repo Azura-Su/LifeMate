@@ -1,3 +1,4 @@
+import { HeaderIconButton, ScreenHeader } from '../../components/ScreenHeader';
 import Feather from '@expo/vector-icons/Feather';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useDeferredValue, useMemo, useRef, useState } from 'react';
@@ -55,22 +56,7 @@ const getBulletTexts = (body: string) =>
   body.split(/\r?\n/).map(stripBulletPrefix).filter(Boolean);
 
 const formatBulletPreview = (body: string) =>
-  getBulletTexts(body).map((text) => ({ text, summary: false }));
-
-const getPreviewItems = (body: string) => {
-  const bullets = getBulletTexts(body);
-  if (bullets.length <= MAX_PREVIEW_ITEMS) return formatBulletPreview(body);
-  return [
-    ...bullets.slice(0, MAX_PREVIEW_ITEMS - 1).map((text) => ({
-      text,
-      summary: false,
-    })),
-    {
-      text: `+ ${bullets.length - MAX_PREVIEW_ITEMS + 1} ý nữa`,
-      summary: true,
-    },
-  ];
-};
+  getBulletTexts(body).map((text) => ({ text }));
 
 export function NotesScreen({
   navigation,
@@ -217,43 +203,32 @@ export function NotesScreen({
     <>
       <Screen
         fixedHeader={
-          <View style={styles.header}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Quay về Home"
-              onPress={() => navigation?.navigate('Home')}
-              style={styles.headerButton}
-            >
-              <Feather name="arrow-left" size={21} color={colors.earth} />
-            </Pressable>
-            <Text
-              accessibilityRole="header"
-              numberOfLines={1}
-              style={styles.headerTitle}
-            >
-              Ghi chú
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Tạo ghi chú"
-              onPress={() => open()}
-              style={styles.add}
-            >
-              <Feather name="plus" size={22} color={colors.earth} />
-            </Pressable>
-          </View>
+          <ScreenHeader
+            title="Ghi chú"
+            onBack={() => navigation?.navigate('Home')}
+            right={
+              <HeaderIconButton
+                icon="plus"
+                label="Tạo ghi chú"
+                onPress={() => open()}
+              />
+            }
+          />
         }
         fixedHeaderStyle={styles.fixedHeader}
+        fixedContent={
+          <TextInput
+            accessibilityLabel="Tìm ghi chú"
+            placeholder="Tìm trong ghi chú"
+            placeholderTextColor={colors.muted}
+            value={query}
+            onChangeText={setQuery}
+            style={styles.search}
+          />
+        }
+        fixedContentStyle={styles.fixedSearch}
         contentStyle={styles.content}
       >
-        <TextInput
-          accessibilityLabel="Tìm ghi chú"
-          placeholder="Tìm trong ghi chú"
-          placeholderTextColor={colors.muted}
-          value={query}
-          onChangeText={setQuery}
-          style={styles.search}
-        />
         {!model.synced && !model.loading && (
           <Text style={styles.pending}>
             Ghi chú chưa đồng bộ · đang lưu trên thiết bị này.
@@ -286,48 +261,52 @@ export function NotesScreen({
           </View>
         ) : (
           visibleNotes.map((note) => {
-            const previewItems = getPreviewItems(note.body);
+            const previewItems = formatBulletPreview(note.body);
+            const hasOverflow = previewItems.length > MAX_PREVIEW_ITEMS;
             return (
               <View key={note.id} style={styles.noteCard}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Mở ghi chú ${note.title}`}
-                  onPress={() => open(note)}
-                  style={styles.noteBody}
-                >
-                  <Text numberOfLines={1} style={styles.noteTitle}>
-                    {note.title}
-                  </Text>
+                <View style={styles.noteBody}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Mở ghi chú ${note.title}`}
+                    onPress={() => open(note)}
+                    style={styles.noteOpenButton}
+                  >
+                    <Text numberOfLines={1} style={styles.noteTitle}>
+                      {note.title}
+                    </Text>
+                  </Pressable>
                   {previewItems.length > 0 ? (
-                    <View style={styles.previewList}>
+                    <ScrollView
+                      testID={`note-bullets-${note.id}`}
+                      style={[
+                        styles.previewScroll,
+                        hasOverflow && styles.previewScrollOverflow,
+                      ]}
+                      contentContainerStyle={styles.previewList}
+                      nestedScrollEnabled
+                      scrollEnabled={hasOverflow}
+                      showsVerticalScrollIndicator={hasOverflow}
+                    >
                       {previewItems.map((item, index) =>
-                        item.summary ? (
-                          <Text
-                            key={`summary-${index}`}
-                            style={styles.previewMore}
-                          >
+                        <View
+                          key={`bullet-${index}`}
+                          style={styles.previewBulletRow}
+                        >
+                          <Text style={styles.previewMark}>•</Text>
+                          <Text numberOfLines={1} style={styles.preview}>
                             {item.text}
                           </Text>
-                        ) : (
-                          <View
-                            key={`bullet-${index}`}
-                            style={styles.previewBulletRow}
-                          >
-                            <Text style={styles.previewMark}>•</Text>
-                            <Text numberOfLines={1} style={styles.preview}>
-                              {item.text}
-                            </Text>
-                          </View>
-                        ),
+                        </View>,
                       )}
-                    </View>
+                    </ScrollView>
                   ) : (
                     <Text style={styles.preview}>Chưa có nội dung</Text>
                   )}
                   <Text style={styles.updated}>
                     Sửa {new Date(note.updatedAt).toLocaleDateString('vi-VN')}
                   </Text>
-                </Pressable>
+                </View>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`Xóa ghi chú ${note.title}`}
@@ -416,31 +395,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 8,
   },
-  header: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  headerButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-  },
-  headerTitle: {
-    flex: 1,
-    color: colors.ink,
-    fontSize: 18,
-    lineHeight: 23,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  add: {
-    ...actionIconStyles.add,
-  },
+  fixedSearch: { paddingBottom: 8 },
   content: {
     paddingHorizontal: layout.screenGutter,
     paddingTop: 14,
@@ -452,7 +407,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 13,
+    borderRadius: 12,
     color: colors.ink,
     backgroundColor: colors.surface,
   },
@@ -467,7 +422,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   noteBody: { flex: 1, gap: 5 },
+  noteOpenButton: { gap: 4 },
   noteTitle: { ...typography.body, fontWeight: '700', color: colors.ink },
+  previewScroll: { flexShrink: 1 },
+  previewScrollOverflow: { height: 89, maxHeight: 89, flexGrow: 0 },
   previewList: { gap: 3 },
   previewBulletRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   previewMark: {
@@ -478,12 +436,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   preview: { ...typography.small, flex: 1, color: colors.ink, lineHeight: 20 },
-  previewMore: {
-    ...typography.small,
-    color: colors.muted,
-    fontSize: 11,
-    lineHeight: 18,
-  },
   updated: { fontSize: 11, color: colors.muted },
   delete: {
     ...actionIconStyles.delete,
@@ -497,7 +449,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: colors.surface,
   },
-  emptyTitle: { ...typography.heading, fontSize: 17 },
+  emptyTitle: { ...typography.heading, fontSize: 16 },
   error: { ...typography.small, color: colors.danger },
   pending: { ...typography.small, fontSize: 11, color: colors.sunlight },
   refreshing: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -511,13 +463,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
-  dialogTitle: { ...typography.heading, color: colors.ink },
+  dialogTitle: { ...typography.dialogTitle },
   dialogClose: {
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
+    borderRadius: 16,
   },
   disabledAction: { opacity: 0.45 },
   input: {

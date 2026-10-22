@@ -63,7 +63,7 @@ it('shows a compact, accessible play-all action', () => {
   const style = StyleSheet.flatten(button.props.style[0]);
 
   expect(view.getByText('Phát tất cả')).toBeTruthy();
-  expect(style).toMatchObject({ minHeight: 44, borderRadius: 14 });
+  expect(style).toMatchObject({ minHeight: 44, borderRadius: 16 });
   fireEvent.press(button);
   expect(onPlayAll).toHaveBeenCalledTimes(1);
 });
@@ -91,8 +91,8 @@ it('keeps queue rows compact with clear positions and touch-sized controls', () 
     view.getByTestId('queue-reorder-handle-a').props.style,
   );
 
-  expect(row).toMatchObject({ paddingVertical: 6, borderRadius: 16 });
-  expect(position).toMatchObject({ width: 28, height: 28, borderRadius: 9 });
+  expect(row).toMatchObject({ paddingVertical: 6 });
+  expect(position).toMatchObject({ width: 28, height: 28, borderRadius: 8 });
   expect(reorder).toMatchObject({ minWidth: 44, minHeight: 44 });
   expect(view.getByLabelText('Bỏ a khỏi danh sách nghe')).toBeTruthy();
 });
@@ -101,17 +101,17 @@ it('updates the active row indicator without rebuilding the queue list', () => {
   const view = render(<QueueTrackList {...props} />);
   const rowStyle = (id: string) =>
     StyleSheet.flatten(view.getByTestId(`queue-track-${id}`).props.style);
-  expect(rowStyle('a').borderColor).not.toBe(colors.primaryBorder);
+  expect(rowStyle('a').backgroundColor).not.toBe(colors.sunlightSoft);
 
   act(() => useQueuePlaybackStore.getState().setCurrentId('a'));
   act(() => useQueuePlaybackStore.getState().setPlaying(true));
   expect(view.getByLabelText('Đĩa đang phát')).toBeTruthy();
-  expect(rowStyle('a').borderColor).toBe(colors.primaryBorder);
+  expect(rowStyle('a').backgroundColor).toBe(colors.sunlightSoft);
 
   act(() => useQueuePlaybackStore.getState().setCurrentId('b'));
   expect(view.getByLabelText('Đĩa đang phát')).toBeTruthy();
-  expect(rowStyle('a').borderColor).not.toBe(colors.primaryBorder);
-  expect(rowStyle('b').borderColor).toBe(colors.primaryBorder);
+  expect(rowStyle('a').backgroundColor).not.toBe(colors.sunlightSoft);
+  expect(rowStyle('b').backgroundColor).toBe(colors.sunlightSoft);
   expect(view.getAllByLabelText('Phát a')).toHaveLength(1);
   expect(view.getAllByLabelText('Phát c')).toHaveLength(1);
 });
@@ -145,7 +145,7 @@ it('maps drag distance to a clamped queue position', () => {
 });
 
 it('keeps the lifted row aligned with the finger as its slot changes', () => {
-  const step = 72 + 8;
+  const step = 72;
   expect(1 * step + queueDragOffset(1, 2, 50, 72)).toBe(50);
   expect(-1 * step + queueDragOffset(1, 0, -50, 72)).toBe(-50);
 });

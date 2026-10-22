@@ -395,7 +395,7 @@ export function QueuePlayerBar({
 const styles = StyleSheet.create({
   box: {
     backgroundColor: colors.skySoft,
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 12,
     gap: 4,
   },
@@ -508,12 +508,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 16,
   },
-  sheetTitle: {
-    fontSize: 20,
-    lineHeight: 26,
-    fontWeight: '700',
-    color: colors.ink,
-  },
+  sheetTitle: { ...typography.dialogTitle },
   sheetSubtitle: { fontSize: 12, lineHeight: 18, color: colors.muted },
   sheetClose: {
     width: 40,
@@ -529,7 +524,7 @@ const styles = StyleSheet.create({
   sheetSection: {
     gap: 10,
     padding: 14,
-    borderRadius: 18,
+    borderRadius: 16,
     backgroundColor: colors.skySoft,
   },
   sectionTitle: {
@@ -548,7 +543,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
     paddingHorizontal: 13,
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: colors.surface,
   },
   choiceSelected: {
@@ -564,7 +559,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 12,
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: colors.surface,
   },
   bookmarkNameInput: {

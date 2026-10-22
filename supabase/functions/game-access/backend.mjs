@@ -1,4 +1,9 @@
 const KNOWN = new Set([
+  'room-expired',
+  'room-deleted',
+  'room-not-finished',
+  'not-owner',
+  'room-not-expired',
   'invalid-session',
   'game-unavailable',
   'rate-limited',
@@ -40,6 +45,8 @@ export function createGameBackend(projectUrl, serviceKey, request = fetch) {
     if (!response.ok) {
       if (KNOWN.has(result?.message)) throw Error(result.message);
       if (result?.code === '23505') throw Error('room-conflict');
+      // `select ... into strict` on a room deleted concurrently.
+      if (result?.code === 'P0002') throw Error('room-not-found');
       throw Error('game-unavailable');
     }
     return result;

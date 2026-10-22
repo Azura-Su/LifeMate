@@ -3,15 +3,15 @@ import { colors, typography } from '../../theme';
 
 export const styles = StyleSheet.create({
   back: { alignSelf: 'flex-start', paddingVertical: 8, paddingRight: 16 },
-  backText: { color: colors.earth, fontSize: 15, fontWeight: '600' },
+  backText: { color: colors.earth, fontSize: 14, fontWeight: '600' },
   intro: { gap: 8 },
-  title: { ...typography.title, fontSize: 30, lineHeight: 38 },
+  title: { ...typography.title, fontSize: 28, lineHeight: 38 },
   hint: { ...typography.small, color: colors.muted },
   status: { gap: 16, paddingTop: 8 },
   statusIcon: {
     width: 56,
     height: 56,
-    borderRadius: 18,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.sunlightSoft,
@@ -30,7 +30,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 12,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: colors.surface,
   },
   recipientEmail: {

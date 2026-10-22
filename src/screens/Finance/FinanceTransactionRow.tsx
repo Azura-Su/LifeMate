@@ -26,6 +26,8 @@ type Props = {
   loan?: LoanRecord;
   canDeleteLinkedExpense?: boolean;
   deleting?: boolean;
+  /** Draw a hairline above the row (rows after the first in a group). */
+  divider?: boolean;
 };
 
 export const FinanceTransactionRow = memo(function FinanceTransactionRow({
@@ -36,6 +38,7 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
   loan,
   canDeleteLinkedExpense = false,
   deleting = false,
+  divider = false,
 }: Props) {
   const contribution = getFinanceReportContribution(transaction);
   const income = contribution.kind === 'income';
@@ -76,7 +79,7 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
       ? `${category} · ${date}`
       : date;
   return (
-    <View style={styles.transaction}>
+    <View style={[styles.transaction, divider && styles.transactionDivider]}>
       <View
         style={[
           styles.transactionIcon,
@@ -85,7 +88,7 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
       >
         <Feather
           name={incoming ? 'arrow-down-left' : 'arrow-up-right'}
-          size={18}
+          size={16}
           color={incoming ? colors.success : colors.sunlight}
         />
       </View>
@@ -110,20 +113,23 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
             {lendingNote}
           </Text>
         )}
-        <Text numberOfLines={1} style={styles.transactionNote}>
-          {metadata}
-        </Text>
-        <Text
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          style={[
-            styles.transactionAmount,
-            incoming ? styles.income : styles.expense,
-          ]}
-        >
-          {isRepayment || sharedReceipt ? 'Giảm chi ' : income ? '+' : '−'}
-          {formatFinanceAmount(transaction.amount)}
-        </Text>
+        <View style={styles.transactionMetaRow}>
+          <Text numberOfLines={1} style={styles.transactionMeta}>
+            {metadata}
+          </Text>
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+            style={[
+              styles.transactionAmount,
+              incoming ? styles.income : styles.expense,
+            ]}
+          >
+            {isRepayment || sharedReceipt ? 'Giảm chi ' : income ? '+' : '−'}
+            {formatFinanceAmount(transaction.amount)}
+          </Text>
+        </View>
         {sharedRemaining !== null && (
           <Text style={styles.transactionNote}>
             {sharedRemaining > 0
@@ -143,7 +149,7 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
           onPress={() => {
             if (transaction.loanId) onOpenLoan?.(transaction.loanId);
           }}
-          style={styles.deleteButton}
+          style={styles.rowAction}
         >
           <Feather name="link" size={16} color={colors.sky} />
         </Pressable>
@@ -155,7 +161,7 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
           disabled={deleting}
           hitSlop={8}
           onPress={() => onEdit(transaction)}
-          style={styles.deleteButton}
+          style={styles.rowAction}
         >
           <Feather
             name={
@@ -176,7 +182,7 @@ export const FinanceTransactionRow = memo(function FinanceTransactionRow({
           disabled={deleting}
           hitSlop={8}
           onPress={() => onDelete(transaction)}
-          style={styles.deleteButton}
+          style={styles.rowAction}
         >
           {deleting ? (
             <ActivityIndicator size="small" color={colors.earth} />

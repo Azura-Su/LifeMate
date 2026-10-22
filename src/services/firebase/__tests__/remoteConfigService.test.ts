@@ -47,6 +47,28 @@ describe('Remote Config resilience', () => {
     mockString.mockReturnValue('[]');
     expect((await loadRemoteConfig(previous)).users).toEqual([]);
   });
+  it('loads usergame as normalized emails independently of the users directory', async () => {
+    mockString.mockImplementation((_config, key) =>
+      key === 'usergame'
+        ? '[" Player@Example.com ","player@example.com"]'
+        : '[]',
+    );
+    const result = await loadRemoteConfig(previous);
+    expect(result.gameUsers).toEqual(['player@example.com']);
+    expect(result.users).toEqual([]);
+  });
+  it('keeps the last valid usergame on malformed data and accepts an empty list', async () => {
+    mockString.mockImplementation((_config, key) =>
+      key === 'usergame' ? '{bad' : '[]',
+    );
+    expect(
+      (await loadRemoteConfig(previous, ['saved@example.com'])).gameUsers,
+    ).toEqual(['saved@example.com']);
+    mockString.mockReturnValue('[]');
+    expect(
+      (await loadRemoteConfig(previous, ['saved@example.com'])).gameUsers,
+    ).toEqual([]);
+  });
   it('keeps registration hidden before a remote value is activated', async () => {
     mockFetch.mockResolvedValue(false);
     mockString.mockReturnValue('[]');

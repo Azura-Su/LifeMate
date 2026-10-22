@@ -1,7 +1,10 @@
+import { useAuthStore } from '../../../store/authStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import {
   cancelAgendaReminder,
+  cancelAllAgendaReminders,
+  reconcileAgendaReminders,
   scheduleAgendaReminder,
 } from '../agendaReminders';
 
@@ -22,7 +25,11 @@ jest.mock('expo-notifications', () => ({
   scheduleNotificationAsync: jest.fn(async () => `n${++mockNextId}`),
 }));
 
-beforeEach(() => AsyncStorage.clear());
+beforeEach(async () => {
+  await AsyncStorage.clear();
+  jest.clearAllMocks();
+  useAuthStore.getState().setUser({ uid: 'u1' } as never);
+});
 
 it('keeps an unchanged reminder on reload and reschedules a changed one', async () => {
   const at = Date.now() + 3_600_000;
@@ -41,4 +48,80 @@ it('keeps an unchanged reminder on reload and reschedules a changed one', async 
   expect(
     Notifications.cancelScheduledNotificationAsync,
   ).toHaveBeenLastCalledWith(`n${mockNextId}`);
+});
+
+it('does not recreate reminders after logout while permission is pending', async () => {
+  let release!: (value: { granted: boolean }) => void;
+  jest.mocked(Notifications.getPermissionsAsync).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }) as never,
+  );
+  const pending = scheduleAgendaReminder('u1', 'late', Date.now() + 3600000);
+  while (!release) await Promise.resolve();
+  useAuthStore.getState().setUser(null);
+  const cancellation = cancelAllAgendaReminders('u1');
+  release({ granted: true });
+  await pending;
+  await cancellation;
+  expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+});
+
+it('cancels a returned native ID when the same UID logs out and back in', async () => {
+  let release!: (id: string) => void;
+  jest.mocked(Notifications.scheduleNotificationAsync).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+  );
+  const pending = scheduleAgendaReminder(
+    'u1',
+    'late-native',
+    Date.now() + 3600000,
+  );
+  while (!release) await Promise.resolve();
+  useAuthStore.getState().setUser(null);
+  useAuthStore.getState().setUser({ uid: 'u1' } as never);
+  release('late-id');
+  await pending;
+  expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith(
+    'late-id',
+  );
+  expect(
+    (await AsyncStorage.getItem('lifemate:agenda-reminders:v1:u1')) ?? '',
+  ).not.toContain('late-id');
+});
+
+it('fences queued scheduling and reconciliation using the session captured before enqueue', async () => {
+  let release!: (value: { granted: boolean }) => void;
+  jest.mocked(Notifications.getPermissionsAsync).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }) as never,
+  );
+  const at = Date.now() + 3_600_000;
+  const first = scheduleAgendaReminder('u1', 'blocking', at);
+  while (!release) await Promise.resolve();
+  const queued = scheduleAgendaReminder('u1', 'queued', at);
+  const reconcile = reconcileAgendaReminders('u1', [
+    {
+      id: 'reconciled',
+      ownerId: 'u1',
+      title: 'Việc',
+      details: '',
+      dueAt: at,
+      reminderAt: at,
+      completed: false,
+      updatedAt: 1,
+    },
+  ]);
+  useAuthStore.getState().setUser(null);
+  useAuthStore.getState().setUser({ uid: 'u1' } as never);
+  release({ granted: true });
+  await Promise.all([first, queued, reconcile]);
+  expect(Notifications.getPermissionsAsync).toHaveBeenCalledTimes(1);
+  expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
 });

@@ -1,3 +1,4 @@
+import { HeaderIconButton, TabHeader } from '../../components/ScreenHeader';
 import Feather from '@expo/vector-icons/Feather';
 import {
   useCallback,
@@ -624,26 +625,17 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   return (
     <Screen
       fixedHeader={
-        <View style={styles.headerRow}>
-          <Text
-            accessibilityRole="header"
-            style={[typography.title, styles.headerTitle]}
-          >
-            Tài chính
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={addLabel}
-            accessibilityState={{
-              disabled: addBusy,
-            }}
-            disabled={addBusy}
-            onPress={addInViewedPeriod}
-            style={styles.addButton}
-          >
-            <Feather name="plus" size={22} color={colors.earth} />
-          </Pressable>
-        </View>
+        <TabHeader
+          title="Tài chính"
+          right={
+            <HeaderIconButton
+              icon="plus"
+              label={addLabel}
+              disabled={addBusy}
+              onPress={addInViewedPeriod}
+            />
+          }
+        />
       }
       fixedHeaderStyle={styles.header}
       fixedContent={

@@ -35,7 +35,7 @@ export function ManagedUserAvatar({
       source={{ uri: url!, cache: 'reload' }}
       accessibilityLabel={`Ảnh đại diện của ${name || 'người dùng'}`}
       onError={() => setFailed(identity)}
-      style={{ width: 40, height: 40, borderRadius: 13 }}
+      style={{ width: 40, height: 40, borderRadius: 12 }}
     />
   ) : (
     <BrandAvatar size={40} />

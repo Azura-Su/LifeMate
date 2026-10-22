@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
   },
   caption: { flexGrow: 0, maxHeight: '20%' },
   captionContent: { paddingHorizontal: 20, paddingVertical: 12 },
-  captionText: { color: colors.surface, fontSize: 15, lineHeight: 22 },
+  captionText: { color: colors.surface, fontSize: 14, lineHeight: 22 },
   content: { flex: 1, overflow: 'hidden' },
   image: { width: '100%', height: '100%' },
   feedback: {

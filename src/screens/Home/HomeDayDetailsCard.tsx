@@ -350,6 +350,7 @@ export function HomeDayDetailsCard({
         <View style={styles.dialogHeader}>
           <TextInput
             accessibilityLabel="Tiêu đề ghi chú ngày"
+            editable={!saving}
             placeholder="Tiêu đề ghi chú"
             placeholderTextColor={colors.muted}
             value={title}
@@ -380,6 +381,7 @@ export function HomeDayDetailsCard({
         </View>
         <TextInput
           accessibilityLabel="Nội dung ghi chú trong ngày"
+          editable={!saving}
           placeholder="Ghi chú này chưa có nội dung."
           placeholderTextColor={colors.muted}
           value={body}

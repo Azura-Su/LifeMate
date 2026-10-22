@@ -1,5 +1,17 @@
 # Chia sẻ Dòng ký ức — 13/10/2026
 
+## Quota lời mời và bạn bè — 23/10/2026
+
+- Service-only RPC `invite_lifemate_memory_friend` kiểm tra và ghi trong cùng
+  transaction: tối đa20 lần mời/24giờ,20 lời mời đang gửi (email chưa đăng ký và
+  request đã có UID cộng chung),20 lời mời trong inbox. Duplicate, người nhận chưa
+  đăng ký hoặc inbox đầy đều trả `sent:true`; hết quota ngày trả HTTP429.
+- Invite/claim/accept khóa UID và email theo thứ tự ổn định. Claim chuyển email
+  invite sang request trong cùng transaction, giữ invite chưa chuyển khi inbox
+  đầy. Accept khóa cả hai UID trước khi kiểm tra tối đa100 bạn cho mỗi bên.
+- Không tự xóa quan hệ hoặc pending đã tồn tại trước migration. Áp dụng migration
+  `20261022185328_memory_invite_quota_transactions.sql` trước handler mới.
+
 ## Trải nghiệm
 
 - Thẻ Của tôi thu gọn phần dưới ảnh thành hai hàng: ngày/giờ dạng ngắn và quyền xem; ghi chú và nút sửa. Nút xóa nằm trên góc phải ảnh, có nền dễ nhìn và vùng chạm44pt; mục cũ không có ảnh giữ nút xóa bên dưới. Giữ vùng chạm ít nhất44pt, nhãn ngày đầy đủ cho trình đọc màn hình và nội dung ghi chú tự xuống dòng.
@@ -21,6 +33,13 @@
 - Nếu cloud lỗi, không đánh dấu mục là đã chia sẻ. Màn hình phải nói rõ trạng thái, tránh hiện nhãn “Chỉ mình tôi” cho mục mà trạng thái cloud chưa được xác minh.
 
 ## Contract
+
+Tab Ký ức chỉ xuất hiện khi email tài khoản có trong bảng `users` của Firebase
+Remote Config (khớp chính xác sau khi bỏ khoảng trắng đầu/cuối và không phân biệt
+hoa thường). Không có email hoặc danh sách rỗng thì ẩn tab và không đăng ký route
+Memories. Navigator cập nhật theo tài khoản/danh sách đang kích hoạt; thu hồi email
+khi đang xem Ký ức sẽ gỡ màn này. Offline dùng cấu hình đã kích hoạt theo cơ chế
+cache hiện tại. Đây là điều kiện hiển thị UI, không thay quyền dữ liệu backend.
 
 `POST /functions/v1/memory-access`, `Authorization: Bearer <Firebase ID token>`, `apikey: <Supabase publishable key>`, body JSON giới hạn kích thước. Các action: `state`, `invite`, `accept`, `decline`, `cancel`, `remove-friend`, `feed`, `photo`, `publish`, `confirm`, `unshare`, `delete-own`, `migrate`. Mọi UID chủ sở hữu lấy từ token, không tin UID do client gửi. Ảnh chia sẻ đi qua signed upload; feed và yêu cầu làm mới URL ảnh chỉ cấp signed download sau khi kiểm tra quan hệ bạn bè. `migrate` chỉ chuyển ảnh của chính chủ từ Supabase Storage sang R2 sau khi xác minh bản sao R2. Không gửi link trực tiếp giữa người dùng.
 
@@ -80,13 +99,11 @@
   sau lỗi SQL chỉ dùng lại object có proof đúng hoặc bytes giống nguồn legacy;
   CAS cuối cần đúng reservation/lease còn hạn trước khi chuyển backend và dọn nguồn.
 
-
 ## Đổi camera — 19/10/2026
 
 - Khóa nút chụp/đổi ngay khi bắt đầu chuyển camera, chặn tap kép bằng ref, mở lại khi nhận camera ready. Bỏ qua callback ready/error từ phiên cũ sau retry, đổi camera hoặc rời màn.
 - expo-camera55.0.23 trên iOS chỉ phát onCameraReady khi khởi tạo session, không phát khi đổi facing trong cùng session. iOS tạo CameraView mới cho mỗi lần đổi để nhận sự kiện đúng; Android giữ view hiện tại để native rebind nhanh và nhận sự kiện OPEN.
 - Không dùng thời gian chờ giả để đánh dấu ready. Giữ timeout10giây cho lỗi thiết bị thật và nút retry. Không đổi dependencies/native code.
-
 
 ## Tab mặc định và cache bạn bè — 19/10/2026
 
@@ -95,7 +112,6 @@
 - Khi mở Dòng ký ức, ưu tiên trạng thái máy chủ đã có, sau đó cache đúng UID: có bạn bè mở Bạn bè ngay, chưa có mở Của tôi. Mạng lỗi giữ hint; lần nhận thành công không còn bạn bè cập nhật false. Lời mời chưa chấp nhận không tính.
 - Không cho phản hồi cache muộn thay thế thông tin máy chủ mới, tài khoản khác hoặc lựa chọn tab bằng tay của người dùng. Cache nằm trong namespace được dọn khi xóa tài khoản.
 - Feed đã tải gắn với UID tài khoản và tập UID bạn bè đã chấp nhận. Khi một phản hồi state mới phát hiện tập này thay đổi (kể cả từ thiết bị khác), bỏ feed và con trỏ phân trang cũ, rồi tải lại từ đầu khi xem Bạn bè. Đổi thứ tự hoặc tên bạn bè không làm mất cache; trang cũ đang tải không được khôi phục dữ liệu đã vô hiệu.
-
 
 ## Thời điểm kết thúc lưu khoảnh khắc — 19/10/2026
 

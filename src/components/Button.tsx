@@ -8,6 +8,7 @@ type Props = {
   disabled?: boolean;
   compact?: boolean;
   variant?: 'primary' | 'secondary' | 'danger';
+  pressScale?: number;
 };
 
 export function Button({
@@ -17,6 +18,7 @@ export function Button({
   disabled,
   compact = false,
   variant = 'primary',
+  pressScale,
 }: Props) {
   return (
     <Pressable
@@ -29,7 +31,9 @@ export function Button({
         styles.base,
         styles[variant],
         compact && styles.compact,
-        (pressed || disabled || loading) && styles.dim,
+        pressed && styles.pressed,
+        (disabled || loading) && styles.dim,
+        pressed && pressScale ? { transform: [{ scale: pressScale }] } : null,
       ]}
     >
       {loading ? (
@@ -48,6 +52,7 @@ export function Button({
             styles.text,
             compact && styles.compactText,
             variant === 'primary' && styles.primaryText,
+            variant === 'secondary' && styles.secondaryText,
             variant === 'danger' && styles.dangerText,
           ]}
         >
@@ -60,32 +65,37 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 54,
-    borderRadius: 16,
-    padding: 16,
+    minHeight: 50,
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Primary: warm filled call to action.
   primary: {
     backgroundColor: colors.sunlightAction,
     borderWidth: 1,
     borderColor: colors.sunlightBorder,
   },
+  // Secondary: quiet outlined button.
   secondary: {
-    backgroundColor: colors.sunlightSoft,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
   },
   danger: { backgroundColor: colors.dangerSoft },
   compact: {
     minHeight: 44,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 12,
   },
-  text: { fontSize: 16, fontWeight: '700', color: colors.ink },
+  text: { fontSize: 15, fontWeight: '700', color: colors.ink },
   compactText: { fontSize: 14 },
   primaryText: { color: colors.onPrimary },
+  secondaryText: { color: colors.earth, fontWeight: '600' },
   dangerText: { color: colors.danger },
-  dim: { opacity: 0.6 },
+  pressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
+  dim: { opacity: 0.45 },
 });

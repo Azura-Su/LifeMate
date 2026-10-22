@@ -15,20 +15,20 @@ function contrast(first: string, second: string) {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-it('uses the earth and cloud-sky palette with accessible text and controls', () => {
-  expect(colors.background).toBe('#F6FBFE');
+it('uses the warm paper palette with accessible text and controls', () => {
+  expect(colors.background).toBe('#F7F5F1');
   expect(colors.surface).toBe('#FFFFFF');
   expect(colors.primary).toBe(colors.earthLight);
   expect(colors.onPrimary).toBe(colors.ink);
-  expect(colors.primary).toBe('#F1E7DE');
-  expect(colors.primarySoft).toBe('#F8F3EF');
-  expect(colors.bottomBar).toBe('#FAF7F3');
-  expect(colors.sunlightSoft).toBe('#FFF9E8');
-  expect(colors.sunlightFaint).toBe('#FFFCF5');
-  expect(colors.sunlightLine).toBe('#F0E5C5');
-  expect(colors.sunlightAction).toBe('#F6ECC9');
-  expect(colors.successSoft).toBe('#EAF2EC');
-  expect(colors.cloudShadow).toBe('#536774');
+  expect(colors.primary).toBe('#F0E6DB');
+  expect(colors.primarySoft).toBe('#F8F2EC');
+  expect(colors.bottomBar).toBe('#FBF9F6');
+  expect(colors.sunlightSoft).toBe('#FBF3E0');
+  expect(colors.sunlightFaint).toBe('#FDFAF3');
+  expect(colors.sunlightLine).toBe('#EFE3C6');
+  expect(colors.sunlightAction).toBe('#F4E7C2');
+  expect(colors.successSoft).toBe('#E9F1EB');
+  expect(colors.cloudShadow).toBe('#6B5E52');
   expect(contrast(colors.ink, colors.background)).toBeGreaterThanOrEqual(7);
   expect(contrast(colors.ink, colors.sunlightSoft)).toBeGreaterThanOrEqual(7);
   expect(contrast(colors.ink, colors.earthLight)).toBeGreaterThanOrEqual(7);

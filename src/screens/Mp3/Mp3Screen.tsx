@@ -1,5 +1,7 @@
+import { animateNextLayout } from '../../utils/motion';
+import { HeaderIconButton, TabHeader } from '../../components/ScreenHeader';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { Screen } from '../../components/Screen';
 import { Button } from '../../components/Button';
@@ -97,6 +99,7 @@ export function Mp3Screen() {
   const removeTrack = useCallback((id: string) => {
     if (currentRef.current === id) queueRef.current.stop();
     if (repeatIdRef.current === id) setRepeatId(null);
+    animateNextLayout();
     playlistRef.current.remove(id);
   }, []);
   const openLibrary = () => {
@@ -124,28 +127,17 @@ export function Mp3Screen() {
       <Screen
         fixedHeaderStyle={styles.mp3FixedHeader}
         fixedHeader={
-          <View style={styles.row}>
-            <View style={styles.flex}>
-              <Text
-                accessibilityRole="header"
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                style={[typography.title, styles.mp3HeaderTitle]}
-              >
-                Danh sách nghe
-              </Text>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Mở thư viện để thêm, cắt, ghép âm thanh"
-              accessibilityState={{ disabled: !playlist.ready }}
-              disabled={!playlist.ready}
-              onPress={openLibrary}
-              style={styles.libraryIconButton}
-            >
-              <Feather name="folder" size={18} color={colors.earth} />
-            </Pressable>
-          </View>
+          <TabHeader
+            title="Danh sách nghe"
+            right={
+              <HeaderIconButton
+                icon="folder"
+                label="Mở thư viện để thêm, cắt, ghép âm thanh"
+                disabled={!playlist.ready}
+                onPress={openLibrary}
+              />
+            }
+          />
         }
         fixedContent={
           <>

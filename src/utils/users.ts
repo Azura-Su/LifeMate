@@ -4,6 +4,21 @@ export const normalizeEmail = (email: string) => email.trim().toLowerCase();
 export const isValidEmail = (email: string) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
+export function parseGameUsers(raw: string): string[] | null {
+  if (raw.length > 100_000) return null;
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!Array.isArray(value) || value.length > 1000) return null;
+    if (
+      value.some((email) => typeof email !== 'string' || !isValidEmail(email))
+    )
+      return null;
+    return [...new Set(value.map(normalizeEmail))];
+  } catch {
+    return null;
+  }
+}
+
 // null distinguishes an invalid payload from an intentionally empty directory.
 export function parseUsers(raw: string): DirectoryUser[] | null {
   if (raw.length > 100_000) return null;

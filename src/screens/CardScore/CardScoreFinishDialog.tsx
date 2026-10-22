@@ -10,6 +10,7 @@ type Props = {
   error: string | null;
   onCancel: () => void;
   onConfirm: () => void;
+  localOnly?: boolean;
 };
 
 export function CardScoreFinishDialog({
@@ -18,6 +19,7 @@ export function CardScoreFinishDialog({
   error,
   onCancel,
   onConfirm,
+  localOnly = false,
 }: Props) {
   return (
     <DialogModal
@@ -25,7 +27,10 @@ export function CardScoreFinishDialog({
       onRequestClose={() => !busy && onCancel()}
       style={styles.finishDialog}
     >
-      <View testID="card-score-finish-content">
+      <View
+        testID="card-score-finish-content"
+        style={styles.finishDialogContent}
+      >
         <View style={styles.finishDialogHeading}>
           <View style={styles.finishDialogIcon}>
             <Feather name="archive" size={20} color={colors.earth} />
@@ -35,7 +40,9 @@ export function CardScoreFinishDialog({
           </Text>
         </View>
         <Text style={styles.finishDialogMessage}>
-          Bàn sẽ được lưu vào lịch sử để bạn xem lại sau.
+          {localOnly
+            ? 'Bảng điểm sẽ được lưu vào lịch sử trên thiết bị này. Phòng và bảng điểm chung vẫn tiếp tục.'
+            : 'Bàn sẽ được lưu vào lịch sử để bạn xem lại sau.'}
         </Text>
         {!!error && (
           <Text accessibilityRole="alert" style={styles.error}>

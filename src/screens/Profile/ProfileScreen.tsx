@@ -1,3 +1,4 @@
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { useState } from 'react';
 import { ChangePasswordDialog } from './ChangePasswordDialog';
 import Feather from '@expo/vector-icons/Feather';
@@ -16,7 +17,7 @@ import {
 import { Screen } from '../../components/Screen';
 import { Button } from '../../components/Button';
 import { UserAvatar } from '../../components/UserAvatar';
-import { colors, typography } from '../../theme';
+import { colors } from '../../theme';
 import type { MainTabParams } from '../../navigation/types';
 import { AvatarEditorSheet } from './AvatarEditorSheet';
 import { useAuthStore } from '../../store/authStore';
@@ -38,17 +39,10 @@ function ProfileContent({
   const [avatarOpening, setAvatarOpening] = useState(false);
   const insets = useSafeAreaInsets();
   const header = (
-    <View style={styles.header}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Quay lại Home"
-        onPress={() => navigation.navigate('Home')}
-        style={styles.icon}
-      >
-        <Feather name="arrow-left" size={22} color={colors.earth} />
-      </Pressable>
-      <Text style={typography.heading}>Hồ sơ cá nhân</Text>
-    </View>
+    <ScreenHeader
+      title="Hồ sơ cá nhân"
+      onBack={() => navigation.navigate('Home')}
+    />
   );
   return (
     <Screen
@@ -58,64 +52,64 @@ function ProfileContent({
         { paddingBottom: Math.max(insets.bottom, 24) },
       ]}
     >
+      <View style={styles.hero}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Đổi ảnh đại diện"
+          accessibilityState={{
+            disabled: !!model.busy || avatarOpening,
+            busy:
+              avatarOpening || model.busy === 'pick' || model.busy === 'crop',
+          }}
+          disabled={!!model.busy || avatarOpening}
+          onPress={() => {
+            setAvatarOpening(true);
+            setAvatarVisible(true);
+          }}
+          style={styles.photo}
+        >
+          {model.photo === undefined ? (
+            <UserAvatar size={96} />
+          ) : (
+            <Image source={{ uri: model.photo }} style={styles.image} />
+          )}
+          <View style={styles.camera}>
+            {avatarOpening || model.busy === 'pick' || model.busy === 'crop' ? (
+              <ActivityIndicator
+                testID="avatar-camera-loading"
+                size="small"
+                color={colors.earth}
+                style={styles.cameraIndicator}
+              />
+            ) : (
+              <Feather name="camera" size={14} color={colors.earth} />
+            )}
+          </View>
+        </Pressable>
+        <Text numberOfLines={1} style={styles.heroName}>
+          {model.name.trim() || 'Chưa đặt tên'}
+        </Text>
+        <Text style={styles.heroEmail}>Chạm ảnh để đổi ảnh đại diện</Text>
+      </View>
+      <Text style={styles.sectionLabel}>Thông tin</Text>
       <View style={styles.card}>
-        <View style={styles.hero}>
-          <View style={styles.avatarColumn}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Đổi ảnh đại diện"
-              accessibilityState={{
-                disabled: !!model.busy || avatarOpening,
-                busy:
-                  avatarOpening ||
-                  model.busy === 'pick' ||
-                  model.busy === 'crop',
-              }}
-              disabled={!!model.busy || avatarOpening}
-              onPress={() => {
-                setAvatarOpening(true);
-                setAvatarVisible(true);
-              }}
-              style={styles.photo}
-            >
-              {model.photo === undefined ? (
-                <UserAvatar size={64} />
-              ) : (
-                <Image source={{ uri: model.photo }} style={styles.image} />
-              )}
-              <View style={styles.camera}>
-                {avatarOpening ||
-                model.busy === 'pick' ||
-                model.busy === 'crop' ? (
-                  <ActivityIndicator
-                    testID="avatar-camera-loading"
-                    size="small"
-                    color={colors.earth}
-                    style={styles.cameraIndicator}
-                  />
-                ) : (
-                  <Feather name="camera" size={12} color={colors.earth} />
-                )}
-              </View>
-            </Pressable>
+        <View style={styles.photoDetails}>
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>Tên hiển thị</Text>
+            <Text style={styles.hint}>{model.name.length}/60</Text>
           </View>
-          <View style={styles.photoDetails}>
-            <View style={styles.labelRow}>
-              <Text style={styles.label}>Tên hiển thị</Text>
-              <Text style={styles.hint}>{model.name.length}/60</Text>
-            </View>
-            <TextInput
-              accessibilityLabel="Tên hiển thị"
-              value={model.name}
-              onChangeText={model.setName}
-              editable={!model.busy}
-              maxLength={60}
-              placeholder="Tên bạn muốn được gọi"
-              style={styles.input}
-            />
-          </View>
+          <TextInput
+            accessibilityLabel="Tên hiển thị"
+            value={model.name}
+            onChangeText={model.setName}
+            editable={!model.busy}
+            maxLength={60}
+            placeholder="Tên bạn muốn được gọi"
+            style={styles.input}
+          />
         </View>
       </View>
+      <Text style={styles.sectionLabel}>Tài khoản</Text>
       <View style={styles.card}>
         <View style={styles.email}>
           <View style={styles.mailIcon}>
@@ -198,13 +192,7 @@ function ProfileContent({
 }
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  icon: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  content: { gap: 16 },
+  content: { gap: 16, paddingTop: 8 },
   passwordRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -217,36 +205,53 @@ const styles = StyleSheet.create({
   passwordText: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.ink },
   footer: { marginTop: 'auto', paddingTop: 16 },
   hero: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    paddingVertical: 2,
+    gap: 2,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
-  avatarColumn: { width: 68, alignItems: 'center' },
-  photoDetails: { flex: 1, minWidth: 0, gap: 8 },
-  photo: { marginRight: 2 },
-  image: { width: 64, height: 64, borderRadius: 22 },
+  heroName: {
+    maxWidth: '90%',
+    marginTop: 12,
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  heroEmail: { fontSize: 12, color: colors.muted },
+  sectionLabel: {
+    marginBottom: -8,
+    marginLeft: 6,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: colors.muted,
+  },
+  photoDetails: { gap: 8 },
+  photo: {},
+  image: { width: 96, height: 96, borderRadius: 36 },
   camera: {
     position: 'absolute',
-    bottom: -1,
-    right: -1,
-    width: 22,
-    height: 22,
+    bottom: -2,
+    right: -2,
+    width: 30,
+    height: 30,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.sunlightSoft,
     borderWidth: 2,
     borderColor: colors.background,
-    borderRadius: 11,
+    borderRadius: 15,
   },
-  cameraIndicator: { width: 12, height: 12, transform: [{ scale: 0.65 }] },
+  cameraIndicator: { width: 14, height: 14, transform: [{ scale: 0.75 }] },
   card: {
     padding: 16,
     gap: 12,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 16,
+    borderRadius: 20,
   },
   labelRow: {
     flexDirection: 'row',
@@ -254,7 +259,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
-  label: { fontSize: 14, fontWeight: '600', color: colors.ink },
+  label: { fontSize: 13, fontWeight: '600', color: colors.ink },
   input: {
     borderWidth: 1,
     borderColor: colors.line,
@@ -264,6 +269,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     fontSize: 16,
     color: colors.ink,
+    backgroundColor: colors.background,
   },
   hint: { fontSize: 12, color: colors.muted },
   email: {
@@ -275,7 +281,7 @@ const styles = StyleSheet.create({
   mailIcon: {
     width: 32,
     height: 32,
-    borderRadius: 10,
+    borderRadius: 12,
     backgroundColor: colors.sunlightSoft,
     alignItems: 'center',
     justifyContent: 'center',

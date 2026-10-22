@@ -38,7 +38,7 @@ export const styles = StyleSheet.create({
   },
   headingCopy: { flex: 1, gap: 1 },
   title: {
-    fontSize: 19,
+    fontSize: 20,
     lineHeight: 25,
     fontWeight: '700',
     color: colors.ink,
@@ -54,7 +54,7 @@ export const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 13,
+    borderRadius: 12,
   },
   scroll: { flexShrink: 1 },
   content: { gap: 10, paddingBottom: 10 },

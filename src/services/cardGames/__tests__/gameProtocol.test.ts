@@ -24,3 +24,32 @@ it('accepts the viewer snapshot and rejects leaked private room state or another
   ).toThrow();
   expect(() => parseGameSnapshot({ room, serverTime: 100 }, 'b')).toThrow();
 });
+
+it('accepts an explicitly ownerless room after the owner account is erased', () => {
+  expect(
+    parseGameSnapshot(
+      { room: { ...room, ownerUid: null }, serverTime: 100 },
+      'a',
+    ).room?.ownerUid,
+  ).toBeNull();
+});
+
+it('accepts only a validated kicked event attached to an empty room', () => {
+  const removal = {
+    id: '11111111-1111-4111-8111-111111111111',
+    roomId: '22222222-2222-4222-8222-222222222222',
+    reason: 'kicked',
+  };
+  expect(
+    parseGameSnapshot({ room: null, serverTime: 10, removal }, 'a'),
+  ).toEqual({ room: null, serverTime: 10, refreshToken: undefined, removal });
+  for (const invalid of [
+    { ...removal, id: 'bad' },
+    { ...removal, reason: 'other' },
+    { ...removal, sessionId: 'private' },
+  ]) {
+    expect(() =>
+      parseGameSnapshot({ room: null, serverTime: 10, removal: invalid }, 'a'),
+    ).toThrow();
+  }
+});

@@ -1,6 +1,6 @@
 import Feather from '@expo/vector-icons/Feather';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import { colors, typography } from '../../theme';
+import { colors } from '../../theme';
 import type { AgendaItem } from '../../types/agenda';
 import { formatAgendaDate, formatAgendaTime } from '../../utils/agenda';
 import { styles } from './AgendaScreen.styles';
@@ -12,6 +12,7 @@ type Props = {
   onDelete: () => void;
   onAddToCalendar: () => void;
   pendingAction?: 'complete' | 'delete' | 'calendar';
+  divider?: boolean;
 };
 export function AgendaTaskRow({
   item,
@@ -20,11 +21,12 @@ export function AgendaTaskRow({
   onDelete,
   onAddToCalendar,
   pendingAction,
+  divider = false,
 }: Props) {
   const due = new Date(item.dueAt);
   const busy = !!pendingAction;
   return (
-    <View style={styles.taskRow}>
+    <View style={[styles.taskRow, divider && styles.taskDivider]}>
       <Pressable
         accessibilityRole="checkbox"
         accessibilityLabel={
@@ -64,10 +66,17 @@ export function AgendaTaskRow({
         >
           {item.title}
         </Text>
-        <Text style={typography.small}>
-          {formatAgendaDate(due)} · {formatAgendaTime(due)}
-          {item.reminderAt !== null ? ' · Có nhắc' : ''}
-        </Text>
+        <View style={styles.taskMeta}>
+          <Text style={styles.taskWhen}>
+            {formatAgendaDate(due)} · {formatAgendaTime(due)}
+          </Text>
+          {item.reminderAt !== null && (
+            <View style={styles.reminderChip}>
+              <Feather name="bell" size={10} color={colors.sky} />
+              <Text style={styles.reminderText}>Có nhắc</Text>
+            </View>
+          )}
+        </View>
         {!!item.details && (
           <Text numberOfLines={2} style={styles.taskDetails}>
             {item.details}

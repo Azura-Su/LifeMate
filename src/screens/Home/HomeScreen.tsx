@@ -1,4 +1,7 @@
+import { FadeInView } from '../../components/FadeInView';
+import Feather from '@expo/vector-icons/Feather';
 import { styles } from './HomeScreen.styles';
+
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { Pressable, RefreshControl, Text, View } from 'react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -15,6 +18,14 @@ import { getCalendarNoteDateKey } from '../../utils/calendarNotes';
 import { useAuthStore } from '../../store/authStore';
 import { readPrepChecklists } from '../../services/checklists/checklistStorage';
 import type { PrepChecklist } from '../../types/prepChecklist';
+
+function greeting() {
+  const hour = new Date().getHours();
+  if (hour < 11) return 'Chào buổi sáng';
+  if (hour < 14) return 'Chào buổi trưa';
+  if (hour < 18) return 'Chào buổi chiều';
+  return 'Chào buổi tối';
+}
 
 export function HomeScreen({
   navigation,
@@ -104,7 +115,7 @@ export function HomeScreen({
         <View style={styles.header}>
           <View style={styles.greeting}>
             <View style={styles.headerGreetingRow}>
-              <Text style={typography.small}>Chào bạn,</Text>
+              <Text style={typography.small}>{greeting()},</Text>
               <Text
                 accessibilityRole="header"
                 numberOfLines={1}
@@ -135,33 +146,100 @@ export function HomeScreen({
         />
       }
     >
-      <HomeFinanceCard
-        today={model.today}
-        transactions={model.finance.transactions}
-        loading={model.finance.loading}
-        error={model.finance.error}
-        dateResetKey={financeDateResetKey}
-        onOpenFinance={() => navigation.navigate('Finance')}
-      />
-      <HomeTodayCard
-        date={model.today}
-        checklists={checklists}
-        checklistsLoading={checklistsLoading}
-        notes={model.notes.notes}
-        notesLoading={model.notes.loading}
-        agendaItems={model.agenda.items}
-        agendaLoading={model.agenda.loading}
-        onOpenCalendar={() => {
-          setCalendarSheetTab('calendar');
-          setSelectedDate(model.today);
-          setCalendarVisible(true);
-        }}
-        onOpenTasks={() => {
-          setCalendarSheetTab('tasks');
-          setSelectedDate(model.today);
-          setCalendarVisible(true);
-        }}
-      />
+      <FadeInView>
+        <HomeFinanceCard
+          today={model.today}
+          transactions={model.finance.transactions}
+          loading={model.finance.loading}
+          error={model.finance.error}
+          dateResetKey={financeDateResetKey}
+          onOpenFinance={() => navigation.navigate('Finance')}
+        />
+      </FadeInView>
+      <FadeInView delay={70}>
+        <HomeTodayCard
+          date={model.today}
+          checklists={checklists}
+          checklistsLoading={checklistsLoading}
+          notes={model.notes.notes}
+          notesLoading={model.notes.loading}
+          agendaItems={model.agenda.items}
+          agendaLoading={model.agenda.loading}
+          onOpenCalendar={() => {
+            setCalendarSheetTab('calendar');
+            setSelectedDate(model.today);
+            setCalendarVisible(true);
+          }}
+          onOpenTasks={() => {
+            setCalendarSheetTab('tasks');
+            setSelectedDate(model.today);
+            setCalendarVisible(true);
+          }}
+          onCompleteTask={
+            model.agenda.uid
+              ? (id) => model.agenda.complete(model.agenda.uid!, id, true)
+              : undefined
+          }
+        />
+      </FadeInView>
+      <FadeInView delay={140} style={styles.shortcutSection}>
+        <Text accessibilityRole="header" style={styles.sectionLabel}>
+          Lối tắt
+        </Text>
+        <View style={styles.shortcuts}>
+          {(
+            [
+              ['edit-3', 'Sổ tay', colors.skySoft, colors.sky, 'Notes'],
+              [
+                'calendar',
+                'Lịch & việc',
+                colors.primarySoft,
+                colors.earth,
+                'Agenda',
+              ],
+              [
+                'check-square',
+                'Chuẩn bị',
+                colors.successSoft,
+                colors.success,
+                'Checklists',
+              ],
+              [
+                'award',
+                'Trò chơi',
+                colors.sunlightSoft,
+                colors.sunlight,
+                'CardScore',
+              ],
+            ] as const
+          ).map(([icon, label, background, tint, route]) => (
+            <Pressable
+              key={route}
+              accessibilityRole="button"
+              accessibilityLabel={`Mở ${label}`}
+              onPress={() => navigation.navigate(route)}
+              style={({ pressed }) => [
+                styles.shortcut,
+                pressed && styles.shortcutPressed,
+              ]}
+            >
+              <View
+                style={[styles.shortcutIcon, { backgroundColor: background }]}
+              >
+                <Feather name={icon} size={17} color={tint} />
+              </View>
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+                style={styles.shortcutLabel}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </FadeInView>
       {model.warning && (
         <Text accessibilityLiveRegion="polite" style={typography.small}>
           {model.warning} Kéo xuống để thử lại.
@@ -178,6 +256,7 @@ export function HomeScreen({
         onOpenNotes={() => navigation.navigate('Notes')}
         onOpenCardScore={() => navigation.navigate('CardScore')}
         onOpenChecklists={() => navigation.navigate('Checklists')}
+        onOpenAgenda={() => navigation.navigate('Agenda')}
         onOpenUserManagement={() => navigation.navigate('UserManagement')}
         onOpenProfile={() => navigation.navigate('Profile')}
         privacy={model.privacy}

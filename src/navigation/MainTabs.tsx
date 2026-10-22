@@ -1,11 +1,10 @@
-import Feather from '@expo/vector-icons/Feather';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeScreen } from '../screens/Home/HomeScreen';
 import { ProfileScreen } from '../screens/Profile/ProfileScreen';
 import { ProtectedFinanceScreen } from '../screens/Finance/ProtectedFinanceScreen';
-import { AppState, Platform } from 'react-native';
+import { AppState, Platform, StyleSheet } from 'react-native';
 import { useFinancePrivacy } from '../hooks/useFinancePrivacy';
 import { useNotesLockStore } from '../store/notesLockStore';
 import { Mp3Screen } from '../screens/Mp3/Mp3Screen';
@@ -19,7 +18,11 @@ import { colors } from '../theme';
 import { UserManagementScreen } from '../screens/UserManagement/UserManagementScreen';
 import { isUserAdmin } from '../config/userAdmin';
 import { useAuthStore } from '../store/authStore';
+import { useConfigStore } from '../store/configStore';
+import { normalizeEmail } from '../utils/users';
 import type { MainTabParams } from './types';
+import { TabBarIcon } from './TabBarIcon';
+import { useOnlineGameAccess } from '../hooks/useOnlineGameAccess';
 
 const Tab = createBottomTabNavigator<MainTabParams>();
 const icons = {
@@ -38,7 +41,14 @@ const icons = {
 
 export function MainTabs() {
   const insets = useSafeAreaInsets();
+  const showOnline = useOnlineGameAccess();
   const admin = useAuthStore((state) => isUserAdmin(state.user));
+  const email = useAuthStore((state) => state.user?.email);
+  const users = useConfigStore((state) => state.users);
+  const showMemories =
+    !!email?.trim() &&
+    users.some((user) => normalizeEmail(user.mail) === normalizeEmail(email));
+  const visibleTabCount = showMemories ? 4 : 3;
   const privacy = useFinancePrivacy();
   const { lock, setAppActive } = privacy;
   useEffect(() => {
@@ -70,46 +80,64 @@ export function MainTabs() {
       }
       screenOptions={({ route }) => ({
         headerShown: false,
+        animation: 'fade',
         tabBarActiveTintColor: colors.earth,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
-          backgroundColor: colors.bottomBar,
+          backgroundColor: colors.surface,
           borderTopColor: colors.line,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          paddingTop: 6,
           justifyContent: 'space-around',
+          shadowColor: colors.ink,
+          shadowOpacity: 0.06,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: -2 },
+          elevation: 8,
         },
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: 2 },
         tabBarItemStyle: { flex: 1 },
-        tabBarIcon: ({ color, size }) => (
-          <Feather name={icons[route.name]} size={size} color={color} />
+        tabBarIcon: ({ color, focused }) => (
+          <TabBarIcon
+            name={icons[route.name]}
+            focused={focused}
+            color={color}
+          />
         ),
       })}
     >
-      {/* Hidden routes stay reachable from Home; label only the 4 visible tabs. */}
+      {/* Hidden utility routes stay reachable from Home. */}
       <Tab.Screen
         name="Home"
         component={HomeScreen}
-        options={{ tabBarAccessibilityLabel: 'Home, tab, 1 of 4' }}
+        options={{
+          tabBarAccessibilityLabel: `Home, tab, 1 of ${visibleTabCount}`,
+        }}
       />
       <Tab.Screen
         name="Finance"
         component={ProtectedFinanceScreen}
         options={{
           tabBarLabel: 'Tài chính',
-          tabBarAccessibilityLabel: 'Tài chính, tab, 2 of 4',
+          tabBarAccessibilityLabel: `Tài chính, tab, 2 of ${visibleTabCount}`,
         }}
       />
-      <Tab.Screen
-        name="Memories"
-        component={MemoryScreen}
-        options={{
-          tabBarLabel: 'Ký ức',
-          tabBarAccessibilityLabel: 'Ký ức, tab, 3 of 4',
-        }}
-      />
+      {showMemories && (
+        <Tab.Screen
+          name="Memories"
+          component={MemoryScreen}
+          options={{
+            tabBarLabel: 'Ký ức',
+            tabBarAccessibilityLabel: 'Ký ức, tab, 3 of 4',
+          }}
+        />
+      )}
       <Tab.Screen
         name="MP3"
         component={Mp3Screen}
-        options={{ tabBarAccessibilityLabel: 'MP3, tab, 4 of 4' }}
+        options={{
+          tabBarAccessibilityLabel: `MP3, tab, ${visibleTabCount} of ${visibleTabCount}`,
+        }}
       />
       {admin && (
         <Tab.Screen
@@ -158,15 +186,17 @@ export function MainTabs() {
           tabBarStyle: { display: 'none' },
         }}
       />
-      <Tab.Screen
-        name="CardGames"
-        component={CardGamesRoute}
-        options={{
-          tabBarButton: () => null,
-          tabBarItemStyle: { display: 'none' },
-          tabBarStyle: { display: 'none' },
-        }}
-      />
+      {showOnline && (
+        <Tab.Screen
+          name="CardGames"
+          component={CardGamesRoute}
+          options={{
+            tabBarButton: () => null,
+            tabBarItemStyle: { display: 'none' },
+            tabBarStyle: { display: 'none' },
+          }}
+        />
+      )}
       <Tab.Screen
         name="Checklists"
         component={ChecklistsScreen}

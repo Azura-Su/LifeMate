@@ -5,7 +5,7 @@ export const styles = StyleSheet.create({
   card: {
     gap: 12,
     padding: 14,
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surface,
@@ -27,9 +27,9 @@ export const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 13,
+    borderRadius: 12,
   },
   securityIcon: { backgroundColor: colors.primarySoft },
-  compactIconBadge: { width: 32, height: 32, borderRadius: 11 },
+  compactIconBadge: { width: 32, height: 32, borderRadius: 12 },
   error: { ...typography.small, color: colors.danger },
 });

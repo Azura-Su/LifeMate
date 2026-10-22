@@ -20,4 +20,16 @@ On17/10/2026, read-only SQL Editor check of production project `xbhelntqytleiduz
 
 Ngày 19/10/2026, ba migration game `202610190003_card_game_rooms.sql`, `202610190004_card_game_deadlines.sql` và `202610190005_card_game_closed_cleanup.sql` được áp dụng riêng lên production. Migration 005 và schedule cập nhật giữ worker cleanup hoạt động khi mode closed. Chưa tạo hay sửa bảng `supabase_migrations.schema_migrations`; đây vẫn là deployment thủ công cần đối chiếu trước khi dùng `db push`.
 
+Ngày 22/10/2026, kiểm tra production thấy bảng lịch sử đã tồn tại và có phiên bản `20261019155814` (card_game_closed_cleanup). Định nghĩa các RPC game khớp source đến money-score `202610200001`, dù lịch sử các migration thủ công trước đó chưa đầy đủ. Đã áp dụng riêng và ghi đúng bảy phiên bản game: `20261020092913`, `20261020120000`, `20261020234500`, `20261021083000`, `20261021100000`, `20261021130000`, `20261021130001`. Không ghi nhận bừa các phiên bản trước đó hoặc chạy `db push` toàn repo. Xem [báo cáo rollout](../tasks/card-room-cloud-repair-2026-10-22.md).
+
 Fresh local reset also needs a working Supabase local configuration and Docker. These prerequisites are unavailable in the current shell, so this change validates filename uniqueness/order, not a full fresh PostgreSQL reset.
+
+## Prepared game status fix — 22/10/2026
+
+`20261022040203_card_game_empty_room_rejoin_status.sql` replaces only the status RPC,
+aligning `canRejoin` with the existing owner-first rule for empty live rooms. It retains
+the same signature, account checks and service-only grants; no stored room data changes.
+It is validated with the full game migration chain in PGlite and is **not yet applied to production**.
+Before rollout, verify the installed status definition and migration history as above;
+apply this one migration without replaying unrelated pending files. See
+[fix verification](../tasks/card-games-score-review-fixes-2026-10-22.md).

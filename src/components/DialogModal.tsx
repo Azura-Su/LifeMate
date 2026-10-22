@@ -3,8 +3,8 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   StyleSheet,
-  View,
   type ModalProps,
   type StyleProp,
   type ViewStyle,
@@ -15,9 +15,11 @@ import { colors } from '../theme';
 type Props = PropsWithChildren<{
   visible?: boolean;
   onRequestClose?: () => void;
+  onBackdropPress?: () => void;
   onDismiss?: () => void;
   onShow?: () => void;
   animationType?: ModalProps['animationType'];
+  supportedOrientations?: ModalProps['supportedOrientations'];
   overlayStyle?: StyleProp<ViewStyle>;
   onTouchEnd?: ViewProps['onTouchEnd'];
   style?: StyleProp<ViewStyle>;
@@ -27,9 +29,11 @@ type Props = PropsWithChildren<{
 export function DialogModal({
   visible = true,
   onRequestClose,
+  onBackdropPress,
   onDismiss,
   onShow,
   animationType = 'fade',
+  supportedOrientations,
   overlayStyle,
   onTouchEnd,
   style,
@@ -40,37 +44,58 @@ export function DialogModal({
       transparent
       visible={visible}
       animationType={animationType}
+      supportedOrientations={supportedOrientations}
       onRequestClose={onRequestClose}
       onDismiss={onDismiss}
       onShow={onShow}
     >
       <KeyboardAvoidingView
         onTouchEnd={onTouchEnd}
-        style={[styles.overlay, overlayStyle]}
+        style={styles.keyboardAvoiding}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={[styles.card, style]} accessibilityViewIsModal>
-          {children}
-        </View>
+        <Pressable
+          testID="dialog-backdrop"
+          accessible={false}
+          style={[styles.overlay, overlayStyle]}
+          onPress={onBackdropPress}
+        >
+          <Pressable
+            testID="dialog-content"
+            accessible={false}
+            style={[styles.card, style]}
+            onPress={(event) => event?.stopPropagation()}
+            accessibilityViewIsModal
+          >
+            {children}
+          </Pressable>
+        </Pressable>
       </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardAvoiding: { flex: 1 },
   overlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 20,
     backgroundColor: colors.scrim,
   },
+  // One shell for every popup: white card, soft lift, 24 radius.
   card: {
     width: '100%',
-    maxWidth: 440,
-    gap: 16,
-    padding: 24,
+    maxWidth: 420,
+    gap: 14,
+    padding: 20,
     borderRadius: 24,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
+    shadowColor: colors.ink,
+    shadowOpacity: 0.16,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
   },
 });

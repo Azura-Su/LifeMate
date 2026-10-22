@@ -22,6 +22,23 @@ it('validates 2–8 distinct named players after trimming', () => {
   ).toContain('tối đa');
 });
 
+it('applies shared player rules without changing manual table validation', () => {
+  const rules = {
+    minPlayers: 1,
+    maxNameLength: 30,
+    rejectControlCharacters: true,
+  };
+  expect(validatePlayerNames(['An'], 128, rules)).toBeNull();
+  expect(validatePlayerNames([], 128, rules)).toContain('ít nhất 1');
+  expect(validatePlayerNames(['A'.repeat(30)], 128, rules)).toBeNull();
+  expect(validatePlayerNames(['A'.repeat(31)], 128, rules)).toContain('30');
+  expect(validatePlayerNames(['An\u200b'], 128, rules)).toContain('ký tự');
+  expect(validatePlayerNames(['An\n'], 128, rules)).toContain('ký tự');
+  expect(validatePlayerNames(['An', ' AN '], 128, rules)).toContain('trùng');
+  expect(validatePlayerNames(['An'])).toContain('ít nhất 2');
+  expect(validatePlayerNames(['A'.repeat(32), 'Bình'])).toBeNull();
+});
+
 it('derives totals from editable signed round scores', () => {
   const rounds = [
     { id: 'r1', createdAt: 1, scores: { a: 10, b: -5, c: 0 } },

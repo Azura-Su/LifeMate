@@ -49,6 +49,7 @@ Make daily use of LifeMate faster by improving the finance ledger, adding study-
 
 - Ghi chú opens from the Home menu and supports create, edit, delete, and search across title/body.
 - Notes have an explicit title, editable body, updated time, loading/error/empty states, and UID isolation in Firestore rules and local cache.
+- Note cards show up to four bullet items at once; longer lists scroll inside the card instead of replacing the remaining items with a count summary.
 
 ### Agenda and calendar
 
@@ -58,6 +59,13 @@ Make daily use of LifeMate faster by improving the finance ledger, adding study-
 - The calendar month header lets users select a year from 1800 through 2200 while keeping the displayed month and day when valid.
 - Calendar notes whose titles begin with “Giỗ” recur on the original day's Vietnamese lunar date in later lunar years. A day-30 note appears on day 29 when that lunar month has only 29 days; leap-month notes recur in the regular month in later years. Existing birthday notes keep their solar-date recurrence.
 - Task notifications are local to the device and are rescheduled/canceled when the task changes, completes, or is deleted.
+- Calendar note title/body inputs are disabled while saving. A failed save keeps
+  the draft and restores editing.
+- Agenda loads and mutations capture the authentication session epoch. Discard
+  results after logout/account change, including login again to the same UID.
+  Reminder queues capture that epoch before enqueue, recheck after native/storage
+  awaits, and cancel any newly returned native notification ID from a stale
+  session. Logout cancellation remains available without an active session.
 
 ## Testing strategy
 

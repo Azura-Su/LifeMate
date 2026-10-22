@@ -14,7 +14,7 @@ import { DialogCloseButton } from '../../components/DialogCloseButton';
 import { DialogModal } from '../../components/DialogModal';
 import { changeAccountPassword } from '../../services/firebase/authService';
 import { useAuthStore } from '../../store/authStore';
-import { colors } from '../../theme';
+import { colors, typography } from '../../theme';
 import {
   getPasswordChangeErrorMessage,
   validatePasswordChange,
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
-  title: { flex: 1, fontSize: 20, fontWeight: '700', color: colors.ink },
+  title: { flex: 1, ...typography.dialogTitle },
   form: { gap: 14, paddingBottom: 2 },
   description: { color: colors.muted, fontSize: 13, lineHeight: 20 },
   field: { gap: 7 },
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: colors.successSoft,
     padding: 14,
-    borderRadius: 14,
+    borderRadius: 16,
   },
   successText: { flex: 1, fontSize: 14, lineHeight: 21, color: colors.success },
 });

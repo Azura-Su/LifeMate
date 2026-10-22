@@ -161,3 +161,67 @@ Mỗi mốc chia thành các task nhỏ trong checklist; không gộp toàn bộ
 - Review độc lập ngày 19/10/2026 phát hiện thứ tự reconnect chưa thống nhất và thiếu bàn giao topic sau thu hồi quyền. Đã sửa handshake listener → snapshot, invalidation và phát hiện epoch/version lệch qua lease; bổ sung ca kiểm chứng ở D1/D3/D4.
 - Reviewer kiểm tra lại các sửa đổi: hai phát hiện đã được giải quyết, không có vấn đề mới cần sửa trong các đoạn bổ sung; kế hoạch sẵn sàng để người dùng xem xét.
 - Kiểm tra định dạng Prettier của hai tài liệu đạt. Chưa chạy test ứng dụng/SQL/native vì lượt này chỉ tạo tài liệu kế hoạch.
+
+## H — Bàn điểm liên kết và tiền theo lá còn
+
+Người dùng yêu cầu mỗi ván online tạo/cập nhật bàn trong Ghi điểm bài. Với Tiến lên miền Nam, chủ phòng đặt số tiền nguyên cho mỗi lá còn lại; mỗi người thua chịu `số lá còn × mức mỗi lá`, người nhất nhận tổng phần thua để tổng điểm mỗi ván bằng 0. Đây là sổ điểm trong game, không tạo giao dịch Tài chính. Chỉ chấm theo số lá còn, không cộng phạt cóng/thối/chặt ở lát cắt này.
+
+1. **Khai báo rate và kết quả server:** tạo phòng nhận mức tiền mỗi lá, validate integer dương an toàn; room state/snapshot hiển thị rate và balance tích lũy thành viên. Engine kết thúc ván kèm số lá còn trong ranking; server tính delta có dấu và cập nhật balance đúng một lần khi chuyển playing → finished. Hủy ván không chấm.
+2. **Liên kết bảng điểm local:** khi bắt đầu ván đầu, tạo idempotent CardScoreMatch theo roomId cho mỗi thành viên trên thiết bị của họ; mỗi kết quả thêm round theo matchId để retry/snapshot trùng không nhân đôi. Người chơi được thêm giữa các ván được thêm vào bảng; người đã rời vẫn giữ lịch sử.
+3. **Hiển thị:** lobby, bàn trong ván và kết quả hiện số dư có dấu/đơn vị đồng; Ghi điểm bài hiển thị rate, số tiền từng ván và tổng lũy kế, vẫn cho sửa/xóa round theo khả năng hiện có mà không sửa số dư server.
+4. **Tương thích và vận hành:** client cũ tạo phòng không gửi rate thì server đặt 0; room state cũ thiếu rate/balance đọc thành 0. Không thêm bảng DB; kết quả tiền nằm trong JSON result/room hiện có. Cập nhật SPEC và kiểm tra luật/thử nghiệm logic, nhưng không triển khai Supabase/Firebase nếu chưa được yêu cầu.
+
+5. **H6 — Animation cộng/trừ điểm theo từng ghế (yêu cầu 20/10):** dùng `moneyDelta` và balance cuối từ snapshot server; tính balance đầu bằng `balanceCuối - moneyDelta`. Ở đúng vị trí số dư mỗi người, cho delta fade/scale, bay vào số dư, rồi đếm mượt đến balance cuối. Mỗi ghế tự animate; delta 0, ván hủy và điểm của người khác không bị gắn nhầm. Key theo room/match để snapshot lặp không chạy lại, nhưng ván kết thúc tức thì kế tiếp chạy chuỗi mới. Thu gọn summary giữa bàn để giữ bài và avatar không chồng lấp. Chỉ thay giá trị trình bày, tuyệt đối không cập nhật state/số dư game từ animation.
+
+Thứ tự lát cắt H6: (1) test dữ liệu cũ/cuối và mỗi ghế; (2) component counter biệt lập, hiển thị điểm đầu rồi chạy delta → đếm điểm cuối; (3) gắn vào vị trí balance của avatar/hand và rút gọn tiêu đề kết quả; (4) kiểm thử finish liên tiếp, delta 0, nhiều ghế, hủy và cả hai hướng; typecheck/lint/Jest + rà diff. Không thêm dependency.
+
+Rủi ro chính: chấm lặp khi cùng kết quả đến từ poll và realtime; tính lại phải idempotent theo `matchId`. Bảo vệ bằng delta chỉ trong chuyển trạng thái nguyên tử server-side và round ID ổn định. Bản ghi điểm local có thể không đồng bộ giữa thiết bị cùng UID; khi mở phòng/kết quả trên thiết bị khác, nó phục hồi từ snapshot và kết quả room hiện có.
+
+## I — Nâng cấp UI/UX và animation bàn bài
+
+Phạm vi theo yêu cầu 20/10: chỉ thay cách hiển thị/phản hồi, giữ nguyên luật, action/protocol và số liệu từ server. Trước khi sửa: bàn hiện đã hỗ trợ dọc/ngang và bố cục 4 ghế; timer lấy deadline server; tiền thắng/thua đã có `CardGameMoneyCounter`; bài chọn hiện chỉ đổi style tức thời; bài trên bàn xuất hiện trực tiếp từ snapshot; chưa có luồng asset/event riêng cho xáo/chia bài; không có thư viện Reanimated/Gesture Handler trong dependencies.
+
+### Ưu tiên 1 — cảm giác quân bài
+
+- [x] I1. Chọn/bỏ chọn bài bằng Animated native-driver (150 ms); xếp bài dùng layout transition, bảo toàn selection/hand server; kiểm thử trạng thái chọn và sort.
+- [x] I2. Khi lobby chuyển sang match mới, xáo bộ bài úp và chia các lá úp theo số lá/seat của snapshot theo thứ tự luân phiên; sau đó stagger reveal các lá thật của người xem. Reconnect/mount giữa ván hiện ngay, không replay. Tổng thời gian thay đổi theo số lá thực tế.
+- [x] I3. Sau khi server xác nhận lượt đánh, animate đúng các lá trong `game.table` vào giữa bàn từ hướng ghế người đánh; không bỏ lá khỏi tay trước snapshot, không phát lại với snapshot trùng; bộ cũ fade/thu nhỏ khi bài mới hoặc vòng mới thay thế.
+
+### Ưu tiên 2 — trạng thái lượt
+
+- [ ] I4. Làm nổi ghế đến lượt với timer dễ đọc, mức màu theo giây còn lại và cung tròn giảm dần; deadline server vẫn là nguồn thời gian, không reset theo render/background. Viền ghế/màu đã có; cung tròn còn thiếu.
+- [x] I5. Nhãn bỏ lượt fade/scale gần đúng ghế; lượt mới/đóng vòng có chuyển trạng thái gọn và cleanup animation.
+
+### Ưu tiên 3 — kết quả và ván mới
+
+- [x] I6. Kết quả gọn ở giữa bàn, điểm cộng/trừ theo người chơi, ready badge/counter theo snapshot; pháo hoa particle neo đúng avatar người thắng và chỉ chạy một lần trong 1,9 giây.
+- [x] I7. Match mới chỉ hiển thị sau server action thành công, readiness/start vẫn do server quyết định. Luồng manual host-start ban đầu được thay bởi I13: mọi ghế ready sẽ tự bắt đầu phía server.
+
+### Ưu tiên 4 — phản hồi và xác minh
+
+- [ ] I8. Rà phản hồi nút chọn/đánh/bỏ/xếp; chỉ thêm sound/haptic nếu package và preference hiện có đáp ứng, không thêm dependency hoặc chặn UI.
+- [ ] I9. Targeted Jest, typecheck, lint, Prettier; rà lại animation cleanup, duplicate snapshots, cancel/remount, orientations. Xác minh runtime/native FPS khi môi trường chạy app khả dụng.
+
+Thứ tự thực hiện: I1 → I4/I5 → I2/I3 → I7/I8 → I9. Snapshot API không phát event `CardsDealt`; dùng chuyển sảnh→playing và matchId làm tín hiệu, nên vào lại giữa ván không replay. I4 còn thiếu cung tròn giảm dần quanh avatar; hiện chỉ có viền ghế lượt và màu timer theo deadline vì dự án chưa có renderer vector/circular progress. I8 còn thiếu âm thanh/rung: repo chưa có sound asset, game audio setting hoặc haptics package; chưa thêm dependency.
+
+Ghi chú cập nhật 20/10/2026: pháo hoa chuyển sang particle neo theo avatar người thắng trên mọi client, chạy một lần 1,9 giây; bài cũ trên bàn và tay mờ dần trong 400ms; ready và điểm hiển thị theo ghế. I13 sau đó đổi ván tiếp sang tự động bắt đầu khi mọi thành viên ready; giữa bàn giữ chồng bài úp thay bảng kết quả. Các phần trước không thêm countdown hoặc thay đổi protocol action; action ready cuối được chuẩn hóa thành start ở lớp commit để giữ matchId/gate hiện có.
+
+## I10 — Ổn định vùng bài và chọn bài
+
+Trong trạng thái kết thúc, giữ cùng container vùng bài và đặt thao tác ready/start ở chính giữa container đó; bỏ nút start/ready ở footer và cột hành động bên phải. Trong ván, giữ thứ tự xếp lớp cố định theo vị trí lá, không đẩy lá được chọn lên trên các lá bên phải. Tính overlap theo kích thước viewport và giới hạn để mỗi góc bài còn vùng đọc/chạm riêng.
+
+## I11 — Hoạt ảnh bỏ lượt biểu tượng
+
+Khi `passed` đổi theo snapshot, hiển thị một lá úp giả lập bay từ ghế tương ứng vào vùng bàn, sau đó fade ngắn. Không lấy lá thật, không thay đổi số lá hay luật; tránh phát lại khi snapshot lặp. Kiểm thử vị trí xuất phát theo ghế và tính độc lập với `game.table`/luồng chia.
+
+## I12 — Xác minh chuyển trạng thái
+
+Bổ sung hồi quy cho vùng bài ổn định, nút nằm trong vùng bài ở cả dọc/ngang, không còn round action ở footer/cột phải, xếp lớp và overlap bài được chọn, cũng như pass animation giả lập không thay đổi hand. Chạy targeted Jest, typecheck, lint và Prettier. Smoke test native chỉ báo đạt nếu thực sự chạy trên thiết bị/emulator.
+
+## I13 — Tự động bắt đầu ván tiếp khi đủ sẵn sàng
+
+- Mỗi thành viên hiện tại, gồm chủ phòng, phải sẵn sàng rõ ràng sau khi ván kết thúc. Khi đủ ít nhất hai ghế và tất cả ready, server tạo match mới ngay trong giao dịch của action ready cuối cùng.
+- Dùng cùng một predicate phía reducer và handler để cấp deck, đánh dấu commit kind là start, xoay matchId, áp dụng gate drain và chốt đúng kết quả nếu ván mới tới trắng ngay. Receipt/fingerprint vẫn thuộc ready action; version CAS ngăn hai match cạnh tranh.
+- Lobby ván đầu vẫn giữ nút start của chủ phòng; start không còn được phép để vượt qua readiness ở phase finished.
+- Giữa bàn thay bảng kết quả bằng chồng bài úp sau animation thu bài; kết quả tiền và readiness ở từng ghế.
+- Hồi quy: thành viên thiếu ready, host ready, ready hủy, thay đổi thành viên, retry/CAS, matchId mới, instant-win settlement, UI không còn nút start ván tiếp.

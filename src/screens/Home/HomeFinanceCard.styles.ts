@@ -2,10 +2,11 @@ import { StyleSheet } from 'react-native';
 import { colors, typography } from '../../theme';
 
 export const styles = StyleSheet.create({
+  // Same card shell as the Lịch / Việc cần làm cards below it.
   card: {
-    padding: 12,
-    gap: 10,
-    borderRadius: 18,
+    padding: 16,
+    gap: 12,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surface,
@@ -17,8 +18,8 @@ export const styles = StyleSheet.create({
     gap: 9,
   },
   icon: {
-    width: 34,
-    height: 34,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
@@ -30,7 +31,12 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  title: { ...typography.heading, fontSize: 18, lineHeight: 23 },
+  title: {
+    ...typography.heading,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '700',
+  },
   headerDateButton: {
     maxWidth: 140,
     minWidth: 0,
@@ -54,7 +60,7 @@ export const styles = StyleSheet.create({
     width: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 11,
+    borderRadius: 12,
     backgroundColor: colors.skySoft,
   },
   headerTodayButton: {
@@ -113,7 +119,7 @@ export const styles = StyleSheet.create({
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 11,
+    borderRadius: 12,
     backgroundColor: colors.skySoft,
   },
   monthPickerControl: {
@@ -126,7 +132,7 @@ export const styles = StyleSheet.create({
   },
   disabledArrow: { opacity: 0.35 },
   monthTitle: {
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 20,
     fontWeight: '700',
     color: colors.ink,
@@ -136,11 +142,11 @@ export const styles = StyleSheet.create({
     minHeight: 30,
     justifyContent: 'center',
     paddingHorizontal: 9,
-    borderRadius: 10,
+    borderRadius: 12,
     backgroundColor: colors.skySoft,
   },
   yearButtonText: {
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 20,
     fontWeight: '700',
     color: colors.earth,
@@ -148,7 +154,7 @@ export const styles = StyleSheet.create({
   yearRangeTitle: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 20,
     fontWeight: '700',
     color: colors.ink,
@@ -159,7 +165,7 @@ export const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 11,
+    borderRadius: 12,
   },
   selectedYearOption: { backgroundColor: colors.primarySoft },
   yearOptionText: {
@@ -184,7 +190,7 @@ export const styles = StyleSheet.create({
     minHeight: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
+    borderRadius: 12,
   },
   outsideMonth: { opacity: 0.38 },
   todayCell: { borderWidth: 1, borderColor: colors.sunlightBorder },

@@ -57,3 +57,30 @@ export function getAgendaForDate(items: AgendaItem[], date: Date) {
     )
     .sort((a, b) => a.dueAt - b.dueAt);
 }
+
+/** Split tasks into Quá hạn / Hôm nay / Sắp tới / Đã xong, keeping order. */
+export function groupAgendaItems(items: AgendaItem[], now = new Date()) {
+  const dayStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  ).getTime();
+  const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+  const groups = [
+    { key: 'overdue', title: 'Quá hạn', items: [] as AgendaItem[] },
+    { key: 'today', title: 'Hôm nay', items: [] as AgendaItem[] },
+    { key: 'upcoming', title: 'Sắp tới', items: [] as AgendaItem[] },
+    { key: 'done', title: 'Đã xong', items: [] as AgendaItem[] },
+  ];
+  for (const item of items) {
+    const group = item.completed
+      ? groups[3]
+      : item.dueAt < dayStart
+        ? groups[0]
+        : item.dueAt < dayEnd
+          ? groups[1]
+          : groups[2];
+    group.items.push(item);
+  }
+  return groups.filter((group) => group.items.length > 0);
+}

@@ -40,13 +40,15 @@ export function createGameSession(deps: Dependencies) {
   let uncertain = false;
   let topic: string | null = null,
     unsubscribe: (() => void) | null = null;
+  let realtimeConnected = false;
   let lease: ReturnType<typeof setTimeout> | undefined,
-    joinTimeout: ReturnType<typeof setTimeout> | undefined,
     poll: ReturnType<typeof setTimeout> | undefined;
   const requests = new Set<AbortController>();
   let syncing = false,
     queued: 'sync' | 'lease' | null = null;
   let readError = false;
+  let refreshConflict: GameRequest | null = null;
+  let lastRemovalId: string | null = null;
   const emit = (patch: Partial<GameSessionState>) => {
     state = {
       ...state,
@@ -64,26 +66,17 @@ export function createGameSession(deps: Dependencies) {
       requests.delete(abort);
     }
   };
-  const stopChannel = () => {
-    clearTimeout(joinTimeout);
+  const stopPolling = () => {
     clearTimeout(poll);
-    unsubscribe?.();
+    poll = undefined;
+  };
+  const stopChannel = () => {
+    const previous = unsubscribe;
     unsubscribe = null;
     topic = null;
-  };
-  const watchConnection = () => {
-    clearTimeout(joinTimeout);
-    joinTimeout = setTimeout(() => {
-      if (active && !state.connected) {
-        readError = true;
-        emit({
-          loading: false,
-          error:
-            'Chưa nối được phòng online. Hãy kiểm tra kết nối rồi thử lại.',
-        });
-        startPolling();
-      }
-    }, 2000);
+    realtimeConnected = false;
+    stopPolling();
+    previous?.();
   };
   const armLease = () => {
     clearTimeout(lease);
@@ -96,16 +89,18 @@ export function createGameSession(deps: Dependencies) {
     }, 20000);
   };
   const startPolling = () => {
-    clearTimeout(joinTimeout);
-    clearTimeout(poll);
+    if (!active || !topic || realtimeConnected || poll !== undefined) return;
     emit({ connected: true });
     void sync('sync');
     const tick = () => {
       poll = setTimeout(() => {
-        if (!active || !topic) return;
-        void sync('sync');
+        poll = undefined;
+        if (!active || !topic || realtimeConnected) return;
+        // Avoid locking the same room row with a background read while this
+        // device is waiting for its own write to commit.
+        if (!state.busy) void sync('sync');
         tick();
-      }, 3000);
+      }, 1000);
     };
     tick();
   };
@@ -114,34 +109,81 @@ export function createGameSession(deps: Dependencies) {
     topic = next;
     const current = generation;
     emit({ connected: false });
-    watchConnection();
     unsubscribe = deps.subscribe(
       next,
       () => {
-        if (active && generation === current) void sync('sync');
+        if (active && generation === current && topic === next)
+          void sync('sync');
       },
       (connected) => {
         if (!active || generation !== current || topic !== next) return;
-        emit({ connected });
+        realtimeConnected = connected;
         if (connected) {
-          clearTimeout(joinTimeout);
-          clearTimeout(poll);
+          stopPolling();
+          emit({ connected: true });
           void sync('sync');
         } else startPolling();
       },
     );
+    // Install the listener first, then read through the authorized HTTP path.
+    // Loading still fences actions until that fresh snapshot arrives; a slow
+    // Realtime handshake must not hold the room behind a separate timeout.
+    if (!realtimeConnected) startPolling();
     armLease();
   };
   const accept = (snapshot: GameSnapshot) => {
     const old = state.snapshot;
+    const sameRoom = !!old?.room && snapshot.room?.id === old.room.id;
+    if (old && sameRoom) {
+      if (snapshot.room!.version < old.room!.version) return false;
+      if (
+        snapshot.room!.version === old.room!.version &&
+        snapshot.serverTime < old.serverTime
+      )
+        return false;
+    }
+    if (old && !sameRoom && snapshot.serverTime < old.serverTime) return false;
     if (
-      old &&
-      (snapshot.serverTime < old.serverTime ||
-        (old.room &&
-          snapshot.room?.id === old.room.id &&
-          snapshot.room.version < old.room.version))
+      snapshot.removal &&
+      old?.room &&
+      (snapshot.removal.roomId !== old.room.id ||
+        snapshot.removal.id === lastRemovalId)
     )
-      return;
+      return false;
+    if (snapshot.removal) {
+      lastRemovalId = snapshot.removal.id;
+      // Removal is authoritative. Fence late writes/reads before clearing the
+      // room so an old ready/play response cannot put the kicked player back.
+      generation++;
+      for (const request of requests) request.abort();
+      requests.clear();
+      pending = null;
+      uncertain = false;
+      refreshConflict = null;
+      syncing = false;
+      queued = null;
+      stopChannel();
+      clearTimeout(lease);
+      emit({
+        snapshot,
+        loading: false,
+        busy: false,
+        connected: true,
+        error: null,
+      });
+      return true;
+    }
+    const pendingRoomId = pending?.roomId ?? old?.room?.id;
+    const pendingResolved =
+      pending?.expectedVersion !== undefined &&
+      !!snapshot.room &&
+      snapshot.room.id === pendingRoomId &&
+      (snapshot.room.version > pending.expectedVersion ||
+        snapshot.room.matchId !== pending.matchId);
+    if (pendingResolved) {
+      pending = null;
+      uncertain = false;
+    }
     const roomChanged =
       !!old?.room &&
       (!snapshot.room ||
@@ -150,7 +192,7 @@ export function createGameSession(deps: Dependencies) {
     emit({
       snapshot,
       loading: false,
-      ...(roomChanged ? { error: null } : null),
+      ...(roomChanged || pendingResolved ? { error: null } : null),
     });
     if (snapshot.room) {
       if (snapshot.room.topic !== topic) connect(snapshot.room.topic);
@@ -159,6 +201,7 @@ export function createGameSession(deps: Dependencies) {
       clearTimeout(lease);
       emit({ connected: true });
     }
+    return true;
   };
   const sync = async (type: 'sync' | 'lease') => {
     if (!active) return;
@@ -169,15 +212,20 @@ export function createGameSession(deps: Dependencies) {
     }
     syncing = true;
     const current = generation;
+    const conflict = refreshConflict;
     try {
       const snapshot = await call({ type, sessionId: deps.sessionId });
       if (active && current === generation) {
         if (type === 'lease' && !state.connected && snapshot.room) {
           if (snapshot.room.topic !== topic) connect(snapshot.room.topic);
         } else {
-          accept(snapshot);
-          if (readError) {
+          const accepted = accept(snapshot);
+          if (
+            accepted &&
+            (readError || (conflict && refreshConflict === conflict))
+          ) {
             readError = false;
+            refreshConflict = null;
             emit({ error: null });
           }
         }
@@ -186,7 +234,6 @@ export function createGameSession(deps: Dependencies) {
       if (active && current === generation) {
         readError = true;
         emit({
-          loading: false,
           error:
             error instanceof Error
               ? error.message
@@ -206,6 +253,7 @@ export function createGameSession(deps: Dependencies) {
     if (!active || state.busy) return;
     const current = generation;
     pending = input;
+    refreshConflict = null;
     uncertain = false;
     emit({ busy: true, error: null });
     try {
@@ -225,6 +273,16 @@ export function createGameSession(deps: Dependencies) {
             : null;
         if (typeof status === 'number' && status >= 400 && status < 500)
           pending = null;
+        const code =
+          error && typeof error === 'object' && 'code' in error
+            ? error.code
+            : null;
+        refreshConflict =
+          input.expectedVersion !== undefined &&
+          typeof code === 'string' &&
+          ['version-conflict', 'match-conflict', 'turn-expired'].includes(code)
+            ? input
+            : null;
         uncertain = pending !== null;
         emit({
           error:
@@ -238,20 +296,19 @@ export function createGameSession(deps: Dependencies) {
       if (active && current === generation) emit({ busy: false });
     }
   };
-  const stop = () => {
+  const stop = (clearSnapshot = true) => {
     active = false;
     generation++;
     uncertain = pending !== null;
     clearTimeout(lease);
-    clearTimeout(joinTimeout);
-    clearTimeout(poll);
     stopChannel();
     for (const request of requests) request.abort();
     requests.clear();
     syncing = false;
     queued = null;
+    refreshConflict = null;
     emit({
-      snapshot: null,
+      ...(clearSnapshot ? { snapshot: null } : null),
       loading: false,
       connected: false,
       busy: false,
@@ -273,8 +330,8 @@ export function createGameSession(deps: Dependencies) {
       void call({ type: 'bootstrap', sessionId: deps.sessionId })
         .then((snapshot) => {
           if (!active || generation !== current) return;
-          // Bootstrap is metadata for channel setup. Confirm the listener before
-          // publishing a fresh snapshot, closing the foreground race.
+          // Bootstrap is metadata for channel setup. Install the listener before
+          // publishing a fresh authorized snapshot, closing the foreground race.
           if (snapshot.room) connect(snapshot.room.topic);
           else accept(snapshot);
         })
@@ -289,9 +346,10 @@ export function createGameSession(deps: Dependencies) {
             });
         });
     },
-    stop,
+    stop: () => stop(),
     async send(intent: GameIntent) {
-      if (!active || state.busy || pending || !state.connected) return;
+      if (!active || state.loading || state.busy || pending || !state.connected)
+        return;
       const room = state.snapshot?.room;
       const input: GameRequest = { ...intent, sessionId: deps.sessionId };
       if (!['create', 'join'].includes(intent.type)) {
@@ -307,9 +365,12 @@ export function createGameSession(deps: Dependencies) {
       await execute(input);
     },
     async retry() {
+      if (!active || state.busy) return;
       if (pending) await execute(pending);
       else {
-        stop();
+        // A reconnect is transport recovery, not a room exit. Keep the last
+        // snapshot disabled until a fresh authorized read confirms membership.
+        stop(false);
         this.start();
       }
     },

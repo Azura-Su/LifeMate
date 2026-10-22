@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
   box: {
     padding: 10,
     gap: 7,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.skySoft,
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 10,
-    borderRadius: 11,
+    borderRadius: 12,
     backgroundColor: colors.surface,
   },
   cancelText: { color: colors.earth, fontSize: 13, fontWeight: '700' },

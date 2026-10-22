@@ -1,6 +1,13 @@
+import { Pressable } from 'react-native';
 import { doc, getFirestore, setDoc } from '@react-native-firebase/firestore';
 import { resetFirestoreMock } from '../../../testing/firestoreMock';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react-native';
 import { NotesScreen } from '../NotesScreen';
 import { useAuthStore } from '../../../store/authStore';
 import { useNoteStore } from '../../../store/noteStore';
@@ -48,6 +55,59 @@ it('keeps date notes out of the freeform Notes list', () => {
   expect(screen.getByText('Ý tưởng')).toBeTruthy();
   expect(screen.queryByText('Ghi chú ngày 2026-10-09')).toBeNull();
   expect(screen.queryByText('Việc riêng trong ngày')).toBeNull();
+});
+
+it('keeps the notes search field fixed while the notes list scrolls', () => {
+  render(<NotesScreen />);
+
+  expect(
+    within(screen.getByTestId('screen-fixed-content')).getByLabelText(
+      'Tìm ghi chú',
+    ),
+  ).toBeTruthy();
+  expect(
+    within(screen.getByTestId('screen-scroll-area')).queryByLabelText(
+      'Tìm ghi chú',
+    ),
+  ).toBeNull();
+});
+
+it('keeps long note bullets in a four-row scrollable preview', () => {
+  useNoteStore.setState({
+    ...useNoteStore.getState(),
+    notes: [
+      {
+        id: 'many-bullets',
+        ownerId: 'u1',
+        title: 'Danh sách dài',
+        body: 'Ý thứ nhất\nÝ thứ hai\nÝ thứ ba\nÝ thứ tư\nÝ thứ năm\nÝ thứ sáu',
+        updatedAt: 3,
+      },
+    ],
+  });
+
+  render(<NotesScreen />);
+
+  const preview = screen.getByTestId('note-bullets-many-bullets');
+  expect(preview.type).toBe('RCTScrollView');
+  expect(preview.props.scrollEnabled).toBe(true);
+  expect(preview.props.nestedScrollEnabled).toBe(true);
+  expect(preview.props.style).toEqual(
+    expect.arrayContaining([expect.objectContaining({ height: 89 })]),
+  );
+  expect(preview.parent?.type).not.toBe(Pressable);
+  expect(screen.getByText('Ý thứ nhất')).toBeTruthy();
+  expect(screen.getByText('Ý thứ tư')).toBeTruthy();
+  expect(screen.getByText('Ý thứ năm')).toBeTruthy();
+  expect(screen.getByText('Ý thứ sáu')).toBeTruthy();
+  expect(screen.queryByText('+ 3 ý nữa')).toBeNull();
+});
+
+it('does not scroll the preview when a note has at most four bullets', () => {
+  render(<NotesScreen />);
+
+  const preview = screen.getByTestId('note-bullets-free-note');
+  expect(preview.props.scrollEnabled).toBe(false);
 });
 
 it('keeps the draft open when a refresh changes the note being edited', async () => {

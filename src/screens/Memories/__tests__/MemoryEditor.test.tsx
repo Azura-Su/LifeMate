@@ -276,9 +276,11 @@ it('docks 12 points above the keyboard and keeps the header and close action ava
     </SafeAreaInsetsContext.Provider>,
   );
   const keyboard = screen.UNSAFE_getByType(KeyboardAvoidingView);
-  expect(StyleSheet.flatten(keyboard.props.style).justifyContent).toBe(
-    'center',
-  );
+  expect(keyboard.props.behavior).toBe('padding');
+  expect(
+    StyleSheet.flatten(screen.getByTestId('dialog-backdrop').props.style)
+      .justifyContent,
+  ).toBe('center');
   const show = listeners.mock.calls
     .filter(([name]) => name === 'keyboardWillShow')
     .at(-1)![1];
@@ -293,7 +295,9 @@ it('docks 12 points above the keyboard and keeps the header and close action ava
       isEventFromThisApp: true,
     }),
   );
-  expect(StyleSheet.flatten(keyboard.props.style)).toMatchObject({
+  expect(
+    StyleSheet.flatten(screen.getByTestId('dialog-backdrop').props.style),
+  ).toMatchObject({
     justifyContent: 'flex-end',
     paddingTop: 67,
   });
@@ -311,9 +315,10 @@ it('docks 12 points above the keyboard and keeps the header and close action ava
       isEventFromThisApp: true,
     }),
   );
-  expect(StyleSheet.flatten(keyboard.props.style).justifyContent).toBe(
-    'center',
-  );
+  expect(
+    StyleSheet.flatten(screen.getByTestId('dialog-backdrop').props.style)
+      .justifyContent,
+  ).toBe('center');
 });
 
 it('preserves Android window resizing without adding a second keyboard shift', () => {

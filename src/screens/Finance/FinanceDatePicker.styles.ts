@@ -15,7 +15,7 @@ export const styles = StyleSheet.create({
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 11,
+    borderRadius: 12,
     backgroundColor: colors.skySoft,
   },
   monthTitle: {

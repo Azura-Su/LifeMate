@@ -1,4 +1,5 @@
 import type { CardGameRoom, GameSnapshot } from '../../types/cardGame';
+import { audioCloudUrl } from '../../config/audioCloud';
 
 const object = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === 'object' && !Array.isArray(v);
@@ -18,6 +19,28 @@ const cards = (v: unknown): v is number[] =>
   v.every((c) => integer(c) && c < 52);
 const keys = (v: Record<string, unknown>, allowed: string[]) =>
   Object.keys(v).every((k) => allowed.includes(k));
+function validAvatarUrl(value: unknown, playerUid: string) {
+  if (value === undefined || value === null) return true;
+  if (typeof value !== 'string') return false;
+  try {
+    const target = new URL(value);
+    const origin = audioCloudUrl();
+    return (
+      !!origin &&
+      target.origin === origin &&
+      target.pathname ===
+        `/storage/v1/object/sign/lifemate-avatars/profiles/${playerUid}/avatar.jpg` &&
+      target.searchParams.getAll('token').length === 1 &&
+      !!target.searchParams.get('token') &&
+      [...target.searchParams.keys()].every((key) => key === 'token') &&
+      !target.username &&
+      !target.password &&
+      !target.hash
+    );
+  } catch {
+    return false;
+  }
+}
 
 export function parseGameSnapshot(
   value: unknown,
@@ -33,11 +56,24 @@ export function parseGameSnapshot(
       typeof value.refreshToken !== 'boolean')
   )
     return fail();
+  if (
+    value.removal !== undefined &&
+    (value.room !== null ||
+      !object(value.removal) ||
+      !keys(value.removal, ['id', 'roomId', 'reason']) ||
+      !uuid(value.removal.id) ||
+      !uuid(value.removal.roomId) ||
+      value.removal.reason !== 'kicked')
+  )
+    return fail();
   if (value.room === null)
     return {
       room: null,
       serverTime: value.serverTime,
       refreshToken: value.refreshToken as boolean | undefined,
+      ...(value.removal
+        ? { removal: value.removal as GameSnapshot['removal'] }
+        : {}),
     };
   const r = value.room;
   if (
@@ -50,18 +86,23 @@ export function parseGameSnapshot(
       'matchId',
       'phase',
       'host',
+      'ownerUid',
       'controller',
       'topic',
       'members',
       'game',
+      'amountPerCard',
     ]) ||
     !uuid(r.id) ||
     !uuid(r.epoch) ||
     !integer(r.version) ||
     r.version < 1 ||
     (r.matchId !== null && !uuid(r.matchId)) ||
+    (r.ownerUid !== undefined && r.ownerUid !== null && !uid(r.ownerUid)) ||
     typeof r.code !== 'string' ||
     !/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}$/.test(r.code) ||
+    (r.amountPerCard !== undefined &&
+      (!integer(r.amountPerCard) || r.amountPerCard > 1_000_000_000)) ||
     !['lobby', 'playing', 'finished', 'closed'].includes(r.phase as string) ||
     typeof r.controller !== 'boolean' ||
     r.topic !== `card-room:${r.id}:${r.epoch}` ||
@@ -70,12 +111,14 @@ export function parseGameSnapshot(
     !r.members.every(
       (m) =>
         object(m) &&
-        keys(m, ['uid', 'name', 'ready', 'wins']) &&
+        keys(m, ['uid', 'name', 'ready', 'wins', 'balance', 'avatarUrl']) &&
         uid(m.uid) &&
         typeof m.name === 'string' &&
         m.name.length <= 30 &&
         typeof m.ready === 'boolean' &&
-        integer(m.wins),
+        integer(m.wins) &&
+        (m.balance === undefined || Number.isSafeInteger(m.balance)) &&
+        validAvatarUrl(m.avatarUrl, m.uid),
     ) ||
     new Set(r.members.map((m) => m.uid)).size !== r.members.length ||
     !r.members.some((m) => m.uid === viewer) ||
@@ -109,12 +152,22 @@ export function parseGameSnapshot(
       !g.players.every(
         (p) =>
           object(p) &&
-          keys(p, ['uid', 'count', 'finished', 'forfeited']) &&
+          keys(p, [
+            'uid',
+            'count',
+            'finished',
+            'forfeited',
+            'name',
+            'balance',
+          ]) &&
           uid(p.uid) &&
           integer(p.count) &&
           p.count <= 13 &&
           typeof p.finished === 'boolean' &&
-          typeof p.forfeited === 'boolean',
+          typeof p.forfeited === 'boolean' &&
+          (p.name === undefined ||
+            (typeof p.name === 'string' && p.name.length <= 30)) &&
+          (p.balance === undefined || Number.isSafeInteger(p.balance)),
       ) ||
       new Set(g.players.map((p) => p.uid)).size !== g.players.length ||
       !g.players.some((p) => p.uid === viewer) ||
@@ -148,7 +201,12 @@ export function parseGameSnapshot(
             p.rank >= 1 &&
             p.rank <= 4 &&
             Array.isArray(p.labels) &&
-            p.labels.every((x) => typeof x === 'string'),
+            p.labels.every((x) => typeof x === 'string') &&
+            (p.name === undefined ||
+              (typeof p.name === 'string' && p.name.length <= 30)) &&
+            (p.remainingCards === undefined ||
+              (integer(p.remainingCards) && p.remainingCards <= 13)) &&
+            (p.moneyDelta === undefined || Number.isSafeInteger(p.moneyDelta)),
         ))
     )
       return fail();
@@ -160,8 +218,54 @@ export function parseGameSnapshot(
   }
   // Keep only the documented envelope; private state fields are rejected above.
   return {
-    room: r as unknown as CardGameRoom,
+    room: {
+      ...r,
+      amountPerCard: integer(r.amountPerCard) ? r.amountPerCard : 0,
+      members: r.members.map((m) => ({
+        ...m,
+        balance: Number.isSafeInteger(m.balance) ? m.balance : 0,
+      })),
+      game:
+        r.game && object(r.game) && object(r.game.result)
+          ? {
+              ...r.game,
+              result: {
+                ...r.game.result,
+                ranking: (
+                  r.game.result.ranking as Record<string, unknown>[]
+                ).map((p) => ({
+                  ...p,
+                  remainingCards: p.remainingCards ?? 0,
+                  moneyDelta: p.moneyDelta ?? 0,
+                })),
+              },
+            }
+          : r.game,
+    } as unknown as CardGameRoom,
     serverTime: value.serverTime,
     refreshToken: value.refreshToken as boolean | undefined,
   };
+}
+
+export function parseGameRoomStatus(value: unknown, expectedRoomId: string) {
+  if (
+    !object(value) ||
+    !uuid(value.roomId) ||
+    value.roomId !== expectedRoomId ||
+    typeof value.exists !== 'boolean' ||
+    typeof value.owner !== 'boolean' ||
+    typeof value.canRejoin !== 'boolean' ||
+    typeof value.canReopen !== 'boolean' ||
+    typeof value.canDelete !== 'boolean' ||
+    typeof value.expired !== 'boolean' ||
+    (value.phase !== null &&
+      !['lobby', 'playing', 'finished', 'closed'].includes(
+        value.phase as string,
+      )) ||
+    (value.version !== null &&
+      (!integer(value.version) || value.version < 1)) ||
+    (value.matchId !== null && !uuid(value.matchId))
+  )
+    throw new Error('Phản hồi trạng thái phòng chưa hợp lệ.');
+  return value as import('../../types/cardGame').GameRoomStatus;
 }

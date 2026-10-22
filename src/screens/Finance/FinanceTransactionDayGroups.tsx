@@ -51,20 +51,25 @@ export function FinanceTransactionDayGroups({
             {group.transactions.length} khoản
           </Text>
         </View>
-        {group.transactions.map((transaction) => (
-          <FinanceTransactionRow
-            key={transaction.id}
-            transaction={transaction}
-            deleting={deletingIds?.has(transaction.id)}
-            onDelete={onDelete}
-            onEdit={onEdit}
-            loan={
-              transaction.loanId ? loansById.get(transaction.loanId) : undefined
-            }
-            onOpenLoan={onOpenLoan}
-            canDeleteLinkedExpense={canDeleteLinkedExpense?.(transaction)}
-          />
-        ))}
+        <View style={styles.transactionCard}>
+          {group.transactions.map((transaction, index) => (
+            <FinanceTransactionRow
+              key={transaction.id}
+              divider={index > 0}
+              transaction={transaction}
+              deleting={deletingIds?.has(transaction.id)}
+              onDelete={onDelete}
+              onEdit={onEdit}
+              loan={
+                transaction.loanId
+                  ? loansById.get(transaction.loanId)
+                  : undefined
+              }
+              onOpenLoan={onOpenLoan}
+              canDeleteLinkedExpense={canDeleteLinkedExpense?.(transaction)}
+            />
+          ))}
+        </View>
       </View>
     );
   });

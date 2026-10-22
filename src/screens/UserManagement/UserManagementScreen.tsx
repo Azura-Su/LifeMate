@@ -1,3 +1,4 @@
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { ManagedUserAvatar } from './ManagedUserAvatar';
 import Feather from '@expo/vector-icons/Feather';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -206,20 +207,11 @@ export function UserManagementScreen({
     }
   };
   const header = (
-    <View style={styles.header}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Quay lại Home"
-        onPress={() => navigation.navigate('Home')}
-        style={styles.icon}
-      >
-        <Feather name="arrow-left" size={22} color={colors.earth} />
-      </Pressable>
-      <View style={styles.flex}>
-        <Text style={typography.heading}>Quản lý người dùng</Text>
-        <Text style={typography.small}>Tài khoản & quyền truy cập</Text>
-      </View>
-    </View>
+    <ScreenHeader
+      title="Quản lý người dùng"
+      subtitle="Tài khoản & quyền truy cập"
+      onBack={() => navigation.navigate('Home')}
+    />
   );
   if (!allowed)
     return (
@@ -506,7 +498,6 @@ export function UserManagementScreen({
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   flex: { flex: 1 },
   icon: {
     minWidth: 44,
@@ -536,7 +527,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 14,
     gap: 12,
     marginBottom: 10,
@@ -578,7 +569,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  name: { fontSize: 15, fontWeight: '700', color: colors.ink },
+  name: { fontSize: 14, fontWeight: '700', color: colors.ink },
   badge: {
     fontSize: 11,
     fontWeight: '600',

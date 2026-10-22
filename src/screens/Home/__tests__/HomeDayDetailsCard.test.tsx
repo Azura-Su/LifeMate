@@ -1,4 +1,5 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -274,4 +275,43 @@ it('asks before deleting one day note and removes only the selected note', async
   } finally {
     alert.mockRestore();
   }
+});
+
+it('locks both note inputs while a save is pending and retains the draft on failure', async () => {
+  let rejectSave!: (error: Error) => void;
+  const onSave = jest.fn(
+    () =>
+      new Promise<void>((_, reject) => {
+        rejectSave = reject;
+      }),
+  );
+  render(
+    <HomeDayDetailsCard
+      date={new Date(2026, 9, 23)}
+      uid="u1"
+      notes={[]}
+      synced
+      onSave={onSave}
+      onDelete={jest.fn()}
+    />,
+  );
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Thêm ghi chú cho ngày này' }),
+  );
+  fireEvent.changeText(
+    screen.getByLabelText('Tiêu đề ghi chú ngày'),
+    'Bản nháp',
+  );
+  fireEvent.changeText(
+    screen.getByLabelText('Nội dung ghi chú trong ngày'),
+    'Nội dung',
+  );
+  fireEvent.press(screen.getByRole('button', { name: 'Lưu lại' }));
+  expect(screen.getByLabelText('Tiêu đề ghi chú ngày')).toBeDisabled();
+  expect(screen.getByLabelText('Nội dung ghi chú trong ngày')).toBeDisabled();
+  await act(async () => rejectSave(new Error('Mất mạng')));
+  expect(screen.getByLabelText('Tiêu đề ghi chú ngày')).toBeEnabled();
+  expect(screen.getByLabelText('Nội dung ghi chú trong ngày').props.value).toBe(
+    'Nội dung',
+  );
 });

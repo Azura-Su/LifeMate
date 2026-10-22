@@ -3,7 +3,7 @@ import { colors, typography } from '../../theme';
 import { actionIconStyles } from '../../theme/actionIcons';
 
 export const categoryReportStyles = StyleSheet.create({
-  container: { gap: 14 },
+  container: { gap: 16 },
   periodCard: {
     gap: 6,
     padding: 10,
@@ -29,7 +29,7 @@ export const categoryReportStyles = StyleSheet.create({
     alignItems: 'center',
     gap: 7,
     paddingHorizontal: 12,
-    borderRadius: 10,
+    borderRadius: 12,
     backgroundColor: colors.skySoft,
   },
   sourcePickerText: { fontSize: 12, fontWeight: '700', color: colors.earth },
@@ -60,7 +60,7 @@ export const categoryReportStyles = StyleSheet.create({
   modeSwitch: {
     flexDirection: 'row',
     padding: 3,
-    borderRadius: 13,
+    borderRadius: 12,
     backgroundColor: colors.skySoft,
   },
   modeButton: {
@@ -130,7 +130,7 @@ export const categoryReportStyles = StyleSheet.create({
   rangeValue: { color: colors.ink, fontSize: 14, fontWeight: '700' },
   summaryCard: {
     overflow: 'hidden',
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surface,
@@ -182,22 +182,16 @@ export const categoryReportStyles = StyleSheet.create({
     color: colors.ink,
   },
   categoryAmount: { fontSize: 13, fontWeight: '700', color: colors.earth },
-  monthList: { gap: 10 },
-  monthTransactions: {
-    gap: 10,
-    padding: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
-  },
+  monthList: { gap: 8 },
+  // Flat container: the day groups inside are already cards.
+  monthTransactions: { gap: 12 },
+  // Soft tinted panel so expanded white day cards read as its content.
   monthCard: {
     gap: 10,
-    padding: 11,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.skySoft,
   },
   monthHeader: {
     minHeight: 48,
@@ -220,7 +214,7 @@ export const categoryReportStyles = StyleSheet.create({
   },
   monthNameBlock: { flex: 1, gap: 2 },
   monthName: { color: colors.ink, fontSize: 14, fontWeight: '700' },
-  monthBreakdown: { ...typography.small, fontSize: 10 },
+  monthBreakdown: { ...typography.small, fontSize: 11, lineHeight: 16 },
   monthPendingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -239,7 +233,7 @@ export const categoryReportStyles = StyleSheet.create({
   monthAddButton: {
     ...actionIconStyles.add,
   },
-  transactionList: { gap: 8 },
+  transactionList: { gap: 12, paddingBottom: 6 },
   emptyState: {
     alignItems: 'center',
     gap: 6,
@@ -255,7 +249,7 @@ export const categoryReportStyles = StyleSheet.create({
     height: 42,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 15,
+    borderRadius: 16,
     backgroundColor: colors.skySoft,
   },
   emptyTitle: {
@@ -264,10 +258,10 @@ export const categoryReportStyles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
   },
-  emptyHint: { ...typography.small, fontSize: 11, textAlign: 'center' },
+  emptyHint: { ...typography.small, fontSize: 12, textAlign: 'center' },
   dialog: { maxHeight: '84%', padding: 20, gap: 14 },
   dialogHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dialogTitle: { flex: 1, ...typography.heading, fontSize: 19, lineHeight: 26 },
+  dialogTitle: { flex: 1, ...typography.dialogTitle },
   dialogYearRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -297,7 +291,7 @@ export const categoryReportStyles = StyleSheet.create({
     minHeight: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 11,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surface,

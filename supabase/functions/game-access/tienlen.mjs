@@ -1,6 +1,6 @@
 import { rank, validCards } from './cards.mjs';
 
-export const TURN_MS = 30000;
+export const TURN_MS = 40000;
 
 export function classify(input) {
   if (!validCards(input)) return null;
@@ -110,10 +110,20 @@ export function newTienLenGame(uids, deck, now, previousWinner = null) {
     state.result = {
       reason: winners[0].reason,
       ranking: [
-        { uid: winners[0].uid, rank: 1, labels: ['instant-win'] },
+        {
+          uid: winners[0].uid,
+          rank: 1,
+          labels: ['instant-win'],
+          remainingCards: 0,
+        },
         ...players
           .filter((p) => p.uid !== winners[0].uid)
-          .map((p) => ({ uid: p.uid, rank: 2, labels: [] })),
+          .map((p) => ({
+            uid: p.uid,
+            rank: 2,
+            labels: [],
+            remainingCards: p.hand.length,
+          })),
       ],
     };
   }
@@ -181,7 +191,7 @@ function complete(state) {
         )
           labels.push('remaining-pairs');
       }
-      return { uid, rank: i + 1, labels };
+      return { uid, rank: i + 1, labels, remainingCards: player.hand.length };
     }),
   };
   return true;

@@ -1,20 +1,18 @@
+import { animateNextLayout } from '../../utils/motion';
 import Feather from '@expo/vector-icons/Feather';
 import type { ComponentProps } from 'react';
 import { useState } from 'react';
-import {
-  Image,
-  Pressable,
-  Text,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { colors } from '../../theme';
 import type { AgendaItem } from '../../types/agenda';
 import type { LifeNote } from '../../types/note';
 import type { PrepChecklist } from '../../types/prepChecklist';
 import { isCalendarNoteForDate } from '../../utils/calendarNotes';
-import { formatAgendaTime, getTodaysAgenda } from '../../utils/agenda';
+import {
+  formatAgendaDate,
+  formatAgendaTime,
+  getTodaysAgenda,
+} from '../../utils/agenda';
 import {
   getVietnamCalendarEvents,
   toDateKey,
@@ -22,7 +20,6 @@ import {
 import { styles } from './HomeScreen.styles';
 
 type IconName = ComponentProps<typeof Feather>['name'];
-type CloudShape = 'calendar' | 'tasks';
 type CalendarEntry = {
   id: string;
   kind: 'holiday' | 'festival' | 'note' | 'checklist';
@@ -46,6 +43,8 @@ type Props = {
   agendaLoading: boolean;
   onOpenCalendar: () => void;
   onOpenTasks: () => void;
+  /** Marks a task done straight from Home. */
+  onCompleteTask?: (id: string) => Promise<void>;
 };
 
 export function HomeTodayCard({
@@ -58,9 +57,13 @@ export function HomeTodayCard({
   agendaLoading,
   onOpenCalendar,
   onOpenTasks,
+  onCompleteTask,
 }: Props) {
-  const [calendarSummaryHeight, setCalendarSummaryHeight] = useState(0);
-  const [tasksSummaryHeight, setTasksSummaryHeight] = useState(0);
+  const [completingIds, setCompletingIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [taskError, setTaskError] = useState<string | null>(null);
+  const [doneIds, setDoneIds] = useState<ReadonlySet<string>>(() => new Set());
   const dateKey = toDateKey(date);
   const dayNotes = notes.filter((note) => isCalendarNoteForDate(note, dateKey));
   const calendarEvents = getVietnamCalendarEvents(date);
@@ -113,179 +116,221 @@ export function HomeTodayCard({
     },
     [],
   );
-  const tasksTop =
-    calendarEntries.length > 0
-      ? Math.max(146, calendarSummaryHeight + 12)
-      : 146;
-  const tasksSummaryTop = tasksTop + 32;
   const todayTasks = getTodaysAgenda(agendaItems, date);
-  const cardsMinHeight = Math.max(
-    322,
-    tasksTop + 176,
-    tasksSummaryTop + tasksSummaryHeight,
-  );
+  const dayStart = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+  ).getTime();
+  const overdueTasks = agendaItems
+    .filter((item) => !item.completed && item.dueAt < dayStart)
+    .sort((a, b) => a.dueAt - b.dueAt);
+  const taskRows = [
+    ...overdueTasks.map((task) => ({ task, overdue: true })),
+    ...todayTasks.map((task) => ({ task, overdue: false })),
+  ].filter(({ task }) => !doneIds.has(task.id));
+  const completeTask = async (id: string) => {
+    if (!onCompleteTask || completingIds.has(id)) return;
+    setTaskError(null);
+    setCompletingIds((current) => new Set(current).add(id));
+    // Hide only while saving; the persisted agenda owns completion afterward.
+    animateNextLayout();
+    setDoneIds((current) => new Set(current).add(id));
+    try {
+      await onCompleteTask(id);
+    } catch {
+      animateNextLayout();
+      setTaskError('Chưa cập nhật được công việc. Hãy thử lại.');
+    } finally {
+      setDoneIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+      setCompletingIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
 
   return (
-    <View
-      testID="home-today-card"
-      style={[styles.todayCards, { minHeight: cardsMinHeight }]}
-    >
-      <TodaySection
-        cloudShape="calendar"
-        icon="calendar"
-        iconColor={colors.earth}
-        iconBackground={colors.primarySoft}
-        title="Lịch"
-        count={calendarCount}
-        countUnit="mục hôm nay"
-        loading={notesLoading || checklistsLoading}
-        onPress={onOpenCalendar}
-        accessibilityLabel="Mở lịch hôm nay"
-        cloudStyle={styles.todayCalendarCloud}
-        headerOffsetX={-11}
-        countOffsetX={-14}
-      />
-      {calendarEntries.length > 0 && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Lịch hôm nay có ${calendarEntries.length} mục: ${calendarGroups
-            .map(
-              (group) =>
-                `${group.label}: ${group.entries
-                  .map(
-                    (entry) =>
-                      `${entry.title}${entry.detail ? `, ${entry.detail}` : ''}`,
-                  )
-                  .join('; ')}`,
-            )
-            .join('. ')}`}
-          onLayout={({ nativeEvent }) =>
-            setCalendarSummaryHeight((current) =>
-              current === nativeEvent.layout.height
-                ? current
-                : nativeEvent.layout.height,
-            )
-          }
+    <View testID="home-today-card" style={styles.todayCards}>
+      <View style={styles.todayCard}>
+        <TodaySectionHeader
+          icon="calendar"
+          iconColor={colors.earth}
+          iconBackground={colors.primarySoft}
+          title="Lịch"
+          count={calendarCount}
+          countUnit="mục hôm nay"
+          loading={notesLoading || checklistsLoading}
           onPress={onOpenCalendar}
-          style={styles.todayCalendarSummary}
-        >
-          <View style={styles.todayCalendarSummaryHeader}>
-            <Feather name="calendar" size={12} color={colors.earth} />
-            <Text style={styles.todayCalendarSummaryTitle}>Hôm nay</Text>
-          </View>
-          {calendarGroups.map((group) => (
-            <View key={group.kind} style={styles.todayCalendarSummaryGroup}>
-              <Text
-                style={[
-                  styles.todayCalendarSummaryKind,
-                  group.kind === 'holiday' && styles.todayHolidayKind,
-                  group.kind === 'festival' && styles.todayFestivalKind,
-                  group.kind === 'note' && styles.todayNoteKind,
-                  group.kind === 'checklist' && styles.todayChecklistKind,
-                ]}
-              >
-                {group.label}
-              </Text>
-              {group.entries.map((entry) => (
-                <View key={entry.id} style={styles.todayCalendarSummaryEntry}>
-                  <View style={styles.todayCalendarBullet} />
-                  <View style={styles.todayCalendarSummaryCopy}>
-                    <Text style={styles.todayCalendarEntryTitle}>
-                      {entry.title}
-                    </Text>
-                    {!!entry.detail && (
-                      <Text
-                        numberOfLines={
-                          entry.kind === 'note' && dayNotes.length >= 3 ? 1 : 2
-                        }
-                        ellipsizeMode="tail"
-                        style={styles.todayCalendarEntryDetail}
-                      >
-                        {entry.detail}
+          accessibilityLabel="Mở lịch hôm nay"
+        />
+        {calendarEntries.length > 0 && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Lịch hôm nay có ${calendarEntries.length} mục: ${calendarGroups
+              .map(
+                (group) =>
+                  `${group.label}: ${group.entries
+                    .map(
+                      (entry) =>
+                        `${entry.title}${entry.detail ? `, ${entry.detail}` : ''}`,
+                    )
+                    .join('; ')}`,
+              )
+              .join('. ')}`}
+            onPress={onOpenCalendar}
+            style={({ pressed }) => [
+              styles.todayList,
+              pressed && styles.todayPressed,
+            ]}
+          >
+            {calendarGroups.map((group) => (
+              <View key={group.kind} style={styles.todayGroup}>
+                <Text
+                  style={[
+                    styles.todayKind,
+                    group.kind === 'holiday' && styles.todayHolidayKind,
+                    group.kind === 'festival' && styles.todayFestivalKind,
+                    group.kind === 'note' && styles.todayNoteKind,
+                    group.kind === 'checklist' && styles.todayChecklistKind,
+                  ]}
+                >
+                  {group.label}
+                </Text>
+                {group.entries.map((entry) => (
+                  <View key={entry.id} style={styles.todayEntry}>
+                    <View style={styles.todayBullet} />
+                    <View style={styles.todayEntryCopy}>
+                      <Text numberOfLines={1} style={styles.todayEntryTitle}>
+                        {entry.title}
                       </Text>
-                    )}
+                      {!!entry.detail && (
+                        <Text
+                          numberOfLines={
+                            entry.kind === 'note' && dayNotes.length >= 3
+                              ? 1
+                              : 2
+                          }
+                          ellipsizeMode="tail"
+                          style={styles.todayEntryDetail}
+                        >
+                          {entry.detail}
+                        </Text>
+                      )}
+                    </View>
                   </View>
-                </View>
-              ))}
-            </View>
-          ))}
-        </Pressable>
-      )}
-
-      {todayTasks.length > 0 && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Việc cần làm hôm nay có ${todayTasks.length} việc: ${todayTasks
-            .map(
-              (task) =>
-                `${task.title}, ${formatAgendaTime(new Date(task.dueAt))}${task.details.trim() ? `, ${task.details.trim()}` : ''}`,
-            )
-            .join('; ')}`}
-          onLayout={({ nativeEvent }) =>
-            setTasksSummaryHeight((current) =>
-              current === nativeEvent.layout.height
-                ? current
-                : nativeEvent.layout.height,
-            )
-          }
-          onPress={onOpenTasks}
-          style={[styles.todayTasksSummary, { top: tasksSummaryTop }]}
-        >
-          <View style={styles.todayCalendarSummaryHeader}>
-            <Feather name="check-square" size={12} color={colors.sky} />
-            <Text style={styles.todayCalendarSummaryTitle}>Hôm nay</Text>
-          </View>
-          <View style={styles.todayCalendarSummaryGroup}>
-            {todayTasks.map((task) => (
-              <View key={task.id} style={styles.todayCalendarSummaryEntry}>
-                <View
-                  style={[styles.todayCalendarBullet, styles.todayAgendaBullet]}
-                />
-                <View style={styles.todayCalendarSummaryCopy}>
-                  <Text style={styles.todayCalendarEntryTitle}>
-                    {task.title}
-                  </Text>
-                  <Text
-                    numberOfLines={2}
-                    ellipsizeMode="tail"
-                    style={styles.todayCalendarEntryDetail}
-                  >
-                    {[
-                      formatAgendaTime(new Date(task.dueAt)),
-                      task.details.trim(),
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </Text>
-                </View>
+                ))}
               </View>
             ))}
-          </View>
-        </Pressable>
-      )}
+          </Pressable>
+        )}
+      </View>
 
-      <TodaySection
-        cloudShape="tasks"
-        icon="check-square"
-        iconColor={colors.sky}
-        iconBackground={colors.skySoft}
-        title="Việc cần làm"
-        count={todayTasks.length}
-        countUnit="việc hôm nay"
-        loading={agendaLoading}
-        onPress={onOpenTasks}
-        accessibilityLabel="Mở việc hôm nay"
-        cloudStyle={[styles.todayTasksCloud, { marginTop: tasksTop }]}
-        horizontalOffset={16}
-        headerOffsetX={-13}
-        countOffsetX={-15}
-      />
+      <View style={styles.todayCard}>
+        <TodaySectionHeader
+          icon="check-square"
+          iconColor={colors.sky}
+          iconBackground={colors.skySoft}
+          title="Việc cần làm"
+          count={todayTasks.length}
+          countUnit="việc hôm nay"
+          loading={agendaLoading}
+          onPress={onOpenTasks}
+          accessibilityLabel="Mở việc hôm nay"
+        />
+        {overdueTasks.length > 0 && !agendaLoading && (
+          <Text style={styles.todayOverdueBadge}>
+            {overdueTasks.length} việc quá hạn
+          </Text>
+        )}
+        {taskRows.length > 0 && (
+          <View style={styles.todayList}>
+            {taskRows.map(({ task, overdue }) => {
+              const completing = completingIds.has(task.id);
+              const due = new Date(task.dueAt);
+              return (
+                <View key={task.id} style={styles.todayTaskRow}>
+                  {onCompleteTask && (
+                    <Pressable
+                      accessibilityRole="checkbox"
+                      accessibilityLabel={`Hoàn thành ${task.title}`}
+                      accessibilityState={{
+                        checked: false,
+                        disabled: completing,
+                        busy: completing,
+                      }}
+                      disabled={completing}
+                      hitSlop={6}
+                      onPress={() => void completeTask(task.id)}
+                      style={styles.todayCheck}
+                    >
+                      {completing ? (
+                        <ActivityIndicator size="small" color={colors.earth} />
+                      ) : (
+                        <Feather
+                          name="circle"
+                          size={20}
+                          color={overdue ? colors.danger : colors.muted}
+                        />
+                      )}
+                    </Pressable>
+                  )}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${overdue ? 'Quá hạn: ' : ''}${task.title}, ${overdue ? `${formatAgendaDate(due)} ` : ''}${formatAgendaTime(due)}${task.details.trim() ? `, ${task.details.trim()}` : ''}`}
+                    onPress={onOpenTasks}
+                    style={({ pressed }) => [
+                      styles.todayEntry,
+                      styles.todayTaskBody,
+                      pressed && styles.todayPressedText,
+                    ]}
+                  >
+                    <View style={styles.todayEntryCopy}>
+                      <Text numberOfLines={1} style={styles.todayEntryTitle}>
+                        {task.title}
+                      </Text>
+                      {!!task.details.trim() && (
+                        <Text
+                          numberOfLines={2}
+                          ellipsizeMode="tail"
+                          style={styles.todayEntryDetail}
+                        >
+                          {task.details.trim()}
+                        </Text>
+                      )}
+                    </View>
+                    <Text
+                      style={[
+                        styles.todayTime,
+                        overdue && styles.todayOverdueTime,
+                      ]}
+                    >
+                      {overdue
+                        ? formatAgendaDate(due).slice(0, 5)
+                        : formatAgendaTime(due)}
+                    </Text>
+                  </Pressable>
+                </View>
+              );
+            })}
+            {!!taskError && (
+              <Text accessibilityRole="alert" style={styles.todayError}>
+                {taskError}
+              </Text>
+            )}
+          </View>
+        )}
+      </View>
     </View>
   );
 }
 
-function TodaySection({
-  cloudShape,
+function TodaySectionHeader({
   icon,
   iconColor,
   iconBackground,
@@ -295,12 +340,7 @@ function TodaySection({
   loading,
   onPress,
   accessibilityLabel,
-  cloudStyle,
-  horizontalOffset = 0,
-  headerOffsetX,
-  countOffsetX,
 }: {
-  cloudShape: CloudShape;
   icon: IconName;
   iconColor: string;
   iconBackground: string;
@@ -310,10 +350,6 @@ function TodaySection({
   loading: boolean;
   onPress: () => void;
   accessibilityLabel: string;
-  cloudStyle: StyleProp<ViewStyle>;
-  horizontalOffset?: number;
-  headerOffsetX: number;
-  countOffsetX: number;
 }) {
   return (
     <Pressable
@@ -321,60 +357,24 @@ function TodaySection({
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       style={({ pressed }) => [
-        styles.todayCloud,
-        cloudStyle,
-        horizontalOffset !== 0 && {
-          transform: [{ translateX: horizontalOffset }],
-        },
-        pressed && styles.todayCloudPressed,
-        pressed &&
-          horizontalOffset !== 0 && {
-            transform: [{ translateX: horizontalOffset }, { scale: 0.98 }],
-          },
+        styles.todayHeader,
+        pressed && styles.todayPressed,
       ]}
     >
-      <View pointerEvents="none" style={styles.todayCloudArt}>
-        <Image
-          accessible={false}
-          source={
-            cloudShape === 'calendar'
-              ? require('../../../assets/home-cloud-calendar.png')
-              : require('../../../assets/home-cloud-tasks.png')
-          }
-          resizeMode="stretch"
-          style={styles.todayCloudImage}
-        />
+      <View style={[styles.todayIcon, { backgroundColor: iconBackground }]}>
+        <Feather name={icon} size={16} color={iconColor} />
       </View>
-      <View style={styles.todayCloudContent}>
-        <View
-          style={[
-            styles.todaySectionHeader,
-            { transform: [{ translateX: headerOffsetX }] },
-          ]}
-        >
-          <View
-            style={[
-              styles.todaySectionIcon,
-              { backgroundColor: iconBackground },
-            ]}
-          >
-            <Feather name={icon} size={15} color={iconColor} />
-          </View>
-          <Text accessibilityRole="header" style={styles.todaySectionTitle}>
-            {title}
-          </Text>
-        </View>
-        <View style={styles.todayCountRule}>
-          <Text
-            style={[
-              styles.todayCount,
-              { transform: [{ translateX: countOffsetX }] },
-            ]}
-          >
-            {loading ? '…' : `${count} ${countUnit}`}
-          </Text>
-        </View>
+      <View style={styles.todayHeaderCopy}>
+        <Text accessibilityRole="header" style={styles.todayTitle}>
+          {title}
+        </Text>
+        {loading ? (
+          <ActivityIndicator size="small" color={colors.muted} />
+        ) : (
+          <Text style={styles.todayCount}>{`${count} ${countUnit}`}</Text>
+        )}
       </View>
+      <Feather name="chevron-right" size={18} color={colors.muted} />
     </Pressable>
   );
 }
