@@ -107,6 +107,27 @@ export function PhomGameTable({
             ),
           )
       : [];
+  const ownPublic =
+    playing && (own.discards.length > 0 || own.melds.length > 0) ? (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.publicRow}
+        testID="phom-own-public-cards"
+      >
+        {own.discards.length > 0 && (
+          <>
+            <Text style={s.caption}>Đã đánh</Text>
+            <PhomMiniCards cards={own.discards} />
+          </>
+        )}
+        {own.melds.map((g, i) => (
+          <View style={s.meld} key={i}>
+            <PhomMiniCards cards={g} />
+          </View>
+        ))}
+      </ScrollView>
+    ) : null;
   function submit(
     phomAction: PhomAction,
     extra: Partial<Extract<GameIntent, { type: 'play' }>> = {},
@@ -128,10 +149,13 @@ export function PhomGameTable({
       <View testID="phom-board" style={[s.board, landscape && s.compactBoard]}>
         <ScrollView
           style={s.scroll}
-          contentContainerStyle={s.boardContent}
+          contentContainerStyle={[
+            s.boardContent,
+            landscape && s.compactBoardContent,
+          ]}
           nestedScrollEnabled
         >
-          <View style={s.seatRow}>
+          <View style={[s.seatRow, landscape && s.compactSeatRow]}>
             {seats
               .filter((seat) => seat.uid !== uid)
               .map((seat) => (
@@ -147,19 +171,30 @@ export function PhomGameTable({
           </View>
           {playing ? (
             <View style={[s.center, landscape && s.compactCenter]}>
-              <Text accessibilityLiveRegion="polite" style={s.live}>
-                {myTurn
-                  ? 'Bạn đang đánh'
-                  : `${game.players.find((p) => p.uid === game.turn)?.name ?? room.members.find((p) => p.uid === game.turn)?.name ?? 'Người chơi'} đang đánh`}
-              </Text>
-              <View style={s.row}>
-                <View style={[s.stock, landscape && s.compactStock]}>
-                  {!landscape && <Text style={s.name}>◆</Text>}
+              <View style={s.livePill}>
+                <View style={s.liveDot} />
+                <Text accessibilityLiveRegion="polite" style={s.live}>
+                  {myTurn
+                    ? 'Bạn đang đánh'
+                    : `${game.players.find((p) => p.uid === game.turn)?.name ?? room.members.find((p) => p.uid === game.turn)?.name ?? 'Người chơi'} đang đánh`}
+                </Text>
+              </View>
+              <View style={s.pileRow}>
+                <View style={s.pile}>
+                  <View style={[s.stock, landscape && s.compactStock]}>
+                    <View style={s.stockInner}>
+                      <Text style={s.stockMark}>◆</Text>
+                    </View>
+                  </View>
                   <Text style={s.caption}>Nọc {game.stockCount}</Text>
                 </View>
                 {game.lastDiscard && (
-                  <View>
-                    <PhomMiniCards cards={[game.lastDiscard.card]} />
+                  <View style={s.pile}>
+                    <PlayingCard
+                      card={game.lastDiscard.card}
+                      stacked
+                      compact={landscape}
+                    />
                     <Text style={s.caption}>
                       {game.lastDiscard.chot ? 'Cây chốt' : 'Vừa đánh'}
                     </Text>
@@ -191,7 +226,7 @@ export function PhomGameTable({
           {
             maxHeight: Math.max(
               140,
-              (availableHeight || height - 100) * (landscape ? 0.64 : 0.5),
+              (availableHeight || height - 100) * (landscape ? 0.62 : 0.5),
             ),
           },
         ]}
@@ -202,12 +237,20 @@ export function PhomGameTable({
             accessibilityLabel={`Thông tin người chơi ${member?.name ?? 'Bạn'}`}
             onPress={() => onPlayerPress?.(uid)}
             disabled={!onPlayerPress}
-            style={{ flex: 1, minWidth: 0 }}
+            style={
+              landscape
+                ? { flexShrink: 1, maxWidth: 200 }
+                : { flex: 1, minWidth: 0 }
+            }
           >
-            <Text numberOfLines={2} style={s.name}>
-              {member?.name ?? 'Bạn'} · {phomMoney(member?.balance ?? 0)}
+            <Text numberOfLines={1} style={s.name}>
+              {member?.name ?? 'Bạn'}{' '}
+              <Text style={s.caption}>· {phomMoney(member?.balance ?? 0)}</Text>
             </Text>
           </Pressable>
+          {landscape && playing && (
+            <View style={{ flex: 1, minWidth: 0 }}>{ownPublic}</View>
+          )}
           {myTurn && (
             <Text
               accessibilityLabel={`Còn ${seconds} giây`}
@@ -222,17 +265,19 @@ export function PhomGameTable({
                 accessibilityRole="button"
                 accessibilityLabel="Bài đã đánh và phỏm trên bàn"
                 onPress={() => setPublicOpen(true)}
-                style={styles.iconButton}
+                style={s.chip}
+                hitSlop={6}
               >
-                <Text style={s.caption}>Bài bàn</Text>
+                <Text style={s.chipText}>Bài bàn</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={sortSuit ? 'Xếp số' : 'Xếp chất'}
                 onPress={() => setSortSuit((v) => !v)}
-                style={styles.iconButton}
+                style={s.chip}
+                hitSlop={6}
               >
-                <Text style={s.caption}>
+                <Text style={s.chipText}>
                   {sortSuit ? 'Xếp số' : 'Xếp chất'}
                 </Text>
               </Pressable>
@@ -241,165 +286,157 @@ export function PhomGameTable({
         </View>
         {playing ? (
           <>
-            <ScrollView style={s.handBody} nestedScrollEnabled>
-              {(own.discards.length > 0 || own.melds.length > 0) && (
+            <View style={landscape ? s.playRow : s.handBody}>
+              <ScrollView
+                style={landscape ? s.handArea : s.handBody}
+                nestedScrollEnabled
+              >
+                {!landscape && ownPublic}
                 <ScrollView
                   horizontal
-                  contentContainerStyle={s.row}
-                  testID="phom-own-public-cards"
+                  style={s.handScroll}
+                  onLayout={(event) =>
+                    setHandWidth(event.nativeEvent.layout.width)
+                  }
+                  contentContainerStyle={s.hand}
                 >
-                  {own.discards.length > 0 && (
-                    <>
-                      <Text style={s.caption}>Đã đánh</Text>
-                      <PhomMiniCards cards={own.discards} />
-                    </>
-                  )}
-                  {own.melds.map((g, i) => (
-                    <View style={s.meld} key={i}>
-                      <PhomMiniCards cards={g} />
-                    </View>
-                  ))}
-                </ScrollView>
-              )}
-              <ScrollView
-                horizontal
-                style={s.handScroll}
-                onLayout={(event) =>
-                  setHandWidth(event.nativeEvent.layout.width)
-                }
-                contentContainerStyle={s.hand}
-              >
-                {hand.map((card, index) => (
-                  <PlayingCard
-                    key={card}
-                    card={card}
-                    stacked
-                    compact={landscape || stack.compact}
-                    stackIndex={index}
-                    stackOverlap={stack.overlap}
-                    stackLast={index === hand.length - 1}
-                    selected={selected.includes(card)}
-                    disabled={!canAct || groups.flat().includes(card)}
-                    onPress={() =>
-                      setSelected((current) =>
-                        current.includes(card)
-                          ? current.filter((c) => c !== card)
-                          : [...current, card],
-                      )
-                    }
-                  />
-                ))}
-              </ScrollView>
-              {groups.length > 0 && (
-                <ScrollView horizontal contentContainerStyle={s.row}>
-                  {groups.map((g, i) => (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Bỏ phỏm đang xếp ${i + 1}`}
-                      key={i}
+                  {hand.map((card, index) => (
+                    <PlayingCard
+                      key={card}
+                      card={card}
+                      stacked
+                      compact={landscape || stack.compact}
+                      stackIndex={index}
+                      stackOverlap={stack.overlap}
+                      stackLast={index === hand.length - 1}
+                      selected={selected.includes(card)}
+                      disabled={!canAct || groups.flat().includes(card)}
                       onPress={() =>
-                        setGroups((current) =>
-                          current.filter((_, j) => j !== i),
+                        setSelected((current) =>
+                          current.includes(card)
+                            ? current.filter((c) => c !== card)
+                            : [...current, card],
                         )
                       }
-                      style={s.meld}
-                    >
-                      <PhomMiniCards cards={g} />
-                      <Text>×</Text>
-                    </Pressable>
+                    />
                   ))}
                 </ScrollView>
-              )}
-            </ScrollView>
-            {myTurn && (
-              <View style={s.actions}>
-                {game.step === 'draw' ? (
-                  <>
-                    <View style={s.action}>
-                      <Button
-                        compact
-                        title="Ăn bài"
-                        disabled={!canAct || !game.canEat}
-                        onPress={() => submit('eat')}
-                      />
-                    </View>
-                    <View style={s.action}>
-                      <Button
-                        compact
-                        title="Bốc bài"
-                        disabled={!canAct}
-                        onPress={() => submit('draw')}
-                      />
-                    </View>
-                  </>
-                ) : game.step === 'lay' ? (
-                  <>
-                    <View style={s.action}>
-                      <Button
-                        compact
-                        title={groups.length ? 'Hạ phỏm đã xếp' : 'Hạ phỏm'}
-                        disabled={!canAct}
+                {groups.length > 0 && (
+                  <ScrollView horizontal contentContainerStyle={s.row}>
+                    {groups.map((g, i) => (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Bỏ phỏm đang xếp ${i + 1}`}
+                        key={i}
                         onPress={() =>
-                          submit('lay', groups.length ? { melds: groups } : {})
+                          setGroups((current) =>
+                            current.filter((_, j) => j !== i),
+                          )
                         }
-                      />
-                    </View>
-                    <View style={s.action}>
+                        style={s.meld}
+                      >
+                        <PhomMiniCards cards={g} />
+                        <Text>×</Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                )}
+              </ScrollView>
+              {myTurn && (
+                <View style={[s.actions, landscape && s.compactActions]}>
+                  {game.step === 'draw' ? (
+                    <>
+                      <View style={[s.action, landscape && s.compactAction]}>
+                        <Button
+                          compact
+                          title="Ăn bài"
+                          disabled={!canAct || !game.canEat}
+                          onPress={() => submit('eat')}
+                        />
+                      </View>
+                      <View style={[s.action, landscape && s.compactAction]}>
+                        <Button
+                          compact
+                          title="Bốc bài"
+                          disabled={!canAct}
+                          onPress={() => submit('draw')}
+                        />
+                      </View>
+                    </>
+                  ) : game.step === 'lay' ? (
+                    <>
+                      <View style={[s.action, landscape && s.compactAction]}>
+                        <Button
+                          compact
+                          title={groups.length ? 'Hạ phỏm đã xếp' : 'Hạ phỏm'}
+                          disabled={!canAct}
+                          onPress={() =>
+                            submit(
+                              'lay',
+                              groups.length ? { melds: groups } : {},
+                            )
+                          }
+                        />
+                      </View>
+                      <View style={[s.action, landscape && s.compactAction]}>
+                        <Button
+                          compact
+                          variant="secondary"
+                          title="Xếp phỏm đã chọn"
+                          disabled={
+                            !canAct || selected.length < 3 || groups.length >= 3
+                          }
+                          onPress={() => {
+                            setGroups((current) => [...current, selected]);
+                            setSelected([]);
+                          }}
+                        />
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <View style={[s.action, landscape && s.compactAction]}>
+                        <Button
+                          compact
+                          title="Đánh 1 lá"
+                          disabled={
+                            !canAct ||
+                            selected.length !== 1 ||
+                            own.eaten.includes(selected[0])
+                          }
+                          onPress={() => submit('discard')}
+                        />
+                      </View>
+                      {phomOptions(room.phomConfig).send &&
+                        own.laid &&
+                        own.melds.length > 0 && (
+                          <View
+                            style={[s.action, landscape && s.compactAction]}
+                          >
+                            <Button
+                              compact
+                              variant="secondary"
+                              title="Gửi bài"
+                              disabled={!canAct || destinations.length === 0}
+                              onPress={() => setSendOpen(true)}
+                            />
+                          </View>
+                        )}
+                    </>
+                  )}
+                  {game.canU && (
+                    <View style={[s.action, landscape && s.compactAction]}>
                       <Button
                         compact
-                        variant="secondary"
-                        title="Xếp phỏm đã chọn"
-                        disabled={
-                          !canAct || selected.length < 3 || groups.length >= 3
-                        }
-                        onPress={() => {
-                          setGroups((current) => [...current, selected]);
-                          setSelected([]);
-                        }}
+                        title="Ù"
+                        disabled={!canAct}
+                        onPress={() => submit('u')}
                       />
                     </View>
-                  </>
-                ) : (
-                  <>
-                    <View style={s.action}>
-                      <Button
-                        compact
-                        title="Đánh 1 lá"
-                        disabled={
-                          !canAct ||
-                          selected.length !== 1 ||
-                          own.eaten.includes(selected[0])
-                        }
-                        onPress={() => submit('discard')}
-                      />
-                    </View>
-                    {phomOptions(room.phomConfig).send &&
-                      own.laid &&
-                      own.melds.length > 0 && (
-                        <View style={s.action}>
-                          <Button
-                            compact
-                            variant="secondary"
-                            title="Gửi bài"
-                            disabled={!canAct || destinations.length === 0}
-                            onPress={() => setSendOpen(true)}
-                          />
-                        </View>
-                      )}
-                  </>
-                )}
-                {game.canU && (
-                  <View style={s.action}>
-                    <Button
-                      compact
-                      title="Ù"
-                      disabled={!canAct}
-                      onPress={() => submit('u')}
-                    />
-                  </View>
-                )}
-              </View>
-            )}
+                  )}
+                </View>
+              )}
+            </View>
           </>
         ) : (
           <>

@@ -67,6 +67,19 @@ export function PhomSeat({
     player.count <= 10
       ? player.count
       : null;
+  const status = !player
+    ? member?.ready
+      ? 'Sẵn sàng'
+      : 'Đang chờ'
+    : player.forfeited
+      ? 'Bỏ cuộc'
+      : player.laid
+        ? player.melds.length
+          ? 'Đã hạ'
+          : 'Móm'
+        : `Lượt ${Math.min(player.turns + 1, 4)}/4`;
+  const hasPublic =
+    !!player && (player.discards.length > 0 || player.melds.length > 0);
   return (
     <View
       testID={`phom-seat-${uid}`}
@@ -77,8 +90,8 @@ export function PhomSeat({
         accessibilityLabel={`Thông tin người chơi ${name}`}
         onPress={() => onPlayerPress?.(uid)}
         disabled={!onPlayerPress || !member}
-        style={[s.playerHeading, landscape && s.compactPlayerHeading]}
-        hitSlop={landscape ? 6 : undefined}
+        style={s.playerHeading}
+        hitSlop={6}
       >
         <View style={s.avatar}>
           <Text style={s.name}>{name.slice(0, 1).toUpperCase()}</Text>
@@ -89,55 +102,41 @@ export function PhomSeat({
             size={32}
           />
         </View>
-        <View style={{ flex: 1 }}>
-          <Text numberOfLines={2} style={s.name}>
+        <View style={s.playerCopy}>
+          <Text numberOfLines={1} style={s.name}>
             {name}
           </Text>
-          <Text style={s.caption}>
-            {phomMoney(player?.balance ?? member?.balance ?? 0)}
-          </Text>
+          <View style={s.meta}>
+            <Text style={s.caption}>
+              {phomMoney(player?.balance ?? member?.balance ?? 0)}
+            </Text>
+            {count !== null && (
+              <>
+                <Text style={s.dot}>•</Text>
+                <Text style={s.caption}>Còn {count} lá</Text>
+              </>
+            )}
+          </View>
         </View>
-      </Pressable>
-      <View style={landscape ? [s.row, s.wrap] : undefined}>
-        {count !== null && <Text style={s.caption}>Còn {count} lá</Text>}
         {turn ? (
           <Text
             accessibilityLiveRegion="polite"
-            style={[
-              s.timer,
-              landscape && s.compactTimer,
-              seconds <= 5 && s.timerUrgent,
-            ]}
+            accessibilityLabel={`Đang đánh, còn ${seconds} giây`}
+            style={[s.timer, seconds <= 5 && s.timerUrgent]}
           >
-            {seconds}s <Text style={s.caption}>Đang đánh</Text>
+            {seconds}s
           </Text>
         ) : (
-          <Text style={s.caption}>
-            {!player
-              ? member?.ready
-                ? 'Sẵn sàng'
-                : 'Đang chờ'
-              : player.forfeited
-                ? 'Bỏ cuộc'
-                : player.laid
-                  ? player.melds.length
-                    ? 'Đã hạ'
-                    : 'Móm'
-                  : `Lượt ${Math.min(player.turns + 1, 4)}/4`}
-          </Text>
+          <Text style={s.caption}>{status}</Text>
         )}
-      </View>
-      {player && !landscape && (
+      </Pressable>
+      {player && hasPublic && !landscape && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={s.row}
         >
-          {player.discards.length > 0 ? (
-            <PhomMiniCards cards={player.discards} />
-          ) : (
-            <Text style={s.caption}>Chưa đánh</Text>
-          )}
+          <PhomMiniCards cards={player.discards} />
           {player.melds.map((group, i) => (
             <View key={i} style={s.meld}>
               <PhomMiniCards cards={group} />

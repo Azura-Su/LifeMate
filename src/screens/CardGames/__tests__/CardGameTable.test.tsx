@@ -140,9 +140,9 @@ it('uses the wide table layout when the match is in landscape', () => {
   });
   expect(StyleSheet.flatten(styles.landscapeOpponent)).toMatchObject({
     flexDirection: 'row',
-    width: 168,
+    width: 196,
     minWidth: 156,
-    maxWidth: 200,
+    maxWidth: 220,
   });
   expect(StyleSheet.flatten(styles.landscapeOpponentCopy).minWidth).toBe(84);
   expect(screen.getByTestId('remaining-cards-b')).toHaveTextContent(
