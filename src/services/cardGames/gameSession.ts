@@ -49,6 +49,7 @@ export function createGameSession(deps: Dependencies) {
   let readError = false;
   let refreshConflict: GameRequest | null = null;
   let lastRemovalId: string | null = null;
+  let optionsKnown = false;
   const emit = (patch: Partial<GameSessionState>) => {
     state = {
       ...state,
@@ -61,7 +62,20 @@ export function createGameSession(deps: Dependencies) {
     const abort = new AbortController();
     requests.add(abort);
     try {
-      return await deps.request(input, abort.signal);
+      const room = state.snapshot?.room;
+      const needsOptions =
+        optionsKnown ||
+        room?.phomConfig?.options ||
+        room?.nextPhomConfig?.options;
+      const snapshot = await deps.request(
+        needsOptions ? { ...input, requiredClientVersion: 7 } : input,
+        abort.signal,
+      );
+      optionsKnown = !!(
+        snapshot.room?.phomConfig?.options ||
+        snapshot.room?.nextPhomConfig?.options
+      );
+      return snapshot;
     } finally {
       requests.delete(abort);
     }
@@ -355,6 +369,17 @@ export function createGameSession(deps: Dependencies) {
       if (!['create', 'join'].includes(intent.type)) {
         if (!room) return;
         input.roomId = room.id;
+        if (
+          room.phomConfig?.options ||
+          room.nextPhomConfig?.options ||
+          (intent.type === 'set-phom-rules' && intent.phomConfig.options)
+        )
+          input.requiredClientVersion = 7;
+        else if (room.nextPhomConfig || intent.type === 'set-phom-rules')
+          input.requiredClientVersion = 6;
+        else if (room.nextSouthRules || intent.type === 'set-south-rules')
+          input.requiredClientVersion = 5;
+        else if (room.southConfig) input.requiredClientVersion = 4;
       }
       if (intent.type !== 'takeover') input.actionId = deps.uuid();
       if (!['create', 'join', 'takeover'].includes(intent.type)) {

@@ -1,4 +1,5 @@
 import { rank, validCards } from './cards.mjs';
+import { configuredSouth, validateSouthConfig } from './tienlen-scoring.mjs';
 
 export const TURN_MS = 40000;
 
@@ -58,7 +59,8 @@ function instant(hand) {
   return null;
 }
 
-export function newTienLenGame(uids, deck, now, previousWinner = null) {
+export function newTienLenGame(uids, deck, now, previousWinner = null, config) {
+  if (config !== undefined) validateSouthConfig(config);
   if (
     uids.length < 2 ||
     uids.length > 4 ||
@@ -89,6 +91,11 @@ export function newTienLenGame(uids, deck, now, previousWinner = null) {
     stock: deck.slice(uids.length * 13),
     deadline: now + TURN_MS,
     result: null,
+    ...(configuredSouth(config) && {
+      rulesVersion: 'south-v2',
+      southConfig: { ...config },
+      cutTwoFees: [],
+    }),
   };
   const priority = ['dragon', 'four-twos', 'six-pairs'];
   const order = [
@@ -148,7 +155,10 @@ function nextSeat(state, after, candidates) {
 
 function complete(state) {
   const remaining = live(state);
-  if (remaining.length > 1) return false;
+  const early =
+    state.southConfig?.finishMode === 'first-winner' &&
+    state.finishOrder.length > 0;
+  if (remaining.length > 1 && !early) return false;
   const order = [
     ...state.finishOrder,
     ...remaining.map((p) => p.uid),
@@ -163,13 +173,22 @@ function complete(state) {
     return true;
   }
   state.result = {
-    reason: state.forfeited.length ? 'forfeit' : 'played-out',
+    reason: early
+      ? 'first-winner'
+      : state.forfeited.length
+        ? 'forfeit'
+        : 'played-out',
     ranking: order.map((uid, i) => {
       const player = state.players.find((p) => p.uid === uid);
       const labels = [];
       if (state.forfeited.includes(uid)) labels.push('forfeit');
       if (state.cong?.includes(uid)) labels.push('cong');
-      if (remaining[0]?.uid === uid && i > 0) {
+      if (
+        (early
+          ? remaining.some((p) => p.uid === uid)
+          : remaining[0]?.uid === uid) &&
+        i > 0
+      ) {
         if (player.hand.some((c) => rank(c) === 12))
           labels.push('remaining-twos');
         if (
@@ -191,7 +210,12 @@ function complete(state) {
         )
           labels.push('remaining-pairs');
       }
-      return { uid, rank: i + 1, labels, remainingCards: player.hand.length };
+      return {
+        uid,
+        rank: early && remaining.some((p) => p.uid === uid) ? 2 : i + 1,
+        labels,
+        remainingCards: player.hand.length,
+      };
     }),
   };
   return true;
@@ -254,6 +278,24 @@ export function playTienLen(input, uid, action, now) {
   state.cong ??= [];
   if (action.type === 'pass') state.passed.push(uid);
   else {
+    const last = state.table && classify(state.table.cards);
+    if (
+      state.southConfig &&
+      state.table?.uid !== uid &&
+      last &&
+      ['single', 'pair', 'triple'].includes(last.kind) &&
+      rank(last.high) === 12 &&
+      (combination.kind === 'quad' || combination.kind === 'pairs')
+    ) {
+      const amount = state.table.cards.length * state.southConfig.cutTwoAmount;
+      if (amount)
+        (state.cutTwoFees ??= []).push({
+          from: state.table.uid,
+          to: uid,
+          count: state.table.cards.length,
+          amount,
+        });
+    }
     const next = state.players.find((p) => p.uid === uid);
     next.hand = next.hand.filter((c) => !action.cards.includes(c));
     next.played += action.cards.length;
@@ -343,5 +385,9 @@ export function viewTienLen(state, uid) {
     openingCard: uid === state.turn ? state.openingCard : null,
     deadline: state.deadline,
     result: structuredClone(state.result),
+    ...(state.southConfig && {
+      southConfig: { ...state.southConfig },
+      cutTwoFees: structuredClone(state.cutTwoFees ?? []),
+    }),
   };
 }

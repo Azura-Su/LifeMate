@@ -1,6 +1,7 @@
 import { getAuth, getIdToken } from '@react-native-firebase/auth';
 import { useAuthStore } from '../../../store/authStore';
 import { GameApiError, gameRequest } from '../gameApi';
+import { DEFAULT_PHOM_CONFIG } from '../phomConfig';
 
 jest.mock('@react-native-firebase/auth', () => ({
   getAuth: jest.fn(),
@@ -11,6 +12,41 @@ jest.mock('../../../config/audioCloud', () => ({
   audioCloudApiKey: () => 'public-test-key',
 }));
 const originalFetch = global.fetch;
+it.each(['create', 'set-phom-rules'] as const)(
+  'never drops optional Phỏm rules when %s reaches an older server',
+  async (type) => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue({
+        status: 400,
+        ok: false,
+        json: async () => ({ error: 'invalid-input' }),
+      });
+    global.fetch = fetchMock;
+    const phomConfig = {
+      ...DEFAULT_PHOM_CONFIG,
+      options: { tai: true, send: false, uDen: false },
+    };
+    await expect(
+      gameRequest(
+        'a',
+        {
+          type,
+          game: 'phom',
+          phomConfig,
+          name: 'An',
+          sessionId: 'session',
+        } as never,
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ code: 'game-update-required' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      clientVersion: 7,
+      phomConfig,
+    });
+  },
+);
 beforeEach(() => {
   useAuthStore
     .getState()
@@ -62,15 +98,39 @@ it('parses room status separately from a player room snapshot', async () => {
   await expect(
     gameRequest(
       'a',
-      { type: 'room-status', roomId, sessionId: '11111111-1111-4111-8111-111111111111' },
+      {
+        type: 'room-status',
+        roomId,
+        sessionId: '11111111-1111-4111-8111-111111111111',
+      },
       new AbortController().signal,
     ),
   ).resolves.toMatchObject({ canReopen: true, canDelete: true, exists: true });
 });
 
-it('falls back to the legacy request shape when talking to an older edge function', async () => {
+it('falls back through protocol 7 through 2 when talking to an older edge function', async () => {
   const fetchMock = jest
     .fn()
+    .mockResolvedValueOnce({
+      status: 400,
+      ok: false,
+      json: async () => ({ error: 'invalid-input' }),
+    })
+    .mockResolvedValueOnce({
+      status: 400,
+      ok: false,
+      json: async () => ({ error: 'invalid-input' }),
+    })
+    .mockResolvedValueOnce({
+      status: 400,
+      ok: false,
+      json: async () => ({ error: 'invalid-input' }),
+    })
+    .mockResolvedValueOnce({
+      status: 400,
+      ok: false,
+      json: async () => ({ error: 'invalid-input' }),
+    })
     .mockResolvedValueOnce({
       status: 400,
       ok: false,
@@ -91,12 +151,80 @@ it('falls back to the legacy request shape when talking to an older edge functio
     ),
   ).resolves.toMatchObject({ room: null, serverTime: 10 });
 
-  expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toMatchObject({
-    clientVersion: 2,
+  expect(
+    fetchMock.mock.calls.map(
+      (call) => JSON.parse(call[1]!.body as string).clientVersion,
+    ),
+  ).toEqual([7, 6, 5, 4, 3, 2]);
+});
+
+it('never retries Phỏm creation with an unsupported protocol', async () => {
+  const fetchMock = jest.fn().mockResolvedValue({
+    status: 400,
+    ok: false,
+    json: async () => ({ error: 'invalid-input' }),
   });
-  expect(JSON.parse(fetchMock.mock.calls[1][1]!.body as string)).not.toHaveProperty(
-    'clientVersion',
-  );
+  global.fetch = fetchMock;
+  await expect(
+    gameRequest(
+      'a',
+      {
+        type: 'create',
+        game: 'phom',
+        phomConfig: {
+          second: 1,
+          third: 2,
+          last: 3,
+          eat: 1,
+          chot: 4,
+          mom: 4,
+          u: 5,
+          uTron: 10,
+          den: 5,
+          forfeit: 4,
+        },
+        name: 'An',
+        sessionId: 'session',
+        actionId: 'action',
+      },
+      new AbortController().signal,
+    ),
+  ).rejects.toMatchObject({ code: 'game-update-required' });
+  expect(fetchMock).toHaveBeenCalledTimes(5);
+  expect(
+    fetchMock.mock.calls.map((call) => JSON.parse(call[1].body).clientVersion),
+  ).toEqual([7, 6, 5, 4, 3]);
+});
+
+it('never silently downgrades configured South or sends its local retry fence', async () => {
+  global.fetch = jest.fn().mockResolvedValue({
+    status: 400,
+    ok: false,
+    json: async () => ({ error: 'invalid-input' }),
+  });
+  for (const input of [
+    {
+      type: 'create',
+      game: 'south',
+      name: 'An',
+      amountPerCard: 5,
+      southConfig: { finishMode: 'first-winner', cutTwoAmount: 10 },
+    },
+    { type: 'play', cards: [0], roomId: 'room', requiredClientVersion: 4 },
+  ]) {
+    await expect(
+      gameRequest(
+        'a',
+        { ...input, sessionId: 'session' } as never,
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ code: 'game-update-required' });
+  }
+  expect(global.fetch).toHaveBeenCalledTimes(8);
+  for (const call of jest.mocked(global.fetch).mock.calls)
+    expect(JSON.parse(call[1]!.body as string)).not.toHaveProperty(
+      'requiredClientVersion',
+    );
 });
 
 it('localizes a Firebase Secure Token connection failure without exposing host details', async () => {
@@ -146,3 +274,79 @@ it('cancels waiting for a response body when the account changes', async () => {
   useAuthStore.getState().setUser(null);
   await assertion;
 });
+
+it.each([
+  {
+    type: 'set-south-rules',
+    roomId: 'room',
+    amountPerCard: 5,
+    southConfig: { finishMode: 'continue', cutTwoAmount: 0 },
+  },
+  { type: 'ready', roomId: 'room', ready: true, requiredClientVersion: 5 },
+])(
+  'never downgrades next-round rules requests to an unaware server',
+  async (input) => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      status: 400,
+      ok: false,
+      json: async () => ({ error: 'invalid-input' }),
+    });
+    global.fetch = fetchMock;
+    await expect(
+      gameRequest(
+        'a',
+        { ...input, sessionId: 'session' } as never,
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ code: 'game-update-required' });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      clientVersion: 7,
+    });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).not.toHaveProperty(
+      'requiredClientVersion',
+    );
+  },
+);
+
+it.each([
+  {
+    type: 'set-phom-rules',
+    roomId: 'room',
+    phomConfig: {
+      second: 1,
+      third: 2,
+      last: 3,
+      eat: 1,
+      chot: 4,
+      mom: 4,
+      u: 5,
+      uTron: 10,
+      den: 5,
+      forfeit: 4,
+    },
+  },
+  { type: 'ready', roomId: 'room', ready: true, requiredClientVersion: 6 },
+])(
+  'never downgrades Phỏm pending rules requests below capability6',
+  async (input) => {
+    const request = jest.fn().mockResolvedValue({
+      status: 400,
+      ok: false,
+      json: async () => ({ error: 'invalid-input' }),
+    });
+    global.fetch = request;
+    await expect(
+      gameRequest(
+        'a',
+        { ...input, sessionId: 'session' } as never,
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ code: 'game-update-required' });
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(request.mock.calls[0][1].body).clientVersion).toBe(7);
+    expect(JSON.parse(request.mock.calls[0][1].body)).not.toHaveProperty(
+      'requiredClientVersion',
+    );
+  },
+);

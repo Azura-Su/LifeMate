@@ -129,3 +129,27 @@ Native builds Android/iOS đã pass. Chưa có tài khoản Auth thử nghiệm 
 - [x] Delete overlay on photo top-right; photoless fallback retained.
 - [x] Legacy text-only save validated before revocation; unverified-owner edits remain available.
 - [x] Targeted44/full576 tests, typecheck/lint, native smoke and final review completed. See memory-text-only-edit-2026-10-17.md.
+
+## Sửa luật Phỏm trong phòng — 23/10/2026
+
+- [x] Pending rules/RPC/SQL và takeover capability atomic.
+- [x] Form/dialog/protocol6 và hiển thị luật hiện tại/ván tới.
+- [x] Kiểm tra/review/rollout theo inroom-phom-rules-2026-10-23.md (1.055 Jest, 251 backend; v13).
+
+
+## Phỏm tùy chọn luật — 23/10/2026
+- [x] Review kế hoạch và xác nhận tái vòng hạ.
+- [x] Thêm options/validation/protocol7 và migration additive.
+- [x] Xử lý gửi/ù đền/tái ở server và form tạo/sửa luật.
+- [x] Kiểm chứng regression, review diff, tài liệu và deploy tương thích:1.062 Jest,261 backend, v14. Xem phom-optional-rules-2026-10-23.md.
+
+## Cuộn Luật ván tới — 23/10/2026
+
+- [x] Tái hiện, xác định press responder của shell và sửa DialogModal.
+- [x] Regression RED/GREEN,80 targeted tests, typecheck/lint, review độc lập.
+- [x] Full Jest133 suites/1.063 tests, export iOS/Android và runtime đạt. Xem room-rules-scroll-2026-10-23.md.
+
+## Chặn mất tùy chọn Phỏm — 23/10/2026
+
+- [x] Tái hiện client6 ghi đè mất Tái/Gửi/Ù đền; guard SQL trước mutation, giữ retry/ACL/CAS.
+- [x] Regression263 backend, lint/syntax/diff, review độc lập và deploy migration/Edgev15; PostgreSQL rollback probe đạt. Xem phom-rules-capability-fix-2026-10-23.md.

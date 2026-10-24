@@ -9,6 +9,7 @@ for (const [message, status] of [
   ['room-not-finished', 409],
   ['room-not-expired', 409],
   ['not-owner', 403],
+  ['game-update-required', 409],
 ]) {
   test(`RPC ${message} reaches the client as ${status} instead of a retryable service outage`, async () => {
     const rpc = createGameBackend(

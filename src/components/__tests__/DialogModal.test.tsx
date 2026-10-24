@@ -3,10 +3,29 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
 } from 'react-native';
 import { DialogModal } from '../DialogModal';
+
+it('keeps scrolling content outside every press responder used by the modal shell', () => {
+  const view = render(
+    <DialogModal onBackdropPress={jest.fn()}>
+      <ScrollView testID="dialog-scroll">
+        <Text>Scrollable content</Text>
+      </ScrollView>
+    </DialogModal>,
+  );
+  const pressAncestors = [];
+  let parent = view.UNSAFE_getByType(ScrollView).parent;
+  while (parent) {
+    if (typeof parent.props.onPress === 'function') pressAncestors.push(parent);
+    parent = parent.parent;
+  }
+  expect(pressAncestors).toHaveLength(0);
+});
 
 it('forwards explicit orientation support without changing the default for other dialogs', () => {
   const view = render(
@@ -63,15 +82,22 @@ it('preserves the default keyboard behavior for existing dialogs', () => {
 
 it('closes on backdrop press but keeps taps inside the dialog open', () => {
   const onBackdropPress = jest.fn();
+  const onAction = jest.fn();
   const view = render(
     <DialogModal onBackdropPress={onBackdropPress}>
       <Text>Dialog</Text>
+      <Pressable accessibilityRole="button" onPress={onAction}>
+        <Text>Action</Text>
+      </Pressable>
     </DialogModal>,
   );
-  fireEvent.press(view.getByTestId('dialog-content'));
+  fireEvent.press(view.getByRole('button', { name: 'Action' }));
+  expect(onAction).toHaveBeenCalledTimes(1);
   expect(onBackdropPress).not.toHaveBeenCalled();
 
-  fireEvent.press(view.getByTestId('dialog-backdrop'));
+  fireEvent.press(
+    view.getByTestId('dialog-backdrop', { includeHiddenElements: true }),
+  );
   expect(onBackdropPress).toHaveBeenCalledTimes(1);
 });
 
@@ -84,7 +110,7 @@ it('allows a dialog to dock within the keyboard-safe area without shifting its h
   const keyboard = view.UNSAFE_getByType(KeyboardAvoidingView);
   expect(keyboard.props.behavior).toBe('padding');
   expect(
-    StyleSheet.flatten(view.getByTestId('dialog-backdrop').props.style),
+    StyleSheet.flatten(view.getByTestId('dialog-overlay').props.style),
   ).toMatchObject({
     justifyContent: 'flex-end',
     paddingTop: 67,

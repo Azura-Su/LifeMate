@@ -1,4 +1,4 @@
-import { forfeitTienLenPlayers, timeoutTienLen } from './tienlen.mjs';
+import { gameEngine } from './game-engines.mjs';
 import { finishRoom } from './rooms.mjs';
 
 export function advanceExpiredRoom(record, now) {
@@ -13,9 +13,9 @@ export function advanceExpiredRoom(record, now) {
       state.game.players.some((p) => p.uid === uid),
     );
     if (remove.length)
-      state.game = forfeitTienLenPlayers(state.game, remove, now);
+      state.game = gameEngine(state).forfeit(state.game, remove, now);
     if (state.game.status === 'playing')
-      state.game = timeoutTienLen(state.game, now) ?? state.game;
+      state.game = gameEngine(state).timeout(state.game, now) ?? state.game;
   }
   state.members = state.members.filter((p) => !expired.has(p.uid));
   if (!state.members.some((p) => p.uid === state.host))

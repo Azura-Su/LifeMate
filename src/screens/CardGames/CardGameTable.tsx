@@ -42,6 +42,7 @@ import {
   getHandStackLayout,
   getSecondsRemaining,
   claimCardPresentation,
+  getOpponentsInSeatOrder,
 } from './cardTableMotion';
 
 const seenDealAnimations = new Set<string>();
@@ -75,7 +76,7 @@ export function CardGameTable({
   onAction: (action: GameIntent) => void;
   onPlayerPress?: (uid: string) => void;
 }) {
-  const game = room.game!;
+  const game = room.game as TienLenView;
   const { width, height } = useWindowDimensions();
   // Native orientation can take a moment to settle after the match starts.
   // Keep the portrait layout until the viewport itself has rotated.
@@ -363,6 +364,11 @@ export function CardGameTable({
     room.members.find((member) => member.uid === uid)?.balance ??
     0;
   const ownResult = game.result?.ranking.find((entry) => entry.uid === uid);
+  const cutTwoDelta =
+    ownResult?.breakdown
+      ?.filter((b) => b.kind === 'cut-two')
+      .reduce((total, b) => total + b.amount, 0) ?? 0;
+  const latestCut = game.cutTwoFees?.at(-1);
   const canAct =
     active &&
     !disabled &&
@@ -416,24 +422,17 @@ export function CardGameTable({
     </View>
   );
   const seatPlayers = roundFinished
-    ? [
-        ...game.players.filter((player) =>
-          room.members.some((member) => member.uid === player.uid),
-        ),
-        ...room.members
-          .filter(
-            (member) =>
-              !game.players.some((player) => player.uid === member.uid),
-          )
-          .map((member) => ({
+    ? room.members.map(
+        (member) =>
+          game.players.find((player) => player.uid === member.uid) ?? {
             uid: member.uid,
             name: member.name,
             balance: member.balance,
             count: 0,
             finished: false,
             forfeited: false,
-          })),
-      ]
+          },
+      )
     : game.players;
   const portraitSeatWidth = Math.min(156, Math.max(108, (width - 56) * 0.4));
   const fourPlayerPortrait = !landscape && seatPlayers.length === 4;
@@ -445,13 +444,10 @@ export function CardGameTable({
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSortBySuit((current) => !current);
   };
-  const opponents = seatPlayers
-    .filter((p) => p.uid !== uid)
+  const opponents = getOpponentsInSeatOrder(seatPlayers, uid)
     .map((p) => {
       const member = room.members.find((m) => m.uid === p.uid);
-      const inCurrentMatch = game.players.some(
-        (player) => player.uid === p.uid,
-      );
+      const inCurrentMatch = game.players.some((player) => player.uid === p.uid);
       const finalBalance = p.balance ?? member?.balance ?? 0;
       const result = game.result?.ranking.find((entry) => entry.uid === p.uid);
       const delta = result?.moneyDelta ?? 0;
@@ -526,8 +522,7 @@ export function CardGameTable({
                     ]}
                   >
                     <Text style={styles.avatarText}>
-                      {(p.name ?? member?.name)?.slice(0, 1).toUpperCase() ??
-                        '—'}
+                      {(p.name ?? member?.name)?.slice(0, 1).toUpperCase() ?? '—'}
                     </Text>
                     <CardGameAvatarImage
                       uid={p.uid}
@@ -713,6 +708,15 @@ export function CardGameTable({
       ]}
     >
       <View style={styles.boardCenter}>
+        {!roundFinished && latestCut && (
+          <Text accessibilityLiveRegion="polite" style={styles.subtitle}>
+            {game.players.find((p) => p.uid === latestCut.to)?.name ??
+              room.members.find((p) => p.uid === latestCut.to)?.name ??
+              'Người chơi'}{' '}
+            chặt {latestCut.count} lá 2 · +
+            {latestCut.amount.toLocaleString('vi-VN')} đ
+          </Text>
+        )}
         {roundFinished && !collection ? (
           <CollectedDeck
             key={`${room.id}:${room.matchId ?? ''}`}
@@ -962,6 +966,12 @@ export function CardGameTable({
                   animate={animateRound}
                   animationKey={`${room.id}:${room.matchId ?? ''}:${uid}`}
                 />
+                {!!cutTwoDelta && (
+                  <Text style={styles.subtitle}>
+                    Chặt 2: {cutTwoDelta > 0 ? '+' : ''}
+                    {cutTwoDelta.toLocaleString('vi-VN')} đ
+                  </Text>
+                )}
               </View>
             </View>
             {roundAction}
@@ -1329,7 +1339,7 @@ function getPlayedCardOrigin(
   playerUID: string,
 ) {
   if (playerUID === currentUID) return { x: 0, y: 34 };
-  const opponents = players.filter((player) => player.uid !== currentUID);
+  const opponents = getOpponentsInSeatOrder(players, currentUID);
   if (opponents.length !== 3) return { x: 0, y: -34 };
   const seat = opponents.findIndex((player) => player.uid === playerUID);
   if (seat === 0) return { x: -52, y: 0 };
@@ -1344,7 +1354,7 @@ export function getPassCardFlightOffsets(
   landscape: boolean,
   playedWidth = 56,
 ) {
-  const opponents = players.filter((player) => player.uid !== currentUID);
+  const opponents = getOpponentsInSeatOrder(players, currentUID);
   const clearance = playedWidth / 2 + 32;
   if (playerUID === currentUID) {
     return {
@@ -1457,6 +1467,7 @@ function DealFlightLayer({
     });
   }
   const flightCount = flights.length;
+  const opponents = getOpponentsInSeatOrder(players, uid);
 
   useEffect(() => {
     const finish = Animated.delay(650 + flightCount * 45 + 260);
@@ -1470,9 +1481,9 @@ function DealFlightLayer({
   return (
     <View pointerEvents="none" style={styles.dealFlightLayer}>
       {flights.map((flight) => {
-        const opponentIndex = players
-          .filter((player) => player.uid !== uid)
-          .findIndex((player) => player.uid === flight.uid);
+        const opponentIndex = opponents.findIndex(
+          (player) => player.uid === flight.uid,
+        );
         const origin =
           flight.uid === uid
             ? { x: 0, y: 76 }

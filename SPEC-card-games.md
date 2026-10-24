@@ -1,5 +1,28 @@
 # Chơi bài online
 
+## Phỏm — 23/10/2026
+
+Thêm Phỏm online với luật [phom-v1](SPEC-rules-phom.md):9/10 lá, ăn/bốc/hạ/gửi,
+4 lượt cố định không tái, ù/ù tròn/đền. Từng mức nhì/ba/bét/ăn/chốt/móm/ù/ù tròn/
+đền/bỏ cuộc có ô nhập riêng khi tạo phòng, cho phép0. Cấu hình lưu trong phòng,
+hiện trong luật và bất biến trong từng ván; chủ phòng sửa trong phòng để áp dụng từ ván sau. Bảng điểm tự ghi delta do server tính.
+Mô tả13 lá/bỏ lượt/tới trắng bên dưới dành cho miền Nam; Phỏm có bàn/actions riêng.
+
+Room cũ không có kind vẫn là south. Phỏm dùng clientVersion3; server chặn client
+cũ trước khi nhận ghế, tiếp quản, mở lại hoặc đọc bài. Client mới giữ fallback2→1
+cho south, không hạ protocol khi tạo/gửi nước Phỏm. Snapshot không có nọc hoặc tay
+đối thủ. Layout giữ hand/actions dưới, body/public history có viewport/cuộn riêng
+để không đẩy nút ra khỏi màn thấp; xem lại cả bài đã đánh của chính mình.
+
+Phỏm đã deploy backend v10 ngày23/10/2026; xem tasks/phom-cloud-deploy-2026-10-23.md.
+
+Tiến lên bổ sung dropdown chế độ đánh tiếp hoặc dừng khi người đầu tiên hết bài,
+cùng mức phạt chung mỗi lá2 bị chặt (0 tắt). Phòng khác mặc định dùng cấu hình
+bất biến trong từng ván và south-v2, cần client capability4; phòng cũ giữ south-v1. Kết quả cộng
+tiền bài còn chuyển người nhất và phí chặt chuyển trực tiếp người bị chặt/người
+chặt, tổng0. UI hiện phí chặt gần nhất và khoản chặt trong kết quả. Xem
+SPEC-rules-tien-len-south.md và tasks/south-config-plan-2026-10-23.md.
+
 Mục Chơi online chỉ hiện khi email tài khoản có trong Remote Config `usergame`,
 là JSON array chuỗi email. So khớp sau chuẩn hóa khoảng trắng đầu/cuối và chữ hoa
 thường. Danh sách mặc định rỗng; cấu hình lỗi/offline giữ danh sách hợp lệ đã kích
@@ -11,7 +34,7 @@ Người dùng đã chấp thuận kế hoạch ngày 19/10/2026. Triển khai m
 
 ## Trải nghiệm
 
-Home → Trò chơi & điểm số → Chơi online → Chọn trò → Chọn tạo phòng mới hoặc vào phòng có sẵn bằng mã → vào thẳng bàn chờ → mọi thành viên sẵn sàng → máy chủ tự bắt đầu → Chơi → Kết quả / Ván tiếp. Phòng cần ít nhất hai người; mọi thành viên, gồm chủ phòng, bật/tắt trạng thái sẵn sàng ngay trên bàn. Máy chủ tự bắt đầu ván đầu hoặc ván tiếp theo khi phòng có ít nhất hai người và tất cả thành viên hiện tại đã sẵn sàng; người mới vào chưa sẵn sàng và không xóa trạng thái sẵn sàng của những người đang chờ; rời phòng vẫn reset sẵn sàng của các thành viên còn lại. Không cần action bắt đầu riêng từ chủ phòng. Chơi online có danh mục nhiều trò; chỉ trò đã hoàn thiện luật và backend mới mở tạo/tham gia phòng. Hiện Tiến lên miền Nam khả dụng; Tiến lên miền Bắc và Phỏm được hiển thị là sắp ra mắt. Phòng 2–4 người, mã 8 ký tự dễ đọc. Không có khán giả, bot, tiền cược hay giao dịch Tài chính; số tiền trong phòng chỉ là điểm số.
+Home → Trò chơi & điểm số → Chơi online → Chọn trò → Chọn tạo phòng mới hoặc vào phòng có sẵn bằng mã → vào thẳng bàn chờ → mọi thành viên sẵn sàng → máy chủ tự bắt đầu → Chơi → Kết quả / Ván tiếp. Phòng cần ít nhất hai người; mọi thành viên, gồm chủ phòng, bật/tắt trạng thái sẵn sàng ngay trên bàn. Máy chủ tự bắt đầu ván đầu hoặc ván tiếp theo khi phòng có ít nhất hai người và tất cả thành viên hiện tại đã sẵn sàng; người mới vào chưa sẵn sàng và không xóa trạng thái sẵn sàng của những người đang chờ; rời phòng vẫn reset sẵn sàng của các thành viên còn lại. Không cần action bắt đầu riêng từ chủ phòng. Chơi online có danh mục nhiều trò; chỉ trò đã hoàn thiện luật và backend mới mở tạo/tham gia phòng. Tiến lên miền Nam và Phỏm khả dụng trong source; Tiến lên miền Bắc còn sắp ra mắt. Phòng 2–4 người, mã 8 ký tự dễ đọc. Không có khán giả, bot, tiền cược hay giao dịch Tài chính; số tiền trong phòng chỉ là điểm số.
 
 Khi tạo phòng Tiến lên miền Nam, chủ phòng đặt số đồng bị trừ trên mỗi lá còn lại (mặc định 1). Người thua bị trừ `số lá còn × mức mỗi lá`; người nhất nhận tổng tiền bị trừ để mỗi ván cân bằng. Đây là cách tính điểm đơn giản, chưa cộng phạt cóng/thối/chặt. Kết quả và số dư tích lũy do máy chủ tính, hiển thị trong sảnh, bàn chơi và kết quả. Khi ván kết thúc, mỗi ghế hiện delta ngay dưới số dư, delta bay vào số dư rồi bộ đếm chạy từ `số dư cuối - delta` đến chính xác số dư cuối. Hiệu ứng dùng cùng một `matchId` để không phát lại do snapshot lặp; ván hủy và delta 0 không chạy cộng/trừ. Pháo hoa particle xuất hiện quanh avatar người thắng trên mọi thiết bị, chạy một lần trong khoảng 2 giây rồi dừng; kết quả gọn ở từng ghế, không phủ giữa bàn. Avatar dùng ảnh hồ sơ của tài khoản khi có, nếu không tải được thì hiện chữ cái đầu tên; ảnh được chia sẻ qua URL ký hạn ngắn cho thành viên phòng và không lưu trong cache offline. Người thắng chỉ có vương miện trên avatar, không có huy hiệu ready bên dưới; trạng thái sẵn sàng sau kết quả hiện ở dòng tổng của bàn. Ở sảnh, trạng thái ready lấy từ snapshot server và hiển thị tại từng ghế; chủ phòng được biểu thị là ghế có quyền bắt đầu và được tính trong điều kiện sẵn sàng hiện có. Không tự động bắt đầu ngay sau khi công bố kết quả: mọi người cần chủ động sẵn sàng; khi tất cả đã sẵn sàng, máy chủ tự xác nhận điều kiện và bắt đầu match mới. Không thêm tự động ready/countdown nếu protocol phòng chưa cung cấp. Phòng và số dư/thành tích được giữ sau khi ván kết thúc; thành viên chỉ vào lại khi phòng còn hạn hoặc sau khi chủ phòng tạo lại phòng đã hết hạn. Mỗi phòng có một bảng điểm chung trên server, kể cả khi chủ phòng đang chờ một mình. Kết quả hoàn tất dùng matchId để chống ghi trùng; ván hủy không thêm dòng điểm. Chỉ chủ phòng hiện tại được sửa/xóa bảng điểm; thành viên cùng xem điểm và lịch sử thay đổi. Việc sửa bảng điểm không đổi số dư có thẩm quyền của game. Máy chỉ lưu cache mã hóa theo UID; các bản cũ cục bộ được giữ chỉ xem và không tạo bản cũ mới. Xem SPEC-card-score.md.
 
@@ -47,6 +70,10 @@ Nguồn: [Supabase Firebase Auth](https://supabase.com/docs/guides/auth/third-pa
 - Nút back trên header và Back hệ thống Android dùng chung luồng xác nhận rời phòng/bỏ ván; chỉ màn đang focus/foreground chặn Back hệ thống. Trong lúc nối lại chưa có dữ liệu mới, giữ cùng giới hạn thao tác của header; khi đọc lỗi chỉ cho quay lại cục bộ với thông báo chưa xác nhận rời phòng. Phòng trống còn hạn chờ chủ phòng vào trước; trạng thái không được báo thành viên khác có thể vào rồi để API từ chối mã phòng.
 
 - Người tạo là chủ phòng đầu tiên. Chủ phòng hiện tại có thể chuyển quyền cho người đang ngồi; quyền không tự chuyển khi chủ phòng rời hoặc mất kết nối. Việc vào phòng, sẵn sàng/bỏ sẵn sàng, đánh/bỏ lượt, chuyển chủ và mở lại là hoạt động hợp lệ đặt lại hạn 30 phút. Chỉ mở app, xem phòng, đọc snapshot, heartbeat, timeout và dọn lease không đặt lại hạn.
+- Ghế Tiến lên là projection tương đối theo UID đang xem: bản thân ở dưới,
+  đối thủ theo vòng thứ tự ghế bắt đầu sau bản thân. Đang chơi lấy thứ tự
+  participants; sau ván lấy thứ tự Room Members hiện tại. Phép xoay chỉ tạo bản
+  sao hiển thị và dùng chung cho animation; không đổi thứ tự lượt/server state.
 - Sau 30 phút không có hoạt động, người chơi khác không còn nút vào lại; chủ phòng hiện tại có nút tạo lại cùng phòng và mã. Room được giữ nguyên, ghế/lease cũ được dọn và thành viên đã tham gia trước đó có thể vào lại sau khi chủ mở phòng. Worker không tự xóa phòng khi hết hạn; phòng chỉ bị xóa khi chủ phòng hiện tại chủ động xóa sau khi ván đã kết thúc. Việc xóa phòng không xóa bảng điểm chung hoặc lịch sử thay đổi; chủ phòng cuối cùng vẫn quản lý bảng điểm đó.
 - Hết lease của ghế không đóng hoặc xóa phòng. Rời khi đang chơi vẫn xử lý bỏ cuộc theo luật; rời sảnh không xóa phòng trống. Xóa bàn điểm online khỏi lịch sử vẫn là thao tác riêng, ghi nhớ theo tài khoản để snapshot cũ không tạo lại chính bàn điểm đó.
 - Xóa tài khoản phải xóa định danh trong `scoreMembers` và không trao quyền chủ phòng cho người khác ngoài thao tác chuyển quyền đã commit. Nếu tài khoản còn trong thành viên/tay bài hiện tại, xử lý đóng phòng như chính sách xóa tài khoản hiện có; nếu tài khoản chỉ còn trong lịch sử điểm, xóa định danh lịch sử và giữ ván hiện tại của người khác. Đồng thời xóa bảng điểm chung/audit/receipt có liên quan đến tài khoản; các cập nhật phòng sau đó chỉ có thể tạo bảng mới từ dữ liệu phòng đã được làm sạch.
@@ -90,3 +117,17 @@ Kiểm chứng và giới hạn native được ghi tại `tasks/card-table-moti
   động vào lại sau đó nếu phòng cho phép. Không thêm lệnh cấm vào lại lâu dài.
 - Khung đối thủ portrait mở rộng theo chiều ngang màn hình, tên tối đa hai dòng,
   readiness một dòng; avatar và thông tin được xếp để tránh ép chữ xuống từng ký tự.
+
+### Luật Tiến lên cho ván tiếp theo
+
+Menu phòng cho chủ phòng sửa luật ván tới, tách khỏi luật ván hiện tại. Mọi
+thành viên xem được cả hai. Chỉ lúc chia match mới mới áp dụng; sảnh/kết quả
+phải sẵn sàng lại sau mỗi lần lưu. Không đổi điểm lịch sử. Protocol5 và RPC
+service-only có owner/controller/session/CAS/receipt, trigger bảo vệ việc
+chuyển luật; xem SPEC-rules-tien-len-south.md.
+
+### Luật Phỏm cho ván tiếp theo
+
+Chủ phòng sửa10 mức điểm từ menu phòng, cùng dialog với Tiến lên; luật đang
+chơi và ván tới hiển thị riêng. PendingPhỏm cần protocol6; chỉ promote lúc
+chia match mới và yêu cầu ready lại sau lưu ở sảnh. Luồng South giữ floor5.

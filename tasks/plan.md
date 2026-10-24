@@ -122,3 +122,29 @@ Memory latency/loading completed. Confirmed request count5→0 for previously ve
 ## Text-only memory editing / photo delete — 17/10/2026
 
 Implement existing-memory form with text only and keep immutable photo/date/initial visibility in submitted draft. Keep create controls. Move delete overlay to image top-right with44pt touch area and photoless fallback. Plan reviewed before implementation; include storage support for legacy photoless text, validating empty input before revocation. Targeted regressions, full suite, typecheck/lint and native smoke; final review findings resolved. Result: tasks/memory-text-only-edit-2026-10-17.md.
+
+## Sửa luật Phỏm trong phòng — 23/10/2026
+
+Bổ sung như Tiến lên, với10 mức điểm riêng, luật áp dụng từ match mới;
+plan/acceptance/review tại [inroom-phom-rules-2026-10-23.md](inroom-phom-rules-2026-10-23.md).
+
+
+## Phỏm: bật/tắt Tái, Gửi, Ù đền — 23/10/2026
+
+- Yêu cầu: ba công tắc trước tạo phòng. Tái đã chốt là dịch lượt khi ăn ở vòng hạ. Dùng cùng form khi sửa luật ván tới.
+- Hợp đồng additive: `phomConfig.options={tai,send,uDen}`; thiếu options giữ nguyên phòng cũ (false,true,true). Mỗi match giữ config riêng, pending chỉ promote khi chia match mới.
+- Tái: ăn ở vòng hạ bỏ một lượt đánh đã hoàn tất của người cấp lá; nếu đã hạ được quay lại bốc/ăn, hạ thêm từ bài rác, gửi nếu bật, đánh. Giữ phỏm cũ và thứ tự hạ ban đầu. Ăn trước vòng hạ không đổi biến thể bốn lượt đang có.
+- Gửi tắt: server từ chối gửi và UI bỏ action. Ù đền tắt: không gán người đền 3 cây/ăn chốt; từng người trả mức ù/ù tròn thường, khoản ăn/chốt giữ nguyên.
+- Protocol7: options đang dùng yêu cầu7; options pending cho client cũ kết thúc ván cũ nhưng không ready/manage; fallback không bỏ lựa chọn. SQL validator/status/takeover kiểm tra capability dưới lock.
+- Kiểm chứng: RED/GREEN engine/UI/protocol; PostgreSQL chức năng quyền/CAS/validator; functions toàn bộ, Jest, typecheck/lint/export; review plan và diff độc lập. Giữ mọi thay đổi có sẵn.
+
+Hoàn tất Phỏm tùy chọn luật: review độc lập,1.062 Jest/261 backend, typecheck/lint,
+export iOS/Android, Simulator và PostgreSQL rollback fixture đạt; backend v14
+đã bật. Chi tiết tại [phom-optional-rules-2026-10-23.md](phom-optional-rules-2026-10-23.md).
+
+## Chặn client cũ ghi đè luật Phỏm — 23/10/2026
+
+Hoàn tất capability guard dưới room lock cho current/pending/incoming options,
+RPC compatibility wrapper và Edge truyền version thật. Review độc lập,263 backend
+tests và PostgreSQL rollback probe đạt; migration/Edgev15 đã deploy. Chi tiết:
+[phom-rules-capability-fix-2026-10-23.md](phom-rules-capability-fix-2026-10-23.md).

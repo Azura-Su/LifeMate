@@ -1,5 +1,8 @@
 import type { CardGameRoom, GameSnapshot } from '../../types/cardGame';
 import { audioCloudUrl } from '../../config/audioCloud';
+import { isPhomConfig } from './phomConfig';
+import { isPhomView } from './phomProtocol';
+import { isSouthConfig, isSouthRules } from './tienLenConfig';
 
 const object = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === 'object' && !Array.isArray(v);
@@ -92,8 +95,24 @@ export function parseGameSnapshot(
       'members',
       'game',
       'amountPerCard',
+      'gameKind',
+      'phomConfig',
+      'southConfig',
+      'nextSouthRules',
+      'nextPhomConfig',
     ]) ||
     !uuid(r.id) ||
+    (r.gameKind !== undefined &&
+      !['south', 'phom'].includes(r.gameKind as string)) ||
+    (r.gameKind === 'phom'
+      ? !isPhomConfig(r.phomConfig)
+      : r.phomConfig !== undefined) ||
+    (r.southConfig !== undefined &&
+      (r.gameKind === 'phom' || !isSouthConfig(r.southConfig))) ||
+    (r.nextSouthRules !== undefined &&
+      (r.gameKind === 'phom' || !isSouthRules(r.nextSouthRules))) ||
+    (r.nextPhomConfig !== undefined &&
+      (r.gameKind !== 'phom' || !isPhomConfig(r.nextPhomConfig))) ||
     !uuid(r.epoch) ||
     !integer(r.version) ||
     r.version < 1 ||
@@ -127,7 +146,9 @@ export function parseGameSnapshot(
     return fail();
   if (r.phase === 'playing' && (!object(r.game) || r.game.status !== 'playing'))
     return fail();
-  if (r.game !== null) {
+  if (r.gameKind === 'phom' && r.game !== null && !isPhomView(r.game, viewer))
+    return fail();
+  if (r.game !== null && r.gameKind !== 'phom') {
     const g = r.game;
     if (
       !object(g) ||
@@ -142,8 +163,35 @@ export function parseGameSnapshot(
         'openingCard',
         'deadline',
         'result',
+        'southConfig',
+        'cutTwoFees',
       ]) ||
-      g.rulesVersion !== 'south-v1' ||
+      !['south-v1', 'south-v2'].includes(g.rulesVersion as string) ||
+      (g.rulesVersion === 'south-v2'
+        ? !isSouthConfig(g.southConfig) ||
+          !isSouthConfig(r.southConfig) ||
+          g.southConfig.finishMode !== r.southConfig.finishMode ||
+          g.southConfig.cutTwoAmount !== r.southConfig.cutTwoAmount ||
+          !Array.isArray(g.cutTwoFees) ||
+          g.cutTwoFees.length > 4 ||
+          !g.cutTwoFees.every(
+            (f) =>
+              object(f) &&
+              keys(f, ['from', 'to', 'count', 'amount']) &&
+              uid(f.from) &&
+              uid(f.to) &&
+              f.from !== f.to &&
+              integer(f.count) &&
+              f.count >= 1 &&
+              f.count <= 3 &&
+              integer(f.amount) &&
+              f.amount ===
+                f.count *
+                  (g.southConfig as { cutTwoAmount: number }).cutTwoAmount,
+          )
+        : g.southConfig !== undefined ||
+          g.cutTwoFees !== undefined ||
+          r.southConfig !== undefined) ||
       !['playing', 'finished', 'cancelled'].includes(g.status as string) ||
       !cards(g.hand) ||
       !Array.isArray(g.players) ||
@@ -187,6 +235,18 @@ export function parseGameSnapshot(
         !g.table.cards.length)
     )
       return fail();
+    const playerIds = (g.players as Record<string, unknown>[]).map(
+      (p) => p.uid,
+    );
+    if (
+      g.rulesVersion === 'south-v2' &&
+      Array.isArray(g.cutTwoFees) &&
+      (g.cutTwoFees.some(
+        (f) => !playerIds.includes(f.from) || !playerIds.includes(f.to),
+      ) ||
+        g.cutTwoFees.reduce((n, f) => n + f.count, 0) > 4)
+    )
+      return fail();
     if (
       g.result !== null &&
       (!object(g.result) ||
@@ -206,7 +266,23 @@ export function parseGameSnapshot(
               (typeof p.name === 'string' && p.name.length <= 30)) &&
             (p.remainingCards === undefined ||
               (integer(p.remainingCards) && p.remainingCards <= 13)) &&
-            (p.moneyDelta === undefined || Number.isSafeInteger(p.moneyDelta)),
+            (p.moneyDelta === undefined ||
+              Number.isSafeInteger(p.moneyDelta)) &&
+            (p.breakdown === undefined ||
+              (Array.isArray(p.breakdown) &&
+                p.breakdown.length <= 8 &&
+                p.breakdown.every(
+                  (b) =>
+                    object(b) &&
+                    keys(b, ['kind', 'amount', 'otherUid']) &&
+                    ['remaining-cards', 'cut-two'].includes(b.kind as string) &&
+                    Number.isSafeInteger(b.amount) &&
+                    uid(b.otherUid),
+                ))) &&
+            (g.rulesVersion !== 'south-v2' ||
+              (Array.isArray(p.breakdown) &&
+                p.breakdown.reduce((n, b) => n + b.amount, 0) ===
+                  p.moneyDelta)),
         ))
     )
       return fail();
@@ -258,6 +334,8 @@ export function parseGameRoomStatus(value: unknown, expectedRoomId: string) {
     typeof value.canReopen !== 'boolean' ||
     typeof value.canDelete !== 'boolean' ||
     typeof value.expired !== 'boolean' ||
+    (value.minClientVersion !== undefined &&
+      (!integer(value.minClientVersion) || value.minClientVersion > 7)) ||
     (value.phase !== null &&
       !['lobby', 'playing', 'finished', 'closed'].includes(
         value.phase as string,

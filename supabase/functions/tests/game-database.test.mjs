@@ -104,7 +104,7 @@ const room = '33333333-3333-4333-8333-333333333333';
 const epoch = '44444444-4444-4444-8444-444444444444';
 const authTime = Math.floor(Date.now() / 1000);
 
-async function setup() {
+async function setup(beforePhomRules = false) {
   const db = new PGlite();
   await db.exec(`
     create role anon; create role authenticated; create role service_role bypassrls;
@@ -152,8 +152,605 @@ async function setup() {
     ),
   );
   await db.exec("update public.lifemate_game_config set mode='open'");
+  await db.exec(
+    await readFile(
+      new URL(
+        '../../migrations/20261022194436_phom_online_rooms.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+  await db.exec(
+    await readFile(
+      new URL(
+        '../../migrations/20261023112114_south_configured_rounds.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+  await db.exec(
+    await readFile(
+      new URL(
+        '../../migrations/20261023122005_inroom_south_rules.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+  await db.exec(
+    await readFile(
+      new URL(
+        '../../migrations/20261023151401_game_takeover_capability.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+  if (beforePhomRules) return db;
+  await db.exec(
+    await readFile(
+      new URL(
+        '../../migrations/20261023152105_inroom_phom_rules.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+  await db.exec(
+    await readFile(
+      new URL(
+        '../../migrations/20261023154433_phom_options_capability.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+  await db.exec(
+    await readFile(
+      new URL(
+        '../../migrations/20261023155152_phom_optional_rules.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+  await db.exec(
+    await readFile(
+      new URL(
+        '../../migrations/20261023163323_phom_rules_capability_guard.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
   return db;
 }
+
+test('configured South RPC pins mode/fine, preserves legacy rooms and rejects malformed or mutable settings', async () => {
+  const db = await setup();
+  try {
+    const config = { finishMode: 'first-winner', cutTwoAmount: 17 };
+    const args = [
+      uid,
+      authTime,
+      session,
+      action,
+      'south-config',
+      room,
+      'ABCDEFGH',
+      'An',
+      5,
+      config,
+    ];
+    await rpc(db, 'lifemate_game_create_south', args);
+    await rpc(db, 'lifemate_game_create_south', args);
+    const stored = (
+      await rpc(db, 'lifemate_game_read', [uid, authTime, session, false])
+    ).room;
+    assert.deepEqual(stored.state.southConfig, config);
+    assert.equal(stored.state.amountPerCard, 5);
+    assert.equal(
+      (await rpc(db, 'lifemate_game_status', [uid, authTime, session, room]))
+        .minClientVersion,
+      4,
+    );
+    await assert.rejects(
+      db.query(
+        "update public.lifemate_game_rooms set state=state-'southConfig' where id=$1",
+        [room],
+      ),
+      /invalid-input/,
+    );
+    for (const invalid of [
+      null,
+      [],
+      {},
+      { ...config, cutTwoAmount: -1 },
+      { ...config, cutTwoAmount: 1.1 },
+      { ...config, cutTwoAmount: 1000000001 },
+      { ...config, other: true },
+    ]) {
+      await assert.rejects(
+        rpc(db, 'lifemate_game_assert_south_config', [invalid]),
+        /invalid-input/,
+      );
+    }
+    for (const role of ['anon', 'authenticated'])
+      assert.equal(
+        (
+          await db.query(
+            "select has_function_privilege($1,'public.lifemate_game_create_south(text,bigint,uuid,uuid,text,uuid,text,text,bigint,jsonb)','execute') ok",
+            [role],
+          )
+        ).rows[0].ok,
+        false,
+      );
+  } finally {
+    await db.close();
+  }
+});
+
+test('capability4 preserves Phỏm and gates configured South before seating, takeover and reopen', async () => {
+  const db = await setup();
+  try {
+    const api = readyApi(db);
+    const made = await api.post(uid, {
+      type: 'create',
+      clientVersion: 4,
+      name: 'An',
+      game: 'south',
+      amountPerCard: 5,
+      southConfig: { finishMode: 'first-winner', cutTwoAmount: 17 },
+      actionId: crypto.randomUUID(),
+    });
+    assert.equal(made.status, 200, JSON.stringify(made.value));
+    const code = made.value.room.code,
+      id = made.value.room.id;
+    for (const clientVersion of [undefined, 2, 3]) {
+      const old = await api.post(other, {
+        type: 'join',
+        clientVersion,
+        name: 'Bình',
+        code,
+        actionId: crypto.randomUUID(),
+      });
+      assert.equal(old.status, 409);
+      assert.equal(old.value.error, 'game-update-required');
+      assert.equal(
+        (
+          await db.query(
+            'select count(*) n from public.lifemate_game_seats where uid=$1',
+            [other],
+          )
+        ).rows[0].n,
+        0,
+      );
+    }
+    const joined = await api.post(other, {
+      type: 'join',
+      clientVersion: 4,
+      name: 'Bình',
+      code,
+      actionId: crypto.randomUUID(),
+    });
+    assert.equal(joined.status, 200, JSON.stringify(joined.value));
+    for (const clientVersion of [2, 3]) {
+      assert.equal(
+        (await api.post(other, { type: 'takeover', clientVersion, roomId: id }))
+          .value.error,
+        'game-update-required',
+      );
+      assert.equal(
+        (
+          await api.post(uid, {
+            type: 'reopen',
+            clientVersion,
+            name: 'An',
+            roomId: id,
+            expectedVersion: joined.value.room.version,
+            matchId: null,
+            actionId: crypto.randomUUID(),
+          })
+        ).value.error,
+        'game-update-required',
+      );
+    }
+    // Version4 remains a superset of the already deployed Phỏm protocol.
+    const db2 = await setup();
+    try {
+      const phom = await readyApi(db2).post(uid, {
+        type: 'create',
+        clientVersion: 4,
+        name: 'An',
+        game: 'phom',
+        phomConfig: {
+          second: 1,
+          third: 2,
+          last: 3,
+          eat: 1,
+          chot: 4,
+          mom: 4,
+          u: 5,
+          uTron: 10,
+          den: 5,
+          forfeit: 4,
+        },
+        actionId: crypto.randomUUID(),
+      });
+      assert.equal(phom.status, 200, JSON.stringify(phom.value));
+      assert.equal(phom.value.room.gameKind, 'phom');
+    } finally {
+      await db2.close();
+    }
+  } finally {
+    await db.close();
+  }
+});
+
+test('South first-winner completes through HTTP/SQL once and records all remaining-card penalties', async () => {
+  const db = await setup();
+  try {
+    const a = [0, 1, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44];
+    const b = Array.from({ length: 52 }, (_, i) => i)
+      .filter((c) => !a.includes(c))
+      .slice(0, 13);
+    const deck = a.flatMap((c, i) => [c, b[i]]);
+    deck.push(
+      ...Array.from({ length: 52 }, (_, i) => i).filter(
+        (c) => !deck.includes(c),
+      ),
+    );
+    const api = readyApi(db, undefined, () => deck);
+    let current = (
+      await api.post(uid, {
+        type: 'create',
+        clientVersion: 4,
+        name: 'An',
+        game: 'south',
+        amountPerCard: 5,
+        southConfig: { finishMode: 'first-winner', cutTwoAmount: 17 },
+        actionId: crypto.randomUUID(),
+      })
+    ).value.room;
+    current = (
+      await api.post(other, {
+        type: 'join',
+        clientVersion: 4,
+        name: 'Bình',
+        code: current.code,
+        actionId: crypto.randomUUID(),
+      })
+    ).value.room;
+    for (const actor of [uid, other])
+      current = (
+        await api.post(actor, {
+          type: 'ready',
+          clientVersion: 4,
+          roomId: current.id,
+          expectedVersion: current.version,
+          matchId: current.matchId,
+          ready: true,
+          actionId: crypto.randomUUID(),
+        })
+      ).value.room;
+    assert.equal(current.game.rulesVersion, 'south-v2');
+    for (const [actor, type, cards] of [
+      [uid, 'play', [0, 1]],
+      [other, 'pass', undefined],
+      [uid, 'play', a.filter((c) => c > 1)],
+    ]) {
+      const input = {
+        type,
+        clientVersion: 4,
+        roomId: current.id,
+        expectedVersion: current.version,
+        matchId: current.matchId,
+        actionId: crypto.randomUUID(),
+        ...(cards && { cards }),
+      };
+      const response = await api.post(actor, input);
+      assert.equal(response.status, 200, JSON.stringify(response.value));
+      current = response.value.room;
+      assert.equal(
+        (await api.post(actor, input)).value.room.version,
+        current.version,
+      );
+    }
+    assert.equal(current.phase, 'finished');
+    assert.deepEqual(
+      current.game.result.ranking.map((p) => p.moneyDelta),
+      [65, -65],
+    );
+    assert.equal((await sharedBoard(db)).match.rounds.length, 1);
+    assert.equal(current.game.hand.length, 0);
+    assert.equal(
+      (await api.post(other, { type: 'sync', clientVersion: 4 })).value.room
+        .game.hand.length,
+      13,
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+test('Phỏm create persists independent rates, correct title, immutable settings and service-only access', async () => {
+  const db = await setup();
+  try {
+    const config = {
+      second: 11,
+      third: 22,
+      last: 33,
+      eat: 44,
+      chot: 55,
+      mom: 66,
+      u: 77,
+      uTron: 88,
+      den: 99,
+      forfeit: 111,
+    };
+    const args = [
+      uid,
+      authTime,
+      session,
+      action,
+      'phom-create',
+      room,
+      'ABCDEFGH',
+      'An',
+      config,
+    ];
+    const created = await rpc(db, 'lifemate_game_create_phom', args);
+    assert.equal(created.roomId, room);
+    const loaded = await rpc(db, 'lifemate_game_read', [
+      uid,
+      authTime,
+      session,
+      false,
+    ]);
+    assert.deepEqual(loaded.room.state.phomConfig, config);
+    assert.equal(loaded.room.state.gameKind, 'phom');
+    assert.equal((await sharedBoard(db)).match.title, 'Phỏm · ABCDEFGH');
+    await rpc(db, 'lifemate_game_create_phom', args);
+    await assert.rejects(
+      db.query(
+        'update public.lifemate_game_rooms set state=state||$1::jsonb where id=$2',
+        [JSON.stringify({ phomConfig: { ...config, u: 2 } }), room],
+      ),
+      /invalid-input/,
+    );
+    await assert.rejects(
+      db.query(
+        "update public.lifemate_game_rooms set state=state-'gameKind' where id=$1",
+        [room],
+      ),
+      /invalid-input/,
+    );
+    for (const role of ['anon', 'authenticated'])
+      assert.equal(
+        (
+          await db.query(
+            "select has_function_privilege($1,'public.lifemate_game_create_phom(text,bigint,uuid,uuid,text,uuid,text,text,jsonb)','execute') ok",
+            [role],
+          )
+        ).rows[0].ok,
+        false,
+      );
+  } finally {
+    await db.close();
+  }
+});
+
+test('Phỏm HTTP gates old clients before seating/takeover and plays through SQL CAS to a shared score', async () => {
+  const db = await setup();
+  try {
+    await db.exec('set role service_role');
+    const { post } = readyApi(db);
+    const config = {
+      second: 1,
+      third: 2,
+      last: 3,
+      eat: 1,
+      chot: 4,
+      mom: 4,
+      u: 5,
+      uTron: 10,
+      den: 5,
+      forfeit: 17,
+    };
+    const made = await post(uid, {
+      type: 'create',
+      clientVersion: 3,
+      actionId: crypto.randomUUID(),
+      name: 'An',
+      game: 'phom',
+      phomConfig: config,
+    });
+    assert.equal(made.status, 200, JSON.stringify(made.value));
+    const code = made.value.room.code;
+    const old = await post(other, {
+      type: 'join',
+      clientVersion: 2,
+      actionId: crypto.randomUUID(),
+      name: 'Bình',
+      code,
+    });
+    assert.equal(old.status, 409);
+    assert.equal(old.value.error, 'game-update-required');
+    assert.equal(
+      (await db.query('select count(*) n from public.lifemate_game_seats'))
+        .rows[0].n,
+      1,
+    );
+    const joined = await post(other, {
+      type: 'join',
+      clientVersion: 3,
+      actionId: crypto.randomUUID(),
+      name: 'Bình',
+      code,
+    });
+    assert.equal(joined.status, 200, JSON.stringify(joined.value));
+    const denied = await post(other, {
+      type: 'takeover',
+      clientVersion: 2,
+      roomId: joined.value.room.id,
+    });
+    assert.equal(denied.status, 409);
+    let current = joined.value.room;
+    for (const actor of [uid, other]) {
+      const r = await post(actor, {
+        type: 'ready',
+        clientVersion: 3,
+        roomId: current.id,
+        actionId: crypto.randomUUID(),
+        expectedVersion: current.version,
+        matchId: current.matchId,
+        ready: true,
+      });
+      assert.equal(r.status, 200, JSON.stringify(r.value));
+      current = r.value.room;
+    }
+    assert.equal(current.game.rulesVersion, 'phom-v1');
+    const input = {
+      type: 'play',
+      clientVersion: 3,
+      roomId: current.id,
+      actionId: crypto.randomUUID(),
+      expectedVersion: current.version,
+      matchId: current.matchId,
+      phomAction: 'discard',
+      cards: [current.game.hand[0]],
+    };
+    const firstActor = current.game.turn;
+    const hand = await post(firstActor, { type: 'sync', clientVersion: 3 });
+    input.cards = [hand.value.room.game.hand[0]];
+    const played = await post(firstActor, input);
+    assert.equal(played.status, 200, JSON.stringify(played.value));
+    const replay = await post(firstActor, input);
+    assert.equal(replay.status, 200);
+    assert.equal(replay.value.room.version, played.value.room.version);
+    const stale = await post(firstActor, {
+      ...input,
+      actionId: crypto.randomUUID(),
+    });
+    assert.equal(stale.status, 409);
+    const drawn = await post(played.value.room.game.turn, {
+      ...input,
+      actionId: crypto.randomUUID(),
+      expectedVersion: played.value.room.version,
+      phomAction: 'draw',
+      cards: [],
+    });
+    assert.equal(drawn.status, 200, JSON.stringify(drawn.value));
+    assert.equal(drawn.value.room.game.hand.length, 10);
+    const loaded = await rpc(db, 'lifemate_game_read', [
+      uid,
+      authTime,
+      session,
+      false,
+    ]);
+    const finished = updateRoom(
+      loaded.room.state,
+      other,
+      { type: 'leave' },
+      Date.now(),
+    );
+    await db.query(
+      'update public.lifemate_game_rooms set state=$1::jsonb where id=$2',
+      [JSON.stringify(finished), current.id],
+    );
+    const board = (
+      await rpc(db, 'lifemate_game_score_list', [uid, authTime, session])
+    ).tables[0];
+    assert.equal(board.match.rounds.length, 1);
+    assert.equal(board.match.rounds[0].scores[uid], 17);
+    assert.equal(board.match.rounds[0].scores[other], -17);
+  } finally {
+    await db.close();
+  }
+});
+
+test('Phỏm RPC rejects malformed rates and direct kind switching; reopening retains settings', async () => {
+  const db = await setup();
+  try {
+    await create(db);
+    const config = {
+      second: 0,
+      third: 2,
+      last: 3,
+      eat: 1,
+      chot: 4,
+      mom: 4,
+      u: 5,
+      uTron: 10,
+      den: 5,
+      forfeit: 4,
+    };
+    await assert.rejects(
+      db.query(
+        'update public.lifemate_game_rooms set state=state||$1::jsonb where id=$2',
+        [JSON.stringify({ gameKind: 'phom', phomConfig: config }), room],
+      ),
+      /invalid-input/,
+    );
+    for (const invalid of [
+      { ...config, u: -1 },
+      { ...config, chot: 1.5 },
+      { ...config, extra: 0 },
+    ])
+      await assert.rejects(
+        rpc(db, 'lifemate_game_assert_phom_config', [invalid]),
+        /invalid-input/,
+      );
+  } finally {
+    await db.close();
+  }
+  const db2 = await setup();
+  try {
+    const { post } = readyApi(db2);
+    const config = {
+      second: 0,
+      third: 2,
+      last: 3,
+      eat: 1,
+      chot: 4,
+      mom: 4,
+      u: 5,
+      uTron: 10,
+      den: 5,
+      forfeit: 4,
+    };
+    const made = await post(uid, {
+      type: 'create',
+      game: 'phom',
+      phomConfig: config,
+      name: 'An',
+      clientVersion: 3,
+      actionId: crypto.randomUUID(),
+    });
+    const record = made.value.room;
+    await db2.query(
+      "update public.lifemate_game_rooms set expires_at=now()-interval '1 second' where id=$1",
+      [record.id],
+    );
+    const request = {
+      type: 'reopen',
+      roomId: record.id,
+      expectedVersion: record.version,
+      matchId: null,
+      name: 'An',
+      actionId: crypto.randomUUID(),
+    };
+    const old = await post(uid, { ...request, clientVersion: 2 });
+    assert.equal(old.value.error, 'game-update-required');
+    const opened = await post(uid, { ...request, clientVersion: 3 });
+    assert.equal(opened.status, 200, JSON.stringify(opened.value));
+    assert.deepEqual(opened.value.room.phomConfig, config);
+  } finally {
+    await db2.close();
+  }
+});
 
 test('nonexistent room attempts persist their throttle counter', async () => {
   const db = await setup();
@@ -2987,6 +3584,1234 @@ test('bounded score patches edit, finish and remove players beyond the legacy bo
         (e) =>
           e.actorUid === uid && e.changes.some((c) => c.kind === 'round-edit'),
       ),
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+test('owner edits only next-round rules atomically; permissions, replay, stale ready, and promotion are enforced', async () => {
+  const db = await setup();
+  try {
+    const api = readyApi(db);
+    await create(db);
+    let current = (
+      await api.post(other, {
+        type: 'join',
+        clientVersion: 5,
+        name: 'Bình',
+        code: 'ABCDEFGH',
+        actionId: crypto.randomUUID(),
+      })
+    ).value.room;
+    const before = current;
+    const edit = {
+      type: 'set-south-rules',
+      clientVersion: 5,
+      roomId: current.id,
+      expectedVersion: current.version,
+      matchId: current.matchId,
+      amountPerCard: 9,
+      southConfig: { finishMode: 'first-winner', cutTwoAmount: 17 },
+      actionId: crypto.randomUUID(),
+    };
+    assert.equal((await api.post(other, edit)).status, 403);
+    assert.equal(
+      (await api.post(uid, { ...edit, sessionId: crypto.randomUUID() })).value
+        .error,
+      'session-replaced',
+    );
+    assert.equal(
+      (await api.post(uid, { ...edit, clientVersion: 4 })).value.error,
+      'game-update-required',
+    );
+    const saved = await api.post(uid, edit);
+    assert.equal(saved.status, 200, JSON.stringify(saved.value));
+    current = saved.value.room;
+    assert.equal(current.version, before.version + 1);
+    assert.equal(current.amountPerCard, before.amountPerCard);
+    assert.equal(current.game, null);
+    assert.equal(current.matchId, before.matchId);
+    assert.deepEqual(current.nextSouthRules, {
+      amountPerCard: 9,
+      southConfig: edit.southConfig,
+    });
+    assert.ok(current.members.every((m) => !m.ready));
+    assert.equal(
+      (await api.post(uid, edit)).value.room.version,
+      current.version,
+    );
+    assert.equal(
+      (await api.post(uid, { ...edit, amountPerCard: 10 })).value.error,
+      'idempotency-conflict',
+    );
+    const stale = await api.post(other, {
+      type: 'ready',
+      clientVersion: 5,
+      roomId: current.id,
+      expectedVersion: before.version,
+      matchId: null,
+      ready: true,
+      actionId: crypto.randomUUID(),
+    });
+    assert.equal(stale.value.error, 'version-conflict');
+    assert.equal(
+      (
+        await api.post(other, {
+          type: 'ready',
+          clientVersion: 4,
+          roomId: current.id,
+          expectedVersion: current.version,
+          matchId: null,
+          ready: true,
+          actionId: crypto.randomUUID(),
+        })
+      ).value.error,
+      'game-update-required',
+    );
+    const old = await api.post(other, { type: 'lease', clientVersion: 4 });
+    assert.equal(old.status, 200);
+    assert.equal(old.value.room.nextSouthRules, undefined);
+    assert.equal(
+      (
+        await api.post(uid, {
+          type: 'room-status',
+          clientVersion: 5,
+          roomId: current.id,
+        })
+      ).value.minClientVersion,
+      5,
+    );
+    // An old worker/API start that skips pending promotion is rejected by SQL.
+    const row = (
+      await db.query('select * from public.lifemate_game_rooms where id=$1', [
+        current.id,
+      ])
+    ).rows[0];
+    const oldState = structuredClone(row.state);
+    delete oldState.nextSouthRules;
+    oldState.members.forEach((m) => {
+      m.ready = true;
+    });
+    const skipped = updateRoom(
+      oldState,
+      uid,
+      { type: 'start' },
+      Date.now(),
+      Array.from({ length: 52 }, (_, i) => i),
+    );
+    skipped.nextSouthRules = row.state.nextSouthRules;
+    await assert.rejects(
+      api.sqlRpc('lifemate_game_commit', {
+        p_uid: uid,
+        p_auth_time: authTime,
+        p_session_id: session,
+        p_action_id: crypto.randomUUID(),
+        p_fingerprint: 'skipped-promotion',
+        p_room_id: row.id,
+        p_version: row.version,
+        p_match_id: row.match_id,
+        p_kind: 'start',
+        p_state: skipped,
+      }),
+      /invalid-input/,
+    );
+    for (const actor of [other, uid]) {
+      const response = await api.post(actor, {
+        type: 'ready',
+        clientVersion: 5,
+        roomId: current.id,
+        expectedVersion: current.version,
+        matchId: current.matchId,
+        ready: true,
+        actionId: crypto.randomUUID(),
+      });
+      assert.equal(response.status, 200, JSON.stringify(response.value));
+      current = response.value.room;
+    }
+    assert.equal(current.phase, 'playing');
+    assert.equal(current.amountPerCard, 9);
+    assert.deepEqual(current.game.southConfig, edit.southConfig);
+    const playingRow = (
+      await db.query('select * from public.lifemate_game_rooms where id=$1', [
+        current.id,
+      ])
+    ).rows[0];
+    const response = await api.post(uid, {
+      ...edit,
+      actionId: crypto.randomUUID(),
+      expectedVersion: current.version,
+      matchId: current.matchId,
+      amountPerCard: 3,
+      southConfig: { finishMode: 'continue', cutTwoAmount: 0 },
+    });
+    assert.equal(response.status, 200, JSON.stringify(response.value));
+    current = response.value.room;
+    const editedRow = (
+      await db.query('select * from public.lifemate_game_rooms where id=$1', [
+        current.id,
+      ])
+    ).rows[0];
+    assert.deepEqual(editedRow.state.game, playingRow.state.game);
+    assert.deepEqual(
+      editedRow.state.scoreMembers,
+      playingRow.state.scoreMembers,
+    );
+    assert.equal(current.amountPerCard, 9);
+    assert.deepEqual(current.southConfig, edit.southConfig);
+    assert.equal(
+      (await api.post(other, { type: 'sync', clientVersion: 4 })).status,
+      200,
+    );
+    const turn = current.game.turn;
+    assert.equal(
+      (
+        await api.post(turn, {
+          type: 'play',
+          clientVersion: 4,
+          roomId: current.id,
+          expectedVersion: current.version,
+          matchId: current.matchId,
+          cards: [current.game.openingCard],
+          actionId: crypto.randomUUID(),
+        })
+      ).status,
+      200,
+    );
+    await assert.rejects(
+      db.query(
+        "update public.lifemate_game_rooms set state=jsonb_set(state,'{amountPerCard}','99'::jsonb) where id=$1",
+        [current.id],
+      ),
+      /invalid-input/,
+    );
+    await assert.rejects(
+      db.query(
+        "update public.lifemate_game_rooms set state=state-'nextSouthRules' where id=$1",
+        [current.id],
+      ),
+      /invalid-input/,
+    );
+    // Finish the old round by leaving, then the pending defaults apply at rematch.
+    current = (await api.post(uid, { type: 'sync', clientVersion: 5 })).value
+      .room;
+    const oldMatch = current.matchId;
+    const ended = await api.post(other, {
+      type: 'leave',
+      clientVersion: 4,
+      roomId: current.id,
+      expectedVersion: current.version,
+      matchId: current.matchId,
+      actionId: crypto.randomUUID(),
+    });
+    assert.equal(ended.status, 200, JSON.stringify(ended.value));
+    current = (await api.post(uid, { type: 'sync', clientVersion: 5 })).value
+      .room;
+    assert.equal(current.phase, 'finished');
+    assert.equal(current.amountPerCard, 9);
+    assert.ok(
+      current.game.result.ranking.every(
+        (p) => Math.abs(p.moneyDelta) % 9 === 0,
+      ),
+    );
+    current = (
+      await api.post(other, {
+        type: 'join',
+        clientVersion: 5,
+        name: 'Bình',
+        code: current.code,
+        actionId: crypto.randomUUID(),
+      })
+    ).value.room;
+    for (const actor of [other, uid])
+      current = (
+        await api.post(actor, {
+          type: 'ready',
+          clientVersion: 5,
+          roomId: current.id,
+          expectedVersion: current.version,
+          matchId: current.matchId,
+          ready: true,
+          actionId: crypto.randomUUID(),
+        })
+      ).value.room;
+    assert.notEqual(current.matchId, oldMatch);
+    assert.equal(current.amountPerCard, 3);
+    assert.equal(current.southConfig, undefined);
+    assert.equal(current.game.rulesVersion, 'south-v1');
+    const leaving = await api.post(other, {
+      type: 'leave',
+      clientVersion: 5,
+      roomId: current.id,
+      expectedVersion: current.version,
+      matchId: current.matchId,
+      actionId: crypto.randomUUID(),
+    });
+    assert.equal(leaving.status, 200, JSON.stringify(leaving.value));
+    current = (await api.post(uid, { type: 'sync', clientVersion: 5 })).value
+      .room;
+    const deletion = {
+      type: 'delete-room',
+      clientVersion: 4,
+      roomId: current.id,
+      expectedVersion: current.version,
+      matchId: current.matchId,
+      actionId: crypto.randomUUID(),
+    };
+    assert.equal(
+      (await api.post(uid, deletion)).value.error,
+      'game-update-required',
+    );
+    assert.equal(
+      (await api.post(uid, { ...deletion, clientVersion: 5 })).status,
+      200,
+    );
+    assert.equal(
+      (
+        await db.query(
+          "select has_function_privilege('authenticated','public.lifemate_game_set_south_rules(text,bigint,uuid,uuid,text,uuid,bigint,uuid,bigint,jsonb)','execute') allowed",
+        )
+      ).rows[0].allowed,
+      false,
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+test('an already read ready command cannot rebase across the first rules edit', async () => {
+  const db = await setup();
+  try {
+    await create(db);
+    let injected = false;
+    const api = readyApi(db, async (name, args, run) => {
+      if (
+        name === 'lifemate_game_commit' &&
+        args.p_kind === 'ready' &&
+        !injected
+      ) {
+        injected = true;
+        const row = (await db.query('select * from public.lifemate_game_rooms'))
+          .rows[0];
+        await run('lifemate_game_set_south_rules', {
+          p_uid: uid,
+          p_auth_time: authTime,
+          p_session_id: session,
+          p_action_id: crypto.randomUUID(),
+          p_fingerprint: 'racing-edit',
+          p_room_id: row.id,
+          p_version: row.version,
+          p_match_id: row.match_id,
+          p_amount_per_card: 5,
+          p_config: { finishMode: 'continue', cutTwoAmount: 0 },
+        });
+      }
+      return run(name, args);
+    });
+    const before = (await api.post(uid, { type: 'sync', clientVersion: 5 }))
+      .value.room;
+    const result = await api.post(uid, {
+      type: 'ready',
+      clientVersion: 5,
+      roomId: before.id,
+      expectedVersion: before.version,
+      matchId: null,
+      ready: true,
+      actionId: crypto.randomUUID(),
+    });
+    assert.equal(result.value.error, 'version-conflict');
+    assert.ok(
+      (
+        await api.post(uid, { type: 'sync', clientVersion: 5 })
+      ).value.room.members.every((m) => !m.ready),
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+test('Phỏm owner edits future rates with CAS, ready reset, pinned current game and next-match promotion', async () => {
+  const db = await setup();
+  try {
+    const api = readyApi(db);
+    const config = {
+      second: 1,
+      third: 2,
+      last: 3,
+      eat: 1,
+      chot: 4,
+      mom: 4,
+      u: 5,
+      uTron: 10,
+      den: 5,
+      forfeit: 23,
+    };
+    let current = (
+      await api.post(uid, {
+        type: 'create',
+        clientVersion: 6,
+        game: 'phom',
+        phomConfig: config,
+        name: 'An',
+        actionId: crypto.randomUUID(),
+      })
+    ).value.room;
+    current = (
+      await api.post(other, {
+        type: 'join',
+        clientVersion: 6,
+        name: 'Bình',
+        code: current.code,
+        actionId: crypto.randomUUID(),
+      })
+    ).value.room;
+    current = (
+      await api.post(other, {
+        type: 'ready',
+        clientVersion: 6,
+        roomId: current.id,
+        expectedVersion: current.version,
+        matchId: null,
+        ready: true,
+        actionId: crypto.randomUUID(),
+      })
+    ).value.room;
+    const before = current;
+    const next = { ...config, forfeit: 77, u: 123 };
+    const input = {
+      type: 'set-phom-rules',
+      clientVersion: 6,
+      roomId: current.id,
+      expectedVersion: current.version,
+      matchId: null,
+      phomConfig: next,
+      actionId: crypto.randomUUID(),
+    };
+    assert.equal((await api.post(other, input)).value.error, 'not-owner');
+    assert.equal(
+      (await api.post(uid, { ...input, sessionId: crypto.randomUUID() })).value
+        .error,
+      'session-replaced',
+    );
+    assert.equal(
+      (await api.post(uid, { ...input, clientVersion: 5 })).value.error,
+      'game-update-required',
+    );
+    const response = await api.post(uid, input);
+    assert.equal(response.status, 200, JSON.stringify(response.value));
+    current = response.value.room;
+    assert.deepEqual(current.phomConfig, config);
+    assert.deepEqual(current.nextPhomConfig, next);
+    assert.equal(current.game, null);
+    assert.ok(current.members.every((p) => !p.ready));
+    assert.equal(
+      (await api.post(uid, input)).value.room.version,
+      current.version,
+    );
+    assert.equal(
+      (await api.post(uid, { ...input, phomConfig: { ...next, u: 999 } })).value
+        .error,
+      'idempotency-conflict',
+    );
+    assert.equal(
+      (
+        await api.post(other, {
+          type: 'ready',
+          clientVersion: 6,
+          roomId: current.id,
+          expectedVersion: before.version,
+          matchId: null,
+          ready: true,
+          actionId: crypto.randomUUID(),
+        })
+      ).value.error,
+      'version-conflict',
+    );
+    assert.equal(
+      (
+        await api.post(other, {
+          type: 'ready',
+          clientVersion: 5,
+          roomId: current.id,
+          expectedVersion: current.version,
+          matchId: null,
+          ready: true,
+          actionId: crypto.randomUUID(),
+        })
+      ).value.error,
+      'game-update-required',
+    );
+    const old = await api.post(other, { type: 'lease', clientVersion: 5 });
+    assert.equal(old.status, 200);
+    assert.equal(old.value.room.nextPhomConfig, undefined);
+    assert.equal(
+      (
+        await api.post(uid, {
+          type: 'room-status',
+          clientVersion: 6,
+          roomId: current.id,
+        })
+      ).value.minClientVersion,
+      6,
+    );
+    const oldRow = (
+      await db.query('select * from public.lifemate_game_rooms where id=$1', [
+        current.id,
+      ])
+    ).rows[0];
+    const oldState = structuredClone(oldRow.state);
+    delete oldState.nextPhomConfig;
+    oldState.members.forEach((m) => {
+      m.ready = true;
+    });
+    const skipped = updateRoom(
+      oldState,
+      uid,
+      { type: 'start' },
+      Date.now(),
+      Array.from({ length: 52 }, (_, i) => i),
+    );
+    skipped.nextPhomConfig = next;
+    await assert.rejects(
+      api.sqlRpc('lifemate_game_commit', {
+        p_uid: uid,
+        p_auth_time: authTime,
+        p_session_id: session,
+        p_action_id: crypto.randomUUID(),
+        p_fingerprint: 'old-phom-start',
+        p_room_id: current.id,
+        p_version: current.version,
+        p_match_id: null,
+        p_kind: 'start',
+        p_state: skipped,
+      }),
+      /invalid-input/,
+    );
+    for (const actor of [other, uid])
+      current = (
+        await api.post(actor, {
+          type: 'ready',
+          clientVersion: 6,
+          roomId: current.id,
+          expectedVersion: current.version,
+          matchId: current.matchId,
+          ready: true,
+          actionId: crypto.randomUUID(),
+        })
+      ).value.room;
+    assert.equal(current.phase, 'playing');
+    assert.deepEqual(current.phomConfig, next);
+    const row = (
+      await db.query('select * from public.lifemate_game_rooms where id=$1', [
+        current.id,
+      ])
+    ).rows[0];
+    assert.deepEqual(row.state.game.config, next);
+    const later = { ...config, forfeit: 9 };
+    const edit = await api.post(uid, {
+      ...input,
+      actionId: crypto.randomUUID(),
+      expectedVersion: current.version,
+      matchId: current.matchId,
+      phomConfig: later,
+    });
+    assert.equal(edit.status, 200, JSON.stringify(edit.value));
+    current = edit.value.room;
+    const edited = (
+      await db.query('select * from public.lifemate_game_rooms where id=$1', [
+        current.id,
+      ])
+    ).rows[0];
+    assert.deepEqual(edited.state.game, row.state.game);
+    assert.deepEqual(edited.state.scoreMembers, row.state.scoreMembers);
+    assert.equal(
+      (
+        await api.post(uid, {
+          type: 'play',
+          clientVersion: 5,
+          roomId: current.id,
+          expectedVersion: current.version,
+          matchId: current.matchId,
+          cards: [current.game.hand[0]],
+          phomAction: 'discard',
+          actionId: crypto.randomUUID(),
+        })
+      ).status,
+      200,
+    );
+    current = (await api.post(uid, { type: 'sync', clientVersion: 6 })).value
+      .room;
+    assert.equal(
+      (
+        await api.post(other, {
+          type: 'leave',
+          clientVersion: 5,
+          roomId: current.id,
+          expectedVersion: current.version,
+          matchId: current.matchId,
+          actionId: crypto.randomUUID(),
+        })
+      ).status,
+      200,
+    );
+    current = (await api.post(uid, { type: 'sync', clientVersion: 6 })).value
+      .room;
+    assert.deepEqual(
+      current.game.result.ranking.map((p) => p.moneyDelta),
+      [77, -77],
+    );
+    const oldMatch = current.matchId;
+    current = (
+      await api.post(other, {
+        type: 'join',
+        clientVersion: 6,
+        name: 'Bình',
+        code: current.code,
+        actionId: crypto.randomUUID(),
+      })
+    ).value.room;
+    for (const actor of [other, uid])
+      current = (
+        await api.post(actor, {
+          type: 'ready',
+          clientVersion: 6,
+          roomId: current.id,
+          expectedVersion: current.version,
+          matchId: current.matchId,
+          ready: true,
+          actionId: crypto.randomUUID(),
+        })
+      ).value.room;
+    assert.notEqual(current.matchId, oldMatch);
+    assert.deepEqual(current.phomConfig, later);
+    await assert.rejects(
+      db.query(
+        "update public.lifemate_game_rooms set state=jsonb_set(state,'{phomConfig,u}','999'::jsonb) where id=$1",
+        [current.id],
+      ),
+      /invalid-input/,
+    );
+    await assert.rejects(
+      db.query(
+        "update public.lifemate_game_rooms set state=state-'nextPhomConfig' where id=$1",
+        [current.id],
+      ),
+      /invalid-input/,
+    );
+    assert.equal(
+      (
+        await db.query(
+          "select has_function_privilege('authenticated','public.lifemate_game_set_phom_rules(text,bigint,uuid,uuid,text,uuid,bigint,uuid,jsonb)','execute') allowed",
+        )
+      ).rows[0].allowed,
+      false,
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+test('Phỏm ready cannot race the first rules edit; takeover checks capability under the room lock', async () => {
+  const db = await setup();
+  try {
+    const config = {
+      second: 1,
+      third: 2,
+      last: 3,
+      eat: 1,
+      chot: 4,
+      mom: 4,
+      u: 5,
+      uTron: 10,
+      den: 5,
+      forfeit: 4,
+    };
+    let injected = false;
+    const api = readyApi(db, async (name, args, run) => {
+      if (
+        name === 'lifemate_game_commit' &&
+        args.p_kind === 'ready' &&
+        !injected
+      ) {
+        injected = true;
+        const row = (await db.query('select * from public.lifemate_game_rooms'))
+          .rows[0];
+        await run('lifemate_game_set_phom_rules', {
+          p_uid: uid,
+          p_auth_time: authTime,
+          p_session_id: session,
+          p_action_id: crypto.randomUUID(),
+          p_fingerprint: 'racing-phom-edit',
+          p_room_id: row.id,
+          p_version: row.version,
+          p_match_id: row.match_id,
+          p_config: config,
+        });
+      }
+      return run(name, args);
+    });
+    let current = (
+      await api.post(uid, {
+        type: 'create',
+        clientVersion: 6,
+        game: 'phom',
+        phomConfig: config,
+        name: 'An',
+        actionId: crypto.randomUUID(),
+      })
+    ).value.room;
+    assert.equal(
+      (
+        await api.post(uid, {
+          type: 'ready',
+          clientVersion: 6,
+          roomId: current.id,
+          expectedVersion: current.version,
+          matchId: null,
+          ready: true,
+          actionId: crypto.randomUUID(),
+        })
+      ).value.error,
+      'version-conflict',
+    );
+    current = (await api.post(uid, { type: 'sync', clientVersion: 6 })).value
+      .room;
+    assert.ok(current.members.every((m) => !m.ready));
+    const takeover = {
+      p_uid: uid,
+      p_auth_time: authTime,
+      p_session_id: crypto.randomUUID(),
+      p_room_id: current.id,
+    };
+    await assert.rejects(
+      api.sqlRpc('lifemate_game_takeover', takeover),
+      /game-update-required/,
+    );
+    await assert.rejects(
+      api.sqlRpc('lifemate_game_takeover', {
+        ...takeover,
+        p_client_version: 5,
+      }),
+      /game-update-required/,
+    );
+    assert.equal(
+      (await api.post(uid, { type: 'sync', clientVersion: 6 })).value.room
+        .controller,
+      true,
+    );
+    await api.sqlRpc('lifemate_game_takeover', {
+      ...takeover,
+      p_client_version: 6,
+    });
+    assert.equal(
+      (await api.post(uid, { type: 'sync', clientVersion: 6 })).value.room
+        .controller,
+      false,
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+test('takeover prerequisite keeps old four-argument Phỏm clients working before the final migration', async () => {
+  const db = await setup(true);
+  try {
+    const api = readyApi(db);
+    const config = {
+      second: 1,
+      third: 2,
+      last: 3,
+      eat: 1,
+      chot: 4,
+      mom: 4,
+      u: 5,
+      uTron: 10,
+      den: 5,
+      forfeit: 4,
+    };
+    const created = await api.post(uid, {
+      type: 'create',
+      clientVersion: 6,
+      game: 'phom',
+      phomConfig: config,
+      name: 'An',
+      actionId: crypto.randomUUID(),
+    });
+    assert.equal(created.status, 200, JSON.stringify(created.value));
+    const id = created.value.room.id;
+    await api.sqlRpc('lifemate_game_takeover', {
+      p_uid: uid,
+      p_auth_time: authTime,
+      p_session_id: session,
+      p_room_id: id,
+    });
+    const take = await api.post(uid, {
+      type: 'takeover',
+      clientVersion: 6,
+      roomId: id,
+    });
+    assert.equal(take.status, 200, JSON.stringify(take.value));
+    assert.equal(take.value.room.controller, true);
+  } finally {
+    await db.close();
+  }
+});
+
+test('optional Phỏm rules validate, persist, project for v7 and fence v6 without changing legacy match', async () => {
+  const db = await setup();
+  try {
+    const api = readyApi(db);
+    const config = {
+      second: 1,
+      third: 2,
+      last: 3,
+      eat: 1,
+      chot: 4,
+      mom: 4,
+      u: 5,
+      uTron: 10,
+      den: 5,
+      forfeit: 4,
+    };
+    const next = {
+      ...config,
+      options: { tai: true, send: false, uDen: false },
+    };
+    for (const options of [
+      null,
+      {},
+      { tai: true, send: true, uDen: 1 },
+      { tai: true, send: true, uDen: true, extra: true },
+    ])
+      await assert.rejects(
+        db.query('select public.lifemate_game_assert_phom_config($1::jsonb)', [
+          JSON.stringify({ ...config, options }),
+        ]),
+        /invalid-input/,
+      );
+    assert.equal(
+      (
+        await api.post(uid, {
+          type: 'create',
+          clientVersion: 6,
+          game: 'phom',
+          name: 'An',
+          phomConfig: next,
+          actionId: crypto.randomUUID(),
+        })
+      ).value.error,
+      'game-update-required',
+    );
+    let current = (
+      await api.post(uid, {
+        type: 'create',
+        clientVersion: 7,
+        game: 'phom',
+        name: 'An',
+        phomConfig: config,
+        actionId: crypto.randomUUID(),
+      })
+    ).value.room;
+    current = (
+      await api.post(other, {
+        type: 'join',
+        clientVersion: 7,
+        name: 'Bình',
+        code: current.code,
+        actionId: crypto.randomUUID(),
+      })
+    ).value.room;
+    current = (
+      await api.post(other, {
+        type: 'ready',
+        clientVersion: 7,
+        roomId: current.id,
+        expectedVersion: current.version,
+        matchId: null,
+        ready: true,
+        actionId: crypto.randomUUID(),
+      })
+    ).value.room;
+    current = (
+      await api.post(uid, {
+        type: 'start',
+        clientVersion: 7,
+        roomId: current.id,
+        expectedVersion: current.version,
+        matchId: null,
+        actionId: crypto.randomUUID(),
+      })
+    ).value.room;
+    assert.equal(current.phase, 'playing');
+    const gameBefore = (
+      await db.query('select state from public.lifemate_game_rooms')
+    ).rows[0].state.game;
+    const input = {
+      type: 'set-phom-rules',
+      clientVersion: 7,
+      roomId: current.id,
+      expectedVersion: current.version,
+      matchId: current.matchId,
+      phomConfig: next,
+      actionId: crypto.randomUUID(),
+    };
+    assert.equal((await api.post(other, input)).value.error, 'not-owner');
+    const saved = await api.post(uid, input);
+    assert.equal(saved.status, 200, JSON.stringify(saved.value));
+    current = saved.value.room;
+    assert.deepEqual(current.phomConfig, config);
+    assert.deepEqual(current.nextPhomConfig, next);
+    assert.deepEqual(
+      (await db.query('select state from public.lifemate_game_rooms')).rows[0]
+        .state.game,
+      gameBefore,
+    );
+    assert.equal(
+      (await api.post(uid, input)).value.room.version,
+      current.version,
+    );
+    assert.equal(
+      (await api.post(uid, { ...input, actionId: crypto.randomUUID() })).value
+        .error,
+      'version-conflict',
+    );
+    for (const type of ['sync', 'lease']) {
+      const legacy = await api.post(uid, { type, clientVersion: 6 });
+      assert.equal(legacy.status, 200, JSON.stringify(legacy.value));
+      assert.equal('nextPhomConfig' in legacy.value.room, false);
+      assert.deepEqual(legacy.value.room.phomConfig, config);
+    }
+    const legacy = await api.post(uid, {
+      type: 'play',
+      clientVersion: 6,
+      roomId: current.id,
+      expectedVersion: current.version,
+      matchId: current.matchId,
+      phomAction: 'discard',
+      cards: [current.game.hand[0]],
+      actionId: crypto.randomUUID(),
+    });
+    assert.equal(legacy.status, 200, JSON.stringify(legacy.value));
+    assert.equal('nextPhomConfig' in legacy.value.room, false);
+    assert.equal(
+      (
+        await api.post(other, {
+          type: 'ready',
+          clientVersion: 6,
+          roomId: current.id,
+          expectedVersion: legacy.value.room.version,
+          matchId: current.matchId,
+          ready: true,
+          actionId: crypto.randomUUID(),
+        })
+      ).value.error,
+      'game-update-required',
+    );
+    const status = await api.post(uid, {
+      type: 'room-status',
+      clientVersion: 7,
+      roomId: current.id,
+    });
+    assert.equal(status.value.minClientVersion, 7);
+    const takeover = {
+      p_uid: uid,
+      p_auth_time: authTime,
+      p_session_id: crypto.randomUUID(),
+      p_room_id: current.id,
+    };
+    await assert.rejects(
+      api.sqlRpc('lifemate_game_takeover', {
+        ...takeover,
+        p_client_version: 6,
+      }),
+      /game-update-required/,
+    );
+    assert.equal(
+      (await api.post(uid, { type: 'sync', clientVersion: 7 })).value.room
+        .controller,
+      true,
+    );
+    for (const role of ['anon', 'authenticated'])
+      assert.equal(
+        (
+          await db.query(
+            "select has_function_privilege($1,'public.lifemate_game_assert_phom_config(jsonb)','execute') ok",
+            [role],
+          )
+        ).rows[0].ok,
+        false,
+      );
+  } finally {
+    await db.close();
+  }
+});
+
+for (const location of ['current', 'pending']) {
+  test(`Phỏm rules capability guard preserves ${location} options before any write`, async () => {
+    const db = await setup();
+    try {
+      const sentVersions = [];
+      const api = readyApi(db, (name, args, run) => {
+        if (name === 'lifemate_game_set_phom_rules')
+          sentVersions.push(args.p_client_version);
+        return run(name, args);
+      });
+      const config = {
+        second: 1,
+        third: 2,
+        last: 3,
+        eat: 1,
+        chot: 4,
+        mom: 4,
+        u: 5,
+        uTron: 10,
+        den: 5,
+        forfeit: 4,
+      };
+      const optional = {
+        ...config,
+        options: { tai: true, send: false, uDen: false },
+      };
+      let current = (
+        await api.post(uid, {
+          type: 'create',
+          clientVersion: 7,
+          game: 'phom',
+          name: 'An',
+          phomConfig: location === 'current' ? optional : config,
+          actionId: crypto.randomUUID(),
+        })
+      ).value.room;
+      if (location === 'pending') {
+        await assert.rejects(
+          api.sqlRpc('lifemate_game_set_phom_rules', {
+            p_uid: uid,
+            p_auth_time: authTime,
+            p_session_id: session,
+            p_action_id: crypto.randomUUID(),
+            p_fingerprint: 'incoming-options',
+            p_room_id: current.id,
+            p_version: current.version,
+            p_match_id: null,
+            p_config: optional,
+            p_client_version: 6,
+          }),
+          /game-update-required/,
+        );
+        current = (
+          await api.post(uid, {
+            type: 'set-phom-rules',
+            clientVersion: 7,
+            roomId: current.id,
+            expectedVersion: current.version,
+            matchId: null,
+            phomConfig: optional,
+            actionId: crypto.randomUUID(),
+          })
+        ).value.room;
+      }
+      // Include readiness and lease/receipt/broadcast side effects in the denial assertion.
+      current = (
+        await api.post(uid, {
+          type: 'ready',
+          clientVersion: 7,
+          roomId: current.id,
+          expectedVersion: current.version,
+          matchId: null,
+          ready: true,
+          actionId: crypto.randomUUID(),
+        })
+      ).value.room;
+      assert.equal(current.members[0].ready, true);
+      const readEffects = async () =>
+        (
+          await db.query(`select jsonb_build_object(
+        'rooms',(select jsonb_agg(to_jsonb(r)) from public.lifemate_game_rooms r),
+        'seats',(select jsonb_agg(to_jsonb(s)) from public.lifemate_game_seats s),
+        'receipts',(select jsonb_agg(to_jsonb(r) order by action_id) from public.lifemate_game_receipts r),
+        'hints',(select jsonb_agg(to_jsonb(h)) from public.test_game_hints h)
+      ) as value`)
+        ).rows[0].value;
+      const before = await readEffects();
+      const input = {
+        type: 'set-phom-rules',
+        clientVersion: 6,
+        roomId: current.id,
+        expectedVersion: current.version,
+        matchId: null,
+        phomConfig: { ...config, u: 999 },
+        actionId: crypto.randomUUID(),
+      };
+      const denied = await api.post(uid, input);
+      assert.equal(denied.status, 409);
+      assert.equal(denied.value.error, 'game-update-required');
+      assert.deepEqual(await readEffects(), before);
+      const args = {
+        p_uid: uid,
+        p_auth_time: authTime,
+        p_session_id: session,
+        p_action_id: crypto.randomUUID(),
+        p_fingerprint: 'old-edge-edit',
+        p_room_id: current.id,
+        p_version: current.version,
+        p_match_id: null,
+        p_config: config,
+      };
+      await assert.rejects(
+        api.sqlRpc('lifemate_game_set_phom_rules', {
+          ...args,
+          p_config: optional,
+          p_client_version: 6,
+        }),
+        /game-update-required/,
+      );
+      assert.deepEqual(await readEffects(), before);
+      // The old Edge signature cannot bypass the locked capability guard.
+      await assert.rejects(
+        api.sqlRpc('lifemate_game_set_phom_rules', args),
+        /game-update-required/,
+      );
+      assert.deepEqual(await readEffects(), before);
+      for (const version of [null, 0, 5, 8]) {
+        await assert.rejects(
+          api.sqlRpc('lifemate_game_set_phom_rules', {
+            ...args,
+            p_client_version: version,
+          }),
+          /invalid-input/,
+        );
+      }
+      assert.deepEqual(await readEffects(), before);
+      // Old Edge v14 accepts explicit options only from v7: keep rollout compatible.
+      const saved = await api.sqlRpc('lifemate_game_set_phom_rules', {
+        ...args,
+        p_config: { ...optional, u: 11 },
+      });
+      assert.deepEqual(saved.record.state.nextPhomConfig, {
+        ...optional,
+        u: 11,
+      });
+      assert.equal(saved.record.state.members[0].ready, false);
+      const retry = await api.sqlRpc('lifemate_game_set_phom_rules', {
+        ...args,
+        p_config: { ...optional, u: 11 },
+        p_client_version: 7,
+      });
+      assert.deepEqual(retry, saved.ack);
+      const updated = await api.post(uid, {
+        ...input,
+        clientVersion: 7,
+        expectedVersion: saved.record.version,
+        actionId: crypto.randomUUID(),
+        phomConfig: { ...optional, u: 12 },
+      });
+      assert.equal(updated.status, 200, JSON.stringify(updated.value));
+      assert.equal(sentVersions.at(-1), 7);
+      assert.deepEqual(updated.value.room.nextPhomConfig, {
+        ...optional,
+        u: 12,
+      });
+      assert.deepEqual(updated.value.room.phomConfig, current.phomConfig);
+      for (const signature of [
+        'text,bigint,uuid,uuid,text,uuid,bigint,uuid,jsonb',
+        'text,bigint,uuid,uuid,text,uuid,bigint,uuid,jsonb,integer',
+      ]) {
+        for (const role of ['anon', 'authenticated', 'service_role']) {
+          const privilege = (
+            await db.query(
+              "select has_function_privilege($1,$2,'execute') ok",
+              [role, `public.lifemate_game_set_phom_rules(${signature})`],
+            )
+          ).rows[0].ok;
+          assert.equal(privilege, role === 'service_role');
+        }
+      }
+    } finally {
+      await db.close();
+    }
+  });
+}
+
+test('protocol7 creates optional Phỏm rules and pins every choice into the first match', async () => {
+  const db = await setup();
+  try {
+    const api = readyApi(db);
+    const config = {
+      second: 1,
+      third: 2,
+      last: 3,
+      eat: 1,
+      chot: 4,
+      mom: 4,
+      u: 5,
+      uTron: 10,
+      den: 5,
+      forfeit: 4,
+      options: { tai: true, send: false, uDen: false },
+    };
+    const created = await api.post(uid, {
+      type: 'create',
+      clientVersion: 7,
+      game: 'phom',
+      name: 'An',
+      phomConfig: config,
+      actionId: crypto.randomUUID(),
+    });
+    assert.equal(created.status, 200, JSON.stringify(created.value));
+    let current = created.value.room;
+    assert.deepEqual(current.phomConfig, config);
+    assert.equal(
+      (
+        await api.post(other, {
+          type: 'join',
+          clientVersion: 6,
+          name: 'Bình',
+          code: current.code,
+          actionId: crypto.randomUUID(),
+        })
+      ).value.error,
+      'game-update-required',
+    );
+    assert.equal(
+      (await db.query('select count(*)::int n from public.lifemate_game_seats'))
+        .rows[0].n,
+      1,
+    );
+    current = (
+      await api.post(other, {
+        type: 'join',
+        clientVersion: 7,
+        name: 'Bình',
+        code: current.code,
+        actionId: crypto.randomUUID(),
+      })
+    ).value.room;
+    current = (
+      await api.post(other, {
+        type: 'ready',
+        clientVersion: 7,
+        roomId: current.id,
+        expectedVersion: current.version,
+        matchId: null,
+        ready: true,
+        actionId: crypto.randomUUID(),
+      })
+    ).value.room;
+    const started = await api.post(uid, {
+      type: 'start',
+      clientVersion: 7,
+      roomId: current.id,
+      expectedVersion: current.version,
+      matchId: null,
+      actionId: crypto.randomUUID(),
+    });
+    assert.equal(started.status, 200, JSON.stringify(started.value));
+    assert.equal(started.value.room.phase, 'playing');
+    assert.deepEqual(started.value.room.phomConfig, config);
+    assert.deepEqual(
+      (await db.query('select state from public.lifemate_game_rooms')).rows[0]
+        .state.game.config,
+      config,
     );
   } finally {
     await db.close();

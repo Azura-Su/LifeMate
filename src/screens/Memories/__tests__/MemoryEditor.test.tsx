@@ -278,7 +278,7 @@ it('docks 12 points above the keyboard and keeps the header and close action ava
   const keyboard = screen.UNSAFE_getByType(KeyboardAvoidingView);
   expect(keyboard.props.behavior).toBe('padding');
   expect(
-    StyleSheet.flatten(screen.getByTestId('dialog-backdrop').props.style)
+    StyleSheet.flatten(screen.getByTestId('dialog-overlay').props.style)
       .justifyContent,
   ).toBe('center');
   const show = listeners.mock.calls
@@ -296,7 +296,7 @@ it('docks 12 points above the keyboard and keeps the header and close action ava
     }),
   );
   expect(
-    StyleSheet.flatten(screen.getByTestId('dialog-backdrop').props.style),
+    StyleSheet.flatten(screen.getByTestId('dialog-overlay').props.style),
   ).toMatchObject({
     justifyContent: 'flex-end',
     paddingTop: 67,
@@ -316,7 +316,7 @@ it('docks 12 points above the keyboard and keeps the header and close action ava
     }),
   );
   expect(
-    StyleSheet.flatten(screen.getByTestId('dialog-backdrop').props.style)
+    StyleSheet.flatten(screen.getByTestId('dialog-overlay').props.style)
       .justifyContent,
   ).toBe('center');
 });

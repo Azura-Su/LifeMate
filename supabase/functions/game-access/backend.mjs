@@ -18,6 +18,7 @@ const KNOWN = new Set([
   'room-playing',
   'room-full',
   'invalid-input',
+  'game-update-required',
 ]);
 
 export function createGameBackend(projectUrl, serviceKey, request = fetch) {

@@ -11,11 +11,20 @@ import {
   LayoutAnimation,
   StyleSheet,
 } from 'react-native';
-import type { CardGameRoom } from '../../../types/cardGame';
+import type {
+  CardGameRoom as AnyCardGameRoom,
+  TienLenView,
+} from '../../../types/cardGame';
+
 import { colors } from '../../../theme';
 import { CardGameTable, getPassCardFlightOffsets } from '../CardGameTable';
 import { styles } from '../CardGamesScreen.styles';
 import { cardLabel } from '../PlayingCard';
+
+// These fixtures exercise Tiến lên; keep their game type precise after adding Phỏm.
+type CardGameRoom = Omit<AnyCardGameRoom, 'game'> & {
+  game: TienLenView | null;
+};
 
 jest.mock('@expo/vector-icons/Feather', () => 'Feather');
 jest.mock('../CardGameAvatarImage', () => ({

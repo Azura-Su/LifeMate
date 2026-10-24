@@ -1,5 +1,15 @@
 import type { CardGameRoom, TienLenView } from '../../types/cardGame';
 
+// Rotate a presentation copy; the authoritative seat and turn order stays intact.
+export function getOpponentsInSeatOrder<T extends { uid: string }>(
+  players: readonly T[],
+  selfUID: string,
+): T[] {
+  const self = players.findIndex((player) => player.uid === selfUID);
+  if (self < 0) return [...players];
+  return [...players.slice(self + 1), ...players.slice(0, self)];
+}
+
 // Presentation events only. The room snapshot remains the authority for rules.
 export function getConfirmedPasses(
   previous: CardGameRoom | null,

@@ -913,3 +913,139 @@ it('fences a delayed action after a removal snapshot and clears pending retry st
   ).toHaveLength(1);
   session.stop();
 });
+
+it('fences rules edits and later room commands at protocol5', async () => {
+  const nextSouthRules = {
+    amountPerCard: 9,
+    southConfig: { finishMode: 'continue' as const, cutTwoAmount: 0 },
+  };
+  const room = snapshot();
+  room.room!.nextSouthRules = nextSouthRules;
+  const request = jest.fn(async () => room);
+  const controller = createGameSession({
+    sessionId: 'session',
+    request,
+    onChange: jest.fn(),
+    uuid: () => 'action',
+    subscribe: (_topic, _hint, status) => {
+      status(true);
+      return jest.fn();
+    },
+  });
+  controller.start();
+  await flush();
+  await controller.send({ type: 'set-south-rules', ...nextSouthRules });
+  expect(request).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      type: 'set-south-rules',
+      requiredClientVersion: 5,
+      expectedVersion: 1,
+      matchId: null,
+    }),
+    expect.anything(),
+  );
+  await controller.send({ type: 'ready', ready: true });
+  expect(request).toHaveBeenLastCalledWith(
+    expect.objectContaining({ type: 'ready', requiredClientVersion: 5 }),
+    expect.anything(),
+  );
+  controller.stop();
+});
+
+it('fences Phỏm rules edits and later room actions at capability6', async () => {
+  const room = snapshot();
+  room.room!.gameKind = 'phom';
+  room.room!.nextPhomConfig = {
+    second: 1,
+    third: 2,
+    last: 3,
+    eat: 1,
+    chot: 4,
+    mom: 4,
+    u: 5,
+    uTron: 10,
+    den: 5,
+    forfeit: 4,
+  };
+  const request = jest.fn(async () => room);
+  const controller = createGameSession({
+    sessionId: 'session',
+    request,
+    onChange: jest.fn(),
+    uuid: () => 'action',
+    subscribe: (_topic, _hint, status) => {
+      status(true);
+      return jest.fn();
+    },
+  });
+  controller.start();
+  await flush();
+  await controller.send({
+    type: 'set-phom-rules',
+    phomConfig: room.room!.nextPhomConfig,
+  });
+  expect(request).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      type: 'set-phom-rules',
+      requiredClientVersion: 6,
+      expectedVersion: 1,
+    }),
+    expect.anything(),
+  );
+  await controller.send({ type: 'ready', ready: true });
+  expect(request).toHaveBeenLastCalledWith(
+    expect.objectContaining({ type: 'ready', requiredClientVersion: 6 }),
+    expect.anything(),
+  );
+  controller.stop();
+});
+
+it.each(['current', 'pending'] as const)(
+  'keeps option capability7 for %s rules across sync, lease and reconnect bootstrap',
+  async (placement) => {
+    const room = snapshot();
+    const config = {
+      second: 1,
+      third: 2,
+      last: 3,
+      eat: 1,
+      chot: 4,
+      mom: 4,
+      u: 5,
+      uTron: 10,
+      den: 5,
+      forfeit: 4,
+      options: { tai: true, send: false, uDen: false },
+    };
+    room.room!.gameKind = 'phom';
+    if (placement === 'current') room.room!.phomConfig = config;
+    else room.room!.nextPhomConfig = config;
+    const request = jest.fn(async (_input: GameRequest) => room);
+    const controller = createGameSession({
+      sessionId: 'session',
+      request,
+      onChange: jest.fn(),
+      uuid: () => 'action',
+      subscribe: (_topic, _hint, status) => {
+        status(true);
+        return jest.fn();
+      },
+    });
+    controller.start();
+    await flush();
+    expect(
+      request.mock.calls.find(([r]) => r.type === 'sync')?.[0],
+    ).toMatchObject({ requiredClientVersion: 7 });
+    jest.advanceTimersByTime(20_000);
+    await flush();
+    expect(
+      request.mock.calls.find(([r]) => r.type === 'lease')?.[0],
+    ).toMatchObject({ requiredClientVersion: 7 });
+    await controller.retry();
+    await flush();
+    expect(
+      request.mock.calls.filter(([r]) => r.type === 'bootstrap').at(-1)?.[0],
+    ).toMatchObject({ requiredClientVersion: 7 });
+    controller.stop();
+  },
+);

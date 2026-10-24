@@ -1,6 +1,13 @@
 # Tiến lên miền Nam online
 
-Triển khai theo [SPEC](../SPEC-card-games.md) và [bộ luật cố định](../SPEC-rules-tien-len-south.md). Miền Bắc và Phỏm chưa triển khai. Bảng điểm thủ công giữ storage và lịch sử riêng.
+Tiến lên theo [SPEC](../SPEC-card-games.md) và [bộ luật cố định](../SPEC-rules-tien-len-south.md); Phỏm theo [phom-v1](../SPEC-rules-phom.md), đã deploy backend ngày23/10/2026. Miền Bắc chưa triển khai. Bảng điểm thủ công giữ storage và lịch sử riêng.
+
+Ngày23/10/2026 đã deploy **game-access v11** cho Tiến lên cấu hình. Dropdown chọn
+đánh tiếp hoặc dừng ngay khi có người về nhất; tiền chặt2 chung theo mỗi lá.
+Phòng cũ/default giữ south-v1, phòng khác mặc định cần client4/south-v2. Đã chờ
+worker v10 kết thúc trước bật RPC/migration `20261023112114_south_configured_rounds.sql`.
+Sau khi có phòng v2, rollback phải giữ worker hiểu v2. Xem
+[plan và kiểm chứng](../tasks/south-config-plan-2026-10-23.md).
 
 ## Kiến trúc và vận hành
 
@@ -50,10 +57,14 @@ Cập nhật độ trễ 22/10/2026: client đã bỏ khoảng chờ handshake 2
 
 ### Quản lý thành viên — mã nguồn chuẩn bị ngày 22/10/2026
 
-Thay đổi này chưa được triển khai cloud trong tác vụ quản lý thành viên. Cần áp dụng
-riêng `20261022110124_card_room_member_management.sql`, deploy `game-access` cùng
-mã nguồn mới, rồi phát hành client tương ứng. Không chạy `db push` toàn bộ lịch sử
-migration của workspace. Giữ các function service-only và quyền bảng hiện tại.
+Ngày 23/10/2026 đã áp dụng riêng
+`20261022110124_card_room_member_management.sql` và deploy `game-access` **v9 ACTIVE**
+để sửa nút kích người không hoạt động. Bản v8 trước đó và RPC production chưa
+nhận lệnh kick. Bundle v9 lấy từ source v8 đang chạy, bổ sung phần quản lý thành
+viên; các thay đổi Phỏm/bảng điểm đang chuẩn bị không nằm trong lần deploy này.
+Không chạy `db push` toàn bộ lịch sử migration của workspace. Giữ các function
+service-only, quyền bảng và `verify_jwt=false` (Edge xác minh Firebase JWT).
+Xem [kiểm chứng triển khai](../tasks/card-room-kick-deploy-2026-10-23.md).
 
 Migration thêm recovery receipt cho người đang có ghế, xác thực kick ở SQL, dọn ghế
 mục tiêu và giữ notice theo phiên trong bảng receipt hiện có. Notice không consume
@@ -61,3 +72,77 @@ khi đọc; tạo ghế mới thành công xóa notice cũ của UID đó. Khôn
 notice. Kích giữa ván giữ dữ liệu người chơi cần cho settlement; không sửa hợp đồng
 bảng điểm. Trước phát hành cần thử nhiều thiết bị thật: đủ 4 người, reconnect, race
 người thứ 4/5, kick khi chờ/đang chơi, mất mạng lúc phản hồi và vào lại chủ động.
+
+# Phỏm online: rollout 23/10/2026
+
+Source hỗ trợ `gameKind=phom`, public `phomConfig`, engine `phom-v1`; luật và
+quyết toán ở `SPEC-rules-phom.md`. Mọi mức cấu hình riêng0..1e9, không thay luật
+miền Nam hoặc hợp đồng shared score `ranking[].moneyDelta`.
+
+1. Đối chiếu migration history và định nghĩa thực tế; chuẩn bị riêng
+   `20261022185526_shared_score_patch_operations.sql` và
+   `20261022194436_phom_online_rooms.sql`. Không push toàn bộ migration local.
+2. Deploy `game-access`/worker hỗ trợ hai engine trước khi có RPC tạo Phỏm.
+   Chờ worker cũ kết thúc theo giới hạn400 giây và kiểm tra log version, rồi áp
+   dụng hai migration/history atomically. Không dùng mode closed làm maintenance.
+3. Phát hành client protocol3 có parser/table Phỏm. Giữ client cũ vào south;
+   `game-update-required` chặn trước khi client cũ chiếm ghế Phỏm.
+4. Smoke trên môi trường thử với2–4 thiết bị/tài khoản fixture: cấu hình, chơi
+   tới kết quả, mất ack/reconnect/kick, timeout, bảng điểm, dọc/ngang và chữ lớn.
+
+Đã deploy **game-access v10 ACTIVE** và hai migration riêng ngày23/10/2026 sau
+barrier410 giây. Đọc lại17 file source khớp bundle được review. Ba ván2/3/4 người
+qua RPC/database production đạt; fixture đã rollback, không còn ghế/receipt thử.
+Simulator đã xác nhận danh mục/form; chưa kiểm chứng nhiều điện thoại thật hoặc
+phát hành bản cài/OTA. Xem [báo cáo deploy](../tasks/phom-cloud-deploy-2026-10-23.md).
+
+Rollback client không cần xóa dữ liệu. Không rollback worker/Edge về bản chỉ hiểu
+south khi còn phòng Phỏm đang chơi; ngưng tạo Phỏm và xử lý hết phòng hiện có trước.
+Migration additive giữ create cũ và ACL service-only, không xóa dữ liệu người dùng.
+
+## Sửa luật Tiến lên trong phòng (23/10/2026)
+
+Chủ phòng mở mã phòng → Sửa luật ván tới. `set-south-rules` (clientVersion5)
+nhận amountPerCard + southConfig và expectedVersion/matchId/actionId như các
+lệnh phòng khác. RPC `lifemate_game_set_south_rules` tự xây state từ row đã
+khóa; chỉ sửa `nextSouthRules` và cờ ready ở sảnh/kết quả. Không nhận toàn bộ
+state từ caller. Ready ở phòng đã sửa luật dùng CAS nghiêm ngặt, không rebase.
+
+Room snapshot5 có nextSouthRules; snapshot cũ ẩn field này. Người đang ngồi với
+client cũ được chơi hết ván và duy trì lease/rời phòng, phải cập nhật trước
+ready/start/join/recovery/takeover/reopen/quản lý. Status trả minClientVersion5.
+Room amount/southConfig luôn là cấu hình match đang/đã chơi; start/rematch mới
+copy pending, giữ pending cho ván sau. Trigger kiểm tra mọi match rotation và
+cấm đổi tiền/config cùng match. Mức mặc định bỏ southConfig để giữ enginev1.
+
+## Sửa luật Phỏm trong phòng
+
+`set-phom-rules` capability6 nhận phomConfig, version/match/action/session.
+RPC `lifemate_game_set_phom_rules` tự xây state từ row đã khóa, owner/controller
+và receipt/CAS như South. `nextPhomConfig` chỉ promote vào phomConfig trước
+start/rematch; game.config hiện tại luôn giữ nguyên. Snapshot6 mới trả pending
+Phỏm. Ready ở phòng có bất cứ pending config nào đều dùng CAS nghiêm ngặt.
+
+`lifemate_game_takeover` có overload5tham số thêm p_client_version kiểm tra
+capability dưới room lock; overload4 cũ chuyển sang floor1 và chặn phòng vượt
+khả năng, tránh preflight chạy trước lần sửa luật. RPC vẫn chỉ service_role.
+Client mặc định6, fallback có sàn theo loại lệnh/phòng, không hạ lệnh Phỏm
+pending dưới6 hoặc South pending dưới5. Các phòng cũ không đổi config.
+
+### Phỏm: Tái, Gửi và Ù đền (protocol7)
+
+Chủ phòng chọn ba công tắc trước tạo hoặc trong Sửa luật ván tới. Mặc định
+Tái tắt, Gửi bật, Ù đền bật. Tái dịch lượt khi ăn ở vòng hạ; phỏm/thứ tự hạ
+cũ được giữ. Gửi/đền được kiểm tra bởi engine, không chỉ ẩn UI.
+`options` nằm trong current/pending Phỏm config, bất biến trong match.
+Config phòng cũ không thêm trường tự động. Phiên bản6 đang chơi phòng cũ
+không nhận pending options; phải cập nhật trước ready/điều khiển phòng.
+Rollout: migration capability mở takeover7, deploy Edge hỗ trợ7, đợi các
+execution cũ kết thúc, cuối cùng mở validator options. Sau khi có phòng
+options phải giữ engine hỗ trợ options và sửa tiến tiếp, không rollback v13.
+
+Lưu luật Phỏm truyền `p_client_version` vào overload SQL10 tham số. Transaction
+khóa phòng và yêu cầu7 nếu current/pending/incoming config có options, chặn
+client6 ghi đè mất Tái/Gửi/Ù đền trước mọi mutation. RPC9 tham số giữ tương
+thích Edgev14: payload có options được xem là7 (Edge đã kiểm tra), còn payload
+10 mức là6. Migration guard phải chạy trước Edgev15; cả hai RPC chỉ service_role.

@@ -8,6 +8,7 @@ import type {
 } from '../../types/cardGame';
 import { assertAccountWritable } from '../security/accountLifecycle';
 import { parseGameRoomStatus, parseGameSnapshot } from './gameProtocol';
+import { configuredSouth } from './tienLenConfig';
 import type {
   CardScoreHistory,
   SharedCardScore,
@@ -44,6 +45,9 @@ const messages: Record<string, string> = {
   'invalid-combination': 'Các lá đã chọn chưa thành một bộ hợp lệ.',
   'opening-card': 'Bộ mở ván phải chứa lá nhỏ nhất đã chia.',
   'cannot-pass': 'Bạn đang mở vòng mới, hãy chọn bài để đánh.',
+  'invalid-action': 'Thao tác chưa phù hợp với bước hiện tại của lượt.',
+  'not-turn': 'Chưa đến lượt của bạn.',
+  'game-update-required': 'Hãy cập nhật ứng dụng để dùng luật của phòng này.',
   'card-ownership': 'Bài trên tay vừa thay đổi. Hãy chọn lại sau khi cập nhật.',
   'rate-limited': 'Bạn thao tác hơi nhanh. Hãy đợi một lát.',
   'not-member': 'Bạn không còn ở phòng này.',
@@ -137,7 +141,24 @@ export async function gameRequest(
   };
   signal.addEventListener('abort', cancel, { once: true });
   const timer = setTimeout(cancel, 15000);
-  let legacyProtocol = false;
+  let protocolVersion: 7 | 6 | 5 | 4 | 3 | 2 | undefined = 7;
+  const minimumVersion =
+    input.requiredClientVersion ??
+    (input.phomConfig?.options
+      ? 7
+      : input.type === 'set-phom-rules'
+        ? 6
+        : input.type === 'set-south-rules'
+          ? 5
+          : configuredSouth(input.southConfig)
+            ? 4
+            : input.game === 'phom' || input.phomAction !== undefined
+              ? 3
+              : 1);
+  const requestInput = { ...input };
+  delete requestInput.requiredClientVersion;
+  if (input.game === 'south' && !configuredSouth(input.southConfig))
+    delete requestInput.southConfig;
   const off = useAuthStore.subscribe(() => {
     if (
       useAuthStore.getState().user?.uid !== uid ||
@@ -167,7 +188,9 @@ export async function gameRequest(
               'Content-Type': 'application/json',
             },
             body: JSON.stringify(
-              legacyProtocol ? input : { ...input, clientVersion: 2 },
+              protocolVersion === undefined
+                ? requestInput
+                : { ...requestInput, clientVersion: protocolVersion },
             ),
           });
           const result: unknown = await response.json().catch(() => {
@@ -186,9 +209,22 @@ export async function gameRequest(
             if (
               code === 'invalid-input' &&
               response.status === 400 &&
-              !legacyProtocol
+              protocolVersion !== undefined
             ) {
-              legacyProtocol = true;
+              if (protocolVersion <= minimumVersion)
+                throw new GameApiError('game-update-required', 409);
+              protocolVersion =
+                protocolVersion === 7
+                  ? 6
+                  : protocolVersion === 6
+                    ? 5
+                    : protocolVersion === 5
+                      ? 4
+                      : protocolVersion === 4
+                        ? 3
+                        : protocolVersion === 3
+                          ? 2
+                          : undefined;
               attempt -= 1;
               continue;
             }

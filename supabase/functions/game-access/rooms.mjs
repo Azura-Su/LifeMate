@@ -1,9 +1,5 @@
-import {
-  newTienLenGame,
-  playTienLen,
-  forfeitTienLen,
-  viewTienLen,
-} from './tienlen.mjs';
+import { gameEngine } from './game-engines.mjs';
+import { configuredSouth, settleConfiguredSouth } from './tienlen-scoring.mjs';
 
 export function updateRoom(input, uid, action, now, deck) {
   const state = structuredClone(input);
@@ -14,7 +10,8 @@ export function updateRoom(input, uid, action, now, deck) {
   // The creator becomes the first owner. The current owner can be transferred
   // between seated players and remains the only person who can reopen the room.
   if (state.ownerUid === undefined)
-    state.ownerUid = state.scoreMembers[0]?.uid ?? state.members[0]?.uid ?? null;
+    state.ownerUid =
+      state.scoreMembers[0]?.uid ?? state.members[0]?.uid ?? null;
   const member = state.members.find((p) => p.uid === uid);
   if (action.type === 'reopen') {
     if (uid !== state.ownerUid) throw Error('not-owner');
@@ -84,7 +81,11 @@ export function updateRoom(input, uid, action, now, deck) {
     )
       throw Error('invalid-input');
     if (state.phase === 'playing')
-      state.game = forfeitTienLen(state.game, action.targetUid, now);
+      state.game = gameEngine(state).forfeit(
+        state.game,
+        [action.targetUid],
+        now,
+      );
     state.members = state.members.filter((p) => p.uid !== action.targetUid);
     state.members.forEach((p) => {
       p.ready = false;
@@ -93,7 +94,7 @@ export function updateRoom(input, uid, action, now, deck) {
       state.host = state.members[0]?.uid ?? null;
   } else if (action.type === 'leave') {
     if (state.phase === 'playing')
-      state.game = forfeitTienLen(state.game, uid, now);
+      state.game = gameEngine(state).forfeit(state.game, [uid], now);
     state.members = state.members.filter((p) => p.uid !== uid);
     state.members.forEach((p) => {
       p.ready = false;
@@ -104,14 +105,16 @@ export function updateRoom(input, uid, action, now, deck) {
       throw Error('room-playing');
     member.ready = action.ready;
     if (shouldStartRematch(state, uid, action)) {
+      applyNextRules(state);
       const winner = state.game?.result?.ranking.find(
         (p) => p.rank === 1 && !p.labels.includes('forfeit'),
       )?.uid;
-      state.game = newTienLenGame(
+      state.game = gameEngine(state).start(
         state.members.map((p) => p.uid),
         deck,
         now,
         winner,
+        state.gameKind === 'phom' ? state.phomConfig : state.southConfig,
       );
       state.phase = 'playing';
       state.members.forEach((p) => {
@@ -126,10 +129,13 @@ export function updateRoom(input, uid, action, now, deck) {
       state.members.some((player) => player.uid !== state.host && !player.ready)
     )
       throw Error('not-ready');
-    state.game = newTienLenGame(
+    applyNextRules(state);
+    state.game = gameEngine(state).start(
       state.members.map((p) => p.uid),
       deck,
       now,
+      null,
+      state.gameKind === 'phom' ? state.phomConfig : state.southConfig,
     );
     state.phase = 'playing';
     state.members.forEach((p) => {
@@ -137,11 +143,25 @@ export function updateRoom(input, uid, action, now, deck) {
     });
   } else if (['play', 'pass'].includes(action.type)) {
     if (state.phase !== 'playing') throw Error('finished');
-    state.game = playTienLen(state.game, uid, action, now);
+    if (state.gameKind !== 'phom' && action.phomAction !== undefined)
+      throw Error('invalid-input');
+    state.game = gameEngine(state).play(state.game, uid, action, now);
   } else throw Error('invalid-input');
   const started =
     action.type === 'start' || shouldStartRematch(input, uid, action);
   return finishRoom(input, state, started);
+}
+
+function applyNextRules(state) {
+  if (state.gameKind === 'phom') {
+    if (state.nextPhomConfig) state.phomConfig = { ...state.nextPhomConfig };
+    return;
+  }
+  if (!state.nextSouthRules) return;
+  state.amountPerCard = state.nextSouthRules.amountPerCard;
+  if (configuredSouth(state.nextSouthRules.southConfig))
+    state.southConfig = { ...state.nextSouthRules.southConfig };
+  else delete state.southConfig;
 }
 
 export function shouldStartRematch(state, uid, action) {
@@ -183,13 +203,18 @@ export function finishRoom(previous, state, started = false) {
           'Người chơi';
         const player = state.game.players.find((p) => p.uid === result.uid);
         result.remainingCards = player?.hand.length ?? 0;
-        result.moneyDelta =
-          result.uid === winner?.uid
-            ? 0
-            : -(result.remainingCards * (state.amountPerCard ?? 0));
-        if (result.uid !== winner?.uid) losersTotal -= result.moneyDelta;
+        if (state.gameKind !== 'phom' && !state.game.southConfig)
+          result.moneyDelta =
+            result.uid === winner?.uid
+              ? 0
+              : -(result.remainingCards * (state.amountPerCard ?? 0));
+        if (result.uid !== winner?.uid && !state.game.southConfig)
+          losersTotal -= result.moneyDelta;
       }
-      if (winner) winner.moneyDelta = losersTotal;
+      if (state.game.southConfig)
+        settleConfiguredSouth(state.game, state.amountPerCard ?? 0);
+      else if (winner && state.gameKind !== 'phom')
+        winner.moneyDelta = losersTotal;
       for (const result of ranking) {
         const member = state.members.find((p) => p.uid === result.uid);
         const scoreMember = state.scoreMembers.find(
@@ -219,12 +244,19 @@ export function finishRoom(previous, state, started = false) {
   return state;
 }
 
-export function roomSnapshot(record, uid, controller, now, lifecycle = false) {
+export function roomSnapshot(
+  record,
+  uid,
+  controller,
+  now,
+  lifecycle = false,
+  nextRules = false,
+) {
   if (!record) return { room: null, serverTime: now };
   const state = record.state;
   if (!state.members.some((p) => p.uid === uid)) throw Error('not-member');
   const game = state.game?.players.some((p) => p.uid === uid)
-    ? viewTienLen(state.game, uid)
+    ? gameEngine(state).view(state.game, uid)
     : null;
   if (game && lifecycle) {
     const scoreMembers = state.scoreMembers ?? state.members;
@@ -262,6 +294,20 @@ export function roomSnapshot(record, uid, controller, now, lifecycle = false) {
       controller,
       topic: `card-room:${record.id}:${record.epoch}`,
       ...(lifecycle && { amountPerCard: state.amountPerCard ?? 0 }),
+      ...(state.gameKind === 'phom' && {
+        gameKind: 'phom',
+        phomConfig: { ...state.phomConfig },
+      }),
+      ...(state.southConfig && { southConfig: { ...state.southConfig } }),
+      ...(nextRules >= 6 &&
+        (nextRules >= 7 || !state.nextPhomConfig?.options) &&
+        state.nextPhomConfig && {
+          nextPhomConfig: { ...state.nextPhomConfig },
+        }),
+      ...(nextRules &&
+        state.nextSouthRules && {
+          nextSouthRules: structuredClone(state.nextSouthRules),
+        }),
       members: state.members.map((p) => ({
         uid: p.uid,
         name: p.name,

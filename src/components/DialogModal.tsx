@@ -5,6 +5,7 @@ import {
   Platform,
   Pressable,
   StyleSheet,
+  View,
   type ModalProps,
   type StyleProp,
   type ViewStyle,
@@ -54,22 +55,23 @@ export function DialogModal({
         style={styles.keyboardAvoiding}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Pressable
-          testID="dialog-backdrop"
-          accessible={false}
-          style={[styles.overlay, overlayStyle]}
-          onPress={onBackdropPress}
-        >
+        <View testID="dialog-overlay" style={[styles.overlay, overlayStyle]}>
+          {/* Keep the dismiss target behind the card so it cannot claim scroll gestures. */}
           <Pressable
+            testID="dialog-backdrop"
+            accessible={false}
+            style={StyleSheet.absoluteFill}
+            onPress={onBackdropPress}
+          />
+          <View
             testID="dialog-content"
             accessible={false}
             style={[styles.card, style]}
-            onPress={(event) => event?.stopPropagation()}
             accessibilityViewIsModal
           >
             {children}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );

@@ -1,3 +1,4 @@
+import { Button } from '../../../components/Button';
 import {
   act,
   fireEvent,
@@ -22,6 +23,8 @@ import { useCardGameOrientation } from '../../../hooks/useCardGameOrientation';
 import { useAuthStore } from '../../../store/authStore';
 import { useConfigStore } from '../../../store/configStore';
 import type { CardGameRoom } from '../../../types/cardGame';
+import { phomRoom } from '../../../testing/phomFixture';
+import { DEFAULT_PHOM_CONFIG } from '../../../services/cardGames/phomConfig';
 import * as cardStorage from '../../../services/cardScore/cardScoreStorage';
 import {
   getCachedRoomSnapshot,
@@ -59,6 +62,89 @@ jest.mock('react-native-safe-area-context', () => ({
 const send = jest.fn(),
   retry = jest.fn(),
   retrySessionInitialization = jest.fn();
+
+it('selects the South finish mode from a dropdown and creates with its independent two-cut fine', () => {
+  setup();
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Chọn Tiến lên miền Nam' }),
+  );
+  fireEvent.press(
+    screen.getByRole('radio', { name: 'Có người về nhất thì dừng ngay' }),
+  );
+  fireEvent.changeText(
+    screen.getByLabelText('Số tiền phạt cho mỗi lá 2 bị chặt'),
+    '2500',
+  );
+  fireEvent.changeText(
+    screen.getByLabelText('Số tiền trừ cho mỗi lá còn lại'),
+    '1000',
+  );
+  fireEvent.press(screen.getByRole('button', { name: 'Tạo phòng' }));
+  expect(send).toHaveBeenCalledWith({
+    type: 'create',
+    name: expect.any(String),
+    game: 'south',
+    amountPerCard: 1000,
+    southConfig: { finishMode: 'first-winner', cutTwoAmount: 2500 },
+  });
+});
+
+it('keeps the old South mode selected and rejects an empty or excessive two-cut fine', () => {
+  setup();
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Chọn Tiến lên miền Nam' }),
+  );
+  expect(screen.getByText('Đánh tiếp đến hết ván')).toBeTruthy();
+  fireEvent.changeText(
+    screen.getByLabelText('Số tiền phạt cho mỗi lá 2 bị chặt'),
+    '',
+  );
+  expect(screen.getByRole('button', { name: 'Tạo phòng' })).toBeDisabled();
+  fireEvent.changeText(
+    screen.getByLabelText('Số tiền phạt cho mỗi lá 2 bị chặt'),
+    '1000000001',
+  );
+  expect(screen.getByRole('button', { name: 'Tạo phòng' })).toBeDisabled();
+  fireEvent.changeText(
+    screen.getByLabelText('Số tiền phạt cho mỗi lá 2 bị chặt'),
+    '0',
+  );
+  expect(screen.getByRole('button', { name: 'Tạo phòng' })).toBeEnabled();
+});
+
+it('uses the actual legacy room defaults in rules after a different South draft was selected', () => {
+  const navigation = { navigate: jest.fn() };
+  const view = setup(null, false, 'a', null, navigation);
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Chọn Tiến lên miền Nam' }),
+  );
+  fireEvent.press(
+    screen.getByRole('radio', { name: 'Có người về nhất thì dừng ngay' }),
+  );
+  fireEvent.changeText(
+    screen.getByLabelText('Số tiền phạt cho mỗi lá 2 bị chặt'),
+    '17',
+  );
+  const previous = jest.mocked(useCardGame).mock.results.at(-1)!.value;
+  jest.mocked(useCardGame).mockReturnValue({
+    ...previous,
+    state: {
+      ...previous.state!,
+      snapshot: {
+        room: { ...base, amountPerCard: 5 },
+        serverTime: Date.now(),
+      },
+    },
+  });
+  view.rerender(
+    <CardGamesScreen navigation={navigation as never} route={{} as never} />,
+  );
+  fireEvent.press(screen.getByRole('button', { name: 'Mã phòng' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Xem luật chơi' }));
+  expect(screen.getByText('Đánh tiếp đến hết ván')).toBeTruthy();
+  expect(screen.getByText(/Chặt 2: 0 đ\/lá 2/)).toBeTruthy();
+  expect(screen.queryByText(/Chặt 2: 17 đ\/lá 2/)).toBeNull();
+});
 const base: CardGameRoom = {
   id: 'room',
   code: 'ABCDEFGH',
@@ -102,6 +188,29 @@ function setup(
     <CardGamesScreen navigation={navigation as never} route={{} as never} />,
   );
 }
+
+it('opens Phỏm configuration and sends all independently editable rates', () => {
+  setup();
+  fireEvent.press(screen.getByRole('button', { name: 'Chọn Phỏm' }));
+  fireEvent.changeText(screen.getByLabelText('Mức Nhì'), '123');
+  fireEvent.press(screen.getByRole('button', { name: 'Tạo phòng Phỏm' }));
+  expect(send).toHaveBeenCalledWith({
+    type: 'create',
+    name: expect.any(String),
+    game: 'phom',
+    phomConfig: {
+      ...DEFAULT_PHOM_CONFIG,
+      second: 123,
+      options: { tai: false, send: true, uDen: true },
+    },
+  });
+});
+it('renders a Phỏm snapshot using its own table, header and rules instead of South actions', () => {
+  setup(phomRoom());
+  expect(screen.getByTestId('phom-table')).toBeTruthy();
+  expect(screen.getByRole('header', { name: 'Phỏm' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Bỏ lượt' })).toBeNull();
+});
 
 it('keeps the room visible but disables readiness until reconnect has loaded a fresh snapshot', () => {
   const view = setup(base, true);
@@ -651,9 +760,9 @@ it('offers supported games, keeps unfinished games unavailable, and opens the So
   expect(screen.queryByText('Chọn trò chơi')).toBeNull();
   expect(screen.getByText('Tiến lên miền Bắc')).toBeTruthy();
   expect(screen.getByText('Phỏm')).toBeTruthy();
-  expect(screen.getAllByText('Sắp ra mắt')).toHaveLength(2);
+  expect(screen.getAllByText('Sắp ra mắt')).toHaveLength(1);
   expect(screen.queryByRole('button', { name: 'Xem luật chơi' })).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Chọn Phỏm' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Chọn Phỏm' })).toBeTruthy();
   fireEvent.press(
     screen.getByRole('button', { name: 'Chọn Tiến lên miền Nam' }),
   );
@@ -1344,6 +1453,61 @@ it('does not expose kick for a regular member or the owner viewing themself', ()
   expect(screen.queryByRole('button', { name: 'Kích người chơi' })).toBeNull();
 });
 
+it('manages the current replacement member after Phỏm finishes without targeting a historical participant', () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+  const room = phomRoom();
+  room.phase = 'finished';
+  room.game.status = 'finished';
+  room.game.turn = null;
+  room.game.deadline = null;
+  room.members = [
+    ...room.members.filter((m) => m.uid !== 'b'),
+    { uid: 'e', name: 'Người mới', ready: false, wins: 7, balance: 99 },
+  ];
+  const history = JSON.stringify(room.game);
+  const view = setup(room);
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Thông tin người chơi Người mới' }),
+  );
+  expect(screen.getByText('Số ván thắng: 7')).toBeTruthy();
+  expect(screen.getByText('Số dư bàn: 99 đ')).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Kích người chơi' }));
+  const confirm = alert.mock.calls
+    .at(-1)?.[2]
+    ?.find((button) => button.text === 'Kích người chơi');
+  act(() => confirm?.onPress?.());
+  expect(send).toHaveBeenLastCalledWith({ type: 'kick', targetUid: 'e' });
+  send.mockClear();
+  // An old confirmation must not target a later occupant of the same visible slot.
+  const current = jest.mocked(useCardGame).mock.results.at(-1)!.value;
+  jest.mocked(useCardGame).mockReturnValue({
+    ...current,
+    state: {
+      ...current.state!,
+      snapshot: {
+        ...current.state!.snapshot!,
+        room: {
+          ...room,
+          version: room.version + 1,
+          members: room.members.filter((m) => m.uid !== 'e'),
+        },
+      },
+    },
+  });
+  view.rerender(
+    <CardGamesScreen
+      navigation={{ navigate: jest.fn() } as never}
+      route={{} as never}
+    />,
+  );
+  act(() => confirm?.onPress?.());
+  expect(send).not.toHaveBeenCalled();
+  expect(
+    screen.queryByRole('button', { name: 'Thông tin người chơi Người mới' }),
+  ).toBeNull();
+  expect(JSON.stringify(room.game)).toBe(history);
+});
+
 it('invalidates a pending kick confirmation when room ownership changes', () => {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
   const navigation = { navigate: jest.fn() };
@@ -1451,4 +1615,238 @@ it('does not let an explicitly ownerless room fall back to its host for kicking'
     screen.getByRole('button', { name: 'Thông tin người chơi Bình' }),
   );
   expect(screen.queryByRole('button', { name: 'Kích người chơi' })).toBeNull();
+});
+
+it('lets only the controlling South owner edit next-round rules from the room menu', () => {
+  setup({ ...base, amountPerCard: 5 });
+  fireEvent.press(screen.getByRole('button', { name: 'Mã phòng' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Sửa luật ván tới' }));
+  expect(screen.getByText(/Chỉ áp dụng khi chia ván mới/)).toBeTruthy();
+  expect(screen.getByLabelText('Số tiền trừ cho mỗi lá còn lại')).toHaveProp(
+    'value',
+    '5',
+  );
+  fireEvent.changeText(
+    screen.getByLabelText('Số tiền trừ cho mỗi lá còn lại'),
+    '9',
+  );
+  fireEvent.changeText(
+    screen.getByLabelText('Số tiền phạt cho mỗi lá 2 bị chặt'),
+    '17',
+  );
+  fireEvent.press(
+    screen.getByRole('radio', { name: 'Có người về nhất thì dừng ngay' }),
+  );
+  fireEvent.press(screen.getByRole('button', { name: 'Lưu luật ván tới' }));
+  expect(send).toHaveBeenCalledWith({
+    type: 'set-south-rules',
+    amountPerCard: 9,
+    southConfig: { finishMode: 'first-winner', cutTwoAmount: 17 },
+  });
+});
+
+it.each([
+  { ...base, host: 'b', ownerUid: 'b' },
+  { ...base, controller: false },
+])('hides rule editing without South owner control', (room) => {
+  setup(room);
+  fireEvent.press(screen.getByRole('button', { name: 'Mã phòng' }));
+  expect(screen.queryByRole('button', { name: 'Sửa luật ván tới' })).toBeNull();
+});
+
+it('shows pending rules to members and keeps the active rules separate', () => {
+  setup(
+    {
+      ...base,
+      amountPerCard: 5,
+      nextSouthRules: {
+        amountPerCard: 9,
+        southConfig: { finishMode: 'first-winner', cutTwoAmount: 17 },
+      },
+    },
+    false,
+    'b',
+  );
+  fireEvent.press(screen.getByRole('button', { name: 'Mã phòng' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Xem luật chơi' }));
+  expect(screen.getByText('Luật ván tới')).toBeTruthy();
+  expect(screen.getByText(/9 đ\/lá còn · Chặt 2: 17 đ\/lá 2/)).toBeTruthy();
+  expect(screen.getByText(/Chặt 2: 0 đ\/lá 2/)).toBeTruthy();
+});
+
+it('blocks a stale rules draft when the room changes and can reload it', () => {
+  const view = setup({ ...base, amountPerCard: 5 });
+  fireEvent.press(screen.getByRole('button', { name: 'Mã phòng' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Sửa luật ván tới' }));
+  const hook = jest.mocked(useCardGame).mock.results.at(-1)!.value;
+  jest.mocked(useCardGame).mockReturnValue({
+    ...hook,
+    state: {
+      ...hook.state!,
+      snapshot: {
+        room: {
+          ...base,
+          version: 2,
+          amountPerCard: 5,
+          nextSouthRules: {
+            amountPerCard: 10,
+            southConfig: { finishMode: 'continue', cutTwoAmount: 0 },
+          },
+        },
+        serverTime: Date.now(),
+      },
+    },
+  });
+  view.rerender(
+    <CardGamesScreen
+      navigation={{ navigate: jest.fn() } as never}
+      route={{} as never}
+    />,
+  );
+  expect(
+    screen.getByRole('button', { name: 'Lưu luật ván tới' }),
+  ).toBeDisabled();
+  fireEvent.press(screen.getByRole('button', { name: 'Tải lại luật' }));
+  expect(screen.getByLabelText('Số tiền trừ cho mỗi lá còn lại')).toHaveProp(
+    'value',
+    '10',
+  );
+  fireEvent.press(screen.getByRole('button', { name: 'Lưu luật ván tới' }));
+  expect(send).toHaveBeenCalledWith(
+    expect.objectContaining({ amountPerCard: 10 }),
+  );
+});
+
+it('edits each Phỏm rate in the room and submits only next-round configuration', () => {
+  const room = phomRoom();
+  room.nextPhomConfig = { ...DEFAULT_PHOM_CONFIG, second: 23 };
+  setup(room);
+  fireEvent.press(screen.getByRole('button', { name: 'Mã phòng' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Sửa luật ván tới' }));
+  expect(screen.getByLabelText('Mức Nhì')).toHaveProp('value', '23');
+  for (const [key, label] of [
+    ['second', 'Nhì'],
+    ['third', 'Ba'],
+    ['last', 'Bét (hạng 4)'],
+    ['eat', 'Ăn thường'],
+    ['chot', 'Ăn chốt'],
+    ['mom', 'Móm'],
+    ['u', 'Ù'],
+    ['uTron', 'Ù tròn'],
+    ['den', 'Đền (mỗi người)'],
+    ['forfeit', 'Bỏ cuộc'],
+  ] as const)
+    fireEvent.changeText(
+      screen.getByLabelText(`Mức ${label}`),
+      String(Object.keys(DEFAULT_PHOM_CONFIG).indexOf(key) * 10),
+    );
+  fireEvent.press(screen.getByRole('button', { name: 'Lưu luật ván tới' }));
+  expect(send).toHaveBeenCalledWith({
+    type: 'set-phom-rules',
+    phomConfig: {
+      ...Object.fromEntries(
+        Object.keys(DEFAULT_PHOM_CONFIG).map((key, i) => [key, i * 10]),
+      ),
+      options: { tai: false, send: true, uDen: true },
+    },
+  });
+  expect(room.phomConfig).toEqual(DEFAULT_PHOM_CONFIG);
+});
+
+it('validates Phỏm edits and can reset all next-round rates without changing saved current rules', () => {
+  setup(phomRoom());
+  fireEvent.press(screen.getByRole('button', { name: 'Mã phòng' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Sửa luật ván tới' }));
+  for (const value of ['', '1000000001']) {
+    fireEvent.changeText(screen.getByLabelText('Mức Ù'), value);
+    expect(
+      screen.getByRole('button', { name: 'Lưu luật ván tới' }),
+    ).toBeDisabled();
+  }
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Khôi phục mức mặc định' }),
+  );
+  expect(screen.getByLabelText('Mức Ù')).toHaveProp(
+    'value',
+    String(DEFAULT_PHOM_CONFIG.u),
+  );
+  fireEvent.press(screen.getByRole('button', { name: 'Lưu luật ván tới' }));
+  expect(send).toHaveBeenCalledWith({
+    type: 'set-phom-rules',
+    phomConfig: {
+      ...DEFAULT_PHOM_CONFIG,
+      options: { tai: false, send: true, uDen: true },
+    },
+  });
+});
+
+it('shows current Phỏm rates and the next-round rates to all members', () => {
+  const room = phomRoom();
+  room.nextPhomConfig = { ...DEFAULT_PHOM_CONFIG, u: 123 };
+  setup(room, false, 'b');
+  fireEvent.press(screen.getByRole('button', { name: 'Mã phòng' }));
+  expect(screen.queryByRole('button', { name: 'Sửa luật ván tới' })).toBeNull();
+  fireEvent.press(screen.getByRole('button', { name: 'Xem luật chơi' }));
+  expect(screen.getByText('Luật ván tới')).toBeTruthy();
+  expect(screen.getByText('Ù: 5')).toBeTruthy();
+  expect(screen.getByText('Ù: 123')).toBeTruthy();
+});
+
+it('reloads a stale Phỏm draft from pending rates before saving', () => {
+  const room = phomRoom();
+  const view = setup(room);
+  fireEvent.press(screen.getByRole('button', { name: 'Mã phòng' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Sửa luật ván tới' }));
+  fireEvent.changeText(screen.getByLabelText('Mức Ù'), '321');
+  const hook = jest.mocked(useCardGame).mock.results.at(-1)!.value;
+  const next = { ...DEFAULT_PHOM_CONFIG, u: 123, den: 0 };
+  jest.mocked(useCardGame).mockReturnValue({
+    ...hook,
+    state: {
+      ...hook.state!,
+      snapshot: {
+        room: { ...room, version: room.version + 1, nextPhomConfig: next },
+        serverTime: Date.now(),
+      },
+    },
+  });
+  view.rerender(
+    <CardGamesScreen
+      navigation={{ navigate: jest.fn() } as never}
+      route={{} as never}
+    />,
+  );
+  expect(
+    screen.getByRole('button', { name: 'Lưu luật ván tới' }),
+  ).toBeDisabled();
+  fireEvent.press(screen.getByRole('button', { name: 'Tải lại luật' }));
+  expect(screen.getByLabelText('Mức Ù')).toHaveProp('value', '123');
+  expect(screen.getByLabelText('Mức Đền (mỗi người)')).toHaveProp('value', '0');
+  fireEvent.press(screen.getByRole('button', { name: 'Lưu luật ván tới' }));
+  expect(send).toHaveBeenCalledWith({
+    type: 'set-phom-rules',
+    phomConfig: { ...next, options: { tai: false, send: true, uDen: true } },
+  });
+});
+
+it('a stale Phỏm save callback cannot write after the controlling account changes', () => {
+  const room = phomRoom();
+  const view = setup(room);
+  fireEvent.press(screen.getByRole('button', { name: 'Mã phòng' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Sửa luật ván tới' }));
+  const save = view
+    .UNSAFE_getAllByType(Button)
+    .find((button) => button.props.title === 'Lưu luật ván tới')!.props.onPress;
+  expect(typeof save).toBe('function');
+  const hook = jest.mocked(useCardGame).mock.results.at(-1)!.value;
+  jest.mocked(useCardGame).mockReturnValue({ ...hook, uid: 'b' });
+  view.rerender(
+    <CardGamesScreen
+      navigation={{ navigate: jest.fn() } as never}
+      route={{} as never}
+    />,
+  );
+  expect(screen.queryByRole('button', { name: 'Lưu luật ván tới' })).toBeNull();
+  save();
+  expect(send).not.toHaveBeenCalled();
 });

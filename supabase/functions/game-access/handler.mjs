@@ -1,6 +1,8 @@
 import { randomInt, shuffledDeck } from './cards.mjs';
 import { shouldStartRematch, updateRoom, roomSnapshot } from './rooms.mjs';
 import { validateScoreDocument, validateScorePatch } from './scores.mjs';
+import { validatePhomConfig } from './phom-scoring.mjs';
+import { configuredSouth, validateSouthConfig } from './tienlen-scoring.mjs';
 
 const UUID =
   /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
@@ -18,6 +20,8 @@ const commands = [
   'leave',
   'transfer-owner',
   'kick',
+  'set-south-rules',
+  'set-phom-rules',
   'reopen',
   'delete-room',
 ];
@@ -50,6 +54,9 @@ const errors = {
   'opening-card': 422,
   'card-ownership': 422,
   'cannot-pass': 422,
+  'invalid-action': 422,
+  'not-turn': 422,
+  'game-update-required': 409,
 };
 
 function validate(input) {
@@ -60,18 +67,38 @@ function validate(input) {
     !UUID.test(input.sessionId)
   )
     throw Error('invalid-input');
-  if (input.clientVersion !== undefined && input.clientVersion !== 2)
+  if (
+    input.clientVersion !== undefined &&
+    ![2, 3, 4, 5, 6, 7].includes(input.clientVersion)
+  )
     throw Error('invalid-input');
   const fields = {
     bootstrap: [],
     sync: [],
     lease: [],
     takeover: ['roomId'],
-    create: ['actionId', 'name', 'game', 'amountPerCard'],
+    create: [
+      'actionId',
+      'name',
+      'game',
+      'amountPerCard',
+      'phomConfig',
+      'southConfig',
+    ],
     join: ['actionId', 'name', 'code'],
     ready: ['actionId', 'roomId', 'expectedVersion', 'matchId', 'ready'],
     start: ['actionId', 'roomId', 'expectedVersion', 'matchId'],
-    play: ['actionId', 'roomId', 'expectedVersion', 'matchId', 'cards'],
+    play: [
+      'actionId',
+      'roomId',
+      'expectedVersion',
+      'matchId',
+      'cards',
+      'phomAction',
+      'melds',
+      'targetUid',
+      'meldIndex',
+    ],
     pass: ['actionId', 'roomId', 'expectedVersion', 'matchId'],
     leave: ['actionId', 'roomId', 'expectedVersion', 'matchId'],
     'transfer-owner': [
@@ -82,6 +109,21 @@ function validate(input) {
       'targetUid',
     ],
     kick: ['actionId', 'roomId', 'expectedVersion', 'matchId', 'targetUid'],
+    'set-phom-rules': [
+      'actionId',
+      'roomId',
+      'expectedVersion',
+      'matchId',
+      'phomConfig',
+    ],
+    'set-south-rules': [
+      'actionId',
+      'roomId',
+      'expectedVersion',
+      'matchId',
+      'amountPerCard',
+      'southConfig',
+    ],
     reopen: ['actionId', 'roomId', 'name', 'expectedVersion', 'matchId'],
     'delete-room': ['actionId', 'roomId', 'expectedVersion', 'matchId'],
     'room-status': ['roomId'],
@@ -95,7 +137,12 @@ function validate(input) {
       'document',
     ],
   }[input.type];
-  const optional = input.type === 'create' ? ['amountPerCard'] : [];
+  const optional =
+    input.type === 'create'
+      ? ['amountPerCard', 'phomConfig', 'southConfig']
+      : input.type === 'play'
+        ? ['phomAction', 'melds', 'targetUid', 'meldIndex']
+        : [];
   if (
     !fields ||
     Object.keys(input).some(
@@ -143,8 +190,29 @@ function validate(input) {
       /[\p{Cc}\p{Cf}]/u.test(input.name))
   )
     throw Error('invalid-input');
-  if (input.type === 'create' && input.game !== 'south')
+  if (input.type === 'create' && !['south', 'phom'].includes(input.game))
     throw Error('invalid-input');
+  if (input.type === 'create') {
+    if (input.game === 'phom') {
+      if (![3, 4, 5, 6, 7].includes(input.clientVersion))
+        throw Error('game-update-required');
+      validatePhomConfig(input.phomConfig);
+      if (input.phomConfig.options && input.clientVersion !== 7)
+        throw Error('game-update-required');
+      if (input.amountPerCard !== undefined || input.southConfig !== undefined)
+        throw Error('invalid-input');
+    } else {
+      if (input.phomConfig !== undefined) throw Error('invalid-input');
+      if (input.southConfig !== undefined) {
+        validateSouthConfig(input.southConfig);
+        if (
+          configuredSouth(input.southConfig) &&
+          ![4, 5, 6, 7].includes(input.clientVersion)
+        )
+          throw Error('game-update-required');
+      }
+    }
+  }
   if (
     input.type === 'create' &&
     input.amountPerCard !== undefined &&
@@ -153,6 +221,24 @@ function validate(input) {
       input.amountPerCard > 1_000_000_000)
   )
     throw Error('invalid-input');
+  if (input.type === 'set-phom-rules') {
+    if (![6, 7].includes(input.clientVersion))
+      throw Error('game-update-required');
+    validatePhomConfig(input.phomConfig);
+    if (input.phomConfig.options && input.clientVersion !== 7)
+      throw Error('game-update-required');
+  }
+  if (input.type === 'set-south-rules') {
+    if (![5, 6, 7].includes(input.clientVersion))
+      throw Error('game-update-required');
+    validateSouthConfig(input.southConfig);
+    if (
+      !Number.isSafeInteger(input.amountPerCard) ||
+      input.amountPerCard < 1 ||
+      input.amountPerCard > 1_000_000_000
+    )
+      throw Error('invalid-input');
+  }
   if (input.type === 'join' && !CODE.test(input.code))
     throw Error('invalid-input');
   if (
@@ -163,6 +249,9 @@ function validate(input) {
       'pass',
       'leave',
       'transfer-owner',
+      'kick',
+      'set-south-rules',
+      'set-phom-rules',
       'reopen',
       'delete-room',
     ].includes(input.type) &&
@@ -190,11 +279,48 @@ function validate(input) {
   if (
     input.type === 'play' &&
     (!Array.isArray(input.cards) ||
-      input.cards.length < 1 ||
+      input.cards.length < (input.phomAction ? 0 : 1) ||
       input.cards.length > 13 ||
       input.cards.some((c) => !Number.isInteger(c) || c < 0 || c > 51))
   )
     throw Error('invalid-input');
+  if (input.type === 'play') {
+    const kind = input.phomAction;
+    if (kind !== undefined) {
+      if (
+        ![3, 4, 5, 6, 7].includes(input.clientVersion) ||
+        !['draw', 'eat', 'discard', 'lay', 'send', 'u'].includes(kind)
+      )
+        throw Error('invalid-input');
+      if (input.cards.length !== (['discard', 'send'].includes(kind) ? 1 : 0))
+        throw Error('invalid-input');
+    }
+    if (
+      input.melds !== undefined &&
+      (kind !== 'lay' ||
+        !Array.isArray(input.melds) ||
+        input.melds.length > 3 ||
+        input.melds.some(
+          (g) =>
+            !Array.isArray(g) ||
+            g.length < 3 ||
+            g.length > 10 ||
+            g.some((c) => !Number.isInteger(c) || c < 0 || c > 51),
+        ))
+    )
+      throw Error('invalid-input');
+    if (kind === 'send') {
+      if (
+        typeof input.targetUid !== 'string' ||
+        !/^[A-Za-z0-9_-]{1,128}$/.test(input.targetUid) ||
+        !Number.isInteger(input.meldIndex) ||
+        input.meldIndex < 0 ||
+        input.meldIndex > 2
+      )
+        throw Error('invalid-input');
+    } else if (input.targetUid !== undefined || input.meldIndex !== undefined)
+      throw Error('invalid-input');
+  }
   return input;
 }
 
@@ -376,7 +502,7 @@ export function createGameHandler({
         rpc('lifemate_game_read', { ...base, p_renew: false });
       const withAvatars = (snapshot) => {
         if (
-          input.clientVersion !== 2 ||
+          ![2, 3, 4, 5, 6, 7].includes(input.clientVersion) ||
           !snapshot.room ||
           typeof avatarStorage !== 'function'
         )
@@ -388,16 +514,43 @@ export function createGameHandler({
         });
         return { ...snapshot, room: { ...snapshot.room, members } };
       };
-      const snapshotFor = async (record, controller, now) =>
-        withAvatars(
+      const assertSupported = (record) => {
+        if (
+          (record?.state?.phomConfig?.options &&
+            (input.clientVersion ?? 1) < 7 &&
+            input.type !== 'leave') ||
+          (record?.state?.gameKind === 'phom' &&
+            ![3, 4, 5, 6, 7].includes(input.clientVersion)) ||
+          (record?.state?.southConfig &&
+            ![4, 5, 6, 7].includes(input.clientVersion)) ||
+          ((record?.state?.nextSouthRules || record?.state?.nextPhomConfig) &&
+            (input.clientVersion ?? 1) <
+              (record?.state?.nextPhomConfig?.options
+                ? 7
+                : record?.state?.nextPhomConfig
+                  ? 6
+                  : 5) &&
+            !['sync', 'lease', 'bootstrap', 'play', 'pass', 'leave'].includes(
+              input.type,
+            ))
+        )
+          throw Error('game-update-required');
+      };
+      const snapshotFor = async (record, controller, now) => {
+        assertSupported(record);
+        return withAvatars(
           roomSnapshot(
             record,
             p_uid,
             controller,
             Number(now),
-            input.clientVersion === 2,
+            [2, 3, 4, 5, 6, 7].includes(input.clientVersion),
+            input.clientVersion >= 6
+              ? input.clientVersion
+              : input.clientVersion === 5,
           ),
         );
+      };
       const snapshot = async () => {
         const loaded = await current();
         return {
@@ -432,9 +585,11 @@ export function createGameHandler({
         });
       }
       if (input.type === 'takeover') {
+        assertSupported((await current()).room);
         await rpc('lifemate_game_takeover', {
           ...base,
           p_room_id: input.roomId,
+          p_client_version: input.clientVersion ?? 1,
         });
         return json(200, await snapshot());
       }
@@ -451,6 +606,18 @@ export function createGameHandler({
       let ack;
       let committedSnapshot = null;
       if (input.type === 'reopen') {
+        {
+          const status = await rpc('lifemate_game_status', {
+            ...base,
+            p_room_id: input.roomId,
+          });
+          if (
+            status.minClientVersion > (input.clientVersion ?? 1) ||
+            (status.gameKind === 'phom' &&
+              ![3, 4, 5, 6, 7].includes(input.clientVersion))
+          )
+            throw Error('game-update-required');
+        }
         ack = await rpc('lifemate_game_reopen', {
           ...base,
           p_action_id: input.actionId,
@@ -462,6 +629,12 @@ export function createGameHandler({
         });
         return json(200, { ...(await snapshot()), ack });
       } else if (input.type === 'delete-room') {
+        const status = await rpc('lifemate_game_status', {
+          ...base,
+          p_room_id: input.roomId,
+        });
+        if (status.minClientVersion > (input.clientVersion ?? 1))
+          throw Error('game-update-required');
         ack = await rpc('lifemate_game_delete', {
           ...base,
           p_action_id: input.actionId,
@@ -476,22 +649,68 @@ export function createGameHandler({
           deleted: true,
           ack,
         });
+      } else if (['set-south-rules', 'set-phom-rules'].includes(input.type)) {
+        const committed = await rpc(
+          input.type === 'set-phom-rules'
+            ? 'lifemate_game_set_phom_rules'
+            : 'lifemate_game_set_south_rules',
+          {
+            ...base,
+            p_action_id: input.actionId,
+            p_fingerprint: hash,
+            p_room_id: input.roomId,
+            p_version: input.expectedVersion,
+            p_match_id: input.matchId,
+            ...(input.type === 'set-phom-rules'
+              ? {
+                  p_config: input.phomConfig,
+                  p_client_version: input.clientVersion,
+                }
+              : {
+                  p_amount_per_card: input.amountPerCard,
+                  p_config: input.southConfig,
+                }),
+          },
+        );
+        return json(200, {
+          ...(committed.record
+            ? await snapshotFor(
+                committed.record,
+                committed.controller === true,
+                committed.now,
+              )
+            : await snapshot()),
+          ack: committed.ack ?? committed,
+        });
       } else if (input.type === 'create') {
         const code = Array.from(
           { length: 8 },
           () => CHARS[randomInt(CHARS.length)],
         ).join('');
-        ack = await rpc('lifemate_game_create', {
-          ...base,
-          p_action_id: input.actionId,
-          p_fingerprint: hash,
-          p_room_id: crypto.randomUUID(),
-          p_code: code,
-          p_name: input.name.trim(),
-          p_amount_per_card: input.amountPerCard ?? 0,
-        });
+        ack = await rpc(
+          input.game === 'phom'
+            ? 'lifemate_game_create_phom'
+            : configuredSouth(input.southConfig)
+              ? 'lifemate_game_create_south'
+              : 'lifemate_game_create',
+          {
+            ...base,
+            p_action_id: input.actionId,
+            p_fingerprint: hash,
+            p_room_id: crypto.randomUUID(),
+            p_code: code,
+            p_name: input.name.trim(),
+            ...(input.game === 'phom'
+              ? { p_config: input.phomConfig }
+              : {
+                  p_amount_per_card: input.amountPerCard ?? 0,
+                  ...(configuredSouth(input.southConfig) && {
+                    p_config: input.southConfig,
+                  }),
+                }),
+          },
+        );
       } else {
-        const canRebase = input.type === 'join' || input.type === 'ready';
         const maxAttempts = input.type === 'ready' ? 4 : 3;
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
           const record =
@@ -504,6 +723,12 @@ export function createGameHandler({
               : (await current()).room;
           if (!record) throw Error('not-member');
           if (record.error === 'room-not-found') throw Error('room-not-found');
+          assertSupported(record);
+          const canRebase =
+            input.type === 'join' ||
+            (input.type === 'ready' &&
+              !record.state?.nextSouthRules &&
+              !record.state?.nextPhomConfig);
           const member = record.state?.members.find(
             (player) => player.uid === p_uid,
           );
@@ -548,7 +773,7 @@ export function createGameHandler({
           if (
             input.type !== 'join' &&
             record.version !== input.expectedVersion &&
-            (input.type !== 'ready' || input.expectedVersion > record.version)
+            (!canRebase || input.expectedVersion > record.version)
           )
             throw Error('version-conflict');
           if (input.type !== 'join' && record.match_id !== input.matchId)
