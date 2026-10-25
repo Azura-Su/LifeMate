@@ -40,6 +40,62 @@ export type TienLenView = {
   deadline: number | null;
   result: GameResult | null;
 };
+export type TienLenNorthView = Omit<TienLenView, 'rulesVersion'> & {
+  rulesVersion: 'north-v1' | 'north-v2';
+};
+export type SamView = Omit<TienLenView, 'rulesVersion'> & {
+  rulesVersion: 'sam-v1' | 'sam-v2';
+  step: 'report-sam' | 'play';
+  reportOrder: string[];
+  reported: string[];
+  reportedSam: boolean;
+  callUid: string | null;
+  samOutcome: 'pending' | 'success' | 'failed' | 'aborted' | null;
+};
+export type TanView = {
+  rulesVersion: 'tan-v1';
+  status: 'playing' | 'finished' | 'cancelled';
+  step: 'attack' | 'defend' | 'finished';
+  hand: number[];
+  players: {
+    uid: string;
+    name?: string;
+    balance?: number;
+    count: number;
+    finished: boolean;
+    forfeited: boolean;
+  }[];
+  stockCount: number;
+  trumpCard: number | null;
+  trumpSuit: number;
+  attackerUid: string | null;
+  defenderUid: string | null;
+  turn: string | null;
+  maxAttackCards: number;
+  table: { attackCard: number; defenseCard: number | null; attackerUid: string }[];
+  deadline: number | null;
+  result: GameResult | null;
+};
+export type VariantGameConfig =
+  | { pointsPerCard: number }
+  | {
+      rulesVersion: 'north-v2';
+      pointsPerCard: number;
+      remainingTwoPoints: number;
+      cutTwoPoints: number;
+    }
+  | {
+      rulesVersion: 'sam-v2';
+      pointsPerCard: number;
+      samCallPoints: number;
+    };
+export type SamAction =
+  | { type: 'call-sam' | 'pass-report' | 'pass' }
+  | { type: 'play'; cards: number[] };
+export type TanAction =
+  | { type: 'attack'; card: number }
+  | { type: 'pass-attack' | 'take' }
+  | { type: 'defend'; index: number; card: number };
 export type CardGameRoom = {
   id: string;
   code: string;
@@ -52,13 +108,21 @@ export type CardGameRoom = {
   controller: boolean;
   topic: string;
   amountPerCard?: number;
-  gameKind?: 'south' | 'phom';
+  gameKind?: 'south' | 'phom' | 'north' | 'sam' | 'tan';
   nextSouthRules?: import('./tienLen').SouthRules;
   nextPhomConfig?: import('./phom').PhomConfig;
+  variantConfig?: VariantGameConfig;
+  nextVariantConfig?: VariantGameConfig;
   phomConfig?: import('./phom').PhomConfig;
   southConfig?: import('./tienLen').SouthConfig;
   members: GameMember[];
-  game: TienLenView | import('./phom').PhomView | null;
+  game:
+    | TienLenView
+    | TienLenNorthView
+    | SamView
+    | TanView
+    | import('./phom').PhomView
+    | null;
 };
 export type GameSnapshot = {
   room: CardGameRoom | null;
@@ -68,6 +132,7 @@ export type GameSnapshot = {
 };
 export type GameRoomStatus = {
   minClientVersion?: number;
+  gameKind?: CardGameRoom['gameKind'];
   roomId: string;
   exists: boolean;
   owner: boolean;
@@ -93,9 +158,22 @@ export type GameIntent =
       game: 'phom';
       phomConfig: import('./phom').PhomConfig;
     }
+  | {
+      type: 'create';
+      name: string;
+      game: 'north' | 'sam' | 'tan';
+      variantConfig?: VariantGameConfig;
+    }
+  | { type: 'set-variant-rules'; variantConfig: VariantGameConfig }
   | { type: 'set-phom-rules'; phomConfig: import('./phom').PhomConfig }
   | ({ type: 'set-south-rules' } & import('./tienLen').SouthRules)
-  | { type: 'join'; name: string; code: string }
+  | {
+      type: 'join';
+      name: string;
+      code: string;
+      /** Local negotiation hint; stripped before the join request is sent. */
+      game?: 'north' | 'sam' | 'tan';
+    }
   | { type: 'ready'; ready: boolean }
   | { type: 'transfer-owner'; targetUid: string }
   | { type: 'kick'; targetUid: string }
@@ -108,10 +186,11 @@ export type GameIntent =
       targetUid?: string;
       meldIndex?: number;
     }
+  | { type: 'game-action'; gameAction: SamAction | TanAction }
   | { type: 'takeover' };
 export type GameRequest = {
   // Local retry fence; removed before serializing the HTTP body.
-  requiredClientVersion?: 4 | 5 | 6 | 7;
+  requiredClientVersion?: 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
   type: string;
   roomId?: string;
   sessionId: string;
@@ -119,9 +198,12 @@ export type GameRequest = {
   expectedVersion?: number;
   matchId?: string | null;
   name?: string;
-  game?: 'south' | 'phom';
+  game?: 'south' | 'phom' | 'north' | 'sam' | 'tan';
+  gameAction?: SamAction | TanAction;
   phomConfig?: import('./phom').PhomConfig;
   southConfig?: import('./tienLen').SouthConfig;
+  variantConfig?: VariantGameConfig;
+  nextVariantConfig?: VariantGameConfig;
   phomAction?: import('./phom').PhomAction;
   melds?: number[][];
   meldIndex?: number;

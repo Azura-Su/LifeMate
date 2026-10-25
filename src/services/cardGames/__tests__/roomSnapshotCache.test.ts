@@ -109,3 +109,90 @@ it('loads and validates an encrypted finished snapshot for the same account and 
   ).toBeNull();
   expect(await loadCachedRoomSnapshot(uid, 'ZZZZZZZZ')).toBeNull();
 });
+
+it.each(['north', 'sam', 'tan'] as const)(
+  'reloads a redacted losing-player %s snapshot after memory is cleared',
+  async (gameKind) => {
+    const commonResult = { reason: 'completed', ranking: [] };
+    const baseRoom: CardGameRoom = {
+      ...finishedRoom,
+      gameKind,
+      game:
+        gameKind === 'north'
+          ? {
+              rulesVersion: 'north-v1',
+              status: 'finished',
+              hand: [1, 2, 3],
+              players: [
+                { uid, count: 3, finished: false, forfeited: false },
+                { uid: 'b', count: 10, finished: false, forfeited: false },
+              ],
+              turn: null,
+              table: null,
+              passed: [],
+              openingCard: null,
+              deadline: null,
+              result: commonResult,
+            }
+          : gameKind === 'sam'
+            ? {
+                rulesVersion: 'sam-v1',
+                status: 'finished',
+                step: 'play',
+                hand: [1, 2, 3],
+                players: [
+                  { uid, count: 3, finished: false, forfeited: false },
+                  { uid: 'b', count: 7, finished: false, forfeited: false },
+                ],
+                turn: null,
+                table: null,
+                passed: [],
+                openingCard: null,
+                deadline: null,
+                result: commonResult,
+                reportOrder: [],
+                reported: [],
+                reportedSam: false,
+                callUid: null,
+                samOutcome: null,
+              }
+            : {
+                rulesVersion: 'tan-v1',
+                status: 'finished',
+                step: 'finished',
+                hand: [1, 2, 3],
+                players: [
+                  { uid, count: 3, finished: false, forfeited: false },
+                  { uid: 'b', count: 0, finished: true, forfeited: false },
+                ],
+                stockCount: 0,
+                trumpCard: null,
+                trumpSuit: 0,
+                attackerUid: null,
+                defenderUid: null,
+                turn: null,
+                maxAttackCards: 3,
+                table: [],
+                deadline: null,
+                result: commonResult,
+              },
+    };
+    const variantSnapshot: GameSnapshot = {
+      room: baseRoom,
+      serverTime: 100,
+    };
+
+    await saveRoomSnapshot(uid, variantSnapshot);
+    const encrypted = jest.mocked(setEncryptedItem).mock.calls.at(-1)![2];
+    expect(JSON.parse(encrypted).room.game.hand).toEqual([]);
+    await clearCachedRoomSnapshot(uid);
+    jest.mocked(getEncryptedItem).mockResolvedValue(encrypted);
+
+    const loaded = await loadCachedRoomSnapshot(uid, baseRoom.code);
+
+    expect(loaded?.room?.game?.hand).toEqual([]);
+    expect(
+      loaded?.room?.game?.players.find((player) => player.uid === uid)?.count,
+    ).toBe(3);
+  },
+);

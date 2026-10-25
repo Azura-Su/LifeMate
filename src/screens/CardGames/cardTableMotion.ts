@@ -22,7 +22,9 @@ export function getConfirmedPasses(
     previous.matchId !== current.matchId ||
     current.version <= previous.version ||
     previous.game.status !== 'playing' ||
-    current.game.status !== 'playing'
+    current.game.status !== 'playing' ||
+    !('passed' in previous.game) ||
+    !('passed' in current.game)
   )
     return [];
 

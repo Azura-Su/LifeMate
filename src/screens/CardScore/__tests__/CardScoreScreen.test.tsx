@@ -511,6 +511,54 @@ it('reopens an expired room for its owner from the single re-entry icon', async 
   });
 });
 
+it('uses the v9 capability to reopen a variant room and preserves its game kind on navigation', async () => {
+  const room = await renderRoomEntry({
+    ...expiredOwner,
+    gameKind: 'sam',
+    minClientVersion: 9,
+  });
+  await act(async () => fireEvent.press(room.rejoin));
+
+  expect(gameRequest).toHaveBeenCalledWith(
+    uid,
+    expect.objectContaining({
+      type: 'reopen',
+      requiredClientVersion: 9,
+    }),
+    expect.any(AbortSignal),
+  );
+  expect(room.navigate).toHaveBeenCalledWith('CardGames', {
+    roomCode: 'ABCDEFGH',
+    gameKind: 'sam',
+  });
+});
+
+it('rejoins a protocol 11 variant room from score history', async () => {
+  const room = await renderRoomEntry({
+    gameKind: 'sam',
+    minClientVersion: 11,
+  });
+  await act(async () => fireEvent.press(room.rejoin));
+
+  expect(room.navigate).toHaveBeenCalledWith('CardGames', {
+    roomCode: 'ABCDEFGH',
+    gameKind: 'sam',
+  });
+});
+
+it('passes the variant kind when rejoining an active room from score history', async () => {
+  const room = await renderRoomEntry({
+    gameKind: 'tan',
+    minClientVersion: 9,
+  });
+  await act(async () => fireEvent.press(room.rejoin));
+
+  expect(room.navigate).toHaveBeenCalledWith('CardGames', {
+    roomCode: 'ABCDEFGH',
+    gameKind: 'tan',
+  });
+});
+
 it.each([
   [
     { ...expiredOwner, owner: false, canReopen: false },

@@ -22,7 +22,7 @@ import { useCardGame } from '../../../hooks/useCardGame';
 import { useCardGameOrientation } from '../../../hooks/useCardGameOrientation';
 import { useAuthStore } from '../../../store/authStore';
 import { useConfigStore } from '../../../store/configStore';
-import type { CardGameRoom } from '../../../types/cardGame';
+import type { CardGameRoom, TanView } from '../../../types/cardGame';
 import { phomRoom } from '../../../testing/phomFixture';
 import { DEFAULT_PHOM_CONFIG } from '../../../services/cardGames/phomConfig';
 import * as cardStorage from '../../../services/cardScore/cardScoreStorage';
@@ -94,7 +94,9 @@ it('keeps the old South mode selected and rejects an empty or excessive two-cut 
   fireEvent.press(
     screen.getByRole('button', { name: 'Chọn Tiến lên miền Nam' }),
   );
-  expect(screen.getByText('Đánh tiếp đến hết ván')).toBeTruthy();
+  expect(
+    screen.getByRole('radio', { name: 'Đánh tiếp đến hết ván' }),
+  ).toBeTruthy();
   fireEvent.changeText(
     screen.getByLabelText('Số tiền phạt cho mỗi lá 2 bị chặt'),
     '',
@@ -195,8 +197,11 @@ it('opens Phỏm configuration and sends all independently editable rates', () =
   expect(screen.getByText(/Đền cấp 3 cây luôn bắt buộc/)).toBeTruthy();
   expect(screen.getAllByRole('switch')).toHaveLength(2);
   expect(screen.queryByRole('switch', { name: /Ù đền/ })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Tạo phòng mới' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Vào phòng có sẵn' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Tạo phòng' })).toBeTruthy();
   fireEvent.changeText(screen.getByLabelText('Mức Nhì'), '123');
-  fireEvent.press(screen.getByRole('button', { name: 'Tạo phòng Phỏm' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Tạo phòng' }));
   expect(send).toHaveBeenCalledWith({
     type: 'create',
     name: expect.any(String),
@@ -1060,7 +1065,7 @@ describe.each(['south', 'phom'] as const)(
   },
 );
 
-it('offers supported games, keeps unfinished games unavailable, and opens the South lobby', () => {
+it('offers all supported games and opens the South lobby', () => {
   setup();
   expect(
     screen.getByRole('header', { name: 'Trò chơi & điểm số' }),
@@ -1071,8 +1076,10 @@ it('offers supported games, keeps unfinished games unavailable, and opens the So
   ).toMatchObject({ selected: true });
   expect(screen.queryByText('Chọn trò chơi')).toBeNull();
   expect(screen.getByText('Tiến lên miền Bắc')).toBeTruthy();
+  expect(screen.getByText('Sâm')).toBeTruthy();
+  expect(screen.getByText('Tấn')).toBeTruthy();
   expect(screen.getByText('Phỏm')).toBeTruthy();
-  expect(screen.getAllByText('Sắp ra mắt')).toHaveLength(1);
+  expect(screen.queryByText('Sắp ra mắt')).toBeNull();
   expect(screen.queryByRole('button', { name: 'Xem luật chơi' })).toBeNull();
   expect(screen.getByRole('button', { name: 'Chọn Phỏm' })).toBeTruthy();
   fireEvent.press(
@@ -1096,6 +1103,79 @@ it('offers supported games, keeps unfinished games unavailable, and opens the So
   expect(
     screen.getByRole('button', { name: 'Chọn Tiến lên miền Nam' }),
   ).toBeTruthy();
+});
+
+it('joins a selected variant with its game kind attached for protocol negotiation', () => {
+  setup();
+  fireEvent.press(screen.getByRole('button', { name: 'Chọn Sâm' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Vào phòng có sẵn' }));
+  fireEvent.changeText(screen.getByLabelText('Mã phòng Sâm'), 'abcdefgh');
+  fireEvent.press(screen.getByRole('button', { name: 'Vào phòng' }));
+
+  expect(send).toHaveBeenCalledWith({
+    type: 'join',
+    name: 'An',
+    code: 'ABCDEFGH',
+    game: 'sam',
+  });
+});
+
+it('creates a selected variant with its point rate from the room form', () => {
+  setup();
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Chọn Tiến lên miền Bắc' }),
+  );
+  fireEvent.changeText(
+    screen.getByLabelText('Điểm mỗi lá còn lại Tiến lên miền Bắc'),
+    '5',
+  );
+  fireEvent.press(screen.getByRole('button', { name: 'Tạo phòng' }));
+  expect(send).toHaveBeenCalledWith({
+    type: 'create',
+    name: 'An',
+    game: 'north',
+    variantConfig: {
+      rulesVersion: 'north-v2',
+      pointsPerCard: 5,
+      remainingTwoPoints: 2,
+      cutTwoPoints: 3,
+    },
+  });
+});
+
+it('retains the variant when rejoining from a room code route', async () => {
+  const navigation = { navigate: jest.fn(), setParams: jest.fn() };
+  jest.mocked(useCardGame).mockReturnValue({
+    enabled: true,
+    active: true,
+    uid: 'a',
+    session: { send, retry } as never,
+    sessionInitializationError: null,
+    retrySessionInitialization,
+    state: {
+      snapshot: { room: null, serverTime: Date.now() },
+      loading: false,
+      connected: true,
+      busy: false,
+      pending: false,
+      error: null,
+    },
+  });
+  render(
+    <CardGamesScreen
+      navigation={navigation as never}
+      route={{ params: { roomCode: 'ABCDEFGH', gameKind: 'tan' } } as never}
+    />,
+  );
+
+  await waitFor(() =>
+    expect(send).toHaveBeenCalledWith({
+      type: 'join',
+      name: 'An',
+      code: 'ABCDEFGH',
+      game: 'tan',
+    }),
+  );
 });
 
 it('moves into the ready table after creating a room', () => {
@@ -1813,6 +1893,88 @@ it('selects cards, submits only selected IDs and never renders opponent hands', 
       name: 'Đánh 1 lá',
     }),
   ).toBeNull();
+});
+
+it('keeps a finished Tấn match actionable for readying and a new match', () => {
+  const finishedRoom: CardGameRoom = {
+    ...base,
+    phase: 'finished',
+    matchId: 'finished-tan-match',
+    gameKind: 'tan',
+    members: base.members.map((member) => ({
+      ...member,
+      ready: member.uid === 'b',
+    })),
+    game: {
+      rulesVersion: 'tan-v1',
+      status: 'finished',
+      step: 'finished',
+      hand: [0],
+      players: [
+        { uid: 'a', count: 1, finished: false, forfeited: false },
+        { uid: 'b', count: 0, finished: true, forfeited: false },
+      ],
+      stockCount: 0,
+      trumpCard: null,
+      trumpSuit: 0,
+      attackerUid: null,
+      defenderUid: null,
+      turn: null,
+      maxAttackCards: 1,
+      table: [],
+      deadline: null,
+      result: { reason: 'completed', ranking: [] },
+    } as TanView,
+  };
+  const view = setup(finishedRoom);
+
+  expect(screen.getByRole('button', { name: 'Sẵn sàng' })).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Sẵn sàng' }));
+  expect(send).toHaveBeenCalledWith({ type: 'ready', ready: true });
+
+  const playingRoom: CardGameRoom = {
+    ...finishedRoom,
+    version: finishedRoom.version + 1,
+    matchId: 'next-tan-match',
+    phase: 'playing',
+    members: finishedRoom.members.map((member) => ({ ...member, ready: true })),
+    game: {
+      ...finishedRoom.game!,
+      status: 'playing',
+      step: 'attack',
+      hand: [0],
+      players: [
+        { uid: 'a', count: 8, finished: false, forfeited: false },
+        { uid: 'b', count: 8, finished: false, forfeited: false },
+      ],
+      stockCount: 35,
+      trumpCard: 40,
+      attackerUid: 'a',
+      defenderUid: 'b',
+      turn: 'a',
+      maxAttackCards: 8,
+      deadline: Date.now() + 30_000,
+      result: null,
+    } as TanView,
+  };
+  const previous = jest.mocked(useCardGame).mock.results.at(-1)!.value;
+  jest.mocked(useCardGame).mockReturnValue({
+    ...previous,
+    state: {
+      ...previous.state!,
+      snapshot: { room: playingRoom, serverTime: Date.now() },
+    },
+  });
+  view.rerender(
+    <CardGamesScreen
+      navigation={{ navigate: jest.fn() } as never}
+      route={{} as never}
+    />,
+  );
+
+  expect(screen.getByText('Lượt tấn · An')).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: '3 bích' }));
+  expect(screen.getByRole('button', { name: 'Tấn 1 lá' })).toBeEnabled();
 });
 
 it('keeps a finished match on the game table for an in-room rematch', () => {

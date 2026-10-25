@@ -21,13 +21,14 @@ function markAnimationSettled(animationKey: string) {
   }
 }
 
-function formatBalance(value: number) {
-  return `${value > 0 ? '+' : ''}${value.toLocaleString('vi-VN')} đ`;
+function formatBalance(value: number, unit: 'đ' | 'điểm') {
+  return `${value > 0 ? '+' : ''}${value.toLocaleString('vi-VN')} ${unit}`;
 }
 
 export function CardGameMoneyCounter({
   balance,
   delta = 0,
+  unit = 'đ',
   animate = false,
   testID,
   balanceStyle,
@@ -35,6 +36,7 @@ export function CardGameMoneyCounter({
 }: {
   balance: number;
   delta?: number;
+  unit?: 'đ' | 'điểm';
   animate?: boolean;
   testID: string;
   balanceStyle?: StyleProp<TextStyle>;
@@ -145,7 +147,7 @@ export function CardGameMoneyCounter({
         numberOfLines={1}
         adjustsFontSizeToFit
         minimumFontScale={0.8}
-        accessibilityLabel={`Số dư ${displayedBalance} đồng`}
+        accessibilityLabel={`Số dư ${displayedBalance} ${unit === 'đ' ? 'đồng' : unit}`}
         testID={testID}
         style={[
           styles.balance,
@@ -155,7 +157,7 @@ export function CardGameMoneyCounter({
           { transform: [{ scale: pulse }] },
         ]}
       >
-        {formatBalance(displayedBalance)}
+        {formatBalance(displayedBalance, unit)}
       </Animated.Text>
       {showDelta && (
         <Animated.View
@@ -188,9 +190,14 @@ export function CardGameMoneyCounter({
             },
           ]}
         >
-          <Text style={[styles.deltaText, { color: deltaColor }]}>
+          <Text
+            accessibilityLabel={`Thay đổi ${delta > 0 ? '+' : ''}${delta.toLocaleString('vi-VN')} ${unit === 'đ' ? 'đồng' : unit}`}
+            style={[styles.deltaText, { color: deltaColor }]}
+          >
             {delta > 0 ? '+' : ''}
             {delta.toLocaleString('vi-VN')}
+            {' '}
+            {unit}
           </Text>
         </Animated.View>
       )}

@@ -10,6 +10,7 @@ import {
   visiblePhomOptions,
 } from '../../services/cardGames/phomConfig';
 import type { SouthConfig, SouthRules } from '../../types/tienLen';
+import type { VariantGameConfig } from '../../types/cardGame';
 import {
   DEFAULT_SOUTH_CONFIG,
   SOUTH_FINISH_MODES,
@@ -45,6 +46,51 @@ const phomRules = [
     '40 giây/lượt; hết giờ tự bốc, hạ tối ưu và đánh rác lớn nhất hợp lệ. Bỏ cuộc chịu mức riêng thay hạng/ù/đền, cộng khoản ăn đã có. Còn một người thì kết thúc, tất cả mất kết nối thì hủy không tính điểm.',
   ],
 ];
+
+const variantRules = {
+  north: [
+    [
+      'Chia bài và mở ván',
+      '2–4 người, mỗi người 13 lá. Ván đầu người có 3♠ đi trước; nếu không có trong bàn ít người, lá thấp nhất đã chia mở ván. Ván sau người về nhất mở.',
+    ],
+    [
+      'Bộ hợp lệ và chặn',
+      'Lẻ, đôi cùng màu, sám, tứ quý và sảnh từ 3 lá liên tiếp cùng chất. Sảnh không có 2. Bài lẻ thường phải cùng chất và cao hơn; riêng 2 cao hơn mọi lá thường, hai lá 2 so chất. Tứ quý chặt một lá 2 hoặc tứ quý thấp hơn; không chặt đôi 2.',
+    ],
+    [
+      'Bỏ lượt và kết quả',
+      'Bỏ lượt thì chờ vòng mới. Khi mọi người khác bỏ hoặc đã hết bài, người đánh cuối còn bài mở vòng mới. Ván kéo đến khi còn một người. Trong Bắc v2, mỗi lá 2 còn lại cộng thêm điểm 2 và tứ quý chặt một lá 2 chuyển khoản chặt giữa hai người; chặt tứ quý không tạo thêm phí.',
+    ],
+  ],
+  sam: [
+    [
+      'Chia bài và báo Sâm',
+      '2–4 người, mỗi người 10 lá. Trước nước đầu tiên, lần lượt chọn báo Sâm hoặc bỏ qua; người báo đầu tiên đánh trước. Nếu không ai báo, người mở ván đi trước.',
+    ],
+    [
+      'Bộ bài và chặn',
+      'Lẻ, đôi, sám, tứ quý và sảnh từ 3 lá liên tiếp; không so chất và không có 2 trong sảnh. Chặn cùng loại, cùng số lá bằng bộ có hạng cao hơn. Trong Sâm v2, tứ quý chặt một lá 2; không chặt đôi 2. Khi người báo Sâm bị chặn, báo thất bại nhưng ván vẫn tiếp tục.',
+    ],
+    [
+      'Báo một và tính điểm',
+      'Còn một lá sẽ hiện báo một, không phát sinh phạt riêng. Báo Sâm thành công nếu người báo hết bài trước khi bị chặn. Sâm v2: báo thành công nhận mức điểm báo từ từng đối thủ, không cộng điểm bài còn; báo thất bại trả mức đó cho từng đối thủ và vẫn tính điểm bài còn. Nếu báo bị hủy trước khi có kết quả thì không thu điểm báo.',
+    ],
+  ],
+  tan: [
+    [
+      'Chia bài và chất chủ',
+      '2–4 người, mỗi người 8 lá. Lật một lá để chọn chất chủ; lá ngửa được rút cuối nọc. Hạng 2 thấp nhất, A cao nhất.',
+    ],
+    [
+      'Tấn và đỡ',
+      'Người tấn đánh một lá; người chơi khác ngoài người đỡ có thể tấn thêm lá trùng hạng đã xuất hiện. Người đỡ chặn bằng lá cùng chất cao hơn hoặc chất chủ; lá chủ chỉ bị lá chủ cao hơn chặn. Có thể nhận toàn bộ bài trên bàn.',
+    ],
+    [
+      'Rút bài và kết quả',
+      'Sau lượt, mọi người rút lên tối đa 8 lá theo thứ tự tấn trước, người đỡ sau; lá chủ ngửa rút cuối. Khi hết nọc, chơi đến khi chỉ còn một người giữ bài. C là số lá người cuối còn trên tay; R là tổng số người kết thúc tự nhiên, tính cả người cuối và không tính người bỏ cuộc. Người cuối mất C × (R−1) × điểm/lá; mỗi người về trước nhận C × điểm/lá. Ví dụ 4 người, người cuối còn 5 lá, mức 1 điểm/lá: R=4 (gồm người thua và 3 người về trước), người cuối mất 5×(4−1)×1=15 điểm; mỗi người về trước nhận 5 điểm. Bài đã nhặt chỉ tính nếu vẫn còn trên tay lúc kết thúc, không cộng lần hai. Nếu tất cả hết bài thì 0 điểm.',
+    ],
+  ],
+};
 
 const rules = [
   [
@@ -85,16 +131,48 @@ export function CardGameRules({
   amountPerCard = 0,
   nextSouthRules,
   nextPhomConfig,
+  variantConfig,
+  nextVariantConfig,
 }: {
   visible: boolean;
   onClose: () => void;
-  gameKind?: 'south' | 'phom';
+  gameKind?: 'south' | 'phom' | 'north' | 'sam' | 'tan';
   phomConfig?: PhomConfig;
   southConfig?: SouthConfig;
   amountPerCard?: number;
   nextSouthRules?: SouthRules;
   nextPhomConfig?: PhomConfig;
+  variantConfig?: VariantGameConfig;
+  nextVariantConfig?: VariantGameConfig;
 }) {
+  const currentNorthConfig =
+    gameKind === 'north' &&
+    !!variantConfig &&
+    'rulesVersion' in variantConfig &&
+    variantConfig.rulesVersion === 'north-v2'
+      ? variantConfig
+      : undefined;
+  const currentSamConfig =
+    gameKind === 'sam' &&
+    !!variantConfig &&
+    'rulesVersion' in variantConfig &&
+    variantConfig.rulesVersion === 'sam-v2'
+      ? variantConfig
+      : undefined;
+  const nextNorthConfig =
+    gameKind === 'north' &&
+    !!nextVariantConfig &&
+    'rulesVersion' in nextVariantConfig &&
+    nextVariantConfig.rulesVersion === 'north-v2'
+      ? nextVariantConfig
+      : undefined;
+  const nextSamConfig =
+    gameKind === 'sam' &&
+    !!nextVariantConfig &&
+    'rulesVersion' in nextVariantConfig &&
+    nextVariantConfig.rulesVersion === 'sam-v2'
+      ? nextVariantConfig
+      : undefined;
   return (
     <DialogModal
       supportedOrientations={['portrait', 'landscape-left', 'landscape-right']}
@@ -103,7 +181,13 @@ export function CardGameRules({
       style={styles.ruleCard}
     >
       <ModalHeader
-        title={gameKind === 'phom' ? 'Luật Phỏm' : 'Luật miền Nam'}
+        title={{
+          south: 'Luật miền Nam',
+          phom: 'Luật Phỏm',
+          north: 'Luật miền Bắc',
+          sam: 'Luật Sâm',
+          tan: 'Luật Tấn',
+        }[gameKind]}
         accessibilityLabel="Đóng luật chơi"
         onClose={onClose}
       />
@@ -111,7 +195,79 @@ export function CardGameRules({
         style={styles.ruleScroll}
         contentContainerStyle={styles.ruleContent}
       >
-        {(gameKind === 'phom' ? phomRules : rules).map(([title, text]) => (
+        {(gameKind === 'north' || gameKind === 'sam' || gameKind === 'tan') && (
+          <>
+            <Text style={styles.heading}>Cấu hình điểm</Text>
+            <Text style={styles.body}>
+            Ván hiện tại: {(variantConfig?.pointsPerCard ?? 1).toLocaleString('vi-VN')} điểm/lá.
+            </Text>
+            {nextVariantConfig && (
+              <Text style={styles.body}>
+                Ván tới: {nextVariantConfig.pointsPerCard.toLocaleString('vi-VN')} điểm/lá.
+              </Text>
+            )}
+            {currentNorthConfig && (
+              <Text style={styles.body}>
+                Bắc v2 hiện tại: mỗi lá 2 còn lại cộng thêm{' '}
+                {currentNorthConfig.remainingTwoPoints} điểm; tứ quý chặt một lá
+                2 chuyển {currentNorthConfig.cutTwoPoints} điểm. Chỉ tính lá 2
+                đơn, không tính phí khi chặt tứ quý.
+              </Text>
+            )}
+            {nextNorthConfig && (
+              <Text style={styles.body}>
+                Bắc v2 từ ván tới: mỗi lá 2 còn lại cộng thêm{' '}
+                {nextNorthConfig.remainingTwoPoints} điểm; tứ quý chặt một lá 2
+                chuyển {nextNorthConfig.cutTwoPoints} điểm.
+              </Text>
+            )}
+            {currentSamConfig && (
+              <Text style={styles.body}>
+                Sâm v2 hiện tại: báo thành công nhận{' '}
+                {currentSamConfig.samCallPoints} điểm từ từng đối thủ và không
+                cộng điểm bài còn; báo thất bại trả mức đó cho từng đối thủ,
+                cộng điểm bài còn.
+              </Text>
+            )}
+            {nextSamConfig && (
+              <Text style={styles.body}>
+                Sâm v2 từ ván tới: báo thành công nhận{' '}
+                {nextSamConfig.samCallPoints} điểm từ từng đối thủ và không cộng
+                điểm bài còn; báo thất bại trả mức đó cho từng đối thủ, cộng
+                điểm bài còn.
+              </Text>
+            )}
+            {gameKind === 'tan' && (
+              <Text style={styles.body}>
+                Tấn: C là số lá người cuối còn; R là tổng người kết thúc tự
+                nhiên, gồm cả người cuối và không gồm người bỏ cuộc. Người cuối
+                mất C × (R−1) ×{' '}
+                {(variantConfig?.pointsPerCard ?? 1).toLocaleString('vi-VN')}{' '}
+                điểm; mỗi người về trước nhận C ×{' '}
+                {(variantConfig?.pointsPerCard ?? 1).toLocaleString('vi-VN')}{' '}
+                điểm. Ví dụ 4 người, còn 5 lá, mức 1 điểm/lá: mất 15 điểm, mỗi
+                người về trước +5. Bài nhặt chỉ tính nếu còn trên tay lúc kết
+                thúc.
+              </Text>
+            )}
+            {(gameKind === 'north' || gameKind === 'sam') &&
+              !currentNorthConfig &&
+              !nextNorthConfig &&
+              !currentSamConfig &&
+              !nextSamConfig && (
+                <Text style={styles.body}>
+                  Phòng cũ đang giữ profile v1 cho đến khi chủ phòng lưu luật
+                  v2. Điểm nội bộ, không phải tiền cược.
+                </Text>
+              )}
+          </>
+        )}
+        {(gameKind === 'phom'
+          ? phomRules
+          : gameKind === 'south'
+            ? rules
+            : variantRules[gameKind]
+        ).map(([title, text]) => (
           <Text key={title} style={styles.body}>
             <Text style={styles.name}>
               {title}

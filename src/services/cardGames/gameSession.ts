@@ -2,7 +2,13 @@ import type {
   GameIntent,
   GameRequest,
   GameSnapshot,
+  VariantGameConfig,
 } from '../../types/cardGame';
+
+const requiresVariantV11 = (config?: VariantGameConfig) =>
+  !!config &&
+  'rulesVersion' in config &&
+  (config.rulesVersion === 'north-v2' || config.rulesVersion === 'sam-v2');
 
 export type GameSessionState = {
   snapshot: GameSnapshot | null;
@@ -69,7 +75,13 @@ export function createGameSession(deps: Dependencies) {
         room?.nextPhomConfig?.options;
       // Keep the pending request's identity so its negotiated HTTP protocol
       // survives retries. This local fence is stripped by gameRequest.
-      if (needsOptions) input.requiredClientVersion = 7;
+      if (['north', 'sam', 'tan'].includes(room?.gameKind ?? ''))
+        input.requiredClientVersion =
+          requiresVariantV11(room?.variantConfig) ||
+          requiresVariantV11(room?.nextVariantConfig)
+            ? 11
+            : 10;
+      else if (needsOptions) input.requiredClientVersion = 7;
       const snapshot = await deps.request(input, abort.signal);
       optionsKnown = !!(
         snapshot.room?.phomConfig?.options ||
@@ -372,7 +384,15 @@ export function createGameSession(deps: Dependencies) {
       if (!['create', 'join'].includes(intent.type)) {
         if (!room) return false;
         input.roomId = room.id;
-        if (
+        if (['north', 'sam', 'tan'].includes(room.gameKind ?? ''))
+          input.requiredClientVersion =
+            requiresVariantV11(room.variantConfig) ||
+            requiresVariantV11(room.nextVariantConfig) ||
+            (intent.type === 'set-variant-rules' &&
+              requiresVariantV11(intent.variantConfig))
+              ? 11
+              : 10;
+        else if (
           room.phomConfig?.options ||
           room.nextPhomConfig?.options ||
           (intent.type === 'set-phom-rules' && intent.phomConfig.options)
@@ -384,6 +404,11 @@ export function createGameSession(deps: Dependencies) {
           input.requiredClientVersion = 5;
         else if (room.southConfig) input.requiredClientVersion = 4;
       }
+      if (
+        intent.type === 'join' &&
+        ['north', 'sam', 'tan'].includes(intent.game ?? '')
+      )
+        input.requiredClientVersion = intent.game === 'tan' ? 10 : 11;
       if (intent.type !== 'takeover') input.actionId = deps.uuid();
       if (!['create', 'join', 'takeover'].includes(intent.type)) {
         if (!room) return false;

@@ -13,6 +13,10 @@ import {
 } from '../../services/cardGames/phomConfig';
 import { styles } from './CardGamesScreen.styles';
 import { PhomGameSettings } from './PhomGameSettings';
+import {
+  RoomEntryModeSelector,
+  roomEntryActions,
+} from './RoomEntryModeSelector';
 
 export function PhomGameEntry({
   expanded,
@@ -77,29 +81,7 @@ export function PhomGameEntry({
       </View>
       {expanded && (
         <View style={styles.gameExpansion}>
-          <View style={styles.entryModes}>
-            {(['create', 'join'] as const).map((value) => (
-              <Pressable
-                key={value}
-                accessibilityRole="button"
-                accessibilityState={{ selected: mode === value }}
-                onPress={() => setMode(value)}
-                style={[
-                  styles.entryMode,
-                  mode === value && styles.entryModeSelected,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.entryModeTitle,
-                    mode === value && styles.entryModeTitleSelected,
-                  ]}
-                >
-                  {value === 'create' ? 'Tạo mới' : 'Tham gia'}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          <RoomEntryModeSelector mode={mode} onChange={setMode} />
           {mode === 'create' ? (
             <>
               <PhomGameSettings
@@ -127,7 +109,8 @@ export function PhomGameEntry({
             />
           )}
           <Button
-            title={mode === 'create' ? 'Tạo phòng Phỏm' : 'Vào phòng Phỏm'}
+            title={roomEntryActions[mode].title}
+            variant={roomEntryActions[mode].variant}
             loading={busy}
             disabled={
               disabled ||

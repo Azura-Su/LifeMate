@@ -3,6 +3,13 @@ import { audioCloudUrl } from '../../config/audioCloud';
 import { isPhomConfig } from './phomConfig';
 import { isPhomView } from './phomProtocol';
 import { isSouthConfig, isSouthRules } from './tienLenConfig';
+import {
+  DEFAULT_VARIANT_GAME_CONFIG,
+  isVariantGameConfig,
+  isSamView,
+  isTanView,
+  isTienLenNorthView,
+} from './variantGameProtocol';
 
 const object = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === 'object' && !Array.isArray(v);
@@ -22,6 +29,10 @@ const cards = (v: unknown): v is number[] =>
   v.every((c) => integer(c) && c < 52);
 const keys = (v: Record<string, unknown>, allowed: string[]) =>
   Object.keys(v).every((k) => allowed.includes(k));
+const variantProfile = (value: unknown) =>
+  object(value) && typeof value.rulesVersion === 'string'
+    ? value.rulesVersion
+    : undefined;
 function validAvatarUrl(value: unknown, playerUid: string) {
   if (value === undefined || value === null) return true;
   if (typeof value !== 'string') return false;
@@ -100,19 +111,36 @@ export function parseGameSnapshot(
       'southConfig',
       'nextSouthRules',
       'nextPhomConfig',
+      'variantConfig',
+      'nextVariantConfig',
     ]) ||
     !uuid(r.id) ||
     (r.gameKind !== undefined &&
-      !['south', 'phom'].includes(r.gameKind as string)) ||
+      !['south', 'phom', 'north', 'sam', 'tan'].includes(r.gameKind as string)) ||
     (r.gameKind === 'phom'
       ? !isPhomConfig(r.phomConfig)
       : r.phomConfig !== undefined) ||
     (r.southConfig !== undefined &&
-      (r.gameKind === 'phom' || !isSouthConfig(r.southConfig))) ||
+      (r.gameKind === 'phom' ||
+        ['north', 'sam', 'tan'].includes(r.gameKind as string) ||
+        !isSouthConfig(r.southConfig))) ||
     (r.nextSouthRules !== undefined &&
-      (r.gameKind === 'phom' || !isSouthRules(r.nextSouthRules))) ||
+      (['phom', 'north', 'sam', 'tan'].includes(r.gameKind as string) ||
+        !isSouthRules(r.nextSouthRules))) ||
     (r.nextPhomConfig !== undefined &&
       (r.gameKind !== 'phom' || !isPhomConfig(r.nextPhomConfig))) ||
+    (r.variantConfig !== undefined &&
+      (!['north', 'sam', 'tan'].includes(r.gameKind as string) ||
+        !isVariantGameConfig(
+          r.variantConfig,
+          r.gameKind as 'north' | 'sam' | 'tan',
+        ))) ||
+    (r.nextVariantConfig !== undefined &&
+      (!['north', 'sam', 'tan'].includes(r.gameKind as string) ||
+        !isVariantGameConfig(
+          r.nextVariantConfig,
+          r.gameKind as 'north' | 'sam' | 'tan',
+        ))) ||
     !uuid(r.epoch) ||
     !integer(r.version) ||
     r.version < 1 ||
@@ -148,7 +176,34 @@ export function parseGameSnapshot(
     return fail();
   if (r.gameKind === 'phom' && r.game !== null && !isPhomView(r.game, viewer))
     return fail();
-  if (r.game !== null && r.gameKind !== 'phom') {
+  if (
+    r.gameKind === 'north' &&
+    r.game !== null &&
+    !isTienLenNorthView(r.game, viewer)
+  )
+    return fail();
+  if (
+    r.gameKind === 'north' &&
+    r.game !== null &&
+    ((r.game as { rulesVersion: string }).rulesVersion === 'north-v2') !==
+      (variantProfile(r.variantConfig) === 'north-v2')
+  )
+    return fail();
+  if (r.gameKind === 'sam' && r.game !== null && !isSamView(r.game, viewer))
+    return fail();
+  if (
+    r.gameKind === 'sam' &&
+    r.game !== null &&
+    ((r.game as { rulesVersion: string }).rulesVersion === 'sam-v2') !==
+      (variantProfile(r.variantConfig) === 'sam-v2')
+  )
+    return fail();
+  if (r.gameKind === 'tan' && r.game !== null && !isTanView(r.game, viewer))
+    return fail();
+  if (
+    r.game !== null &&
+    (r.gameKind === undefined || r.gameKind === 'south')
+  ) {
     const g = r.game;
     if (
       !object(g) ||
@@ -296,6 +351,14 @@ export function parseGameSnapshot(
   return {
     room: {
       ...r,
+      ...(['north', 'sam', 'tan'].includes(r.gameKind as string) && {
+        variantConfig: isVariantGameConfig(
+          r.variantConfig,
+          r.gameKind as 'north' | 'sam' | 'tan',
+        )
+          ? r.variantConfig
+          : DEFAULT_VARIANT_GAME_CONFIG,
+      }),
       amountPerCard: integer(r.amountPerCard) ? r.amountPerCard : 0,
       members: r.members.map((m) => ({
         ...m,
@@ -335,7 +398,11 @@ export function parseGameRoomStatus(value: unknown, expectedRoomId: string) {
     typeof value.canDelete !== 'boolean' ||
     typeof value.expired !== 'boolean' ||
     (value.minClientVersion !== undefined &&
-      (!integer(value.minClientVersion) || value.minClientVersion > 7)) ||
+      (!integer(value.minClientVersion) || value.minClientVersion > 11)) ||
+    (value.gameKind !== undefined &&
+      !['south', 'phom', 'north', 'sam', 'tan'].includes(
+        value.gameKind as string,
+      )) ||
     (value.phase !== null &&
       !['lobby', 'playing', 'finished', 'closed'].includes(
         value.phase as string,

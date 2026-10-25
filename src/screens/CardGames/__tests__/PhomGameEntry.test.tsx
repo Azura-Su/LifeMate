@@ -23,13 +23,13 @@ it('allows each independent rate including zero, blocks blank values and sends v
       screen.getByLabelText(`Mức ${rate.label}`),
       String(i * 10),
     );
-  fireEvent.press(screen.getByText('Tạo phòng Phỏm'));
+  fireEvent.press(screen.getByRole('button', { name: 'Tạo phòng' }));
   expect(create).toHaveBeenCalledWith({
     ...Object.fromEntries(PHOM_RATES.map((r, i) => [r.key, i * 10])),
     options: { tai: false, send: true, uDen: true },
   });
   fireEvent.changeText(screen.getByLabelText('Mức Ù'), '');
-  expect(screen.getByRole('button', { name: 'Tạo phòng Phỏm' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Tạo phòng' })).toBeDisabled();
   expect(
     screen.getByText('Nhập số nguyên từ 0 đến 1.000.000.000 cho từng loại.'),
   ).toBeTruthy();
@@ -50,9 +50,11 @@ it('joins by code without requiring creation settings and retains the generic ro
   expect(screen.getByLabelText('Mức Nhì').props.value).toBe(
     String(DEFAULT_PHOM_CONFIG.second),
   );
-  fireEvent.press(screen.getByText('Tham gia'));
+  expect(screen.getByRole('button', { name: 'Tạo phòng mới' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Vào phòng có sẵn' })).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Vào phòng có sẵn' }));
   fireEvent.changeText(screen.getByLabelText('Mã phòng Phỏm'), 'abcdefgh');
-  fireEvent.press(screen.getByText('Vào phòng Phỏm'));
+  fireEvent.press(screen.getByRole('button', { name: 'Vào phòng' }));
   expect(join).toHaveBeenCalledWith('ABCDEFGH');
 });
 it('shows mandatory three-feed liability and configures replay liability only with tai enabled', () => {
@@ -90,7 +92,7 @@ it('shows mandatory three-feed liability and configures replay liability only wi
     'valueChange',
     false,
   );
-  fireEvent.press(screen.getByText('Tạo phòng Phỏm'));
+  fireEvent.press(screen.getByRole('button', { name: 'Tạo phòng' }));
   expect(create).toHaveBeenCalledWith({
     ...DEFAULT_PHOM_CONFIG,
     options: { tai: true, send: false, uDen: false },
@@ -99,7 +101,7 @@ it('shows mandatory three-feed liability and configures replay liability only wi
   expect(screen.getByRole('switch', { name: 'Tái' })).not.toBeChecked();
   expect(screen.getByRole('switch', { name: 'Gửi bài' })).toBeChecked();
   expect(screen.queryByRole('switch', { name: /Ù đền/ })).toBeNull();
-  fireEvent.press(screen.getByText('Tạo phòng Phỏm'));
+  fireEvent.press(screen.getByRole('button', { name: 'Tạo phòng' }));
   expect(create).toHaveBeenLastCalledWith({
     ...DEFAULT_PHOM_CONFIG,
     options: { tai: false, send: true, uDen: true },
@@ -148,7 +150,7 @@ it.each([true, false])(
       false,
     );
     fireEvent.changeText(screen.getByLabelText('Mức Đền (mỗi người)'), '0');
-    fireEvent.press(screen.getByText('Tạo phòng Phỏm'));
+    fireEvent.press(screen.getByRole('button', { name: 'Tạo phòng' }));
     expect(create).toHaveBeenCalledWith({
       ...DEFAULT_PHOM_CONFIG,
       den: 0,
@@ -192,7 +194,7 @@ it.each(['disabled', 'busy'] as const)(
     expect(screen.getByRole('switch', { name: 'Ù đền do tái' })).toBeChecked();
     expect(screen.getByText(/Đền cấp 3 cây luôn bắt buộc/)).toBeTruthy();
     expect(
-      screen.getByRole('button', { name: 'Tạo phòng Phỏm' }),
+      screen.getByRole('button', { name: 'Tạo phòng' }),
     ).toBeDisabled();
     expect(props.onCreate).not.toHaveBeenCalled();
   },

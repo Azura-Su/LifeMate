@@ -23,10 +23,16 @@ import {
 import { Button } from '../../components/Button';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { colors } from '../../theme';
-import { canPlayTienLenSelection } from '../../services/cardGames/tienLenRules';
+import {
+  canPlaySamSelection,
+  canPlayTienLenNorthSelection,
+  canPlayTienLenSelection,
+} from '../../services/cardGames/tienLenRules';
 import type {
   CardGameRoom,
   GameIntent,
+  SamView,
+  TienLenNorthView,
   TienLenView,
 } from '../../types/cardGame';
 import { PlayingCard, cardLabel } from './PlayingCard';
@@ -46,6 +52,21 @@ import {
 } from './cardTableMotion';
 
 const seenDealAnimations = new Set<string>();
+const scorePartLabels: Record<string, string> = {
+  'remaining-cards': 'Bài còn',
+  'remaining-two': '2 còn',
+  'cut-two': 'Chặt 2',
+  'sam-report': 'Báo Sâm',
+};
+type ClimbingTableView = TienLenView & {
+  step?: SamView['step'];
+  reportOrder?: string[];
+  reported?: string[];
+  reportedSam?: boolean;
+  callUid?: string | null;
+  samOutcome?: SamView['samOutcome'];
+  cutTwoFees?: TienLenView['cutTwoFees'];
+};
 
 type TablePlaySnapshot = {
   key: string;
@@ -76,7 +97,9 @@ export function CardGameTable({
   onAction: (action: GameIntent) => void;
   onPlayerPress?: (uid: string) => void;
 }) {
-  const game = room.game as TienLenView;
+  const game = room.game as unknown as ClimbingTableView;
+  const balanceUnit =
+    room.gameKind === 'north' || room.gameKind === 'sam' ? 'điểm' : 'đ';
   const { width, height } = useWindowDimensions();
   // Native orientation can take a moment to settle after the match starts.
   // Keep the portrait layout until the viewport itself has rotated.
@@ -365,10 +388,13 @@ export function CardGameTable({
     room.members.find((member) => member.uid === uid)?.balance ??
     0;
   const ownResult = game.result?.ranking.find((entry) => entry.uid === uid);
-  const cutTwoDelta =
-    ownResult?.breakdown
-      ?.filter((b) => b.kind === 'cut-two')
-      .reduce((total, b) => total + b.amount, 0) ?? 0;
+  const scoreBreakdown = (ownResult?.breakdown ?? [])
+    .filter((item) => item.amount !== 0)
+    .map(
+      (item) =>
+        `${scorePartLabels[item.kind] ?? item.kind} ${item.amount > 0 ? '+' : ''}${item.amount.toLocaleString('vi-VN')} ${balanceUnit}`,
+    )
+    .join(' · ');
   const latestCut = game.cutTwoFees?.at(-1);
   const canAct =
     active &&
@@ -377,7 +403,35 @@ export function CardGameTable({
     !mySeat?.finished &&
     !mySeat?.forfeited &&
     seconds > 0;
-  const canPlay = canAct && canPlayTienLenSelection(selected, game, uid);
+  const isSamReporting =
+    room.gameKind === 'sam' && game.step === 'report-sam';
+  const isSam = room.gameKind === 'sam';
+  const samCallerName = game.callUid
+    ? game.players.find((player) => player.uid === game.callUid)?.name ??
+      room.members.find((member) => member.uid === game.callUid)?.name ??
+      'Người chơi'
+    : null;
+  const samCallStatus =
+    isSam && samCallerName
+      ? game.samOutcome === 'success'
+        ? `${samCallerName} báo Sâm thành công`
+        : game.samOutcome === 'failed'
+          ? `${samCallerName} báo Sâm thất bại · ván tiếp tục`
+          : game.samOutcome === 'aborted'
+            ? `${samCallerName} rời bàn · báo Sâm đã hủy`
+            : `${samCallerName} đã báo Sâm`
+      : null;
+  const canPlay =
+    canAct &&
+    (room.gameKind === 'north'
+      ? canPlayTienLenNorthSelection(
+          selected,
+          game as unknown as TienLenNorthView,
+          uid,
+        )
+      : room.gameKind === 'sam'
+        ? canPlaySamSelection(selected, game as unknown as SamView, uid)
+        : canPlayTienLenSelection(selected, game, uid));
   const timerTone =
     seconds <= 2
       ? styles.criticalTurnTimer
@@ -631,6 +685,28 @@ export function CardGameTable({
                 </Text>
               </Pressable>
               <View style={styles.opponentMetaRow}>
+                {isSam && p.count === 1 && !p.finished && !p.forfeited && (
+                  <Text
+                    testID={`sam-one-${p.uid}`}
+                    style={styles.samBadge}
+                  >
+                    Báo một
+                  </Text>
+                )}
+                {isSam && game.callUid === p.uid && (
+                  <Text
+                    testID={`sam-caller-${p.uid}`}
+                    style={styles.samBadge}
+                  >
+                    {game.samOutcome === 'failed'
+                      ? 'Sâm thất bại'
+                      : game.samOutcome === 'success'
+                        ? 'Sâm thành công'
+                        : game.samOutcome === 'aborted'
+                          ? 'Báo Sâm đã hủy'
+                          : 'Đã báo Sâm'}
+                  </Text>
+                )}
                 {game.status === 'playing' ? (
                   <Text
                     numberOfLines={1}
@@ -668,6 +744,7 @@ export function CardGameTable({
                   testID={`opponent-balance-${p.uid}`}
                   balance={finalBalance}
                   delta={delta}
+                  unit={balanceUnit}
                   animate={animateRound}
                   animationKey={`${room.id}:${room.matchId ?? ''}:${p.uid}`}
                   balanceStyle={[
@@ -733,9 +810,18 @@ export function CardGameTable({
             <Text
               style={[styles.centerText, game.table && styles.boardPlayLabel]}
             >
-              {playedBy ? `${playedBy} vừa đánh` : 'Vòng mới'}
+              {isSamReporting
+                ? 'Báo Sâm trước khi bắt đầu'
+                : playedBy
+                  ? `${playedBy} vừa đánh`
+                  : 'Vòng mới'}
             </Text>
           )
+        )}
+        {samCallStatus && (
+          <Text testID="sam-call-status" style={styles.samCallStatus}>
+            {samCallStatus}
+          </Text>
         )}
         {activeDealAnimationKey &&
           !game.table &&
@@ -963,13 +1049,13 @@ export function CardGameTable({
                   testID="own-balance"
                   balance={myBalance}
                   delta={ownResult?.moneyDelta ?? 0}
+                  unit={balanceUnit}
                   animate={animateRound}
                   animationKey={`${room.id}:${room.matchId ?? ''}:${uid}`}
                 />
-                {!!cutTwoDelta && (
-                  <Text style={styles.subtitle}>
-                    Chặt 2: {cutTwoDelta > 0 ? '+' : ''}
-                    {cutTwoDelta.toLocaleString('vi-VN')} đ
+                {!!scoreBreakdown && (
+                  <Text testID={`score-breakdown-${uid}`} style={styles.subtitle}>
+                    {scoreBreakdown}
                   </Text>
                 )}
               </View>
@@ -991,7 +1077,7 @@ export function CardGameTable({
             ]}
           >
             <View
-              accessibilityLabel={`Bài của bạn, ${hand.length} lá, số dư bàn ${myBalance} đồng`}
+              accessibilityLabel={`Bài của bạn, ${hand.length} lá, số dư bàn ${myBalance} ${balanceUnit === 'đ' ? 'đồng' : balanceUnit}`}
               style={styles.handSummary}
               testID="hand-summary"
             >
@@ -1003,10 +1089,16 @@ export function CardGameTable({
                 testID="own-balance"
                 balance={myBalance}
                 delta={ownResult?.moneyDelta ?? 0}
+                unit={balanceUnit}
                 animate={animateRound}
                 animationKey={`${room.id}:${room.matchId ?? ''}:${uid}`}
                 balanceStyle={styles.ownBalanceText}
               />
+              {isSam && game.status === 'playing' && hand.length === 1 && (
+                <Text testID="sam-one-own" style={styles.samBadge}>
+                  Báo một
+                </Text>
+              )}
             </View>
             {!roundFinished && mine && seconds > 0 && (
               <Animated.Text
@@ -1115,11 +1207,15 @@ export function CardGameTable({
       compact
       pressScale={0.97}
       variant="secondary"
-      title="Bỏ lượt"
-      disabled={!canAct || !mine || !game.table}
+      title={isSamReporting ? 'Bỏ qua' : 'Bỏ lượt'}
+      disabled={!canAct || !mine || (!isSamReporting && !game.table)}
       onPress={() => {
         setSelected([]);
-        onAction({ type: 'pass' });
+        if (isSamReporting)
+          onAction({ type: 'game-action', gameAction: { type: 'pass-report' } });
+        else if (room.gameKind === 'sam')
+          onAction({ type: 'game-action', gameAction: { type: 'pass' } });
+        else onAction({ type: 'pass' });
       }}
     />
   );
@@ -1127,15 +1223,21 @@ export function CardGameTable({
     <Button
       compact
       pressScale={0.97}
-      title={`Đánh ${selected.length} lá`}
+      title={isSamReporting ? 'Báo Sâm' : `Đánh ${selected.length} lá`}
       loading={busy}
-      disabled={!canPlay}
-      onPress={() =>
-        onAction({
-          type: 'play',
-          cards: [...selected].sort((a, b) => a - b),
-        })
+      disabled={
+        isSamReporting ? !canAct || !mine : !canPlay
       }
+      onPress={() => {
+        if (isSamReporting) {
+          onAction({ type: 'game-action', gameAction: { type: 'call-sam' } });
+          return;
+        }
+        const cards = [...selected].sort((a, b) => a - b);
+        if (room.gameKind === 'sam')
+          onAction({ type: 'game-action', gameAction: { type: 'play', cards } });
+        else onAction({ type: 'play', cards });
+      }}
     />
   );
   const finishedSpacer = <View style={{ width: 100 }} />;

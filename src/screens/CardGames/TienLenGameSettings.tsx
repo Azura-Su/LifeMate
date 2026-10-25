@@ -1,16 +1,20 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Feather from '@expo/vector-icons/Feather';
 import { AppTextInput } from '../../components/AppTextInput';
 import { colors, spacing } from '../../theme';
 import { SOUTH_FINISH_MODES } from '../../services/cardGames/tienLenConfig';
 import type { SouthConfig } from '../../types/tienLen';
 import { styles } from './CardGamesScreen.styles';
 
-const MODE_INFO: Record<SouthConfig['finishMode'], { hint: string }> = {
+const MODE_INFO: Record<
+  SouthConfig['finishMode'],
+  { short: string; hint: string }
+> = {
   'first-winner': {
+    short: 'Dừng khi có người nhất',
     hint: 'Người còn bài trả theo số lá cho người nhất.',
   },
   continue: {
+    short: 'Đánh đến hết ván',
     hint: 'Chơi tiếp đến khi chỉ còn một người có bài.',
   },
 };
@@ -62,17 +66,12 @@ export function TienLenGameSettings({
   ];
   return (
     <View style={s.container}>
-      <View style={s.group}>
-        <View style={s.groupHeading}>
-          <View style={s.groupIcon}>
-            <Feather name="flag" size={13} color={colors.earth} />
-          </View>
-          <Text style={s.groupTitle}>Kết thúc ván</Text>
-        </View>
+      <View style={s.section}>
+        <Text style={s.label}>Kết thúc ván</Text>
         <View
           accessibilityRole="radiogroup"
           accessibilityLabel="Chế độ kết thúc ván"
-          style={s.modes}
+          style={s.segment}
         >
           {[...SOUTH_FINISH_MODES]
             .sort((a) => (a.value === 'first-winner' ? -1 : 1))
@@ -88,52 +87,49 @@ export function TienLenGameSettings({
                   accessibilityState={{ checked: on, disabled }}
                   disabled={disabled}
                   onPress={() => onFinishMode(mode.value)}
-                  style={[s.mode, on && s.modeOn]}
+                  style={[s.segmentItem, on && s.segmentOn]}
                 >
-                  <View style={[s.radio, on && s.radioOn]}>
-                    {on && <View style={s.radioDot} />}
-                  </View>
-                  <View style={s.modeCopy}>
-                    <Text style={[s.modeTitle, on && s.modeTitleOn]}>
-                      {mode.label}
-                    </Text>
-                    <Text style={s.hint}>{info.hint}</Text>
-                  </View>
+                  <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.85}
+                    style={[s.segmentText, on && s.segmentTextOn]}
+                  >
+                    {info.short}
+                  </Text>
                 </Pressable>
               );
             })}
         </View>
+        <Text style={s.hint}>{MODE_INFO[finishMode].hint}</Text>
       </View>
-      <View style={s.group}>
-        <View style={s.groupHeading}>
-          <View style={s.groupIcon}>
-            <Feather name="dollar-sign" size={13} color={colors.earth} />
-          </View>
-          <Text style={s.groupTitle}>Mức phạt</Text>
+      <View style={s.section}>
+        <Text style={s.label}>Mức phạt</Text>
+        <View style={s.card}>
+          {rates.map((rate, index) => (
+            <View key={rate.key} style={[s.row, index > 0 && s.rowLine]}>
+              <View style={s.rowCopy}>
+                <Text style={s.rowTitle}>{rate.title}</Text>
+                <Text style={s.hint}>{rate.hint}</Text>
+              </View>
+              <View style={[s.inputBox, rate.invalid && s.inputInvalid]}>
+                <AppTextInput
+                  accessibilityLabel={rate.label}
+                  value={rate.value}
+                  onChangeText={(v) =>
+                    rate.onChange(v.replace(/\D/g, '').slice(0, 10))
+                  }
+                  keyboardType="number-pad"
+                  editable={!disabled}
+                  selectTextOnFocus
+                  placeholder={rate.placeholder}
+                  style={s.input}
+                />
+                <Text style={s.unit}>{rate.unit}</Text>
+              </View>
+            </View>
+          ))}
         </View>
-        {rates.map((rate, index) => (
-          <View key={rate.key} style={[s.row, index > 0 && s.rowLine]}>
-            <View style={s.modeCopy}>
-              <Text style={s.rowTitle}>{rate.title}</Text>
-              <Text style={s.hint}>{rate.hint}</Text>
-            </View>
-            <View style={[s.inputBox, rate.invalid && s.inputInvalid]}>
-              <AppTextInput
-                accessibilityLabel={rate.label}
-                value={rate.value}
-                onChangeText={(v) =>
-                  rate.onChange(v.replace(/\D/g, '').slice(0, 10))
-                }
-                keyboardType="number-pad"
-                editable={!disabled}
-                selectTextOnFocus
-                placeholder={rate.placeholder}
-                style={s.input}
-              />
-              <Text style={s.unit}>{rate.unit}</Text>
-            </View>
-          </View>
-        ))}
       </View>
       {!validFine && (
         <Text accessibilityRole="alert" style={styles.error}>
@@ -144,80 +140,68 @@ export function TienLenGameSettings({
   );
 }
 const s = StyleSheet.create({
-  container: { gap: spacing.sm },
-  group: {
-    borderRadius: 14,
+  container: { gap: spacing.md },
+  section: { gap: 6 },
+  label: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  segment: {
+    flexDirection: 'row',
+    padding: 3,
+    gap: 3,
+    borderRadius: 12,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  segmentItem: {
+    flex: 1,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    borderRadius: 9,
+  },
+  segmentOn: {
+    backgroundColor: colors.surface,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  segmentText: { fontSize: 13, fontWeight: '600', color: colors.muted },
+  segmentTextOn: { color: colors.earth, fontWeight: '700' },
+  hint: { fontSize: 11, lineHeight: 15, color: colors.muted },
+  card: {
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surface,
     paddingHorizontal: 12,
-    paddingBottom: 10,
   },
-  groupHeading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingTop: 10,
-    paddingBottom: 8,
-  },
-  groupIcon: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.sunlightSoft,
-  },
-  groupTitle: { fontSize: 13, fontWeight: '700', color: colors.ink },
-  modes: { gap: 6 },
-  mode: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  modeOn: { borderColor: colors.earth, backgroundColor: colors.sunlightSoft },
-  radio: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: colors.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioOn: { borderColor: colors.earth },
-  radioDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.earth,
-  },
-  modeCopy: { flex: 1, gap: 1 },
-  modeTitle: { fontSize: 14, fontWeight: '600', color: colors.ink },
-  modeTitleOn: { fontWeight: '700' },
-  hint: { fontSize: 11, lineHeight: 15, color: colors.muted },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    paddingVertical: 6,
+    paddingVertical: 8,
   },
   rowLine: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.line,
   },
+  rowCopy: { flex: 1, gap: 1 },
   rowTitle: { fontSize: 14, fontWeight: '600', color: colors.ink },
   inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: 104,
-    height: 36,
-    borderRadius: 10,
+    width: 96,
+    height: 34,
+    borderRadius: 9,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.background,
@@ -226,7 +210,7 @@ const s = StyleSheet.create({
   inputInvalid: { borderColor: colors.danger },
   input: {
     flex: 1,
-    height: 34,
+    height: 32,
     paddingHorizontal: 8,
     paddingVertical: 0,
     fontSize: 15,

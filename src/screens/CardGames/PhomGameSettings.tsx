@@ -55,18 +55,9 @@ export function PhomGameSettings({
           <Text style={ps.rateResetText}>Mặc định</Text>
         </Pressable>
       </View>
+      <Text style={ps.rateGroupLabel}>Luật chơi</Text>
       <View style={ps.rateGroup}>
-        <View style={ps.rateGroupHeading}>
-          <View style={ps.rateGroupIcon}>
-            <Feather name="sliders" size={13} color={colors.earth} />
-          </View>
-          <Text style={ps.rateGroupTitle}>Luật chơi</Text>
-        </View>
-        <View style={ps.rateRow}>
-          <View style={ps.optionCopy}>
-            <Text style={ps.optionHint}>{PHOM_THREE_FEED_RULE}</Text>
-          </View>
-        </View>
+        <Text style={[ps.optionHint, ps.ruleNote]}>{PHOM_THREE_FEED_RULE}</Text>
         {visiblePhomOptions(options).map(({ key, label, hint }) => (
           <View key={key} style={[ps.rateRow, ps.rateRowLine]}>
             <View style={ps.optionCopy}>
@@ -88,19 +79,14 @@ export function PhomGameSettings({
           </View>
         ))}
       </View>
+      <Text style={ps.rateGroupLabel}>Mức tiền</Text>
       <View style={ps.rateGroup}>
-        <View style={ps.rateGroupHeading}>
-          <View style={ps.rateGroupIcon}>
-            <Feather name="dollar-sign" size={13} color={colors.earth} />
-          </View>
-          <Text style={ps.rateGroupTitle}>Mức tiền</Text>
-        </View>
-        {RATE_GROUPS.map(({ title, icon }) => (
-          <View key={title} style={ps.rateSection}>
-            <View style={ps.rateSectionHeading}>
-              <Feather name={icon} size={11} color={colors.muted} />
-              <Text style={ps.rateSectionTitle}>{title}</Text>
-            </View>
+        {RATE_GROUPS.map(({ title }, groupIndex) => (
+          <View
+            key={title}
+            style={[ps.rateSection, groupIndex > 0 && ps.rateRowLine]}
+          >
+            <Text style={ps.rateSectionTitle}>{title}</Text>
             {PHOM_RATES.filter((r) => r.group === title).map((rate, index) => {
               const off = rates[rate.key] === '0';
               return (

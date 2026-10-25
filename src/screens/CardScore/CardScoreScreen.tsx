@@ -371,6 +371,9 @@ export function CardScoreScreen({
             expectedVersion: status.version,
             matchId: status.matchId,
             name: displayName?.trim().slice(0, 30) || 'Người chơi',
+            ...(status.minClientVersion === 9 && {
+              requiredClientVersion: 9,
+            }),
           },
           controller.signal,
         );
@@ -391,7 +394,16 @@ export function CardScoreScreen({
         throw new Error('Hiện chưa thể vào lại phòng này.');
       }
       if (!code) throw new Error('Không tìm thấy mã phòng để vào lại.');
-      navigation.navigate('CardGames', { roomCode: code });
+      const variantGameKind =
+        status.gameKind === 'north' ||
+        status.gameKind === 'sam' ||
+        status.gameKind === 'tan'
+          ? status.gameKind
+          : undefined;
+      navigation.navigate('CardGames', {
+        roomCode: code,
+        ...(variantGameKind && { gameKind: variantGameKind }),
+      });
     } catch (cause) {
       if (current())
         setError(
@@ -431,6 +443,9 @@ export function CardScoreScreen({
           actionId: randomUUID(),
           expectedVersion: status.version,
           matchId: status.matchId,
+          ...(status.minClientVersion === 9 && {
+            requiredClientVersion: 9,
+          }),
         },
         controller.signal,
       );

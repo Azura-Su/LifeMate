@@ -6,7 +6,7 @@ import {
   within,
 } from '@testing-library/react-native';
 import { Animated, Dimensions, StyleSheet } from 'react-native';
-import type { CardGameRoom } from '../../../types/cardGame';
+import type { CardGameRoom, TienLenView } from '../../../types/cardGame';
 import { CardGameTable } from '../CardGameTable';
 
 jest.mock('@expo/vector-icons/Feather', () => 'Feather');
@@ -20,7 +20,8 @@ function viewport(width: number, height: number) {
     screen: { width, height, scale: 3, fontScale: 1 },
   });
 }
-function fixture(id: string): CardGameRoom {
+type SouthRoom = CardGameRoom & { game: TienLenView };
+function fixture(id: string): SouthRoom {
   return {
     id,
     code: 'ABCDEFGH',
@@ -52,7 +53,7 @@ function fixture(id: string): CardGameRoom {
     },
   };
 }
-function finished(room: CardGameRoom): CardGameRoom {
+function finished(room: SouthRoom): SouthRoom {
   return {
     ...room,
     version: room.version + 1,

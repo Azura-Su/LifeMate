@@ -45,6 +45,9 @@ const messages: Record<string, string> = {
   'invalid-combination': 'Các lá đã chọn chưa thành một bộ hợp lệ.',
   'opening-card': 'Bộ mở ván phải chứa lá nhỏ nhất đã chia.',
   'cannot-pass': 'Bạn đang mở vòng mới, hãy chọn bài để đánh.',
+  'attack-limit': 'Đã đủ số lá có thể tấn trong lượt này.',
+  'attack-rank': 'Chỉ có thể tấn lá cùng hạng với lá trên bàn.',
+  'cannot-defend': 'Lá đã chọn không thể đỡ lá tấn này.',
   'invalid-action': 'Thao tác chưa phù hợp với bước hiện tại của lượt.',
   'not-turn': 'Chưa đến lượt của bạn.',
   'game-update-required': 'Hãy cập nhật ứng dụng để dùng luật của phòng này.',
@@ -77,7 +80,7 @@ function normalizeTokenError(error: unknown): unknown {
   return error;
 }
 
-type ProtocolVersion = 8 | 7 | 6 | 5 | 4 | 3 | 2 | undefined;
+type ProtocolVersion = 11 | 10 | 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | undefined;
 // A pending request owns its protocol until it is released. Retrying after an
 // Edge rollout must preserve the receipt fingerprint, including clientVersion.
 const negotiatedProtocols = new WeakMap<
@@ -155,6 +158,26 @@ export async function gameRequest(
   };
   signal.addEventListener('abort', cancel, { once: true });
   const timer = setTimeout(cancel, 15000);
+  const variantRulesVersion =
+    input.variantConfig && 'rulesVersion' in input.variantConfig
+      ? input.variantConfig.rulesVersion
+      : undefined;
+  const requiresV11 =
+    input.requiredClientVersion === 11 ||
+    ((variantRulesVersion === 'north-v2' ||
+      variantRulesVersion === 'sam-v2') &&
+      (input.type === 'create' || input.type === 'set-variant-rules')) ||
+    (input.type === 'join' && ['north', 'sam'].includes(input.game ?? ''));
+  const requiresV10 =
+    input.requiredClientVersion === 10 ||
+    (!requiresV11 && input.type === 'set-variant-rules') ||
+    input.variantConfig !== undefined ||
+    (['north', 'sam', 'tan'].includes(input.game ?? '') &&
+      ['create', 'join'].includes(input.type));
+  const requiresV9 =
+    input.requiredClientVersion === 9 ||
+    input.type === 'game-action' ||
+    input.gameAction !== undefined;
   const negotiated = negotiatedProtocols.get(input);
   let protocolVersion: ProtocolVersion =
     negotiated &&
@@ -163,22 +186,35 @@ export async function gameRequest(
     negotiated.sessionId === input.sessionId &&
     negotiated.actionId === input.actionId
       ? negotiated.version
-      : 8;
-  const minimumVersion =
-    input.requiredClientVersion ??
-    (input.phomConfig?.options
-      ? 7
-      : input.type === 'set-phom-rules'
-        ? 6
-        : input.type === 'set-south-rules'
-          ? 5
-          : configuredSouth(input.southConfig)
-            ? 4
-            : input.game === 'phom' || input.phomAction !== undefined
-              ? 3
-              : 1);
+      : requiresV11
+        ? 11
+        : requiresV10
+          ? 10
+          : requiresV9
+            ? 9
+            : 8;
+  const minimumVersion = requiresV11
+    ? 11
+    : input.requiredClientVersion ??
+      (requiresV10
+        ? 10
+        : requiresV9
+          ? 9
+          : input.phomConfig?.options
+            ? 7
+            : input.type === 'set-phom-rules'
+              ? 6
+              : input.type === 'set-south-rules'
+                ? 5
+                : configuredSouth(input.southConfig)
+                  ? 4
+                  : input.game === 'phom' || input.phomAction !== undefined
+                    ? 3
+                    : 1);
+  let negotiationFloor = minimumVersion;
   const requestInput = { ...input };
   delete requestInput.requiredClientVersion;
+  if (input.type !== 'create') delete requestInput.game;
   if (input.game === 'south' && !configuredSouth(input.southConfig))
     delete requestInput.southConfig;
   const off = useAuthStore.subscribe(() => {
@@ -239,15 +275,33 @@ export async function gameRequest(
                 ? result.error
                 : 'game-unavailable';
             if (
+              code === 'game-update-required' &&
+              response.status === 409 &&
+              protocolVersion !== undefined &&
+              protocolVersion < 11
+            ) {
+              protocolVersion =
+                protocolVersion < 9 ? 9 : protocolVersion < 10 ? 10 : 11;
+              negotiationFloor = Math.max(negotiationFloor, protocolVersion);
+              attempt -= 1;
+              continue;
+            }
+            if (
               code === 'invalid-input' &&
               response.status === 400 &&
               protocolVersion !== undefined
             ) {
-              if (protocolVersion <= minimumVersion)
+              if (protocolVersion <= negotiationFloor)
                 throw new GameApiError('game-update-required', 409);
               protocolVersion =
-                protocolVersion === 8
-                  ? 7
+                protocolVersion === 11
+                  ? 10
+                  : protocolVersion === 10
+                    ? 9
+                  : protocolVersion === 9
+                  ? 8
+                  : protocolVersion === 8
+                    ? 7
                   : protocolVersion === 7
                     ? 6
                     : protocolVersion === 6

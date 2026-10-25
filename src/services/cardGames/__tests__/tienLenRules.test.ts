@@ -1,6 +1,7 @@
-import type { TienLenView } from '../../../types/cardGame';
+import type { SamView, TienLenView } from '../../../types/cardGame';
 import {
   canBeatTienLen,
+  canPlaySamSelection,
   canPlayTienLenSelection,
   classifyTienLen,
 } from '../tienLenRules';
@@ -84,4 +85,31 @@ it('allows an out-of-turn interrupt only for a legal four-pair cut', () => {
     canPlayTienLenSelection([4, 5, 8, 9, 12, 13, 16, 20], waiting, 'a'),
   ).toBe(false);
   expect(canPlayTienLenSelection([20], waiting, 'a')).toBe(false);
+});
+
+it('enables quad-over-single-2 in Sâm v2, while preserving the v1 rule', () => {
+  const sam = (rulesVersion: SamView['rulesVersion']): SamView => ({
+    rulesVersion,
+    status: 'playing',
+    step: 'play',
+    hand: [0, 1, 2, 3],
+    players: [
+      { uid: 'a', count: 4, finished: false, forfeited: false },
+      { uid: 'b', count: 8, finished: false, forfeited: false },
+    ],
+    turn: 'a',
+    table: { uid: 'b', cards: [48] },
+    passed: [],
+    openingCard: null,
+    deadline: Date.now() + 30_000,
+    result: null,
+    reportOrder: [],
+    reported: [],
+    reportedSam: false,
+    callUid: null,
+    samOutcome: null,
+  });
+
+  expect(canPlaySamSelection([0, 1, 2, 3], sam('sam-v1'), 'a')).toBe(false);
+  expect(canPlaySamSelection([0, 1, 2, 3], sam('sam-v2'), 'a')).toBe(true);
 });

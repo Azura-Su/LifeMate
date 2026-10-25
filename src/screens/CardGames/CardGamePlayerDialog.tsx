@@ -9,6 +9,7 @@ const AVATAR_SIZE = 72;
 
 export function CardGamePlayerDialog({
   member,
+  balanceUnit = 'đ',
   owner,
   self,
   canKick,
@@ -17,6 +18,7 @@ export function CardGamePlayerDialog({
   onKick,
 }: {
   member: GameMember;
+  balanceUnit?: 'đ' | 'điểm';
   owner: boolean;
   self: boolean;
   canKick: boolean;
@@ -64,7 +66,7 @@ export function CardGamePlayerDialog({
         </Text>
         <Text style={typography.body}>Số ván thắng: {member.wins}</Text>
         <Text style={typography.body}>
-          Số dư bàn: {(member.balance ?? 0).toLocaleString('vi-VN')} đ
+          Số dư bàn: {(member.balance ?? 0).toLocaleString('vi-VN')} {balanceUnit}
         </Text>
         {canKick && (
           <Button title="Kích người chơi" disabled={busy} onPress={onKick} />

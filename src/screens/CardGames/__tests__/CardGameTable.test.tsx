@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import type {
   CardGameRoom as AnyCardGameRoom,
+  SamView,
   TienLenView,
 } from '../../../types/cardGame';
 
@@ -23,7 +24,7 @@ import { cardLabel } from '../PlayingCard';
 
 // These fixtures exercise Tiến lên; keep their game type precise after adding Phỏm.
 type CardGameRoom = Omit<AnyCardGameRoom, 'game'> & {
-  game: TienLenView | null;
+  game: TienLenView | SamView | null;
 };
 
 jest.mock('@expo/vector-icons/Feather', () => 'Feather');
@@ -187,6 +188,49 @@ it('keeps the full opponent name available and permits two readable lines', () =
   expect(name.props.children).toBe(longName);
   expect(name.props.numberOfLines).toBe(2);
   expect(name.props.accessibilityLabel).toBe(longName);
+});
+
+it('shows Sâm caller outcome and báo một indicators while preserving public card counts', () => {
+  const samRoom: CardGameRoom = {
+    ...room,
+    gameKind: 'sam',
+    game: {
+      ...room.game!,
+      rulesVersion: 'sam-v1',
+      step: 'play',
+      reportOrder: ['a', 'b'],
+      reported: ['a', 'b'],
+      reportedSam: true,
+      callUid: 'b',
+      samOutcome: 'failed',
+      players: room.game!.players.map((player) =>
+        player.uid === 'b' ? { ...player, count: 1 } : player,
+      ),
+    } as SamView,
+  };
+
+  render(
+    <CardGameTable
+      room={samRoom}
+      uid="a"
+      serverTime={Date.now()}
+      active={false}
+      disabled={false}
+      busy={false}
+      onAction={jest.fn()}
+    />,
+  );
+
+  expect(screen.getByTestId('sam-call-status')).toHaveTextContent(
+    'Bình báo Sâm thất bại · ván tiếp tục',
+  );
+  expect(screen.getByTestId('sam-caller-b')).toHaveTextContent(
+    'Sâm thất bại',
+  );
+  expect(screen.getByTestId('sam-one-b')).toHaveTextContent('Báo một');
+  expect(screen.getByTestId('remaining-cards-b')).toHaveTextContent(
+    'Còn 1 lá',
+  );
 });
 
 it('keeps a full landscape hand inside the measured hand slot on a wide device', () => {
@@ -877,10 +921,10 @@ it('shows a collected deck and lets the host ready for an automatic rematch', ()
   expect(screen.getByTestId('player-ready-b')).toBeTruthy();
   expect(screen.queryByText('🎆 ✨ 🎇')).toBeNull();
   expect(screen.getByTestId('own-balance')).toHaveTextContent('0 đ');
-  expect(screen.getByTestId('own-balance-delta')).toHaveTextContent('+5');
+  expect(screen.getByTestId('own-balance-delta')).toHaveTextContent('+5 đ');
   expect(screen.getByTestId('opponent-balance-b')).toHaveTextContent('0 đ');
   expect(screen.getByTestId('opponent-balance-b-delta')).toHaveTextContent(
-    '-5',
+    '-5 đ',
   );
   expect(screen.queryByTestId('round-result-match')).toBeNull();
   fireEvent.press(screen.getByRole('button', { name: 'Sẵn sàng' }));
@@ -1215,6 +1259,145 @@ it('shows settled server balances when a finished table reopens', () => {
   expect(screen.getByTestId('own-balance')).toHaveTextContent('+20 đ');
   expect(screen.queryByTestId('own-balance-delta')).toBeNull();
   expect(screen.getByTestId('opponent-balance-b')).toHaveTextContent('-20 đ');
+});
+
+it('uses points and itemizes Sâm v2 report transfers in the finished table', () => {
+  const samRoom: CardGameRoom = {
+    ...room,
+    gameKind: 'sam',
+    variantConfig: {
+      rulesVersion: 'sam-v2',
+      pointsPerCard: 1,
+      samCallPoints: 20,
+    },
+    phase: 'finished',
+    members: [
+      { uid: 'a', name: 'An', ready: false, wins: 1, balance: 23 },
+      { uid: 'b', name: 'Bình', ready: true, wins: 0, balance: -23 },
+    ],
+    game: {
+      ...room.game!,
+      rulesVersion: 'sam-v2',
+      status: 'finished',
+      hand: [],
+      turn: null,
+      deadline: null,
+      step: 'play',
+      reportOrder: [],
+      reported: [],
+      reportedSam: true,
+      callUid: 'b',
+      samOutcome: 'failed',
+      result: {
+        reason: 'played-out',
+        ranking: [
+          {
+            uid: 'a',
+            name: 'An',
+            rank: 1,
+            labels: [],
+            moneyDelta: 23,
+            breakdown: [
+              { kind: 'remaining-cards', amount: 3, otherUid: 'b' },
+              { kind: 'sam-report', amount: 20, otherUid: 'b' },
+            ],
+          },
+          {
+            uid: 'b',
+            name: 'Bình',
+            rank: 2,
+            labels: [],
+            moneyDelta: -23,
+            breakdown: [
+              { kind: 'remaining-cards', amount: -3, otherUid: 'a' },
+              { kind: 'sam-report', amount: -20, otherUid: 'a' },
+            ],
+          },
+        ],
+      },
+    } as SamView,
+  };
+
+  render(
+    <CardGameTable
+      room={samRoom}
+      uid="a"
+      serverTime={Date.now()}
+      active
+      disabled={false}
+      busy={false}
+      onAction={jest.fn()}
+    />,
+  );
+
+  expect(screen.getByTestId('own-balance')).toHaveTextContent('+23 điểm');
+  expect(screen.getByTestId('own-balance').props.accessibilityLabel).toBe(
+    'Số dư 23 điểm',
+  );
+  expect(screen.getByTestId('score-breakdown-a')).toHaveTextContent(
+    'Bài còn +3 điểm · Báo Sâm +20 điểm',
+  );
+  expect(screen.getByTestId('opponent-balance-b')).toHaveTextContent(
+    '-23 điểm',
+  );
+});
+
+it('shows North v2 remaining-2 and cut-2 scoring in the finished table', () => {
+  const northRoom: CardGameRoom = {
+    ...room,
+    gameKind: 'north',
+    variantConfig: {
+      rulesVersion: 'north-v2',
+      pointsPerCard: 1,
+      remainingTwoPoints: 2,
+      cutTwoPoints: 3,
+    },
+    phase: 'finished',
+    members: [
+      { uid: 'a', name: 'An', ready: false, wins: 1, balance: 7 },
+      { uid: 'b', name: 'Bình', ready: true, wins: 0, balance: -7 },
+    ],
+    game: {
+      ...room.game!,
+      rulesVersion: 'north-v2',
+      status: 'finished',
+      hand: [],
+      turn: null,
+      deadline: null,
+      result: {
+        reason: 'played-out',
+        ranking: [
+          { uid: 'a', rank: 1, labels: [], moneyDelta: 7, breakdown: [] },
+          {
+            uid: 'b',
+            rank: 2,
+            labels: [],
+            moneyDelta: -7,
+            breakdown: [
+              { kind: 'remaining-cards', amount: -4, otherUid: 'a' },
+              { kind: 'remaining-two', amount: -6, otherUid: 'a' },
+              { kind: 'cut-two', amount: 3, otherUid: 'a' },
+            ],
+          },
+        ],
+      },
+    },
+  } as unknown as CardGameRoom;
+  render(
+    <CardGameTable
+      room={northRoom}
+      uid="b"
+      serverTime={Date.now()}
+      active
+      disabled={false}
+      busy={false}
+      onAction={jest.fn()}
+    />,
+  );
+
+  expect(screen.getByTestId('score-breakdown-b')).toHaveTextContent(
+    'Bài còn -4 điểm · 2 còn -6 điểm · Chặt 2 +3 điểm',
+  );
 });
 
 it('lets the host ready and does not expose a manual rematch button', () => {

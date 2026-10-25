@@ -42,6 +42,12 @@ import { PhomGameEntry } from './PhomGameEntry';
 import { CardGameLobbyTable } from './CardGameLobbyTable';
 import { CardGameAvatarImage } from './CardGameAvatarImage';
 import { CardGamePlayerDialog } from './CardGamePlayerDialog';
+import { VariantGameEntry } from './VariantGameEntry';
+import {
+  RoomEntryModeSelector,
+  roomEntryActions,
+} from './RoomEntryModeSelector';
+import { TanGameTable } from './TanGameTable';
 import {
   getCachedRoomSnapshot,
   loadCachedRoomSnapshot,
@@ -57,6 +63,8 @@ const reasons: Record<string, string> = {
   'four-twos': 'Tới trắng · Tứ quý 2',
   'six-pairs': 'Tới trắng · Sáu đôi',
   'played-out': 'Ván đã kết thúc',
+  'sam-success': 'Báo Sâm thành công',
+  'all-out': 'Tất cả người chơi đã hết bài',
   forfeit: 'Ván kết thúc có người bỏ cuộc',
   'all-disconnected': 'Ván đã hủy',
 };
@@ -67,6 +75,12 @@ const labels: Record<string, string> = {
   'remaining-quad': 'Thối tứ quý',
   'remaining-pairs': 'Thối đôi thông',
   'instant-win': 'Tới trắng',
+};
+const scorePartLabels: Record<string, string> = {
+  'remaining-cards': 'Bài còn',
+  'remaining-two': '2 còn',
+  'cut-two': 'Chặt 2',
+  'sam-report': 'Báo Sâm',
 };
 const seenRemovals = new Set<string>();
 
@@ -96,9 +110,9 @@ export function CardGamesScreen({
     finishMode,
     cutTwoAmount: cutTwoAmount === '' ? NaN : Number(cutTwoAmount),
   };
-  const [selectedGame, setSelectedGame] = useState<'south' | 'phom' | null>(
-    null,
-  );
+  const [selectedGame, setSelectedGame] = useState<
+    'south' | 'phom' | 'north' | 'sam' | 'tan' | null
+  >(null);
   const [connectRequested, setConnectRequested] = useState(false);
   const [createPending, setCreatePending] = useState(false);
   const [leavingRoom, setLeavingRoom] = useState(false);
@@ -480,19 +494,32 @@ export function CardGamesScreen({
   useEffect(() => {
     const roomCode = route.params?.roomCode;
     if (!uid || !roomCode) return;
+    const cachedGameKind = getCachedRoomSnapshot(uid, roomCode)?.room?.gameKind;
+    const requestedGameKind = route.params?.gameKind ?? cachedGameKind;
+    const variantGame:
+      | 'north'
+      | 'sam'
+      | 'tan'
+      | undefined =
+      requestedGameKind === 'north' ||
+      requestedGameKind === 'sam' ||
+      requestedGameKind === 'tan'
+        ? requestedGameKind
+        : undefined;
     setRoomRejoinPending(true);
     setRejoinCode(roomCode);
-    setSelectedGame('south');
+    setSelectedGame(variantGame ?? 'south');
     setRoomEntryMode('join');
     setCode(roomCode);
     setQueuedRoomIntent({
       type: 'join',
       code: roomCode,
       name: playerName,
+      ...(variantGame && { game: variantGame }),
     });
     setConnectRequested(true);
-    navigation.setParams({ roomCode: undefined });
-  }, [navigation, route.params?.roomCode, uid, playerName]);
+    navigation.setParams({ roomCode: undefined, gameKind: undefined });
+  }, [navigation, route.params?.roomCode, route.params?.gameKind, uid, playerName]);
   useEffect(() => {
     if (
       serverRoom ||
@@ -792,9 +819,13 @@ export function CardGamesScreen({
           accessibilityRole="header"
           style={[styles.title, playing && landscape && styles.landscapeTitle]}
         >
-          {room?.gameKind === 'phom' || (!room && selectedGame === 'phom')
-            ? 'Phỏm'
-            : 'Tiến lên miền Nam'}
+          {{
+            south: 'Tiến lên miền Nam',
+            phom: 'Phỏm',
+            north: 'Tiến lên miền Bắc',
+            sam: 'Sâm',
+            tan: 'Tấn',
+          }[room?.gameKind ?? selectedGame ?? 'south']}
         </Text>
         {room && !state?.connected && (
           <View
@@ -1044,72 +1075,10 @@ export function CardGamesScreen({
                   </View>
                   {selectedGame === 'south' && (
                     <View style={styles.gameExpansion}>
-                      <View style={styles.entryModes}>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel="Tạo phòng mới"
-                          accessibilityState={{
-                            selected: roomEntryMode === 'create',
-                          }}
-                          onPress={() => setRoomEntryMode('create')}
-                          style={[
-                            styles.entryMode,
-                            roomEntryMode === 'create' &&
-                              styles.entryModeSelected,
-                          ]}
-                        >
-                          <Feather
-                            name="plus"
-                            size={15}
-                            color={
-                              roomEntryMode === 'create'
-                                ? colors.earth
-                                : colors.muted
-                            }
-                          />
-                          <Text
-                            style={[
-                              styles.entryModeTitle,
-                              roomEntryMode === 'create' &&
-                                styles.entryModeTitleSelected,
-                            ]}
-                          >
-                            Tạo mới
-                          </Text>
-                        </Pressable>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel="Vào phòng có sẵn"
-                          accessibilityState={{
-                            selected: roomEntryMode === 'join',
-                          }}
-                          onPress={() => setRoomEntryMode('join')}
-                          style={[
-                            styles.entryMode,
-                            roomEntryMode === 'join' &&
-                              styles.entryModeSelected,
-                          ]}
-                        >
-                          <Feather
-                            name="log-in"
-                            size={15}
-                            color={
-                              roomEntryMode === 'join'
-                                ? colors.earth
-                                : colors.muted
-                            }
-                          />
-                          <Text
-                            style={[
-                              styles.entryModeTitle,
-                              roomEntryMode === 'join' &&
-                                styles.entryModeTitleSelected,
-                            ]}
-                          >
-                            Tham gia
-                          </Text>
-                        </Pressable>
-                      </View>
+                      <RoomEntryModeSelector
+                        mode={roomEntryMode}
+                        onChange={setRoomEntryMode}
+                      />
                       {roomEntryMode === 'create' && (
                         <TienLenGameSettings
                           finishMode={finishMode}
@@ -1167,12 +1136,8 @@ export function CardGamesScreen({
                         </>
                       )}
                       <Button
-                        title={
-                          roomEntryMode === 'create' ? 'Tạo phòng' : 'Vào phòng'
-                        }
-                        variant={
-                          roomEntryMode === 'create' ? 'primary' : 'secondary'
-                        }
+                        title={roomEntryActions[roomEntryMode].title}
+                        variant={roomEntryActions[roomEntryMode].variant}
                         loading={connecting || state?.busy}
                         disabled={
                           blocked ||
@@ -1238,15 +1203,44 @@ export function CardGamesScreen({
                     );
                   }}
                 />
-                <View style={styles.comingList}>
-                  <View style={styles.comingRow}>
-                    <Feather name="layers" size={16} color={colors.muted} />
-                    <Text style={[styles.grow, styles.comingName]}>
-                      Tiến lên miền Bắc
-                    </Text>
-                    <Text style={styles.gameComing}>Sắp ra mắt</Text>
-                  </View>
-                </View>
+                {(['north', 'sam', 'tan'] as const).map((game) => (
+                  <VariantGameEntry
+                    key={game}
+                    game={game}
+                    expanded={selectedGame === game}
+                    disabled={blocked}
+                    busy={connecting || !!state?.busy}
+                    onToggle={() => {
+                      setSelectedGame(selectedGame === game ? null : game);
+                      setCode('');
+                      setQueuedRoomIntent(null);
+                      setConnectRequested(false);
+                    }}
+                    onRules={() => setRules(true)}
+                    onCreate={(variantConfig) =>
+                      startRoomAction({
+                        type: 'create',
+                        name: playerName,
+                        game,
+                        variantConfig,
+                      })
+                    }
+                    onJoin={(roomCode) =>
+                      startRoomAction({
+                        type: 'join',
+                        name: playerName,
+                        code: roomCode,
+                        game,
+                      })
+                    }
+                    onCodeFocus={() => {
+                      codeInputFocused.current = true;
+                      requestAnimationFrame(() =>
+                        scrollRef.current?.scrollToEnd({ animated: true }),
+                      );
+                    }}
+                  />
+                ))}
               </View>
             </>
           ) : tableVisible ? (
@@ -1307,6 +1301,17 @@ export function CardGamesScreen({
                   onAction={send}
                   onPlayerPress={setSelectedPlayerUid}
                 />
+              ) : room.gameKind === 'tan' ? (
+                <TanGameTable
+                  room={room}
+                  uid={uid!}
+                  serverTime={displayServerTime}
+                  active={active}
+                  disabled={blocked || cachedRejoin}
+                  busy={(!leavingRoom && !!state?.busy) || cachedRejoin}
+                  onAction={send}
+                  onPlayerPress={setSelectedPlayerUid}
+                />
               ) : (
                 <CardGameTable
                   room={room}
@@ -1342,7 +1347,7 @@ export function CardGamesScreen({
                     style={styles.iconButton}
                     onPress={() =>
                       void Share.share({
-                        message: `Vào LifeMate → Trò chơi & điểm số → Chơi online → ${room.gameKind === 'phom' ? 'Phỏm' : 'Tiến lên miền Nam'}, nhập mã ${room.code} để chơi cùng mình nhé!`,
+                        message: `Vào LifeMate → Trò chơi & điểm số → Chơi online → ${{ south: 'Tiến lên miền Nam', phom: 'Phỏm', north: 'Tiến lên miền Bắc', sam: 'Sâm', tan: 'Tấn' }[room.gameKind ?? 'south']}, nhập mã ${room.code} để chơi cùng mình nhé!`,
                       }).catch(() => undefined)
                     }
                   >
@@ -1357,7 +1362,11 @@ export function CardGamesScreen({
                 <Text style={styles.body}>
                   {room.gameKind === 'phom'
                     ? 'Phỏm · Mức điểm theo cấu hình phòng'
-                    : `2–4 người · ${room.amountPerCard ?? 0} đ/lá còn`}{' '}
+                    : ['north', 'sam', 'tan'].includes(room.gameKind ?? '')
+                      ? `${{ north: 'Miền Bắc', sam: 'Sâm', tan: 'Tấn' }[room.gameKind as 'north' | 'sam' | 'tan']} · ${(
+                          room.variantConfig?.pointsPerCard ?? 1
+                        ).toLocaleString('vi-VN')} điểm/lá`
+                      : `2–4 người · ${room.amountPerCard ?? 0} đ/lá còn`}{' '}
                   · 40 giây/lượt
                 </Text>
               </View>
@@ -1366,32 +1375,57 @@ export function CardGamesScreen({
                   <Text style={styles.heading}>
                     {reasons[room.game.result.reason] ?? 'Kết quả ván'}
                   </Text>
-                  {room.game.result.ranking.map((p) => (
-                    <View key={p.uid} style={styles.resultRow}>
-                      <Text style={styles.rank}>#{p.rank}</Text>
-                      <View style={styles.grow}>
-                        <Text style={styles.name}>
-                          {p.name ??
-                            room.members.find((m) => m.uid === p.uid)?.name ??
-                            'Người chơi đã rời'}
-                          {p.uid === uid ? ' (Bạn)' : ''}
-                        </Text>
-                        <Text style={styles.subtitle}>
-                          {p.labels.map((l) => labels[l] ?? l).join(' · ')}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.subtitle,
-                            (p.moneyDelta ?? 0) > 0 && styles.ready,
-                            (p.moneyDelta ?? 0) < 0 && styles.error,
-                          ]}
-                        >
-                          {(p.moneyDelta ?? 0) > 0 ? '+' : ''}
-                          {(p.moneyDelta ?? 0).toLocaleString('vi-VN')} đ
-                        </Text>
+                  {room.game.result.ranking.map((p) => {
+                    const parts = new Map<string, number>();
+                    for (const item of p.breakdown ?? [])
+                      parts.set(
+                        item.kind,
+                        (parts.get(item.kind) ?? 0) + item.amount,
+                      );
+                    const unit = ['north', 'sam', 'tan'].includes(
+                      room.gameKind ?? '',
+                    )
+                      ? 'điểm'
+                      : 'đ';
+                    const detail = [...parts]
+                      .filter(([, amount]) => amount !== 0)
+                      .map(
+                        ([kind, amount]) =>
+                          `${scorePartLabels[kind] ?? kind} ${amount > 0 ? '+' : ''}${amount.toLocaleString('vi-VN')} ${unit}`,
+                      )
+                      .join(' · ');
+                    return (
+                      <View key={p.uid} style={styles.resultRow}>
+                        <Text style={styles.rank}>#{p.rank}</Text>
+                        <View style={styles.grow}>
+                          <Text style={styles.name}>
+                            {p.name ??
+                              room.members.find((m) => m.uid === p.uid)?.name ??
+                              'Người chơi đã rời'}
+                            {p.uid === uid ? ' (Bạn)' : ''}
+                          </Text>
+                          <Text style={styles.subtitle}>
+                            {p.labels.map((l) => labels[l] ?? l).join(' · ')}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.subtitle,
+                              (p.moneyDelta ?? 0) > 0 && styles.ready,
+                              (p.moneyDelta ?? 0) < 0 && styles.error,
+                            ]}
+                          >
+                            {(p.moneyDelta ?? 0) > 0 ? '+' : ''}
+                            {(p.moneyDelta ?? 0).toLocaleString('vi-VN')} {unit}
+                          </Text>
+                          {!!detail && (
+                            <Text testID={`score-breakdown-${p.uid}`} style={styles.subtitle}>
+                              {detail}
+                            </Text>
+                          )}
+                        </View>
                       </View>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
               )}
               <View style={[styles.section, styles.lobbySection]}>
@@ -1513,6 +1547,8 @@ export function CardGamesScreen({
           phomConfig={room?.phomConfig}
           nextSouthRules={room?.nextSouthRules}
           nextPhomConfig={room?.nextPhomConfig}
+          variantConfig={room?.variantConfig}
+          nextVariantConfig={room?.nextVariantConfig}
           southConfig={
             room
               ? (room.southConfig ?? DEFAULT_SOUTH_CONFIG)
@@ -1613,7 +1649,8 @@ export function CardGamesScreen({
                   },
                 ownerUid === uid &&
                   room?.controller &&
-                  !cachedRejoin && {
+                  !cachedRejoin &&
+                  {
                     key: 'rules-edit',
                     icon: 'sliders' as const,
                     title: 'Sửa luật ván tới',
@@ -1689,6 +1726,12 @@ export function CardGamesScreen({
                   gameKind: 'phom' as const,
                   rules: room.nextPhomConfig ?? room.phomConfig,
                 }
+              : ['north', 'sam', 'tan'].includes(room.gameKind ?? '')
+                ? {
+                    gameKind: room.gameKind as 'north' | 'sam' | 'tan',
+                    rules: room.nextVariantConfig ??
+                      room.variantConfig ?? { pointsPerCard: 1 },
+                  }
               : {
                   gameKind: 'south' as const,
                   rules: room.nextSouthRules ?? {
@@ -1727,6 +1770,7 @@ export function CardGamesScreen({
       {selectedPlayer && active && (
         <CardGamePlayerDialog
           member={selectedPlayer}
+          balanceUnit={['north', 'sam', 'tan'].includes(room?.gameKind ?? '') ? 'điểm' : 'đ'}
           owner={selectedPlayer.uid === ownerUid}
           self={selectedPlayer.uid === uid}
           canKick={
