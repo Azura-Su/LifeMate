@@ -9,7 +9,13 @@ import {
   waitFor,
   within,
 } from '@testing-library/react-native';
-import { Alert, Dimensions, RefreshControl, StyleSheet } from 'react-native';
+import {
+  Alert,
+  Dimensions,
+  Modal,
+  RefreshControl,
+  StyleSheet,
+} from 'react-native';
 import { CardScoreRoundDialog } from '../CardScoreRoundDialog';
 import { CardScoreScreen } from '../CardScoreScreen';
 import { CardScoreSetupDialog } from '../CardScoreSetupDialog';
@@ -852,6 +858,158 @@ it('lets only the connected owner correct and finish a shared online table', asy
   await waitFor(async () =>
     expect((await readCardScoreMatches(uid))[0].status).toBe('finished'),
   );
+});
+
+it.each(['dismiss', 'fallback'] as const)(
+  'preserves a newer shared score revision when finish commits through %s',
+  async (method) => {
+    await seedOnlineScore();
+    const board = await exposeSharedBoard();
+    const request = jest.mocked(gameRequest).getMockImplementation()!;
+    jest.mocked(gameRequest).mockImplementation(async (...args) => {
+      const response = await request(...args);
+      if (args[1].type === 'score-write') {
+        const updated = board.get();
+        board.set({
+          ...updated,
+          match: {
+            ...updated.match,
+            title: 'Bảng điểm phiên bản mới hơn',
+            sharedVersion: updated.match.sharedVersion! + 1,
+          },
+        });
+      }
+      return response;
+    });
+    renderScreen();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Thêm ván' })).toBeEnabled(),
+    );
+    fireEvent.press(screen.getByRole('button', { name: 'Kết thúc bàn chơi' }));
+    const onDismiss = screen
+      .UNSAFE_getAllByType(Modal)
+      .find((modal) => modal.props.onDismiss)?.props.onDismiss;
+    expect(onDismiss).toBeDefined();
+    await act(async () => {
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Xác nhận kết thúc bàn' }),
+      );
+    });
+    await screen.findByText('Bảng điểm phiên bản mới hơn');
+    if (method === 'dismiss') act(() => onDismiss());
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    });
+    expect(screen.getByText('Bảng điểm phiên bản mới hơn')).toBeTruthy();
+  },
+);
+
+it.each(['dismiss', 'fallback'] as const)(
+  'preserves refreshed scores when a local finish commits through %s',
+  async (method) => {
+    await seedOnlineScore();
+    const board = await exposeSharedBoard(false);
+    renderScreen();
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'Kết thúc bàn chơi' }),
+    );
+    const onDismiss = screen
+      .UNSAFE_getAllByType(Modal)
+      .find((modal) => modal.props.onDismiss)?.props.onDismiss;
+    await act(async () => {
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Xác nhận kết thúc bàn' }),
+      );
+    });
+    const current = board.get();
+    board.set({
+      ...current,
+      match: {
+        ...current.match,
+        title: 'Bảng điểm mới khi đóng hộp thoại',
+        sharedVersion: current.match.sharedVersion! + 1,
+      },
+    });
+    fireEvent(screen.UNSAFE_getByType(RefreshControl), 'refresh');
+    await screen.findByText('Bảng điểm mới khi đóng hộp thoại');
+    if (method === 'dismiss') act(() => onDismiss());
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    });
+    expect(screen.getByText('Bảng điểm mới khi đóng hộp thoại')).toBeTruthy();
+    expect(screen.queryByTestId('card-score-open-table')).toBeNull();
+  },
+);
+
+it('discards a queued finish when another account loads before modal dismissal', async () => {
+  await seedOnlineScore();
+  await cardStorage.createCardScoreMatch('other-score-account', {
+    title: 'Bàn tài khoản mới',
+    players: [
+      { id: 'other-a', name: 'Lan' },
+      { id: 'other-b', name: 'Chi' },
+    ],
+    seatOrder: ['other-a', 'other-b'],
+    dealerPlayerId: 'other-a',
+  });
+  await exposeSharedBoard(false);
+  const request = jest.mocked(gameRequest).getMockImplementation()!;
+  jest
+    .mocked(gameRequest)
+    .mockImplementation(async (...args) =>
+      args[0] === uid ? request(...args) : ({ tables: [] } as never),
+    );
+  renderScreen();
+  fireEvent.press(
+    await screen.findByRole('button', { name: 'Kết thúc bàn chơi' }),
+  );
+  const onDismiss = screen
+    .UNSAFE_getAllByType(Modal)
+    .find((modal) => modal.props.onDismiss)?.props.onDismiss;
+  await act(async () => {
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Xác nhận kết thúc bàn' }),
+    );
+  });
+  act(() =>
+    useAuthStore.getState().setUser({
+      uid: 'other-score-account',
+      email: 'player@example.com',
+      displayName: 'Lan',
+    }),
+  );
+  await screen.findByText('Bàn tài khoản mới');
+  act(() => onDismiss());
+  expect(screen.getByText('Bàn tài khoản mới')).toBeTruthy();
+});
+
+it('lets an explicit local resume supersede a queued finish before dismissal', async () => {
+  await seedOnlineScore();
+  const [original] = await readCardScoreMatches(uid);
+  await exposeSharedBoard(false);
+  renderScreen();
+  fireEvent.press(
+    await screen.findByRole('button', { name: 'Kết thúc bàn chơi' }),
+  );
+  const onDismiss = screen
+    .UNSAFE_getAllByType(Modal)
+    .find((modal) => modal.props.onDismiss)?.props.onDismiss;
+  await act(async () => {
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Xác nhận kết thúc bàn' }),
+    );
+  });
+  fireEvent(screen.UNSAFE_getByType(RefreshControl), 'refresh');
+  await screen.findByTestId(`card-score-history-${original.id}`);
+  expect(screen.queryByTestId('card-score-open-table')).toBeNull();
+  await act(async () => {
+    fireEvent.press(
+      screen.getByRole('button', { name: `Mở lại bàn ${original.title}` }),
+    );
+  });
+  await screen.findByTestId('card-score-open-table');
+  act(() => onDismiss());
+  expect(screen.getByTestId('card-score-open-table')).toBeTruthy();
 });
 
 it('allows managing a ninth player on an online score table', async () => {

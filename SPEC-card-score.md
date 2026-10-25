@@ -21,6 +21,12 @@ One person keeps score for a group around one phone. A clear round-by-round matr
 - Allow several active tables at once and provide a compact selector to switch between them.
 - Keep the `Tính điểm` / `Chơi online` tabs fixed below the screen header; only their body scrolls. Pulling down on `Tính điểm` refreshes shared scores and local history with a native loading indicator, preserving visible content and the selected table. Stop loading on success/failure and discard delayed reads after blur or an account-session change. The static online catalog only scrolls, with no pull refresh or automatic room connection.
 - A table can be finished and stays in history. If saving fails, show the error inside the finish confirmation and allow retry without closing the table.
+- Finish closes its confirmation before applying deferred local view changes
+  (`onDismiss`, with a 350 ms fallback). The pending change belongs to its
+  UID/session and table; account reset or unmount discards it. Preserve newer
+  shared revisions, edits, deleted/missing tables and unrelated score content.
+  A local finish merges only archive metadata; explicitly reopening the same
+  table cancels its pending finish. Dismiss and fallback consume the change once.
 - Put a clear `×` close control in the create-table dialog.
 - Randomize seats and select the first person to deal; this is a casual draw, not a gambling feature.
 - Manual history and shared read caches are encrypted locally and scoped to the signed-in UID. Manual tables remain offline-only. Shared content, access, revisions and audit are authoritative on the server. Offline shared caches are read-only. Older device-only online copies remain in history until explicitly resumed with `Mở lại bàn`; then their retained scores may be edited locally, with a clear device-storage hint. The 2026-10-22 history reset purges old archived local entries and copies of the rooms removed from the server the next time this storage is read. It preserves active tables and later edits, and rejects stale server responses before returning or caching them. Do not silently import private corrections or claim all expired server rounds can be reconstructed. Payment and Finance transactions are out of scope.

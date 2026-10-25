@@ -10,6 +10,7 @@ type Props = {
   error: string | null;
   onCancel: () => void;
   onConfirm: () => void;
+  onDismiss?: () => void;
   localOnly?: boolean;
 };
 
@@ -19,12 +20,14 @@ export function CardScoreFinishDialog({
   error,
   onCancel,
   onConfirm,
+  onDismiss,
   localOnly = false,
 }: Props) {
   return (
     <DialogModal
       visible={visible}
       onRequestClose={() => !busy && onCancel()}
+      onDismiss={onDismiss}
       style={styles.finishDialog}
     >
       <View

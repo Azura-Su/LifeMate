@@ -113,6 +113,18 @@ export function CardScoreScreen({
   const [roundVisible, setRoundVisible] = useState(false);
   const [finishDialogVisible, setFinishDialogVisible] = useState(false);
   const [finishLocally, setFinishLocally] = useState(false);
+  const finishCommit = useRef<{ matchId: string; apply: () => void } | null>(
+    null,
+  );
+  const finishCommitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (finishCommitTimer.current) clearTimeout(finishCommitTimer.current);
+      finishCommitTimer.current = null;
+      finishCommit.current = null;
+    },
+    [uid, sessionEpoch],
+  );
   const finishSession = useRef<{
     uid: string | undefined;
     epoch: number;
@@ -534,7 +546,7 @@ export function CardScoreScreen({
     match: CardScoreMatch,
     base: CardScoreMatch,
     onError?: (message: string) => void,
-    options: { resume?: boolean } = {},
+    options: { resume?: boolean; deferStateUpdate?: boolean } = {},
   ) {
     if (!uid || !isCurrentSession() || busyRef.current || match.deletedAt)
       return null;
@@ -560,9 +572,11 @@ export function CardScoreScreen({
         if (isCurrentSession()) setMatches(stored);
       }
       if (!isCurrentSession()) return null;
-      setMatches((current) =>
-        current.map((item) => (item.id === saved.id ? saved : item)),
-      );
+      if (!options.deferStateUpdate) {
+        setMatches((current) =>
+          current.map((item) => (item.id === saved.id ? saved : item)),
+        );
+      }
       return saved;
     } catch (cause) {
       if (!isCurrentSession()) return null;
@@ -804,9 +818,21 @@ export function CardScoreScreen({
           true,
         );
         if (isCurrentSession()) {
-          setMatches(stored);
-          setSelectedMatchId(null);
-          setFinishDialogVisible(false);
+          const archived = stored.find((match) => match.id === currentMatch.id);
+          queueFinishedMatchCommit(currentMatch.id, () => {
+            setMatches((current) =>
+              current.map((item) =>
+                item.id === currentMatch.id && !item.deletedAt && archived
+                  ? {
+                      ...item,
+                      localFinished: archived.localFinished,
+                      localFinishedAt: archived.localFinishedAt,
+                    }
+                  : item,
+              ),
+            );
+            setSelectedMatchId(null);
+          });
         }
       } catch (cause) {
         if (isCurrentSession())
@@ -821,15 +847,58 @@ export function CardScoreScreen({
     const saved = await saveMatch(
       { ...currentMatch, status: 'finished' },
       currentMatch,
+      undefined,
+      { deferStateUpdate: true },
     );
     if (saved) {
-      setSelectedMatchId(null);
-      setFinishDialogVisible(false);
+      queueFinishedMatchCommit(currentMatch.id, () => {
+        setMatches((current) =>
+          current.map((item) => {
+            if (item.id !== saved.id || item.deletedAt) return item;
+            if (
+              saved.sharedVersion
+                ? (item.sharedVersion ?? 0) >= saved.sharedVersion
+                : item.updatedAt > saved.updatedAt
+            )
+              return item;
+            return saved;
+          }),
+        );
+        setSelectedMatchId(null);
+      });
     }
+  }
+
+  function queueFinishedMatchCommit(matchId: string, commit: () => void) {
+    if (!isCurrentSession()) return;
+    if (finishCommitTimer.current) clearTimeout(finishCommitTimer.current);
+    finishCommit.current = {
+      matchId,
+      apply: () => {
+        if (isCurrentSession()) commit();
+      },
+    };
+    setFinishDialogVisible(false);
+    finishCommitTimer.current = setTimeout(commitFinishedMatchAfterDialog, 350);
+  }
+
+  function commitFinishedMatchAfterDialog() {
+    if (finishCommitTimer.current) {
+      clearTimeout(finishCommitTimer.current);
+      finishCommitTimer.current = null;
+    }
+    const commit = finishCommit.current;
+    finishCommit.current = null;
+    commit?.apply();
   }
 
   async function resumeMatch(match: CardScoreMatch) {
     if (match.deletedAt) return;
+    if (finishCommit.current?.matchId === match.id) {
+      if (finishCommitTimer.current) clearTimeout(finishCommitTimer.current);
+      finishCommitTimer.current = null;
+      finishCommit.current = null;
+    }
     if (match.localFinished && match.status === 'active') {
       if (!uid || !isCurrentSession() || busyRef.current) return;
       markBusy(true);
@@ -1378,6 +1447,7 @@ export function CardScoreScreen({
         error={error}
         onCancel={() => setFinishDialogVisible(false)}
         onConfirm={() => void confirmFinishMatch()}
+        onDismiss={commitFinishedMatchAfterDialog}
       />
     </>
   );
