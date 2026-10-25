@@ -65,6 +65,7 @@
           "ios": {
             "useFrameworks": "static",
             "buildReactNativeFromSource": true,
+            "deploymentTarget": "15.1",
             "forceStaticLinking": [
               "RNFBApp",
               "RNFBAuth",
@@ -139,7 +140,8 @@
           "faceIDPermission": "LifeMate dùng Face ID để bảo vệ ghi chú và sổ thu chi của bạn."
         }
       ],
-      "./plugins/withMemoryCameraPermission"
+      "./plugins/withMemoryCameraPermission",
+      "./plugins/withIosPodDeploymentTarget"
     ]
   }
 }
