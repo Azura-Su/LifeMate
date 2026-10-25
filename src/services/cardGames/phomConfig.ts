@@ -7,6 +7,8 @@ export const DEFAULT_PHOM_OPTIONS: PhomOptions = {
 export function phomOptions(config?: PhomConfig): PhomOptions {
   return config?.options ?? DEFAULT_PHOM_OPTIONS;
 }
+export const PHOM_THREE_FEED_RULE =
+  'Đền cấp 3 cây luôn bắt buộc: cấp đủ 3 lá cho người ù thì phải đền, không phụ thuộc các tùy chọn.';
 export const PHOM_OPTIONS: {
   key: keyof PhomOptions;
   label: string;
@@ -24,10 +26,13 @@ export const PHOM_OPTIONS: {
   },
   {
     key: 'uDen',
-    label: 'Ù đền',
-    hint: 'Đền khi cấp 3 cây cho người ù hoặc ăn chốt trước khi người khác ù.',
+    label: 'Ù đền do tái',
+    hint: 'A ăn chốt của B khiến B được tái; nếu B ù trong chính lượt thêm đó thì A phải đền.',
   },
 ];
+export function visiblePhomOptions(options: PhomOptions) {
+  return PHOM_OPTIONS.filter(({ key }) => key !== 'uDen' || options.tai);
+}
 export const DEFAULT_PHOM_CONFIG: PhomConfig = {
   second: 1,
   third: 2,

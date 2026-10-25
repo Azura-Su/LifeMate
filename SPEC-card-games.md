@@ -3,9 +3,12 @@
 ## Phỏm — 23/10/2026
 
 Thêm Phỏm online với luật [phom-v1](SPEC-rules-phom.md):9/10 lá, ăn/bốc/hạ/gửi,
-4 lượt cố định không tái, ù/ù tròn/đền. Từng mức nhì/ba/bét/ăn/chốt/móm/ù/ù tròn/
+4 lượt mặc định (có tùy chọn Tái), ù/ù tròn/đền. Từng mức nhì/ba/bét/ăn/chốt/móm/ù/ù tròn/
 đền/bỏ cuộc có ô nhập riêng khi tạo phòng, cho phép0. Cấu hình lưu trong phòng,
 hiện trong luật và bất biến trong từng ván; chủ phòng sửa trong phòng để áp dụng từ ván sau. Bảng điểm tự ghi delta do server tính.
+Cấp3 cây cho người ù luôn đền; tùy chọn Ù đền do tái chỉ hiện khi Tái bật và
+chỉ quy trách nhiệm cho người ăn chốt tạo ra đúng lượt tái có người ù. Xem
+SPEC-rules-phom.md để biết ưu tiên và vòng đời lượt tái.
 Mô tả13 lá/bỏ lượt/tới trắng bên dưới dành cho miền Nam; Phỏm có bàn/actions riêng.
 
 Room cũ không có kind vẫn là south. Phỏm dùng clientVersion3; server chặn client

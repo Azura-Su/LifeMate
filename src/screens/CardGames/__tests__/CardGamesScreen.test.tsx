@@ -192,6 +192,9 @@ function setup(
 it('opens Phỏm configuration and sends all independently editable rates', () => {
   setup();
   fireEvent.press(screen.getByRole('button', { name: 'Chọn Phỏm' }));
+  expect(screen.getByText(/Đền cấp 3 cây luôn bắt buộc/)).toBeTruthy();
+  expect(screen.getAllByRole('switch')).toHaveLength(2);
+  expect(screen.queryByRole('switch', { name: /Ù đền/ })).toBeNull();
   fireEvent.changeText(screen.getByLabelText('Mức Nhì'), '123');
   fireEvent.press(screen.getByRole('button', { name: 'Tạo phòng Phỏm' }));
   expect(send).toHaveBeenCalledWith({
@@ -2286,7 +2289,83 @@ it('shows current Phỏm rates and the next-round rates to all members', () => {
   expect(screen.getByText('Luật ván tới')).toBeTruthy();
   expect(screen.getByText('Ù: 5')).toBeTruthy();
   expect(screen.getByText('Ù: 123')).toBeTruthy();
+  expect(screen.getAllByText(/Đền cấp 3 cây luôn bắt buộc/)).toHaveLength(2);
+  expect(screen.queryByText(/^Ù đền/)).toBeNull();
 });
+
+describe.each(['current', 'pending'] as const)(
+  'Phỏm %s option drafts',
+  (source) => {
+    it.each([true, false])(
+      'preserves dormant replay liability %s when editing and saving with tai off',
+      (uDen) => {
+        const room = phomRoom();
+        const config = {
+          ...DEFAULT_PHOM_CONFIG,
+          den: 0,
+          options: { tai: false, send: false, uDen },
+        };
+        if (source === 'current') room.phomConfig = config;
+        else room.nextPhomConfig = config;
+        const savedCurrent = room.phomConfig;
+        setup(room);
+        fireEvent.press(screen.getByRole('button', { name: 'Mã phòng' }));
+        fireEvent.press(
+          screen.getByRole('button', { name: 'Sửa luật ván tới' }),
+        );
+        expect(screen.getByText(/Đền cấp 3 cây luôn bắt buộc/)).toBeTruthy();
+        expect(screen.getAllByRole('switch')).toHaveLength(2);
+        expect(screen.queryByRole('switch', { name: /Ù đền/ })).toBeNull();
+        fireEvent(
+          screen.getByRole('switch', { name: 'Tái' }),
+          'valueChange',
+          true,
+        );
+        expect(screen.getByRole('switch', { name: 'Ù đền do tái' })).toHaveProp(
+          'value',
+          uDen,
+        );
+        fireEvent(
+          screen.getByRole('switch', { name: 'Ù đền do tái' }),
+          'valueChange',
+          !uDen,
+        );
+        fireEvent(
+          screen.getByRole('switch', { name: 'Tái' }),
+          'valueChange',
+          false,
+        );
+        expect(screen.queryByRole('switch', { name: /Ù đền/ })).toBeNull();
+        fireEvent(
+          screen.getByRole('switch', { name: 'Tái' }),
+          'valueChange',
+          true,
+        );
+        expect(screen.getByRole('switch', { name: 'Ù đền do tái' })).toHaveProp(
+          'value',
+          !uDen,
+        );
+        fireEvent(
+          screen.getByRole('switch', { name: 'Tái' }),
+          'valueChange',
+          false,
+        );
+        fireEvent.press(
+          screen.getByRole('button', { name: 'Lưu luật ván tới' }),
+        );
+        expect(send).toHaveBeenCalledWith({
+          type: 'set-phom-rules',
+          phomConfig: {
+            ...config,
+            options: { tai: false, send: false, uDen: !uDen },
+          },
+        });
+        expect(room.phomConfig).toEqual(savedCurrent);
+        expect(config.options.uDen).toBe(uDen);
+      },
+    );
+  },
+);
 
 it('reloads a stale Phỏm draft from pending rates before saving', () => {
   const room = phomRoom();

@@ -94,7 +94,7 @@ export function settlePhom(game, config) {
     transfer(fee.from, fee.to, fee.amount, fee.kind);
   const u = ['u', 'u-tron'].includes(game.winKind);
   const payer =
-    phomOptions(config).uDen &&
+    u &&
     players.find(
       (p) => p.uid === game.penaltyUid && !p.forfeited && p.uid !== winner,
     );

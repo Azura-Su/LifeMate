@@ -5,10 +5,11 @@ import { colors } from '../../theme';
 import {
   DEFAULT_PHOM_CONFIG,
   DEFAULT_PHOM_OPTIONS,
-  PHOM_OPTIONS,
+  PHOM_THREE_FEED_RULE,
   PHOM_RATES,
   parsePhomRates,
   phomRates,
+  visiblePhomOptions,
 } from '../../services/cardGames/phomConfig';
 import { styles } from './CardGamesScreen.styles';
 import { phomStyles as ps } from './PhomTable.styles';
@@ -61,8 +62,13 @@ export function PhomGameSettings({
           </View>
           <Text style={ps.rateGroupTitle}>Luật chơi</Text>
         </View>
-        {PHOM_OPTIONS.map(({ key, label, hint }, index) => (
-          <View key={key} style={[ps.rateRow, index > 0 && ps.rateRowLine]}>
+        <View style={ps.rateRow}>
+          <View style={ps.optionCopy}>
+            <Text style={ps.optionHint}>{PHOM_THREE_FEED_RULE}</Text>
+          </View>
+        </View>
+        {visiblePhomOptions(options).map(({ key, label, hint }) => (
+          <View key={key} style={[ps.rateRow, ps.rateRowLine]}>
             <View style={ps.optionCopy}>
               <Text style={ps.optionLabel}>{label}</Text>
               <Text style={ps.optionHint}>{hint}</Text>
@@ -73,9 +79,9 @@ export function PhomGameSettings({
               accessibilityState={{ checked: options[key], disabled }}
               disabled={disabled}
               value={options[key]}
-              onValueChange={(value) =>
-                onOptionsChange({ ...options, [key]: value })
-              }
+              onValueChange={(value) => {
+                if (!disabled) onOptionsChange({ ...options, [key]: value });
+              }}
               trackColor={{ true: colors.earth }}
               style={ps.optionSwitch}
             />

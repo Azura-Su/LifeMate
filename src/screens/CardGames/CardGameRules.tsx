@@ -4,9 +4,10 @@ import { ModalHeader } from '../../components/ModalHeader';
 import { styles } from './CardGamesScreen.styles';
 import type { PhomConfig } from '../../types/phom';
 import {
-  PHOM_OPTIONS,
+  PHOM_THREE_FEED_RULE,
   PHOM_RATES,
   phomOptions,
+  visiblePhomOptions,
 } from '../../services/cardGames/phomConfig';
 import type { SouthConfig, SouthRules } from '../../types/tienLen';
 import {
@@ -37,7 +38,7 @@ const phomRules = [
   ],
   [
     'Ăn chốt và đền',
-    'Lá thứ 4 là chốt. Khi bật Ù đền: ăn 3 cây của một người rồi ù: người đó đền. Nếu ù sau ăn chốt, người ăn chốt gần nhất đền, trừ chính người ù; ưu tiên đền 3 cây. Đền tính theo mức mỗi đối thủ, không cộng thêm mức ù. Tắt Ù đền thì mỗi người thua trả mức ù/ù tròn riêng. Khoản ăn/chốt đã phát sinh vẫn giữ.',
+    'Lá thứ 4 là chốt. Cấp đủ 3 lá cho người ù luôn phải đền, không phụ thuộc các tùy chọn. Khi bật Tái và Ù đền do tái: A ăn chốt của B khiến B được tái; nếu B ù trong chính lượt thêm đó thì A phải đền. Ưu tiên đền cấp 3 cây. Người đã bỏ cuộc không chịu đền cho lần ù phát sinh sau đó. Đền tính theo mức mỗi đối thủ, không cộng thêm mức ù. Không có người đền thì mỗi người thua trả mức ù/ù tròn riêng. Khoản ăn/chốt đã phát sinh vẫn giữ.',
   ],
   [
     'Thời gian và bỏ cuộc',
@@ -179,11 +180,14 @@ export function CardGameRules({
             <Text style={styles.heading}>
               {nextPhomConfig ? 'Luật ván hiện tại' : 'Mức điểm đã chốt'}
             </Text>
-            {PHOM_OPTIONS.map(({ key, label }) => (
-              <Text style={styles.body} key={key}>
-                {label}: {phomOptions(phomConfig)[key] ? 'Bật' : 'Tắt'}
-              </Text>
-            ))}
+            <Text style={styles.body}>{PHOM_THREE_FEED_RULE}</Text>
+            {visiblePhomOptions(phomOptions(phomConfig)).map(
+              ({ key, label }) => (
+                <Text style={styles.body} key={key}>
+                  {label}: {phomOptions(phomConfig)[key] ? 'Bật' : 'Tắt'}
+                </Text>
+              ),
+            )}
             {PHOM_RATES.map((rate) => (
               <Text style={styles.body} key={rate.key}>
                 {rate.label}: {phomConfig[rate.key].toLocaleString('vi-VN')}
@@ -199,11 +203,14 @@ export function CardGameRules({
         {gameKind === 'phom' && nextPhomConfig && (
           <>
             <Text style={styles.heading}>Luật ván tới</Text>
-            {PHOM_OPTIONS.map(({ key, label }) => (
-              <Text style={styles.body} key={key}>
-                {label}: {phomOptions(nextPhomConfig)[key] ? 'Bật' : 'Tắt'}
-              </Text>
-            ))}
+            <Text style={styles.body}>{PHOM_THREE_FEED_RULE}</Text>
+            {visiblePhomOptions(phomOptions(nextPhomConfig)).map(
+              ({ key, label }) => (
+                <Text style={styles.body} key={key}>
+                  {label}: {phomOptions(nextPhomConfig)[key] ? 'Bật' : 'Tắt'}
+                </Text>
+              ),
+            )}
             {PHOM_RATES.map((rate) => (
               <Text style={styles.body} key={rate.key}>
                 {rate.label}: {nextPhomConfig[rate.key].toLocaleString('vi-VN')}

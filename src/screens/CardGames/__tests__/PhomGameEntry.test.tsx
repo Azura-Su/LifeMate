@@ -55,7 +55,7 @@ it('joins by code without requiring creation settings and retains the generic ro
   fireEvent.press(screen.getByText('Vào phòng Phỏm'));
   expect(join).toHaveBeenCalledWith('ABCDEFGH');
 });
-it('configures tai, sending and u liability independently before creating a room', () => {
+it('shows mandatory three-feed liability and configures replay liability only with tai enabled', () => {
   const create = jest.fn();
   render(
     <PhomGameEntry
@@ -70,15 +70,23 @@ it('configures tai, sending and u liability independently before creating a room
   );
   expect(screen.getByRole('switch', { name: 'Tái' })).not.toBeChecked();
   expect(screen.getByRole('switch', { name: 'Gửi bài' })).toBeChecked();
-  expect(screen.getByRole('switch', { name: 'Ù đền' })).toBeChecked();
+  expect(screen.getByText(/Đền cấp 3 cây luôn bắt buộc/)).toBeTruthy();
+  expect(screen.getAllByRole('switch')).toHaveLength(2);
+  expect(screen.queryByRole('switch', { name: /Ù đền/ })).toBeNull();
   fireEvent(screen.getByRole('switch', { name: 'Tái' }), 'valueChange', true);
+  expect(screen.getAllByRole('switch')).toHaveLength(3);
+  expect(screen.getByRole('switch', { name: 'Ù đền do tái' })).toBeChecked();
+  expect(screen.getByRole('switch', { name: 'Ù đền do tái' })).toHaveProp(
+    'accessibilityHint',
+    'A ăn chốt của B khiến B được tái; nếu B ù trong chính lượt thêm đó thì A phải đền.',
+  );
   fireEvent(
     screen.getByRole('switch', { name: 'Gửi bài' }),
     'valueChange',
     false,
   );
   fireEvent(
-    screen.getByRole('switch', { name: 'Ù đền' }),
+    screen.getByRole('switch', { name: 'Ù đền do tái' }),
     'valueChange',
     false,
   );
@@ -90,4 +98,102 @@ it('configures tai, sending and u liability independently before creating a room
   fireEvent.press(screen.getByLabelText('Khôi phục mức mặc định'));
   expect(screen.getByRole('switch', { name: 'Tái' })).not.toBeChecked();
   expect(screen.getByRole('switch', { name: 'Gửi bài' })).toBeChecked();
+  expect(screen.queryByRole('switch', { name: /Ù đền/ })).toBeNull();
+  fireEvent.press(screen.getByText('Tạo phòng Phỏm'));
+  expect(create).toHaveBeenLastCalledWith({
+    ...DEFAULT_PHOM_CONFIG,
+    options: { tai: false, send: true, uDen: true },
+  });
+  fireEvent(screen.getByRole('switch', { name: 'Tái' }), 'valueChange', true);
+  expect(screen.getByRole('switch', { name: 'Ù đền do tái' })).toBeChecked();
 });
+
+it.each([true, false])(
+  'preserves dormant replay liability %s through tai toggles and creation',
+  (uDen) => {
+    const create = jest.fn();
+    render(
+      <PhomGameEntry
+        expanded
+        disabled={false}
+        busy={false}
+        onToggle={jest.fn()}
+        onRules={jest.fn()}
+        onCreate={create}
+        onJoin={jest.fn()}
+      />,
+    );
+    fireEvent(screen.getByRole('switch', { name: 'Tái' }), 'valueChange', true);
+    fireEvent(
+      screen.getByRole('switch', { name: 'Ù đền do tái' }),
+      'valueChange',
+      uDen,
+    );
+    fireEvent(
+      screen.getByRole('switch', { name: 'Tái' }),
+      'valueChange',
+      false,
+    );
+    expect(screen.queryByRole('switch', { name: /Ù đền/ })).toBeNull();
+    expect(screen.getAllByRole('switch')).toHaveLength(2);
+    expect(screen.getByText(/Đền cấp 3 cây luôn bắt buộc/)).toBeTruthy();
+    fireEvent(screen.getByRole('switch', { name: 'Tái' }), 'valueChange', true);
+    expect(screen.getByRole('switch', { name: 'Ù đền do tái' })).toHaveProp(
+      'value',
+      uDen,
+    );
+    fireEvent(
+      screen.getByRole('switch', { name: 'Tái' }),
+      'valueChange',
+      false,
+    );
+    fireEvent.changeText(screen.getByLabelText('Mức Đền (mỗi người)'), '0');
+    fireEvent.press(screen.getByText('Tạo phòng Phỏm'));
+    expect(create).toHaveBeenCalledWith({
+      ...DEFAULT_PHOM_CONFIG,
+      den: 0,
+      options: { tai: false, send: true, uDen },
+    });
+  },
+);
+
+it.each(['disabled', 'busy'] as const)(
+  'keeps liability controls and reset disabled while %s',
+  (reason) => {
+    const props = {
+      expanded: true,
+      disabled: false,
+      busy: false,
+      onToggle: jest.fn(),
+      onRules: jest.fn(),
+      onCreate: jest.fn(),
+      onJoin: jest.fn(),
+    };
+    const view = render(<PhomGameEntry {...props} />);
+    fireEvent(screen.getByRole('switch', { name: 'Tái' }), 'valueChange', true);
+    fireEvent.changeText(screen.getByLabelText('Mức Đền (mỗi người)'), '0');
+    view.rerender(<PhomGameEntry {...props} {...{ [reason]: true }} />);
+    for (const control of screen.getAllByRole('switch')) {
+      expect(control).toBeDisabled();
+      fireEvent(control, 'valueChange', false);
+      expect(control).toBeChecked();
+    }
+    expect(screen.getByLabelText('Khôi phục mức mặc định')).toBeDisabled();
+    fireEvent.press(screen.getByLabelText('Khôi phục mức mặc định'));
+    expect(screen.getByLabelText('Mức Đền (mỗi người)')).toHaveProp(
+      'value',
+      '0',
+    );
+    expect(screen.getByLabelText('Mức Đền (mỗi người)')).toHaveProp(
+      'editable',
+      false,
+    );
+    expect(screen.getByRole('switch', { name: 'Tái' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Ù đền do tái' })).toBeChecked();
+    expect(screen.getByText(/Đền cấp 3 cây luôn bắt buộc/)).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Tạo phòng Phỏm' }),
+    ).toBeDisabled();
+    expect(props.onCreate).not.toHaveBeenCalled();
+  },
+);

@@ -153,3 +153,23 @@ Native builds Android/iOS đã pass. Chưa có tài khoản Auth thử nghiệm 
 
 - [x] Tái hiện client6 ghi đè mất Tái/Gửi/Ù đền; guard SQL trước mutation, giữ retry/ACL/CAS.
 - [x] Regression263 backend, lint/syntax/diff, review độc lập và deploy migration/Edgev15; PostgreSQL rollback probe đạt. Xem phom-rules-capability-fix-2026-10-23.md.
+
+## Đền Phỏm bắt buộc / nguồn tái — 25/10/2026
+
+- [x] Reviewer chỉ đọc duyệt kế hoạch và hợp đồng config/state; giữ contract cũ,
+  provenance riêng theo lượt, không suy đoán từ chotEater; không cần rules marker.
+- [x] RED/GREEN engine: cấp 3 cây luôn đền, đúng nguồn tái và vòng đời nguồn;
+  20 test mới và 36 test engine/options đạt.
+- [x] RED/GREEN UI: tùy chọn tái có điều kiện, luật bắt buộc, create/edit/view;
+  156 test liên quan đạt sau 19 thất bại RED ban đầu.
+- [x] Test tích hợp room/worker/serialization/privacy và toàn bộ 289 backend
+  tests đạt; dependency jose được cài đúng lockfile, không đổi dependency.
+- [x] TypeScript, lint, formatting/diff, bundle hai nền tảng đạt; toàn bộ Jest
+  136 suites/1.229 tests đạt. Chưa xác minh native do Device Hub timeout;
+  backend production v17 đã triển khai sau khi người dùng xác nhận.
+- [x] Review final diff và cập nhật SPEC theo luật mới; reviewer không có
+  phát hiện chặn. Kết quả Jest/bundle/runtime cuối cùng ghi trong plan chi tiết.
+- [x] Người dùng cho phép deploy; game-access v17 ACTIVE, source18/18 khớp,
+  probe401 và 41 test trên source read-back đạt; backup/rollback v16 sẵn sàng.
+- [x] Đã chờ426 giây, log kiểm tra chỉ v17/không error, đọc lại source18/18
+  và probe401 cuối đạt; mode open, cron deadline active. Rollout hoàn tất.

@@ -38,11 +38,13 @@ function win(state, p) {
   const fedThree = liable.find(
     (q) => feeds.filter((e) => e.from === q.uid).length >= 3,
   );
-  state.penaltyUid = phomOptions(state.config).uDen
-    ? (fedThree?.uid ??
-      liable.find((q) => q.uid === state.chotEater)?.uid ??
-      null)
-    : null;
+  const options = phomOptions(state.config);
+  state.penaltyUid =
+    fedThree?.uid ??
+    (options.tai && options.uDen
+      ? liable.find((q) => q.uid === p.replayPayerUid)?.uid
+      : null) ??
+    null;
   return complete(state, kind, p.uid, kind);
 }
 function nextPlayer(state, after) {
@@ -102,7 +104,6 @@ export function newPhomGame(uids, deck, now, config, previousWinner = null) {
     config: validatePhomConfig(config),
     fees: [],
     eats: [],
-    chotEater: null,
     penaltyUid: null,
     laidCount: 0,
   };
@@ -124,7 +125,10 @@ function acquire(state, p, action) {
     if (!from?.discards.includes(last.card)) throw Error('invalid-combination');
     from.discards = from.discards.filter((c) => c !== last.card);
     // An eaten discard in the lay round reopens its owner's final turn.
-    if (phomOptions(state.config).tai && state.laidCount > 0) from.turns--;
+    if (phomOptions(state.config).tai && state.laidCount > 0) {
+      if (last.chot && from.turns >= 4) from.replayPayerUid = p.uid;
+      from.turns--;
+    }
     p.hand.push(last.card);
     p.eaten.push(last.card);
     state.eats.push({
@@ -139,7 +143,6 @@ function acquire(state, p, action) {
       kind: last.chot ? 'chot' : 'eat',
       amount: last.chot ? state.config.chot : state.config.eat,
     });
-    if (last.chot) state.chotEater = p.uid;
   }
   state.lastDiscard = null;
   state.step =
@@ -244,6 +247,7 @@ export function playPhom(input, uid, action, now) {
   // A completed 9-card hand or laid/sent hand is automatically a valid ù.
   if (canWin({ ...state, step: 'draw' }, p))
     return win({ ...state, step: 'draw' }, p);
+  delete p.replayPayerUid;
   return advance(state, uid, now);
 }
 export function timeoutPhom(input, now) {
@@ -280,7 +284,11 @@ export function forfeitPhomPlayers(input, uids, now) {
   if (uids.some((uid) => !input.players.some((p) => p.uid === uid)))
     throw Error('not-member');
   const state = structuredClone(input);
-  for (const p of state.players) if (uids.includes(p.uid)) p.forfeited = true;
+  for (const p of state.players)
+    if (uids.includes(p.uid)) {
+      p.forfeited = true;
+      delete p.replayPayerUid;
+    }
   const live = state.players.filter((p) => !p.forfeited);
   if (!live.length) {
     state.status = 'cancelled';

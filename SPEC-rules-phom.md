@@ -4,7 +4,7 @@
 
 Người dùng yêu cầu thêm Phỏm chơi thật trong danh mục online và tự cấu hình từng
 loại điểm. Đã chọn2–4 người,52 lá,9 lá/người, người mở có10 lá; ăn/bốc, hạ/gửi,
-đền ăn3 cây và đền ù. Không thêm bot, giao dịch hoặc thanh toán.
+đền cấp3 cây bắt buộc và tùy chọn đền do tái. Không thêm bot, giao dịch hoặc thanh toán.
 
 ### Quy ước bàn phiên bản phom-v1
 
@@ -31,10 +31,15 @@ loại điểm. Đã chọn2–4 người,52 lá,9 lá/người, người mở c
   thứ tự hạ. Móm hòa xét thứ tự đánh cuối. Người bỏ cuộc xếp sau người còn chơi.
   Nếu tất cả móm, thứ tự hạ quyết định hạng, người hạ trước nhất nhận mức móm.
 - Ăn thường/chốt tính chuyển điểm giữa người đánh và người ăn; chốt là lá đánh
-  thứ4. Khi bật Ù đền: đền3 cây: nếu một người cấp cả3 lá ăn cho người ù, người đó đền. Nếu ù
-  trong vòng hạ và đã có người ăn chốt, người ăn chốt gần nhất đền, trừ chính người
-  ù; ưu tiên đền3 cây. Mức đền mỗi đối thủ cấu hình riêng. Không cộng thêm mức
-  nhì/ba/bét/móm khi đã ù; giao dịch ăn đã xảy ra vẫn giữ, tổng delta luôn bằng0.
+  thứ4. Cấp3 cây: nếu một người cấp đủ3 lá ăn cho người ù, người đó luôn đền;
+  không có công tắc tắt luật này, không phụ thuộc Tái hoặc Ù đền do tái.
+  Khi Tái và Ù đền do tái cùng bật: A ăn chốt của B sau khi B đã hoàn tất lượt
+  cuối, làm B được tái; nếu B ù trong chính lượt thêm đó thì A đền. Người khác
+  ù trong lượt thông thường không làm A chịu đền. Ăn chốt nối tiếp giữ nguồn
+  riêng cho từng người/lượt; nguồn hết hiệu lực sau khi người được tái đánh
+  xong mà chưa ù hoặc bỏ cuộc. Ưu tiên đền cấp3 cây hơn đền do tái. Mức đền
+  mỗi đối thủ cấu hình riêng. Không cộng thêm mức ù/ù tròn hoặc nhì/ba/bét/móm
+  vào khoản đền; giao dịch ăn đã xảy ra vẫn giữ, tổng delta luôn bằng0.
 - Lượt40 giây dùng deadline server. Timeout bốc nếu cần, tự hạ tối ưu ở lượt cuối,
   đánh lá rác lớn nhất hợp lệ; không tự ăn/gửi khi chưa có thao tác người chơi.
   Lease90 giây, kick/leave/reconnect dùng cùng quyền và receipt của phòng hiện tại.
@@ -49,8 +54,10 @@ Chủ phòng nhập số nguyên0..1.000.000.000 cho từng trường khi tạo 
 `second=1`, `third=2`, `last=3`, `eat=1`, `chot=4`, `mom=4`, `u=5`,
 `uTron=10`, `den=5`, `forfeit=4`. Đây chỉ là giá trị điền sẵn, mọi ô đều sửa được.
 Mức0 tắt khoản tương ứng. Với2/3 người, hạng2/3 dùng mức nhì/ba; mức bét chỉ hạng4.
-Móm thay mức theo thứ hạng; bỏ cuộc thay mức móm. Đền là mức mỗi đối thủ, một
-người trả tổng `(số người - 1) × den`. Điểm ăn cộng riêng, không sửa số dư trước
+Móm thay mức theo thứ hạng; bỏ cuộc thay mức móm. Đền là mức mỗi đối thủ còn
+chơi, một người trả tổng `(số đối thủ còn chơi của người ù) × den`; người đã
+bỏ cuộc chịu mức riêng. `den=0` không chuyển điểm nhưng vẫn xác định người có
+trách nhiệm đền; không phải công tắc tắt luật cấp3 cây. Điểm ăn cộng riêng, không sửa số dư trước
 khi kết thúc ván. Ván hủy không quyết toán khoản nào. Cấu hình giữ nguyên trong từng ván và công khai cho thành viên qua bảng mức.
 Chủ phòng sửa luật ván tới ngay trong phòng; khi chia match mới mới áp dụng.
 
@@ -58,6 +65,9 @@ Chủ phòng sửa luật ván tới ngay trong phòng; khi chia match mới m�
 
 - Danh mục thêm Phỏm khả dụng. Tạo mới có form nhóm “Thứ hạng”, “Ăn bài”, “Ù và
   đền”; ô số có nhãn, bàn phím số và lỗi tại form. Tham gia dùng mã phòng hiện có.
+  Cấp3 cây luôn hiện dưới dạng luật bắt buộc, không có switch. Switch “Ù đền
+  do tái” chỉ hiện khi bật Tái; ẩn không xóa lựa chọn đã có trong draft. Form
+  tạo và sửa phòng, luật hiện tại/ván tới dùng cùng ý nghĩa lựa chọn.
 - Header đổi theo trò. Nút luật mở nội dung Phỏm và bảng mức đã lưu. Loading,
   reconnect, owner/kick, mã phòng và xác nhận rời tái sử dụng luồng đang có.
 - Bàn gồm4 ghế, nọc úp+số còn lại và lá ăn được ở giữa; mỗi ghế có dãy bài đã
@@ -158,20 +168,34 @@ room lock; signature cũ giữ lại và từ chối phòng vượt capability.
 ## Tùy chọn luật trước tạo phòng
 
 `phomConfig.options={tai:boolean,send:boolean,uDen:boolean}` là trường tùy chọn
-additive. Thiếu hoàn toàn options giữ đúng hợp đồng phòng cũ: Tái tắt, Gửi bật,
-Ù đền bật; không tự thêm options vào config đã lưu hoặc game.config của ván cũ.
+additive. Thiếu hoàn toàn options dùng Tái tắt, Gửi bật, lựa chọn Ù đền do tái
+bật nhưng không có tác dụng khi Tái tắt; không tự thêm options vào config đã
+lưu hoặc game.config của ván cũ. `uDen` chỉ điều khiển đền do tái, không điều
+khiển trách nhiệm cấp3 cây.
 Nếu có thì phải đủ ba boolean, từ chối trường lạ/số/chuỗi/null.
 
-Form tạo và sửa luật dùng chung ba switch kèm mô tả; lưu cả lựa chọn bật và tắt,
-khôi phục mặc định cho cả lựa chọn và 10 mức. Tắt gửi chặn action tại server.
-Tắt ù đền loại bỏ cả đền cấp3 cây và đền do ăn chốt: từng đối thủ còn chơi trả
-mức ù/ù tròn, bỏ cuộc vẫn chịu mức bỏ cuộc; khoản ăn/chốt trước đó giữ nguyên.
+Form tạo và sửa luật dùng chung switch Tái/Gửi và switch Ù đền do tái có điều
+kiện; lưu cả lựa chọn bật và tắt, khôi phục mặc định cho cả lựa chọn và 10 mức.
+Tắt gửi chặn action tại server. Tắt Ù đền do tái chỉ tắt trách nhiệm của người
+ăn chốt gây lượt thêm; cấp3 cây luôn đền. Nếu không có người chịu đền hợp lệ,
+từng đối thủ còn chơi trả mức ù/ù tròn; bỏ cuộc và khoản ăn/chốt giữ cách tính cũ.
 
 Protocol7 yêu cầu cho phòng đang dùng options; pending options yêu cầu7 để
 ready/tham gia lại/quản lý. Client6 đang chơi config cũ vẫn sync/lease/play/leave
 được; snapshot không trả pending options cho client6. Client7 không hạ protocol
 khi biết current/pending options, kể cả sync/lease/bootstrap sau kết nối lại.
 Các lựa chọn sửa trong phòng chỉ áp dụng khi chia match mới.
+
+### Sửa trách nhiệm đền — 25/10/2026
+
+Đây là sửa thuật toán cho các lần quyết toán tiếp theo, kể cả ván đang chơi,
+không thay đổi config đã lưu và không tính lại kết quả/receipt/điểm lịch sử.
+State engine thêm private `players[].replayPayerUid` khi ăn chốt thật sự mở
+lại lượt đã kết thúc; không gửi trường này trong snapshot. Giữ nguồn qua
+bốc/ăn/hạ/gửi và xét ù tự động khi đánh trước khi dọn nguồn. State cũ thiếu
+nguồn không suy đoán người đền từ `chotEater`; những lần tái phát sinh sau sửa
+mới xác lập trách nhiệm tương ứng. Luật cấp3 cây dùng sự kiện `eats` sẵn có.
+Không thay schema config, SQL, capability hoặc dữ liệu snapshot công khai.
 
 SQL lưu luật nhận capability bắt buộc và kiểm tra current/pending/incoming
 options khi đang khóa phòng. Client6 không được ghi đè options bằng config

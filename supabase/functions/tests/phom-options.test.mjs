@@ -90,16 +90,16 @@ test('send disabled rejects an otherwise legal send without mutating input', () 
   );
   assert.deepEqual(g, before);
 });
-test('uDen disabled keeps eat fees and charges each opponent normal ù instead of a liable payer', () => {
+test('uDen disabled only disables replay liability, keeping mandatory feed-three debt and eat fees', () => {
   for (const feedThree of [false, true]) {
-    const g = game({ uDen: false });
+    const g = game({ tai: true, uDen: false });
     g.players.push({ ...structuredClone(g.players[0]), uid: 'c' });
     Object.assign(g, {
       turn: 'b',
       step: 'discard',
-      chotEater: 'c',
       fees: [{ from: 'a', to: 'b', kind: 'eat', amount: 1 }],
     });
+    g.players[1].replayPayerUid = 'c';
     g.players[1].hand = [
       card(3),
       card(4),
@@ -119,16 +119,19 @@ test('uDen disabled keeps eat fees and charges each opponent normal ù instead o
         card: c,
       }));
     const won = act(g, 'b', 'u');
-    assert.equal(won.penaltyUid, null);
+    assert.equal(won.penaltyUid, feedThree ? 'a' : null);
     assert.deepEqual(
       won.result.ranking.map((p) => [p.uid, p.moneyDelta]).sort(),
       [
-        ['a', -6],
+        ['a', feedThree ? -11 : -6],
         ['b', 11],
-        ['c', -5],
+        ['c', feedThree ? 0 : -5],
       ],
     );
-    assert.ok(won.result.ranking.every((p) => !p.labels.includes('den')));
+    assert.equal(
+      won.result.ranking.some((p) => p.labels.includes('den')),
+      feedThree,
+    );
   }
 });
 test('tai reopens the discarder in the lay round and keeps original laid melds/order', () => {

@@ -148,3 +148,11 @@ Hoàn tất capability guard dưới room lock cho current/pending/incoming opti
 RPC compatibility wrapper và Edge truyền version thật. Review độc lập,263 backend
 tests và PostgreSQL rollback probe đạt; migration/Edgev15 đã deploy. Chi tiết:
 [phom-rules-capability-fix-2026-10-23.md](phom-rules-capability-fix-2026-10-23.md).
+
+## Sửa đền Phỏm theo nguồn lượt tái — 25/10/2026
+
+Thay quy tắc tùy chọn ù đền cũ theo yêu cầu mới: cấp 3 cây cho người ù luôn
+đền; `uDen` chỉ bật/tắt trách nhiệm ăn chốt tạo đúng lượt tái có người ù, và chỉ
+hiện khi Tái bật. Kế hoạch/acceptance/giới hạn rollout trong
+[phom-den-replay-2026-10-25.md](phom-den-replay-2026-10-25.md). Giữ toàn bộ
+công việc trước đó, mức điểm và hình dạng config hiện có.

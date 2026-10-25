@@ -199,7 +199,7 @@ test('timeout discards the highest deadwood without breaking a high set', () => 
   assert.ok(kings.every((c) => next.players[1].hand.includes(c)));
   assert.equal(next.lastDiscard.card, card(11));
 });
-test('engine selects feed-three liability before chốt and excludes forfeited payers', () => {
+test('engine selects mandatory feed-three liability before replay debt and excludes forfeited payers', () => {
   const hand = [
     card(3),
     card(4),
@@ -231,7 +231,8 @@ test('engine selects feed-three liability before chốt and excludes forfeited p
     card,
     chot: false,
   }));
-  game.chotEater = 'c';
+  game.config.options = { tai: true, send: true, uDen: true };
+  game.players[1].replayPayerUid = 'c';
   assert.equal(act(game, 'b', 'u').penaltyUid, 'a');
   game.eats.pop();
   game.players[1].eaten.pop();
