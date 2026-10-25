@@ -104,6 +104,12 @@ Kiểm chứng và giới hạn native được ghi tại `tasks/card-table-moti
   mà không thêm ghế, không đổi version hay chiếm controller của thiết bị khác.
 - Chạm avatar/tên trong phòng mở thông tin công khai sẵn có: tên, ảnh, vai trò,
   sẵn sàng, số ván thắng và số dư bàn. Nội dung popup cuộn trên màn hình thấp.
+- Tiến lên và Phỏm dùng chung mục “Chuyển chủ phòng” trong menu mã phòng. Chỉ
+  hiện cho chủ phòng khi có người khác đang ngồi; khóa khi chưa có snapshot mới,
+  đang nối lại/chờ thao tác hoặc thiết bị không điều khiển phiên. Lựa chọn người
+  nhận chỉ dùng một lần và bị hủy khi đổi tài khoản/phiên/phòng/ván, quyền, danh
+  sách thành viên hoặc mất khả năng thao tác, kể cả khi sau đó đã kết nối lại.
+  Trước khi gửi, kiểm tra lại chủ phòng và người nhận còn trong phòng hiện tại.
 - Chỉ chủ phòng hiện tại, đang điều khiển phiên, thấy “Kích người chơi” cho người
   khác. Xác nhận lại trước khi gửi; server kiểm tra quyền, phiên, version và match.
   `ownerUid: null` nghĩa là không có chủ phòng; chỉ dữ liệu cũ thiếu thuộc tính này

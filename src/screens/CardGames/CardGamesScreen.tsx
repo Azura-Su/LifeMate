@@ -80,6 +80,7 @@ export function CardGamesScreen({
     null,
   );
   const kickConfirmation = useRef<symbol | null>(null);
+  const ownerTransferConfirmation = useRef<symbol | null>(null);
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
@@ -356,6 +357,36 @@ export function CardGamesScreen({
     session,
     connected: state?.connected === true,
   };
+  const ownerTransferAllowed =
+    !!uid &&
+    ownerUid === uid &&
+    room?.controller === true &&
+    !!session &&
+    !!serverRoom &&
+    !blocked &&
+    !cachedRejoin &&
+    state?.connected === true;
+  const transferMemberIds = room?.members
+    .map((member) => member.uid)
+    .sort()
+    .join(',');
+  useEffect(
+    () => () => {
+      ownerTransferConfirmation.current = null;
+    },
+    [
+      uid,
+      epoch,
+      active,
+      room?.id,
+      room?.matchId,
+      ownerUid,
+      room?.controller,
+      session,
+      ownerTransferAllowed,
+      transferMemberIds,
+    ],
+  );
   const leaveAttempt = useRef<typeof liveRoomContext.current | null>(null);
   const isCurrentLeave = useCallback(
     (attempt: typeof liveRoomContext.current) => {
@@ -494,19 +525,64 @@ export function CardGamesScreen({
     void session?.send(intent);
   };
   const transferOwner = () => {
+    const auth = useAuthStore.getState();
     if (
+      !ownerTransferAllowed ||
       !room ||
-      (room.ownerUid !== undefined ? room.ownerUid : room.host) !== uid
+      auth.user?.uid !== uid ||
+      auth.sessionEpoch !== epoch
     )
       return;
     const targets = room.members.filter((member) => member.uid !== uid);
     if (!targets.length) return;
+    const roomId = room.id,
+      matchId = room.matchId;
+    const confirmation = Symbol();
+    ownerTransferConfirmation.current = confirmation;
     Alert.alert('Chuyển chủ phòng', 'Chọn người chơi sẽ quản lý phòng này.', [
       ...targets.map((member) => ({
         text: member.name,
-        onPress: () => send({ type: 'transfer-owner', targetUid: member.uid }),
+        onPress: () => {
+          if (ownerTransferConfirmation.current !== confirmation) return;
+          ownerTransferConfirmation.current = null;
+          const current = liveRoomContext.current;
+          const currentAuth = useAuthStore.getState();
+          if (
+            currentAuth.user?.uid !== uid ||
+            currentAuth.sessionEpoch !== epoch ||
+            current.uid !== uid ||
+            current.epoch !== epoch ||
+            current.session !== session ||
+            !current.session ||
+            !current.active ||
+            current.blocked ||
+            current.cachedRejoin ||
+            !current.connected ||
+            current.serverRoom?.id !== roomId ||
+            current.room?.id !== roomId ||
+            current.room.matchId !== matchId ||
+            current.room.controller !== true ||
+            (current.room.ownerUid !== undefined
+              ? current.room.ownerUid
+              : current.room.host) !== uid ||
+            !current.room.members.some((player) => player.uid === member.uid)
+          )
+            return;
+          Keyboard.dismiss();
+          void current.session.send({
+            type: 'transfer-owner',
+            targetUid: member.uid,
+          });
+        },
       })),
-      { text: 'Hủy', style: 'cancel' },
+      {
+        text: 'Hủy',
+        style: 'cancel',
+        onPress: () => {
+          if (ownerTransferConfirmation.current === confirmation)
+            ownerTransferConfirmation.current = null;
+        },
+      },
     ]);
   };
   const startRoomAction = (intent: GameIntent) => {
@@ -1529,7 +1605,7 @@ export function CardGamesScreen({
                     key: 'owner',
                     icon: 'user-check' as const,
                     title: 'Chuyển chủ phòng',
-                    disabled: false,
+                    disabled: !ownerTransferAllowed,
                     onPress: () => {
                       setRoomCodePopupVisible(false);
                       transferOwner();

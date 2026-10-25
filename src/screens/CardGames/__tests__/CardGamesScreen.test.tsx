@@ -727,26 +727,335 @@ it('reopens the current room without sending a duplicate join', () => {
   );
 });
 
-it('lets the current owner transfer room ownership to a seated player', () => {
-  setup(base);
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
-  render(
-    <CardGamesScreen
-      navigation={{ navigate: jest.fn(), setParams: jest.fn() } as never}
-      route={{} as never}
-    />,
-  );
+describe.each(['south', 'phom'] as const)(
+  '%s room ownership transfer',
+  (kind) => {
+    const roomForTransfer = (): CardGameRoom =>
+      kind === 'south' ? { ...base, ownerUid: 'a' } : phomRoom();
 
-  fireEvent.press(screen.getByRole('button', { name: 'Mã phòng' }));
-  fireEvent.press(screen.getByRole('button', { name: 'Chuyển chủ phòng' }));
-  const transfer = alert.mock.calls[0][2]?.find(
-    (button) => button.text === 'Bình',
-  );
-  act(() => transfer?.onPress?.());
+    function openTransfer(room = roomForTransfer()) {
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+      const navigation = { navigate: jest.fn(), setParams: jest.fn() };
+      const view = setup(room, false, 'a', null, navigation);
+      fireEvent.press(screen.getByRole('button', { name: 'Mã phòng' }));
+      fireEvent.press(screen.getByRole('button', { name: 'Chuyển chủ phòng' }));
+      const buttons = alert.mock.calls.at(-1)?.[2];
+      const recipient = room.members.find((member) => member.uid === 'b')!;
+      const transfer = buttons?.find(
+        (button) => button.text === recipient.name,
+      );
+      expect(transfer?.onPress).toBeDefined();
+      const current = jest.mocked(useCardGame).mock.results.at(-1)!.value;
+      return { view, navigation, current, transfer: transfer!, buttons, alert };
+    }
 
-  expect(send).toHaveBeenCalledWith({ type: 'transfer-owner', targetUid: 'b' });
-  alert.mockRestore();
-});
+    it('lets the current owner transfer room ownership once to a seated player', () => {
+      const { transfer } = openTransfer();
+      act(() => transfer.onPress?.());
+      act(() => transfer.onPress?.());
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(send).toHaveBeenCalledWith({
+        type: 'transfer-owner',
+        targetUid: 'b',
+      });
+    });
+
+    it.each(['alone', 'member', 'ownerless'] as const)(
+      'hides room ownership transfer when %s',
+      (reason) => {
+        const room = roomForTransfer();
+        if (reason === 'alone') room.members = room.members.slice(0, 1);
+        else room.ownerUid = reason === 'member' ? 'b' : null;
+        setup(room);
+        fireEvent.press(screen.getByRole('button', { name: 'Mã phòng' }));
+        expect(
+          screen.queryByRole('button', { name: 'Chuyển chủ phòng' }),
+        ).toBeNull();
+      },
+    );
+
+    it.each([
+      'loading',
+      'disconnected',
+      'busy',
+      'pending',
+      'controller',
+    ] as const)('disables room ownership transfer while %s', (reason) => {
+      const room = roomForTransfer();
+      if (reason === 'controller') room.controller = false;
+      const view = setup(room);
+      const current = jest.mocked(useCardGame).mock.results.at(-1)!.value;
+      jest.mocked(useCardGame).mockReturnValue({
+        ...current,
+        state: {
+          ...current.state!,
+          loading: reason === 'loading',
+          connected: reason !== 'disconnected',
+          busy: reason === 'busy',
+          pending: reason === 'pending',
+        },
+      });
+      view.rerender(
+        <CardGamesScreen
+          navigation={{ navigate: jest.fn() } as never}
+          route={{} as never}
+        />,
+      );
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+      fireEvent.press(screen.getByRole('button', { name: 'Mã phòng' }));
+      const action = screen.getByRole('button', { name: 'Chuyển chủ phòng' });
+      expect(action).toBeDisabled();
+      fireEvent.press(action);
+      expect(alert).not.toHaveBeenCalled();
+      expect(send).not.toHaveBeenCalled();
+    });
+
+    it('disables room ownership transfer for a cached table before rejoining', () => {
+      const room = roomForTransfer();
+      const finishedRoom: CardGameRoom = {
+        ...room,
+        phase: 'finished',
+        game: room.game
+          ? {
+              ...room.game,
+              status: 'finished',
+              hand: [],
+              turn: null,
+              deadline: null,
+            }
+          : {
+              rulesVersion: 'south-v1',
+              status: 'finished',
+              hand: [],
+              players: room.members.map((member) => ({
+                uid: member.uid,
+                count: 0,
+                finished: true,
+                forfeited: false,
+              })),
+              turn: null,
+              deadline: null,
+              table: null,
+              passed: [],
+              openingCard: null,
+              result: null,
+            },
+      };
+      jest
+        .mocked(getCachedRoomSnapshot)
+        .mockReturnValue({ room: finishedRoom, serverTime: 100 });
+      const navigation = { navigate: jest.fn(), setParams: jest.fn() };
+      const view = setup(null, false, 'a', null, navigation);
+      view.rerender(
+        <CardGamesScreen
+          navigation={navigation as never}
+          route={{ params: { roomCode: room.code } } as never}
+        />,
+      );
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+      fireEvent.press(screen.getByRole('button', { name: 'Mã phòng' }));
+      const action = screen.getByRole('button', { name: 'Chuyển chủ phòng' });
+      expect(action).toBeDisabled();
+      fireEvent.press(action);
+      expect(alert).not.toHaveBeenCalled();
+      expect(send).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'transfer-owner' }),
+      );
+    });
+
+    it('allows room ownership transfer after a fresh version update in the same match', () => {
+      const { view, navigation, current, transfer } = openTransfer();
+      const room: CardGameRoom = current.state!.snapshot!.room!;
+      jest.mocked(useCardGame).mockReturnValue({
+        ...current,
+        state: {
+          ...current.state!,
+          snapshot: {
+            room: {
+              ...room,
+              version: room.version + 1,
+              members: room.members.map((member) => ({ ...member })),
+            },
+            serverTime: Date.now(),
+          },
+        },
+      });
+      view.rerender(
+        <CardGamesScreen
+          navigation={navigation as never}
+          route={{} as never}
+        />,
+      );
+      act(() => transfer.onPress?.());
+      expect(send).toHaveBeenCalledWith({
+        type: 'transfer-owner',
+        targetUid: 'b',
+      });
+    });
+
+    it.each([
+      'room',
+      'match',
+      'owner',
+      'ownerless',
+      'recipient',
+      'controller',
+      'inactive',
+      'disconnected',
+      'busy',
+      'pending',
+      'loading',
+      'session',
+      'account',
+    ] as const)(
+      'rejects an old room ownership transfer after %s changes',
+      (reason) => {
+        const room = roomForTransfer();
+        const { view, navigation, current, transfer } = openTransfer(room);
+        const nextRoom = { ...room };
+        if (reason === 'room') nextRoom.id = 'different-room';
+        if (reason === 'match') nextRoom.matchId = 'different-match';
+        if (reason === 'owner') nextRoom.ownerUid = 'b';
+        if (reason === 'ownerless') nextRoom.ownerUid = null;
+        if (reason === 'recipient')
+          nextRoom.members = room.members.filter((m) => m.uid !== 'b');
+        if (reason === 'controller') nextRoom.controller = false;
+        jest.mocked(useCardGame).mockReturnValue({
+          ...current,
+          active: reason !== 'inactive',
+          session:
+            reason === 'session' ? ({ send, retry } as never) : current.session,
+          state: {
+            ...current.state!,
+            loading: reason === 'loading',
+            connected: reason !== 'disconnected',
+            busy: reason === 'busy',
+            pending: reason === 'pending',
+            snapshot: { room: nextRoom, serverTime: Date.now() },
+          },
+        });
+        if (reason === 'account') {
+          act(() =>
+            useAuthStore.getState().setUser({
+              uid: 'other',
+              email: 'other@example.invalid',
+              displayName: 'Other',
+            }),
+          );
+        }
+        view.rerender(
+          <CardGamesScreen
+            navigation={navigation as never}
+            route={{} as never}
+          />,
+        );
+        act(() => transfer.onPress?.());
+        expect(send).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(['connection', 'focus', 'controller', 'recipient'] as const)(
+      'keeps a room ownership transfer invalid after %s is lost and regained',
+      (reason) => {
+        const { view, navigation, current, transfer } = openTransfer();
+        const room: CardGameRoom = current.state!.snapshot!.room!;
+        for (const available of [false, true]) {
+          jest.mocked(useCardGame).mockReturnValue({
+            ...current,
+            active: reason !== 'focus' || available,
+            state: {
+              ...current.state!,
+              connected: reason !== 'connection' || available,
+              snapshot: {
+                room: {
+                  ...room,
+                  controller: reason !== 'controller' || available,
+                  members:
+                    reason === 'recipient' && !available
+                      ? room.members.filter((member) => member.uid !== 'b')
+                      : room.members,
+                },
+                serverTime: Date.now(),
+              },
+            },
+          });
+          view.rerender(
+            <CardGamesScreen
+              navigation={navigation as never}
+              route={{} as never}
+            />,
+          );
+        }
+        act(() => transfer.onPress?.());
+        expect(send).not.toHaveBeenCalled();
+      },
+    );
+
+    it('rejects a room ownership transfer after same-account login before rerender', () => {
+      const { transfer } = openTransfer();
+      act(() => {
+        const user = useAuthStore.getState().user!;
+        useAuthStore.getState().setUser(null);
+        useAuthStore.getState().setUser(user);
+        transfer.onPress?.();
+      });
+      expect(send).not.toHaveBeenCalled();
+    });
+
+    it('does not let old room ownership transfer callbacks cancel a new selection', () => {
+      const { transfer, buttons, alert } = openTransfer();
+      fireEvent.press(screen.getByRole('button', { name: 'Mã phòng' }));
+      fireEvent.press(screen.getByRole('button', { name: 'Chuyển chủ phòng' }));
+      const nextTransfer = alert.mock.calls
+        .at(-1)?.[2]
+        ?.find((button) => button.text === transfer.text);
+      expect(nextTransfer?.onPress).toBeDefined();
+      act(() => buttons?.find((button) => button.text === 'Hủy')?.onPress?.());
+      act(() => transfer.onPress?.());
+      expect(send).not.toHaveBeenCalled();
+      act(() => nextTransfer?.onPress?.());
+      expect(send).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not transfer room ownership to two recipients from the same prompt', () => {
+      const room = roomForTransfer();
+      if (room.members.length === 2)
+        room.members = [
+          ...room.members,
+          { uid: 'c', name: 'Chi', ready: false, wins: 0 },
+        ];
+      const { transfer, buttons } = openTransfer(room);
+      const secondRecipient = room.members.find(
+        (member) => member.uid === 'c',
+      )!;
+      const secondTransfer = buttons?.find(
+        (button) => button.text === secondRecipient.name,
+      );
+      expect(secondTransfer?.onPress).toBeDefined();
+      act(() => transfer.onPress?.());
+      act(() => secondTransfer?.onPress?.());
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(send).toHaveBeenCalledWith({
+        type: 'transfer-owner',
+        targetUid: 'b',
+      });
+    });
+
+    it('rejects a cancelled room ownership transfer', () => {
+      const { buttons, transfer } = openTransfer();
+      act(() => buttons?.find((button) => button.text === 'Hủy')?.onPress?.());
+      act(() => transfer.onPress?.());
+      expect(send).not.toHaveBeenCalled();
+    });
+
+    it('rejects a room ownership transfer after unmount', () => {
+      const { view, transfer } = openTransfer();
+      view.unmount();
+      act(() => transfer.onPress?.());
+      expect(send).not.toHaveBeenCalled();
+    });
+  },
+);
 
 it('offers supported games, keeps unfinished games unavailable, and opens the South lobby', () => {
   setup();
