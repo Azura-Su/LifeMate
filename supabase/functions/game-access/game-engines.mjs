@@ -12,6 +12,27 @@ import {
   forfeitPhomPlayers,
   timeoutPhom,
 } from './phom.mjs';
+import {
+  newTienLenNorthGame,
+  playTienLenNorth,
+  viewTienLenNorth,
+  forfeitTienLenNorthPlayers,
+  timeoutTienLenNorth,
+} from './tienlen-north.mjs';
+import {
+  newSamGame,
+  actSam,
+  viewSam,
+  forfeitSamPlayers,
+  timeoutSam,
+} from './sam.mjs';
+import {
+  newTanGame,
+  actTan,
+  viewTan,
+  forfeitTanPlayers,
+  timeoutTan,
+} from './tan.mjs';
 
 const engines = {
   south: {
@@ -28,6 +49,27 @@ const engines = {
     view: viewPhom,
     forfeit: forfeitPhomPlayers,
     timeout: timeoutPhom,
+  },
+  north: {
+    start: newTienLenNorthGame,
+    play: playTienLenNorth,
+    view: viewTienLenNorth,
+    forfeit: forfeitTienLenNorthPlayers,
+    timeout: timeoutTienLenNorth,
+  },
+  sam: {
+    start: newSamGame,
+    play: (state, uid, action, now) => actSam(state, uid, action.gameAction, now),
+    view: viewSam,
+    forfeit: forfeitSamPlayers,
+    timeout: timeoutSam,
+  },
+  tan: {
+    start: newTanGame,
+    play: (state, uid, action, now) => actTan(state, uid, action.gameAction, now),
+    view: viewTan,
+    forfeit: forfeitTanPlayers,
+    timeout: timeoutTan,
   },
 };
 export function gameEngine(state) {

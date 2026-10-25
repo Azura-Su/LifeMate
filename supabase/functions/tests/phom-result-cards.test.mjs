@@ -139,9 +139,14 @@ test('protocol8 result views and rule-capability RPCs preserve the existing SQL 
       options: { tai: false, send: true, uDen: true },
     },
   });
-  for (const name of ['lifemate_game_takeover', 'lifemate_game_set_phom_rules'])
-    assert.equal(
-      calls.find((call) => call.name === name).args.p_client_version,
-      7,
-    );
+  assert.equal(
+    calls.find((call) => call.name === 'lifemate_game_takeover').args
+      .p_client_version,
+    8,
+  );
+  assert.equal(
+    calls.find((call) => call.name === 'lifemate_game_set_phom_rules').args
+      .p_client_version,
+    7,
+  );
 });

@@ -3,6 +3,7 @@ import { shouldStartRematch, updateRoom, roomSnapshot } from './rooms.mjs';
 import { validateScoreDocument, validateScorePatch } from './scores.mjs';
 import { validatePhomConfig } from './phom-scoring.mjs';
 import { configuredSouth, validateSouthConfig } from './tienlen-scoring.mjs';
+import { validateVariantConfig } from './variant-scoring.mjs';
 
 const UUID =
   /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
@@ -17,11 +18,13 @@ const commands = [
   'start',
   'play',
   'pass',
+  'game-action',
   'leave',
   'transfer-owner',
   'kick',
   'set-south-rules',
   'set-phom-rules',
+  'set-variant-rules',
   'reopen',
   'delete-room',
 ];
@@ -54,6 +57,9 @@ const errors = {
   'opening-card': 422,
   'card-ownership': 422,
   'cannot-pass': 422,
+  'cannot-defend': 422,
+  'attack-limit': 422,
+  'attack-rank': 422,
   'invalid-action': 422,
   'not-turn': 422,
   'game-update-required': 409,
@@ -69,7 +75,7 @@ function validate(input) {
     throw Error('invalid-input');
   if (
     input.clientVersion !== undefined &&
-    ![2, 3, 4, 5, 6, 7, 8].includes(input.clientVersion)
+    ![2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion)
   )
     throw Error('invalid-input');
   const fields = {
@@ -84,6 +90,7 @@ function validate(input) {
       'amountPerCard',
       'phomConfig',
       'southConfig',
+      'variantConfig',
     ],
     join: ['actionId', 'name', 'code'],
     ready: ['actionId', 'roomId', 'expectedVersion', 'matchId', 'ready'],
@@ -100,6 +107,13 @@ function validate(input) {
       'meldIndex',
     ],
     pass: ['actionId', 'roomId', 'expectedVersion', 'matchId'],
+    'game-action': [
+      'actionId',
+      'roomId',
+      'expectedVersion',
+      'matchId',
+      'gameAction',
+    ],
     leave: ['actionId', 'roomId', 'expectedVersion', 'matchId'],
     'transfer-owner': [
       'actionId',
@@ -124,6 +138,13 @@ function validate(input) {
       'amountPerCard',
       'southConfig',
     ],
+    'set-variant-rules': [
+      'actionId',
+      'roomId',
+      'expectedVersion',
+      'matchId',
+      'variantConfig',
+    ],
     reopen: ['actionId', 'roomId', 'name', 'expectedVersion', 'matchId'],
     'delete-room': ['actionId', 'roomId', 'expectedVersion', 'matchId'],
     'room-status': ['roomId'],
@@ -139,7 +160,7 @@ function validate(input) {
   }[input.type];
   const optional =
     input.type === 'create'
-      ? ['amountPerCard', 'phomConfig', 'southConfig']
+      ? ['amountPerCard', 'phomConfig', 'southConfig', 'variantConfig']
       : input.type === 'play'
         ? ['phomAction', 'melds', 'targetUid', 'meldIndex']
         : [];
@@ -190,24 +211,53 @@ function validate(input) {
       /[\p{Cc}\p{Cf}]/u.test(input.name))
   )
     throw Error('invalid-input');
-  if (input.type === 'create' && !['south', 'phom'].includes(input.game))
+  if (
+    input.type === 'create' &&
+    !['south', 'phom', 'north', 'sam', 'tan'].includes(input.game)
+  )
     throw Error('invalid-input');
   if (input.type === 'create') {
-    if (input.game === 'phom') {
-      if (![3, 4, 5, 6, 7, 8].includes(input.clientVersion))
+    if (['north', 'sam', 'tan'].includes(input.game)) {
+      if (![9, 10, 11].includes(input.clientVersion))
+        throw Error('game-update-required');
+      if (input.variantConfig !== undefined) {
+        const config = validateVariantConfig(input.variantConfig, input.game);
+        if (
+          (['north-v2', 'sam-v2'].includes(config.rulesVersion) &&
+            input.clientVersion !== 11) ||
+          (config.rulesVersion === undefined && input.clientVersion < 10)
+        )
+          throw Error('game-update-required');
+      }
+      if (
+        input.amountPerCard !== undefined ||
+        input.phomConfig !== undefined ||
+        input.southConfig !== undefined
+      )
+        throw Error('invalid-input');
+    } else if (input.game === 'phom') {
+      if (![3, 4, 5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion))
         throw Error('game-update-required');
       validatePhomConfig(input.phomConfig);
       if (input.phomConfig.options && input.clientVersion < 7)
         throw Error('game-update-required');
-      if (input.amountPerCard !== undefined || input.southConfig !== undefined)
+      if (
+        input.amountPerCard !== undefined ||
+        input.southConfig !== undefined ||
+        input.variantConfig !== undefined
+      )
         throw Error('invalid-input');
     } else {
-      if (input.phomConfig !== undefined) throw Error('invalid-input');
+      if (
+        input.phomConfig !== undefined ||
+        input.variantConfig !== undefined
+      )
+        throw Error('invalid-input');
       if (input.southConfig !== undefined) {
         validateSouthConfig(input.southConfig);
         if (
           configuredSouth(input.southConfig) &&
-          ![4, 5, 6, 7, 8].includes(input.clientVersion)
+          ![4, 5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion)
         )
           throw Error('game-update-required');
       }
@@ -222,14 +272,14 @@ function validate(input) {
   )
     throw Error('invalid-input');
   if (input.type === 'set-phom-rules') {
-    if (![6, 7, 8].includes(input.clientVersion))
+    if (![6, 7, 8, 9, 10, 11].includes(input.clientVersion))
       throw Error('game-update-required');
     validatePhomConfig(input.phomConfig);
     if (input.phomConfig.options && input.clientVersion < 7)
       throw Error('game-update-required');
   }
   if (input.type === 'set-south-rules') {
-    if (![5, 6, 7, 8].includes(input.clientVersion))
+    if (![5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion))
       throw Error('game-update-required');
     validateSouthConfig(input.southConfig);
     if (
@@ -239,6 +289,15 @@ function validate(input) {
     )
       throw Error('invalid-input');
   }
+  if (input.type === 'set-variant-rules') {
+    const config = validateVariantConfig(input.variantConfig);
+    if (
+      (['north-v2', 'sam-v2'].includes(config.rulesVersion) &&
+        input.clientVersion !== 11) ||
+      (config.rulesVersion === undefined && input.clientVersion < 10)
+    )
+      throw Error('game-update-required');
+  }
   if (input.type === 'join' && !CODE.test(input.code))
     throw Error('invalid-input');
   if (
@@ -247,11 +306,13 @@ function validate(input) {
       'start',
       'play',
       'pass',
+      'game-action',
       'leave',
       'transfer-owner',
       'kick',
       'set-south-rules',
       'set-phom-rules',
+      'set-variant-rules',
       'reopen',
       'delete-room',
     ].includes(input.type) &&
@@ -262,6 +323,43 @@ function validate(input) {
     throw Error('invalid-input');
   if (input.type === 'ready' && typeof input.ready !== 'boolean')
     throw Error('invalid-input');
+  if (input.type === 'game-action') {
+    if (![9, 10, 11].includes(input.clientVersion))
+      throw Error('game-update-required');
+    const action = input.gameAction;
+    const exactKeys = (expected) =>
+      action &&
+      typeof action === 'object' &&
+      !Array.isArray(action) &&
+      Object.keys(action).length === expected.length &&
+      expected.every((key) => Object.hasOwn(action, key));
+    const validCard = (card) => Number.isInteger(card) && card >= 0 && card <= 51;
+    const samAction =
+      action &&
+      (['call-sam', 'pass-report', 'pass'].includes(action.type)
+        ? exactKeys(['type'])
+        : action.type === 'play' &&
+          exactKeys(['type', 'cards']) &&
+          Array.isArray(action.cards) &&
+          action.cards.length >= 1 &&
+          action.cards.length <= 13 &&
+          action.cards.every(validCard));
+    const tanAction =
+      action &&
+      (['pass-attack', 'take'].includes(action.type)
+        ? exactKeys(['type'])
+        : action.type === 'attack' &&
+          exactKeys(['type', 'card']) &&
+          validCard(action.card)) ||
+      (action?.type === 'defend' &&
+        exactKeys(['type', 'index', 'card']) &&
+        Number.isInteger(action.index) &&
+        action.index >= 0 &&
+        action.index <= 7 &&
+        validCard(action.card));
+    if (![9, 10, 11].includes(input.clientVersion) || (!samAction && !tanAction))
+      throw Error('invalid-input');
+  }
   if (
     ['transfer-owner', 'kick'].includes(input.type) &&
     (typeof input.targetUid !== 'string' ||
@@ -288,7 +386,7 @@ function validate(input) {
     const kind = input.phomAction;
     if (kind !== undefined) {
       if (
-        ![3, 4, 5, 6, 7, 8].includes(input.clientVersion) ||
+        ![3, 4, 5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion) ||
         !['draw', 'eat', 'discard', 'lay', 'send', 'u'].includes(kind)
       )
         throw Error('invalid-input');
@@ -502,7 +600,7 @@ export function createGameHandler({
         rpc('lifemate_game_read', { ...base, p_renew: false });
       const withAvatars = (snapshot) => {
         if (
-          ![2, 3, 4, 5, 6, 7, 8].includes(input.clientVersion) ||
+          ![2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion) ||
           !snapshot.room ||
           typeof avatarStorage !== 'function'
         )
@@ -515,17 +613,43 @@ export function createGameHandler({
         return { ...snapshot, room: { ...snapshot.room, members } };
       };
       const assertSupported = (record) => {
+        const variantRoom = ['north', 'sam', 'tan'].includes(
+          record?.state?.gameKind,
+        );
+        const variantConfig =
+          record?.state?.variantConfig || record?.state?.nextVariantConfig;
+        const variantRulesVersion =
+          record?.state?.nextVariantConfig?.rulesVersion ??
+          record?.state?.variantConfig?.rulesVersion;
+        const variantMinVersion =
+          variantRulesVersion === 'north-v2' || variantRulesVersion === 'sam-v2'
+            ? 11
+            : 10;
         if (
+          (variantRoom &&
+            (variantConfig
+              ? (input.clientVersion ?? 1) < variantMinVersion
+              : (input.clientVersion ?? 1) < 9) &&
+            input.type !== 'leave') ||
           (record?.state?.phomConfig?.options &&
             (input.clientVersion ?? 1) < 7 &&
             input.type !== 'leave') ||
           (record?.state?.gameKind === 'phom' &&
-            ![3, 4, 5, 6, 7, 8].includes(input.clientVersion)) ||
+            ![3, 4, 5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion)) ||
           (record?.state?.southConfig &&
-            ![4, 5, 6, 7, 8].includes(input.clientVersion)) ||
-          ((record?.state?.nextSouthRules || record?.state?.nextPhomConfig) &&
+            ![4, 5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion)) ||
+          ((record?.state?.nextSouthRules ||
+            record?.state?.nextPhomConfig ||
+            record?.state?.nextVariantConfig) &&
             (input.clientVersion ?? 1) <
-              (record?.state?.nextPhomConfig?.options
+              (record?.state?.nextVariantConfig
+              ? (['north-v2', 'sam-v2'].includes(
+                  record.state.nextVariantConfig?.rulesVersion ??
+                    record.state.variantConfig?.rulesVersion,
+                )
+                  ? 11
+                  : 10)
+                : record?.state?.nextPhomConfig?.options
                 ? 7
                 : record?.state?.nextPhomConfig
                   ? 6
@@ -544,7 +668,7 @@ export function createGameHandler({
             p_uid,
             controller,
             Number(now),
-            [2, 3, 4, 5, 6, 7, 8].includes(input.clientVersion),
+            [2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion),
             input.clientVersion >= 6
               ? input.clientVersion
               : input.clientVersion === 5,
@@ -575,22 +699,28 @@ export function createGameHandler({
         });
       }
       if (['sync', 'lease'].includes(input.type)) {
-        const loaded = await rpc('lifemate_game_read', {
-          ...base,
-          p_renew: input.type === 'lease',
-        });
+        let loaded = await current();
+        assertSupported(loaded.room);
+        if (input.type === 'lease') {
+          loaded = await rpc('lifemate_game_read', {
+            ...base,
+            p_renew: true,
+          });
+          assertSupported(loaded.room);
+        }
         return json(200, {
           ...(await snapshotFor(loaded.room, loaded.controller, loaded.now)),
           ...(loaded.removal ? { removal: loaded.removal } : {}),
         });
       }
       if (input.type === 'takeover') {
-        assertSupported((await current()).room);
+        const takeoverRoom = (await current()).room;
+        assertSupported(takeoverRoom);
         await rpc('lifemate_game_takeover', {
           ...base,
           p_room_id: input.roomId,
-          // Protocol8 only extends result views; SQL rule capabilities stop at7.
-          p_client_version: Math.min(input.clientVersion ?? 1, 7),
+          // Preserve the capability used by SQL to fence rules-aware rooms.
+          p_client_version: input.clientVersion ?? 1,
         });
         return json(200, await snapshot());
       }
@@ -615,7 +745,9 @@ export function createGameHandler({
           if (
             status.minClientVersion > (input.clientVersion ?? 1) ||
             (status.gameKind === 'phom' &&
-              ![3, 4, 5, 6, 7, 8].includes(input.clientVersion))
+              ![3, 4, 5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion)) ||
+            (['north', 'sam', 'tan'].includes(status.gameKind) &&
+              ![9, 10, 11].includes(input.clientVersion))
           )
             throw Error('game-update-required');
         }
@@ -650,11 +782,17 @@ export function createGameHandler({
           deleted: true,
           ack,
         });
-      } else if (['set-south-rules', 'set-phom-rules'].includes(input.type)) {
+      } else if (
+        ['set-south-rules', 'set-phom-rules', 'set-variant-rules'].includes(
+          input.type,
+        )
+      ) {
         const committed = await rpc(
           input.type === 'set-phom-rules'
             ? 'lifemate_game_set_phom_rules'
-            : 'lifemate_game_set_south_rules',
+            : input.type === 'set-variant-rules'
+              ? 'lifemate_game_set_variant_rules'
+              : 'lifemate_game_set_south_rules',
           {
             ...base,
             p_action_id: input.actionId,
@@ -667,7 +805,12 @@ export function createGameHandler({
                   p_config: input.phomConfig,
                   p_client_version: Math.min(input.clientVersion, 7),
                 }
-              : {
+              : input.type === 'set-variant-rules'
+                ? {
+                    p_config: input.variantConfig,
+                    p_client_version: input.clientVersion,
+                  }
+                : {
                   p_amount_per_card: input.amountPerCard,
                   p_config: input.southConfig,
                 }),
@@ -689,11 +832,15 @@ export function createGameHandler({
           () => CHARS[randomInt(CHARS.length)],
         ).join('');
         ack = await rpc(
-          input.game === 'phom'
-            ? 'lifemate_game_create_phom'
-            : configuredSouth(input.southConfig)
-              ? 'lifemate_game_create_south'
-              : 'lifemate_game_create',
+          ['north', 'sam', 'tan'].includes(input.game)
+            ? input.variantConfig
+              ? 'lifemate_game_create_variant_configured'
+              : 'lifemate_game_create_variant'
+            : input.game === 'phom'
+              ? 'lifemate_game_create_phom'
+              : configuredSouth(input.southConfig)
+                ? 'lifemate_game_create_south'
+                : 'lifemate_game_create',
           {
             ...base,
             p_action_id: input.actionId,
@@ -701,7 +848,12 @@ export function createGameHandler({
             p_room_id: crypto.randomUUID(),
             p_code: code,
             p_name: input.name.trim(),
-            ...(input.game === 'phom'
+            ...(['north', 'sam', 'tan'].includes(input.game)
+              ? {
+                  p_game: input.game,
+                  ...(input.variantConfig && { p_config: input.variantConfig }),
+                }
+              : input.game === 'phom'
               ? { p_config: input.phomConfig }
               : {
                   p_amount_per_card: input.amountPerCard ?? 0,
@@ -729,7 +881,8 @@ export function createGameHandler({
             input.type === 'join' ||
             (input.type === 'ready' &&
               !record.state?.nextSouthRules &&
-              !record.state?.nextPhomConfig);
+              !record.state?.nextPhomConfig &&
+              !record.state?.nextVariantConfig);
           const member = record.state?.members.find(
             (player) => player.uid === p_uid,
           );

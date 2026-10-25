@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  finishRoom,
   updateRoom,
   roomSnapshot,
   shouldStartRematch,
@@ -27,7 +28,253 @@ const others = Array.from({ length: 52 }, (_, i) => i).filter(
 );
 const deck = dragon.flatMap((c, i) => [c, others[i]]).concat(others.slice(13));
 
-for (const gameKind of ['south', 'phom']) {
+test('North and Sâm settle one point per remaining card, zero-sum', () => {
+  for (const gameKind of ['north', 'sam']) {
+    const players = [
+      { uid: 'a', hand: [], played: 13 },
+      { uid: 'b', hand: [4, 8], played: 11 },
+      { uid: 'c', hand: [12], played: 12 },
+    ];
+    const ranking = [
+      { uid: 'a', rank: 1, labels: [] },
+      { uid: 'b', rank: 2, labels: [] },
+      { uid: 'c', rank: 3, labels: [] },
+    ];
+    const prior = {
+      gameKind,
+      phase: 'playing',
+      members: ['a', 'b', 'c'].map((uid) => ({ uid, name: uid })),
+      scoreMembers: ['a', 'b', 'c'].map((uid) => ({ uid, name: uid, balance: 0, wins: 0 })),
+      game: { status: 'finished', players, result: { ranking } },
+    };
+    const settled = finishRoom(prior, structuredClone(prior));
+    assert.deepEqual(
+      settled.game.result.ranking.map((result) => result.moneyDelta),
+      [3, -2, -1],
+    );
+    assert.equal(
+      settled.game.result.ranking.reduce((sum, result) => sum + result.moneyDelta, 0),
+      0,
+    );
+  }
+});
+
+test('North and Sâm apply the saved points-per-card rate without changing zero-sum', () => {
+  for (const gameKind of ['north', 'sam']) {
+    const prior = {
+      gameKind,
+      variantConfig: { pointsPerCard: 4 },
+      phase: 'playing',
+      members: ['a', 'b', 'c'].map((uid) => ({ uid, name: uid })),
+      scoreMembers: ['a', 'b', 'c'].map((uid) => ({ uid, name: uid, balance: 0, wins: 0 })),
+      game: {
+        status: 'finished',
+        players: [
+          { uid: 'a', hand: [], played: 13 },
+          { uid: 'b', hand: [4, 8], played: 11 },
+          { uid: 'c', hand: [12], played: 12 },
+        ],
+        result: {
+          ranking: [
+            { uid: 'a', rank: 1, labels: [] },
+            { uid: 'b', rank: 2, labels: [] },
+            { uid: 'c', rank: 3, labels: [] },
+          ],
+        },
+      },
+    };
+    const settled = finishRoom(prior, structuredClone(prior));
+    assert.deepEqual(
+      settled.game.result.ranking.map((result) => result.moneyDelta),
+      [12, -8, -4],
+    );
+    assert.equal(
+      settled.game.result.ranking.reduce((sum, result) => sum + result.moneyDelta, 0),
+      0,
+    );
+  }
+});
+
+test('North v2 settles remaining 2 bonuses and single-2 cut fees through the room scorer', () => {
+  const prior = {
+    gameKind: 'north',
+    variantConfig: {
+      rulesVersion: 'north-v2',
+      pointsPerCard: 1,
+      remainingTwoPoints: 2,
+      cutTwoPoints: 3,
+    },
+    phase: 'playing',
+    members: ['a', 'b', 'c'].map((uid) => ({ uid, name: uid })),
+    scoreMembers: ['a', 'b', 'c'].map((uid) => ({ uid, name: uid, balance: 0, wins: 0 })),
+    game: {
+      status: 'finished',
+      players: [
+        { uid: 'a', hand: [], played: 13 },
+        { uid: 'b', hand: [48, 4], played: 11 },
+        { uid: 'c', hand: [51, 8], played: 11 },
+      ],
+      cutTwoEvents: [{ from: 'b', to: 'c', count: 1 }],
+      result: {
+        ranking: [
+          { uid: 'a', rank: 1, labels: [] },
+          { uid: 'b', rank: 2, labels: [] },
+          { uid: 'c', rank: 3, labels: [] },
+        ],
+      },
+    },
+  };
+  const settled = finishRoom(prior, structuredClone(prior));
+  assert.deepEqual(
+    settled.game.result.ranking.map((result) => result.moneyDelta),
+    [8, -7, -1],
+  );
+  assert.equal(
+    settled.game.result.ranking.reduce((sum, result) => sum + result.moneyDelta, 0),
+    0,
+  );
+});
+
+test('Sâm v2 settles báo thành công as a fixed per-opponent award without a second hand score', () => {
+  const prior = {
+    gameKind: 'sam',
+    variantConfig: { rulesVersion: 'sam-v2', pointsPerCard: 1, samCallPoints: 20 },
+    phase: 'playing',
+    members: ['a', 'b', 'c'].map((uid) => ({ uid, name: uid })),
+    scoreMembers: ['a', 'b', 'c'].map((uid) => ({ uid, name: uid, balance: 0, wins: 0 })),
+    game: {
+      status: 'finished',
+      samOutcome: 'success',
+      samCallRecipients: ['b', 'c'],
+      callUid: 'a',
+      players: [
+        { uid: 'a', hand: [], played: 10 },
+        { uid: 'b', hand: [1, 2], played: 8 },
+        { uid: 'c', hand: [5], played: 9 },
+      ],
+      result: {
+        reason: 'sam-success',
+        ranking: [
+          { uid: 'a', rank: 1, labels: [] },
+          { uid: 'b', rank: 2, labels: [] },
+          { uid: 'c', rank: 3, labels: [] },
+        ],
+      },
+    },
+  };
+  const settled = finishRoom(prior, structuredClone(prior));
+  assert.deepEqual(
+    settled.game.result.ranking.map((result) => result.moneyDelta),
+    [40, -20, -20],
+  );
+});
+
+test('Sâm v2 keeps the frozen failed-report roster and adds the regular remaining-card score', () => {
+  const prior = {
+    gameKind: 'sam',
+    variantConfig: { rulesVersion: 'sam-v2', pointsPerCard: 1, samCallPoints: 20 },
+    phase: 'playing',
+    members: ['a', 'b', 'c'].map((uid) => ({ uid, name: uid })),
+    scoreMembers: ['a', 'b', 'c'].map((uid) => ({ uid, name: uid, balance: 0, wins: 0 })),
+    game: {
+      status: 'finished',
+      samOutcome: 'failed',
+      samCallRecipients: ['a', 'c'],
+      callUid: 'b',
+      players: [
+        { uid: 'a', hand: [], played: 10 },
+        { uid: 'b', hand: [1, 2], played: 8 },
+        { uid: 'c', hand: [5], played: 9 },
+      ],
+      result: {
+        reason: 'played-out',
+        ranking: [
+          { uid: 'a', rank: 1, labels: [] },
+          { uid: 'b', rank: 2, labels: [] },
+          { uid: 'c', rank: 3, labels: [] },
+        ],
+      },
+    },
+  };
+  const settled = finishRoom(prior, structuredClone(prior));
+  assert.deepEqual(
+    settled.game.result.ranking.map((result) => result.moneyDelta),
+    [23, -42, 19],
+  );
+  assert.equal(
+    settled.game.result.ranking.reduce((sum, result) => sum + result.moneyDelta, 0),
+    0,
+  );
+});
+
+test('Tấn scores the last player by their remaining hand, zero-sum', () => {
+  const prior = {
+    gameKind: 'tan',
+    phase: 'playing',
+    members: ['a', 'b', 'c'].map((uid) => ({ uid, name: uid })),
+    scoreMembers: ['a', 'b', 'c'].map((uid) => ({ uid, name: uid, balance: 0, wins: 0 })),
+    game: {
+      status: 'finished',
+      players: [
+        { uid: 'a', hand: [], played: 8 },
+        { uid: 'b', hand: [], played: 8 },
+        { uid: 'c', hand: [12, 16], played: 4 },
+      ],
+      result: {
+        ranking: [
+          { uid: 'a', rank: 1, labels: [] },
+          { uid: 'b', rank: 2, labels: [] },
+          { uid: 'c', rank: 3, labels: [] },
+        ],
+      },
+    },
+  };
+  const settled = finishRoom(prior, structuredClone(prior));
+  assert.deepEqual(
+    settled.game.result.ranking.map((result) => result.moneyDelta),
+    [2, 2, -4],
+  );
+  assert.equal(
+    settled.game.result.ranking.reduce((sum, result) => sum + result.moneyDelta, 0),
+    0,
+  );
+});
+
+test('Tấn applies its saved points-per-card rate and keeps forfeits at zero', () => {
+  const prior = {
+    gameKind: 'tan',
+    variantConfig: { pointsPerCard: 3 },
+    phase: 'playing',
+    members: ['a', 'b', 'c'].map((uid) => ({ uid, name: uid })),
+    scoreMembers: ['a', 'b', 'c'].map((uid) => ({ uid, name: uid, balance: 0, wins: 0 })),
+    game: {
+      status: 'finished',
+      players: [
+        { uid: 'a', hand: [], played: 8 },
+        { uid: 'b', hand: [12, 16], played: 6 },
+        { uid: 'c', hand: [1], played: 7 },
+      ],
+      result: {
+        ranking: [
+          { uid: 'a', rank: 1, labels: [] },
+          { uid: 'b', rank: 2, labels: [] },
+          { uid: 'c', rank: 3, labels: ['forfeit'] },
+        ],
+      },
+    },
+  };
+  const settled = finishRoom(prior, structuredClone(prior));
+  assert.deepEqual(
+    settled.game.result.ranking.map((result) => result.moneyDelta),
+    [6, -6, 0],
+  );
+  assert.equal(
+    settled.game.result.ranking.reduce((sum, result) => sum + result.moneyDelta, 0),
+    0,
+  );
+});
+
+for (const gameKind of ['south', 'phom', 'north', 'sam', 'tan']) {
   test(`${gameKind} preserves names of players who departed before the final forfeit`, () => {
     let state = {
       ...lobby(),
@@ -64,6 +311,109 @@ for (const gameKind of ['south', 'phom']) {
     );
   });
 }
+
+test('Sam room dispatches the report phase through game-action and preserves its rules kind', () => {
+  let state = {
+    ...lobby(),
+    gameKind: 'sam',
+    variantConfig: { rulesVersion: 'sam-v2', pointsPerCard: 1, samCallPoints: 20 },
+    members: structuredClone(members),
+  };
+  state = updateRoom(state, 'a', { type: 'start' }, 0, deck);
+  assert.equal(state.game.step, 'report-sam');
+  assert.equal(state.game.rulesVersion, 'sam-v2');
+  state = updateRoom(
+    state,
+    'a',
+    { type: 'game-action', gameAction: { type: 'call-sam' } },
+    1,
+  );
+  assert.equal(state.game.step, 'play');
+  assert.equal(state.game.callUid, 'a');
+  assert.deepEqual(state.game.samCallRecipients, ['b']);
+  assert.throws(
+    () => updateRoom(state, 'b', { type: 'play', cards: [1] }, 2),
+    /invalid-action/,
+  );
+  const snapshot = roomSnapshot(
+    {
+      id: '11111111-1111-4111-8111-111111111111',
+      code: 'ABCDEFGH',
+      version: 1,
+      epoch: '22222222-2222-4222-8222-222222222222',
+      match_id: null,
+      state,
+    },
+    'a',
+    true,
+    2,
+  );
+  assert.equal(snapshot.room.gameKind, 'sam');
+  assert.equal(snapshot.room.game.step, 'play');
+});
+
+test('Tấn scores an all-out draw as zero for everyone', () => {
+  const prior = {
+    gameKind: 'tan',
+    phase: 'playing',
+    members: ['a', 'b'].map((uid) => ({ uid, name: uid, wins: 0 })),
+    scoreMembers: ['a', 'b'].map((uid) => ({ uid, name: uid, balance: 0, wins: 0 })),
+    game: {
+      status: 'finished',
+      players: [
+        { uid: 'a', hand: [], played: 8 },
+        { uid: 'b', hand: [], played: 8 },
+      ],
+      result: {
+        reason: 'all-out',
+        ranking: [
+          { uid: 'a', rank: 1, labels: [] },
+          { uid: 'b', rank: 2, labels: [] },
+        ],
+      },
+    },
+  };
+  const settled = finishRoom(prior, structuredClone(prior));
+  assert.deepEqual(
+    settled.game.result.ranking.map((result) => result.moneyDelta),
+    [0, 0],
+  );
+  assert.equal(settled.scoreMembers.every((player) => player.wins === 0), true);
+});
+
+test('Tấn does not reward forfeited players as if they had emptied their hands', () => {
+  const prior = {
+    gameKind: 'tan',
+    phase: 'playing',
+    members: ['a', 'b', 'c'].map((uid) => ({ uid, name: uid, wins: 0 })),
+    scoreMembers: ['a', 'b', 'c'].map((uid) => ({ uid, name: uid, balance: 0, wins: 0 })),
+    game: {
+      status: 'finished',
+      players: [
+        { uid: 'a', hand: Array.from({ length: 8 }, (_, i) => i), played: 0 },
+        { uid: 'b', hand: Array.from({ length: 6 }, (_, i) => i + 8), played: 2 },
+        { uid: 'c', hand: Array.from({ length: 3 }, (_, i) => i + 14), played: 5 },
+      ],
+      result: {
+        reason: 'forfeit',
+        ranking: [
+          { uid: 'c', rank: 1, labels: [] },
+          { uid: 'b', rank: 2, labels: ['forfeit'] },
+          { uid: 'a', rank: 3, labels: ['forfeit'] },
+        ],
+      },
+    },
+  };
+  const settled = finishRoom(prior, structuredClone(prior));
+  assert.deepEqual(
+    settled.game.result.ranking.map((result) => result.moneyDelta),
+    [0, 0, 0],
+  );
+  assert.equal(
+    settled.game.result.ranking.reduce((sum, result) => sum + result.moneyDelta, 0),
+    0,
+  );
+});
 
 test('result names use the current anonymized score roster after erasure', () => {
   let state = {
@@ -442,6 +792,115 @@ test('snapshot uses explicit privacy projection, including members joining after
     () => roomSnapshot(record, 'outsider', true, 100),
     /not-member/,
   );
+});
+
+test('variant snapshots keep legacy fields on protocol 10 and expose v2 profiles only on protocol 11', () => {
+  const state = {
+    ...lobby(),
+    gameKind: 'north',
+    variantConfig: { pointsPerCard: 3 },
+    nextVariantConfig: { pointsPerCard: 5 },
+  };
+  const record = {
+    id: '11111111-1111-4111-8111-111111111111',
+    code: 'ABCDEFGH',
+    version: 1,
+    epoch: '22222222-2222-4222-8222-222222222222',
+    match_id: null,
+    state,
+  };
+  const oldClient = roomSnapshot(record, 'a', true, 0, false, 9);
+  const currentClient = roomSnapshot(record, 'a', true, 0, false, 10);
+  assert.equal(oldClient.room.variantConfig, undefined);
+  assert.equal(oldClient.room.nextVariantConfig, undefined);
+  assert.deepEqual(currentClient.room.nextVariantConfig, { pointsPerCard: 5 });
+  const v2Record = {
+    ...record,
+    state: {
+      ...state,
+      variantConfig: {
+        rulesVersion: 'north-v2',
+        pointsPerCard: 1,
+        remainingTwoPoints: 2,
+        cutTwoPoints: 3,
+      },
+      nextVariantConfig: {
+        rulesVersion: 'north-v2',
+        pointsPerCard: 3,
+        remainingTwoPoints: 4,
+        cutTwoPoints: 5,
+      },
+    },
+  };
+  assert.deepEqual(
+    roomSnapshot(v2Record, 'a', true, 0, false, 10).room.nextVariantConfig,
+    { pointsPerCard: 3 },
+  );
+  assert.deepEqual(
+    roomSnapshot(v2Record, 'a', true, 0, false, 11).room.variantConfig,
+    v2Record.state.variantConfig,
+  );
+  assert.deepEqual(
+    roomSnapshot(v2Record, 'a', true, 0, false, 11).room.nextVariantConfig,
+    v2Record.state.nextVariantConfig,
+  );
+});
+
+test('starting a new variant match promotes the saved next config', () => {
+  const state = {
+    ...lobby(),
+    host: 'a',
+    gameKind: 'north',
+    variantConfig: { pointsPerCard: 2 },
+    nextVariantConfig: {
+      rulesVersion: 'north-v2',
+      pointsPerCard: 7,
+      remainingTwoPoints: 4,
+      cutTwoPoints: 5,
+    },
+    members: [
+      { uid: 'a', name: 'An', ready: true, wins: 0 },
+      { uid: 'b', name: 'Bình', ready: true, wins: 0 },
+    ],
+  };
+  const started = updateRoom(state, 'a', { type: 'start' }, 0, deck);
+  assert.deepEqual(started.variantConfig, {
+    rulesVersion: 'north-v2',
+    pointsPerCard: 7,
+    remainingTwoPoints: 4,
+    cutTwoPoints: 5,
+  });
+  assert.equal(started.game.rulesVersion, 'north-v2');
+});
+
+test('the final ready action starts the saved North and Sâm v2 engines', () => {
+  const profiles = {
+    north: {
+      rulesVersion: 'north-v2',
+      pointsPerCard: 1,
+      remainingTwoPoints: 2,
+      cutTwoPoints: 3,
+    },
+    sam: { rulesVersion: 'sam-v2', pointsPerCard: 1, samCallPoints: 20 },
+  };
+  for (const [gameKind, variantConfig] of Object.entries(profiles)) {
+    const waiting = {
+      ...lobby(),
+      gameKind,
+      variantConfig,
+      members: structuredClone(members),
+    };
+    waiting.members[1].ready = false;
+    const started = updateRoom(
+      waiting,
+      'b',
+      { type: 'ready', ready: true },
+      100,
+      deck,
+    );
+    assert.equal(started.game.rulesVersion, variantConfig.rulesVersion);
+    assert.equal(started.phase, 'playing');
+  }
 });
 
 test('realtime claims preserve other claims, skip repeat updates and reject revoked live identities', async () => {
@@ -844,6 +1303,117 @@ test('commits the final rematch-ready action as a new match transaction', async 
     result.room.members.every((player) => !player.ready),
     true,
   );
+});
+
+test('HTTP final-ready starts v2 and the returned client can immediately make its first move', async () => {
+  const profiles = [
+    [
+      'north',
+      {
+        rulesVersion: 'north-v2',
+        pointsPerCard: 1,
+        remainingTwoPoints: 2,
+        cutTwoPoints: 3,
+      },
+    ],
+    [
+      'sam',
+      { rulesVersion: 'sam-v2', pointsPerCard: 1, samCallPoints: 20 },
+    ],
+  ];
+
+  for (const [gameKind, variantConfig] of profiles) {
+    const id = crypto.randomUUID();
+    const epoch = crypto.randomUUID();
+    const sessionId = crypto.randomUUID();
+    let uid = 'b';
+    let record = {
+      id,
+      code: 'ABCDEFGH',
+      version: 1,
+      epoch,
+      match_id: null,
+      state: {
+        ...lobby(),
+        gameKind,
+        variantConfig,
+        members: structuredClone(members),
+      },
+    };
+    record.state.members[1].ready = false;
+    const handler = createGameHandler({
+      verifyIdentity: async () => ({ uid, authTime: 100 }),
+      deck: () => deck,
+      rpc: async (name, params = {}) => {
+        if (name === 'lifemate_game_receipt') return null;
+        if (name === 'lifemate_game_read') return { room: record, now: 100 };
+        if (name === 'lifemate_game_commit') {
+          record = {
+            ...record,
+            version: record.version + 1,
+            match_id:
+              params.p_kind === 'start' ? crypto.randomUUID() : record.match_id,
+            state: params.p_state,
+          };
+          return {
+            ack: { roomId: id, version: record.version },
+            record,
+            controller: true,
+            now: 200,
+          };
+        }
+        throw Error(`unexpected rpc: ${name}`);
+      },
+    });
+    const send = async (body) =>
+      handler(
+        new Request('https://test.invalid/game-access', {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer test',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            clientVersion: 11,
+            sessionId,
+            actionId: crypto.randomUUID(),
+            roomId: id,
+            expectedVersion: record.version,
+            matchId: record.match_id,
+            ...body,
+          }),
+        }),
+      );
+
+    const ready = await send({ type: 'ready', ready: true });
+    assert.equal(ready.status, 200, `${gameKind}: ${await ready.clone().text()}`);
+    let result = await ready.json();
+    assert.equal(result.room.phase, 'playing');
+    assert.equal(result.room.game.rulesVersion, variantConfig.rulesVersion);
+
+    uid = record.state.game.turn;
+    const firstMove =
+      gameKind === 'north'
+        ? await send({
+            type: 'play',
+            cards: [
+              record.state.game.players
+                .find((player) => player.uid === uid)
+                .hand.find((card) => card === record.state.game.openingCard),
+            ],
+          })
+        : await send({
+            type: 'game-action',
+            gameAction: { type: 'call-sam' },
+          });
+    assert.equal(firstMove.status, 200, `${gameKind}: ${await firstMove.clone().text()}`);
+    result = await firstMove.json();
+    assert.equal(result.room.game.rulesVersion, variantConfig.rulesVersion);
+    assert.equal(
+      gameKind === 'north' ? result.room.game.table.uid : result.room.game.step,
+      gameKind === 'north' ? uid : 'play',
+    );
+  }
 });
 
 test('revocation during a streamed body is checked again before database work', async () => {

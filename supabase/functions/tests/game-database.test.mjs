@@ -6,6 +6,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { advanceExpiredRoom } from '../game-access/worker.mjs';
 import { createGameHandler } from '../game-access/handler.mjs';
 import { shouldStartRematch, updateRoom } from '../game-access/rooms.mjs';
+import { newTanGame } from '../game-access/tan.mjs';
 import { newTienLenGame } from '../game-access/tienlen.mjs';
 
 const sql = await readFile(
@@ -92,6 +93,27 @@ const permanentScoreDeletionSql = await readFile(
 const emptyRoomRejoinStatusSql = await readFile(
   new URL(
     '../../migrations/20261022040203_card_game_empty_room_rejoin_status.sql',
+    import.meta.url,
+  ),
+  'utf8',
+);
+const newOnlineGameVariantsSql = await readFile(
+  new URL(
+    '../../migrations/20261025163926_lifemate_new_online_game_variants.sql',
+    import.meta.url,
+  ),
+  'utf8',
+);
+const variantRoomConfigurationSql = await readFile(
+  new URL(
+    '../../migrations/20261025163933_card_game_variant_room_configuration.sql',
+    import.meta.url,
+  ),
+  'utf8',
+);
+const variantV2ScoringSql = await readFile(
+  new URL(
+    '../../migrations/20261025163939_card_game_v2_scoring_profiles.sql',
     import.meta.url,
   ),
   'utf8',
@@ -225,6 +247,9 @@ async function setup(beforePhomRules = false) {
       'utf8',
     ),
   );
+  await db.exec(newOnlineGameVariantsSql);
+  await db.exec(variantRoomConfigurationSql);
+  await db.exec(variantV2ScoringSql);
   return db;
 }
 
@@ -4813,6 +4838,943 @@ test('protocol7 creates optional Phỏm rules and pins every choice into the fir
         .state.game.config,
       config,
     );
+  } finally {
+    await db.close();
+  }
+});
+
+test('new online game variants pin kind, require protocol 9 and commit game actions authoritatively', async () => {
+  for (const [game, rulesVersion, title] of [
+    ['north', 'north-v1', 'Tiến lên miền Bắc'],
+    ['sam', 'sam-v1', 'Sâm'],
+    ['tan', 'tan-v1', 'Tấn'],
+  ]) {
+    const db = await setup();
+    const gameRoom = crypto.randomUUID();
+    const createAction = crypto.randomUUID();
+    const createArgs = [
+      uid,
+      authTime,
+      session,
+      createAction,
+      `variant-${game}`,
+      gameRoom,
+      'BCDEFGHJ',
+      'An',
+      game,
+    ];
+    try {
+      await assert.rejects(
+        rpc(db, 'lifemate_game_create_variant', [
+          ...createArgs.slice(0, -1),
+          null,
+        ]),
+        /invalid-input/,
+      );
+      const created = await rpc(db, 'lifemate_game_create_variant', createArgs);
+      assert.equal(created.roomId, gameRoom);
+      assert.deepEqual(
+        await rpc(db, 'lifemate_game_create_variant', createArgs),
+        created,
+      );
+      await assert.rejects(
+        rpc(db, 'lifemate_game_create_variant', [
+          ...createArgs.slice(0, -1),
+          game === 'tan' ? 'sam' : 'tan',
+        ]),
+        /idempotency-conflict/,
+      );
+
+      const record = (
+        await db.query('select * from public.lifemate_game_rooms where id=$1', [
+          gameRoom,
+        ])
+      ).rows[0];
+      assert.equal(record.state.gameKind, game);
+      assert.equal(record.state.game, null);
+      const score = (
+        await db.query(
+          'select document from public.lifemate_game_score_tables where room_id=$1',
+          [gameRoom],
+        )
+      ).rows[0].document;
+      assert.equal(score.title, `${title} · BCDEFGHJ`);
+
+      const status = await rpc(db, 'lifemate_game_status', [
+        uid,
+        authTime,
+        session,
+        gameRoom,
+      ]);
+      assert.equal(status.gameKind, game);
+      assert.equal(status.minClientVersion, 9);
+
+      const beforeSeat = await db.query(
+        'select session_id from public.lifemate_game_seats where room_id=$1 and uid=$2',
+        [gameRoom, uid],
+      );
+      const beforeVersion = record.version;
+      await assert.rejects(
+        rpc(db, 'lifemate_game_takeover', [
+          uid,
+          authTime,
+          crypto.randomUUID(),
+          gameRoom,
+          8,
+        ]),
+        /game-update-required/,
+      );
+      assert.deepEqual(
+        (
+          await db.query(
+            'select session_id from public.lifemate_game_seats where room_id=$1 and uid=$2',
+            [gameRoom, uid],
+          )
+        ).rows,
+        beforeSeat.rows,
+      );
+      assert.equal(
+        (
+          await db.query(
+            'select version from public.lifemate_game_rooms where id=$1',
+            [gameRoom],
+          )
+        ).rows[0].version,
+        beforeVersion,
+      );
+      await rpc(db, 'lifemate_game_takeover', [
+        uid,
+        authTime,
+        crypto.randomUUID(),
+        gameRoom,
+        9,
+      ]);
+
+      await assert.rejects(
+        db.query(
+          "update public.lifemate_game_rooms set state=state||jsonb_build_object('gameKind','south') where id=$1",
+          [gameRoom],
+        ),
+        /invalid-input/,
+      );
+      await assert.rejects(
+        db.query(
+          "update public.lifemate_game_rooms set state=jsonb_set(state,'{game}', '{\"rulesVersion\":\"wrong\"}'::jsonb) where id=$1",
+          [gameRoom],
+        ),
+        /invalid-input/,
+      );
+
+      const startedState = {
+        ...record.state,
+        phase: 'playing',
+        game: { rulesVersion, status: 'playing', deadline: Date.now() + 40_000 },
+      };
+      const started = await rpc(db, 'lifemate_game_commit', [
+        uid,
+        authTime,
+        (await db.query(
+          'select session_id from public.lifemate_game_seats where uid=$1 and room_id=$2',
+          [uid, gameRoom],
+        )).rows[0].session_id,
+        crypto.randomUUID(),
+        'start-variant',
+        gameRoom,
+        beforeVersion + 1,
+        null,
+        'start',
+        startedState,
+      ]);
+      assert.equal(started.record.state.game.rulesVersion, rulesVersion);
+      const activeSeat = (
+        await db.query(
+          'select session_id from public.lifemate_game_seats where uid=$1 and room_id=$2',
+          [uid, gameRoom],
+        )
+      ).rows[0].session_id;
+      const activeRoom = (
+        await db.query('select version,match_id,state,expires_at from public.lifemate_game_rooms where id=$1', [gameRoom])
+      ).rows[0];
+      const nextState = {
+        ...activeRoom.state,
+        game: { ...activeRoom.state.game, actionCount: 1 },
+      };
+      const gameActionId = crypto.randomUUID();
+      const actionArgs = [
+        uid,
+        authTime,
+        activeSeat,
+        gameActionId,
+        'variant-game-action',
+        gameRoom,
+        activeRoom.version,
+        activeRoom.match_id,
+        game === 'north' ? 'play' : 'game-action',
+        nextState,
+      ];
+      const committed = await rpc(db, 'lifemate_game_commit', actionArgs);
+      assert.equal(committed.record.version, activeRoom.version + 1);
+      assert.equal(committed.record.state.game.actionCount, 1);
+      assert.equal(committed.controller, true);
+      const afterAction = (
+        await db.query(
+          'select version,expires_at,state from public.lifemate_game_rooms where id=$1',
+          [gameRoom],
+        )
+      ).rows[0];
+      assert.ok(afterAction.expires_at > activeRoom.expires_at);
+      await db.query(
+        "update public.lifemate_game_rooms set state=jsonb_set(state,'{game,deadline}','0'::jsonb) where id=$1",
+        [gameRoom],
+      );
+      const expiredActionState = {
+        ...afterAction.state,
+        game: { ...afterAction.state.game, deadline: 0 },
+      };
+      await assert.rejects(
+        rpc(db, 'lifemate_game_commit', [
+          uid,
+          authTime,
+          activeSeat,
+          crypto.randomUUID(),
+          'expired-game-action',
+          gameRoom,
+          afterAction.version,
+          activeRoom.match_id,
+          game === 'north' ? 'play' : 'game-action',
+          expiredActionState,
+        ]),
+        /turn-expired/,
+      );
+      assert.equal(
+        (
+          await db.query('select version from public.lifemate_game_rooms where id=$1', [gameRoom])
+        ).rows[0].version,
+        afterAction.version,
+      );
+      assert.deepEqual(
+        await rpc(db, 'lifemate_game_commit', actionArgs),
+        committed.ack,
+      );
+      assert.equal(
+        (
+          await db.query(
+            "select has_function_privilege('anon','public.lifemate_game_create_variant(text,bigint,uuid,uuid,text,uuid,text,text,text)','execute') ok",
+          )
+        ).rows[0].ok,
+        false,
+      );
+      assert.equal(
+        (
+          await db.query(
+            "select has_function_privilege('service_role','public.lifemate_game_commit(text,bigint,uuid,uuid,text,uuid,bigint,uuid,text,jsonb)','execute') ok",
+          )
+        ).rows[0].ok,
+        true,
+      );
+    } finally {
+      await db.close();
+    }
+  }
+});
+
+test('configured variant create and next-round settings are exposed only to protocol 10', async () => {
+  const db = await setup();
+  let configuredCreateArgs;
+  const api = readyApi(db, async (name, args, run) => {
+    if (name === 'lifemate_game_create_variant_configured')
+      configuredCreateArgs = args;
+    return run(name, args);
+  });
+  try {
+    const created = await api.post(uid, {
+      type: 'create',
+      clientVersion: 10,
+      actionId: crypto.randomUUID(),
+      game: 'sam',
+      variantConfig: { pointsPerCard: 4 },
+      name: 'An',
+    });
+    assert.equal(created.status, 200, JSON.stringify(created.value));
+    assert.deepEqual(created.value.room.variantConfig, { pointsPerCard: 4 });
+
+    const oldClient = await api.post(uid, {
+      type: 'sync',
+      clientVersion: 9,
+    });
+    assert.equal(oldClient.status, 409);
+    assert.equal(oldClient.value.error, 'game-update-required');
+
+    const joined = await api.post(other, {
+      type: 'join',
+      clientVersion: 10,
+      actionId: crypto.randomUUID(),
+      code: created.value.room.code,
+      name: 'Bình',
+    });
+    assert.equal(joined.status, 200, JSON.stringify(joined.value));
+    assert.deepEqual(joined.value.room.variantConfig, { pointsPerCard: 4 });
+
+    const saved = await api.post(uid, {
+      type: 'set-variant-rules',
+      clientVersion: 10,
+      actionId: crypto.randomUUID(),
+      roomId: created.value.room.id,
+      expectedVersion: joined.value.room.version,
+      matchId: joined.value.room.matchId,
+      variantConfig: { pointsPerCard: 6 },
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.value));
+    assert.deepEqual(saved.value.room.variantConfig, { pointsPerCard: 4 });
+    assert.deepEqual(saved.value.room.nextVariantConfig, { pointsPerCard: 6 });
+
+    await assert.rejects(
+      db.query(
+        "update public.lifemate_game_rooms set state=state||jsonb_build_object('phase','playing'),match_id=$2 where id=$1",
+        [saved.value.room.id, crypto.randomUUID()],
+      ),
+      /invalid-input/,
+    );
+
+    const nonOwner = await api.post(other, {
+      type: 'set-variant-rules',
+      clientVersion: 10,
+      actionId: crypto.randomUUID(),
+      roomId: saved.value.room.id,
+      expectedVersion: saved.value.room.version,
+      matchId: saved.value.room.matchId,
+      variantConfig: { pointsPerCard: 2 },
+    });
+    assert.equal(nonOwner.status, 403);
+    assert.equal(nonOwner.value.error, 'not-owner');
+
+    await db.query(
+      "update public.lifemate_game_rooms set state=state||jsonb_build_object('ownerUid','','host',$2::text,'scoreMembers',jsonb_build_array(jsonb_build_object('uid',$2::text,'name','Bình','balance',0))) where id=$1",
+      [saved.value.room.id, other],
+    );
+    const replacementOwnerAttempt = await api.post(other, {
+      type: 'set-variant-rules',
+      clientVersion: 10,
+      actionId: crypto.randomUUID(),
+      roomId: saved.value.room.id,
+      expectedVersion: saved.value.room.version,
+      matchId: saved.value.room.matchId,
+      variantConfig: { pointsPerCard: 2 },
+    });
+    assert.equal(replacementOwnerAttempt.status, 403);
+    assert.equal(replacementOwnerAttempt.value.error, 'not-owner');
+    const orphanedOwnerStatus = await api.post(other, {
+      type: 'room-status',
+      clientVersion: 10,
+      roomId: saved.value.room.id,
+    });
+    assert.equal(orphanedOwnerStatus.status, 200);
+    assert.equal(orphanedOwnerStatus.value.owner, false);
+    assert.equal(orphanedOwnerStatus.value.canReopen, false);
+    const outsiderStatus = await api.post('unknown-player', {
+      type: 'room-status',
+      clientVersion: 10,
+      roomId: saved.value.room.id,
+    });
+    assert.equal(outsiderStatus.status, 200);
+    assert.equal(outsiderStatus.value.exists, false);
+
+    const otherReady = await api.post(other, {
+      type: 'ready',
+      clientVersion: 10,
+      actionId: crypto.randomUUID(),
+      roomId: saved.value.room.id,
+      expectedVersion: saved.value.room.version,
+      matchId: saved.value.room.matchId,
+      ready: true,
+    });
+    assert.equal(otherReady.status, 200, JSON.stringify(otherReady.value));
+    const ownerReady = await api.post(uid, {
+      type: 'ready',
+      clientVersion: 10,
+      actionId: crypto.randomUUID(),
+      roomId: saved.value.room.id,
+      expectedVersion: otherReady.value.room.version,
+      matchId: otherReady.value.room.matchId,
+      ready: true,
+    });
+    assert.equal(ownerReady.status, 200, JSON.stringify(ownerReady.value));
+    assert.deepEqual(ownerReady.value.room.variantConfig, { pointsPerCard: 6 });
+
+    const createReplay = await rpc(db, 'lifemate_game_create_variant_configured', [
+      configuredCreateArgs.p_uid,
+      configuredCreateArgs.p_auth_time,
+      configuredCreateArgs.p_session_id,
+      configuredCreateArgs.p_action_id,
+      configuredCreateArgs.p_fingerprint,
+      configuredCreateArgs.p_room_id,
+      configuredCreateArgs.p_code,
+      configuredCreateArgs.p_name,
+      configuredCreateArgs.p_game,
+      configuredCreateArgs.p_config,
+    ]);
+    assert.equal(createReplay.roomId, created.value.room.id);
+    const afterReplay = await api.post(uid, {
+      type: 'sync',
+      clientVersion: 10,
+    });
+    assert.equal(afterReplay.status, 200, JSON.stringify(afterReplay.value));
+    assert.deepEqual(afterReplay.value.room.variantConfig, { pointsPerCard: 6 });
+    assert.equal(afterReplay.value.room.version, ownerReady.value.room.version);
+  } finally {
+    await db.close();
+  }
+});
+
+test('variant room config is owner-written, versioned, and requires protocol 10', async () => {
+  const db = await setup();
+  const gameRoom = crypto.randomUUID();
+  const createAction = crypto.randomUUID();
+  const createArgs = [
+    uid,
+    authTime,
+    session,
+    createAction,
+    'variant-config-create',
+    gameRoom,
+    'BCDEFGHJ',
+    'An',
+    'north',
+    { pointsPerCard: 4 },
+  ];
+  try {
+    await assert.rejects(
+      rpc(db, 'lifemate_game_create_variant_configured', [
+        ...createArgs.slice(0, -1),
+        { pointsPerCard: 0 },
+      ]),
+      /invalid-input/,
+    );
+    const created = await rpc(
+      db,
+      'lifemate_game_create_variant_configured',
+      createArgs,
+    );
+    assert.equal(created.roomId, gameRoom);
+    let record = await rpc(db, 'lifemate_game_read', [uid, authTime, session, false]);
+    assert.deepEqual(record.room.state.variantConfig, { pointsPerCard: 4 });
+    const status = await rpc(db, 'lifemate_game_status', [uid, authTime, session, gameRoom]);
+    assert.equal(status.minClientVersion, 10);
+    const version = record.room.version;
+    const matchId = record.room.match_id;
+    const setArgs = [
+      uid,
+      authTime,
+      session,
+      crypto.randomUUID(),
+      'variant-config-next',
+      gameRoom,
+      version,
+      matchId,
+      { pointsPerCard: 7 },
+      10,
+    ];
+    await assert.rejects(
+      rpc(db, 'lifemate_game_set_variant_rules', [
+        ...setArgs.slice(0, -1),
+        9,
+      ]),
+      /game-update-required/,
+    );
+    const saved = await rpc(db, 'lifemate_game_set_variant_rules', setArgs);
+    assert.equal(saved.record.version, version + 1);
+    record = await rpc(db, 'lifemate_game_read', [uid, authTime, session, false]);
+    assert.deepEqual(record.room.state.variantConfig, { pointsPerCard: 4 });
+    assert.deepEqual(record.room.state.nextVariantConfig, { pointsPerCard: 7 });
+    await assert.rejects(
+      rpc(db, 'lifemate_game_set_variant_rules', [
+        other,
+        authTime,
+        session,
+        crypto.randomUUID(),
+        'variant-config-other-user',
+        gameRoom,
+        record.room.version,
+        record.room.match_id,
+        { pointsPerCard: 2 },
+        10,
+      ]),
+      /not-member/,
+    );
+    assert.equal(
+      (
+        await db.query(
+          "select has_function_privilege('anon','public.lifemate_game_set_variant_rules(text,bigint,uuid,uuid,text,uuid,bigint,uuid,jsonb,integer)','execute') ok",
+        )
+      ).rows[0].ok,
+      false,
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+test('North v2 config is persisted exactly and every read or takeover requires capability 11', async () => {
+  const db = await setup();
+  const api = readyApi(db);
+  const northV2 = {
+    rulesVersion: 'north-v2',
+    pointsPerCard: 1,
+    remainingTwoPoints: 2,
+    cutTwoPoints: 3,
+  };
+  try {
+    for (const incomplete of [
+      { rulesVersion: 'north-v2', pointsPerCard: 1 },
+      {
+        rulesVersion: 'north-v2',
+        pointsPerCard: 1,
+        remainingTwoPoints: 2,
+      },
+      { rulesVersion: 'sam-v2', pointsPerCard: 1 },
+    ]) {
+      await assert.rejects(
+        db.query(
+          'select public.lifemate_game_assert_variant_config($1::jsonb)',
+          [incomplete],
+        ),
+        /invalid-input/,
+      );
+    }
+    const created = await api.post(uid, {
+      type: 'create',
+      clientVersion: 11,
+      actionId: crypto.randomUUID(),
+      game: 'north',
+      variantConfig: northV2,
+      name: 'An',
+    });
+    assert.equal(created.status, 200, JSON.stringify(created.value));
+    assert.deepEqual(created.value.room.variantConfig, northV2);
+    const { rows } = await db.query(
+      'select state from public.lifemate_game_rooms where id=$1',
+      [created.value.room.id],
+    );
+    assert.deepEqual(rows[0].state.variantConfig, northV2);
+    const status = await rpc(db, 'lifemate_game_status', [
+      uid,
+      authTime,
+      session,
+      created.value.room.id,
+    ]);
+    assert.equal(status.minClientVersion, 11);
+
+    const olderClient = await api.post(uid, {
+      type: 'sync',
+      clientVersion: 10,
+    });
+    assert.equal(olderClient.status, 409);
+    assert.equal(olderClient.value.error, 'game-update-required');
+    await assert.rejects(
+      rpc(db, 'lifemate_game_takeover', [
+        uid,
+        authTime,
+        crypto.randomUUID(),
+        created.value.room.id,
+        10,
+      ]),
+      /game-update-required/,
+    );
+    await rpc(db, 'lifemate_game_takeover', [
+      uid,
+      authTime,
+      session,
+      created.value.room.id,
+      11,
+    ]);
+
+    const legacyVersionAttempt = await api.post(uid, {
+      type: 'set-variant-rules',
+      clientVersion: 10,
+      actionId: crypto.randomUUID(),
+      roomId: created.value.room.id,
+      expectedVersion: created.value.room.version + 1,
+      matchId: null,
+      variantConfig: northV2,
+    });
+    assert.equal(legacyVersionAttempt.status, 409);
+    assert.equal(legacyVersionAttempt.value.error, 'game-update-required');
+    const mismatchedGame = await api.post(uid, {
+      type: 'create',
+      clientVersion: 11,
+      actionId: crypto.randomUUID(),
+      game: 'sam',
+      variantConfig: northV2,
+      name: 'An',
+    });
+    assert.equal(mismatchedGame.status, 400);
+    assert.equal(mismatchedGame.value.error, 'invalid-input');
+
+    const samV2 = {
+      rulesVersion: 'sam-v2',
+      pointsPerCard: 2,
+      samCallPoints: 25,
+    };
+    const samCreated = await api.post('game-c', {
+      type: 'create',
+      clientVersion: 11,
+      actionId: crypto.randomUUID(),
+      game: 'sam',
+      variantConfig: samV2,
+      name: 'Bình',
+    });
+    assert.equal(samCreated.status, 200, JSON.stringify(samCreated.value));
+    assert.deepEqual(samCreated.value.room.variantConfig, samV2);
+    assert.equal(
+      (
+        await rpc(db, 'lifemate_game_status', [
+        'game-c',
+          authTime,
+          session,
+          samCreated.value.room.id,
+        ])
+      ).minClientVersion,
+      11,
+    );
+
+    const joinedNorth = await api.post(other, {
+      type: 'join',
+      clientVersion: 11,
+      actionId: crypto.randomUUID(),
+      code: created.value.room.code,
+      name: 'Bình',
+    });
+    assert.equal(joinedNorth.status, 200, JSON.stringify(joinedNorth.value));
+    const northHostReady = await api.post(uid, {
+      type: 'ready',
+      clientVersion: 11,
+      actionId: crypto.randomUUID(),
+      roomId: created.value.room.id,
+      expectedVersion: joinedNorth.value.room.version,
+      matchId: null,
+      ready: true,
+    });
+    assert.equal(northHostReady.status, 200, JSON.stringify(northHostReady.value));
+    const northFinalReady = await api.post(other, {
+      type: 'ready',
+      clientVersion: 11,
+      actionId: crypto.randomUUID(),
+      roomId: created.value.room.id,
+      expectedVersion: northHostReady.value.room.version,
+      matchId: null,
+      ready: true,
+    });
+    assert.equal(northFinalReady.status, 200, JSON.stringify(northFinalReady.value));
+    assert.equal(northFinalReady.value.room.game.rulesVersion, 'north-v2');
+
+    const savedLegacyNext = await api.post(uid, {
+      type: 'set-variant-rules',
+      clientVersion: 11,
+      actionId: crypto.randomUUID(),
+      roomId: created.value.room.id,
+      expectedVersion: northFinalReady.value.room.version,
+      matchId: northFinalReady.value.room.matchId,
+      variantConfig: { pointsPerCard: 2 },
+    });
+    assert.equal(savedLegacyNext.status, 200, JSON.stringify(savedLegacyNext.value));
+    assert.equal(
+      (await rpc(db, 'lifemate_game_status', [
+        uid,
+        authTime,
+        session,
+        created.value.room.id,
+      ])).minClientVersion,
+      11,
+    );
+    await assert.rejects(
+      rpc(db, 'lifemate_game_takeover', [
+        uid,
+        authTime,
+        crypto.randomUUID(),
+        created.value.room.id,
+        10,
+      ]),
+      /game-update-required/,
+    );
+    const legacyWriteFromOldClient = await api.post(uid, {
+      type: 'set-variant-rules',
+      clientVersion: 10,
+      actionId: crypto.randomUUID(),
+      roomId: created.value.room.id,
+      expectedVersion: savedLegacyNext.value.room.version,
+      matchId: savedLegacyNext.value.room.matchId,
+      variantConfig: { pointsPerCard: 3 },
+    });
+    assert.equal(legacyWriteFromOldClient.status, 409);
+    assert.equal(legacyWriteFromOldClient.value.error, 'game-update-required');
+
+    const joinedSam = await api.post('game-d', {
+      type: 'join',
+      clientVersion: 11,
+      actionId: crypto.randomUUID(),
+      code: samCreated.value.room.code,
+      name: 'An',
+    });
+    assert.equal(joinedSam.status, 200, JSON.stringify(joinedSam.value));
+    const samHostReady = await api.post('game-c', {
+      type: 'ready',
+      clientVersion: 11,
+      actionId: crypto.randomUUID(),
+      roomId: samCreated.value.room.id,
+      expectedVersion: joinedSam.value.room.version,
+      matchId: null,
+      ready: true,
+    });
+    assert.equal(samHostReady.status, 200, JSON.stringify(samHostReady.value));
+    const samFinalReady = await api.post('game-d', {
+      type: 'ready',
+      clientVersion: 11,
+      actionId: crypto.randomUUID(),
+      roomId: samCreated.value.room.id,
+      expectedVersion: samHostReady.value.room.version,
+      matchId: null,
+      ready: true,
+    });
+    assert.equal(samFinalReady.status, 200, JSON.stringify(samFinalReady.value));
+    assert.equal(samFinalReady.value.room.game.rulesVersion, 'sam-v2');
+
+    for (const role of ['anon', 'authenticated'])
+      assert.equal(
+        (
+          await db.query(
+            "select has_function_privilege($1,'public.lifemate_game_assert_variant_config(jsonb)','execute') ok",
+            [role],
+          )
+        ).rows[0].ok,
+        false,
+      );
+  } finally {
+    await db.close();
+  }
+});
+
+test('protocol 9 creates Sâm rooms, blocks older clients before join or lease renewal, and commits typed actions', async () => {
+  const db = await setup();
+  let renewCalls = 0;
+  const api = readyApi(db, async (name, args, run) => {
+    if (name === 'lifemate_game_read' && args.p_renew) renewCalls++;
+    return run(name, args);
+  });
+  try {
+    const created = await api.post(uid, {
+      type: 'create',
+      clientVersion: 9,
+      actionId: crypto.randomUUID(),
+      game: 'sam',
+      name: 'An',
+    });
+    assert.equal(created.status, 200, JSON.stringify(created.value));
+    assert.equal(created.value.room.gameKind, 'sam');
+
+    const oldJoin = await api.post(other, {
+      type: 'join',
+      clientVersion: 8,
+      actionId: crypto.randomUUID(),
+      code: created.value.room.code,
+      name: 'Bình',
+    });
+    assert.equal(oldJoin.status, 409);
+    assert.equal(oldJoin.value.error, 'game-update-required');
+    assert.equal(
+      (
+        await db.query('select count(*)::integer n from public.lifemate_game_seats where room_id=$1', [
+          created.value.room.id,
+        ])
+      ).rows[0].n,
+      1,
+    );
+
+    const joined = await api.post(other, {
+      type: 'join',
+      clientVersion: 9,
+      actionId: crypto.randomUUID(),
+      code: created.value.room.code,
+      name: 'Bình',
+    });
+    assert.equal(joined.status, 200, JSON.stringify(joined.value));
+    let roomState = joined.value.room;
+    const ready = await api.post(other, {
+      type: 'ready',
+      clientVersion: 9,
+      actionId: crypto.randomUUID(),
+      roomId: roomState.id,
+      expectedVersion: roomState.version,
+      matchId: roomState.matchId,
+      ready: true,
+    });
+    assert.equal(ready.status, 200, JSON.stringify(ready.value));
+    roomState = ready.value.room;
+    const started = await api.post(uid, {
+      type: 'start',
+      clientVersion: 9,
+      actionId: crypto.randomUUID(),
+      roomId: roomState.id,
+      expectedVersion: roomState.version,
+      matchId: roomState.matchId,
+    });
+    assert.equal(started.status, 200, JSON.stringify(started.value));
+    roomState = started.value.room;
+    assert.equal(roomState.game.step, 'report-sam');
+
+    const malformed = await api.post(roomState.game.turn, {
+      type: 'game-action',
+      clientVersion: 9,
+      actionId: crypto.randomUUID(),
+      roomId: roomState.id,
+      expectedVersion: roomState.version,
+      matchId: roomState.matchId,
+      gameAction: { type: 'pass-report', extra: true },
+    });
+    assert.equal(malformed.status, 400);
+    assert.equal(malformed.value.error, 'invalid-input');
+
+    const acted = await api.post(roomState.game.turn, {
+      type: 'game-action',
+      clientVersion: 10,
+      actionId: crypto.randomUUID(),
+      roomId: roomState.id,
+      expectedVersion: roomState.version,
+      matchId: roomState.matchId,
+      gameAction: { type: 'pass-report' },
+    });
+    assert.equal(acted.status, 200, JSON.stringify(acted.value));
+    assert.equal(acted.value.room.game.reported.length, 1);
+    assert.equal(acted.value.room.version, roomState.version + 1);
+    const secondReport = await api.post(acted.value.room.game.turn, {
+      type: 'game-action',
+      clientVersion: 10,
+      actionId: crypto.randomUUID(),
+      roomId: acted.value.room.id,
+      expectedVersion: acted.value.room.version,
+      matchId: acted.value.room.matchId,
+      gameAction: { type: 'pass-report' },
+    });
+    assert.equal(secondReport.status, 200, JSON.stringify(secondReport.value));
+    assert.equal(secondReport.value.room.version, acted.value.room.version + 1);
+
+    const beforeLease = (
+      await db.query(
+        'select lease_until from public.lifemate_game_seats where uid=$1 and room_id=$2',
+        [uid, roomState.id],
+      )
+    ).rows[0].lease_until;
+    const oldLease = await api.post(uid, { type: 'lease', clientVersion: 8 });
+    assert.equal(oldLease.status, 409);
+    assert.equal(oldLease.value.error, 'game-update-required');
+    assert.equal(renewCalls, 0);
+    assert.equal(
+      (
+        await db.query(
+          'select lease_until from public.lifemate_game_seats where uid=$1 and room_id=$2',
+          [uid, roomState.id],
+        )
+      ).rows[0].lease_until.getTime(),
+      beforeLease.getTime(),
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+test('protocol 10 commits Tấn attack and defend actions over HTTP', async () => {
+  const db = await setup();
+  const api = readyApi(db);
+  try {
+    const created = await api.post(uid, {
+      type: 'create',
+      clientVersion: 10,
+      actionId: crypto.randomUUID(),
+      game: 'tan',
+      variantConfig: { pointsPerCard: 1 },
+      name: 'An',
+    });
+    assert.equal(created.status, 200, JSON.stringify(created.value));
+    const joined = await api.post(other, {
+      type: 'join',
+      clientVersion: 10,
+      actionId: crypto.randomUUID(),
+      code: created.value.room.code,
+      name: 'Bình',
+    });
+    assert.equal(joined.status, 200, JSON.stringify(joined.value));
+    const otherReady = await api.post(other, {
+      type: 'ready',
+      clientVersion: 10,
+      actionId: crypto.randomUUID(),
+      roomId: joined.value.room.id,
+      expectedVersion: joined.value.room.version,
+      matchId: joined.value.room.matchId,
+      ready: true,
+    });
+    assert.equal(otherReady.status, 200, JSON.stringify(otherReady.value));
+    const started = await api.post(uid, {
+      type: 'ready',
+      clientVersion: 10,
+      actionId: crypto.randomUUID(),
+      roomId: otherReady.value.room.id,
+      expectedVersion: otherReady.value.room.version,
+      matchId: otherReady.value.room.matchId,
+      ready: true,
+    });
+    assert.equal(started.status, 200, JSON.stringify(started.value));
+
+    const deck = [
+      0,
+      4,
+      ...Array.from({ length: 52 }, (_, card) => card).filter(
+        (card) => card !== 0 && card !== 4,
+      ),
+    ];
+    const tanState = newTanGame([uid, other], deck, Date.now());
+    await db.query(
+      "update public.lifemate_game_rooms set state=jsonb_set(state,'{game}',$2::jsonb),version=version+1 where id=$1",
+      [started.value.room.id, JSON.stringify(tanState)],
+    );
+    const attackRoom = await api.post(uid, { type: 'sync', clientVersion: 10 });
+    assert.equal(attackRoom.status, 200, JSON.stringify(attackRoom.value));
+    assert.equal(attackRoom.value.room.game.turn, uid);
+    const attacked = await api.post(uid, {
+      type: 'game-action',
+      clientVersion: 10,
+      actionId: crypto.randomUUID(),
+      roomId: attackRoom.value.room.id,
+      expectedVersion: attackRoom.value.room.version,
+      matchId: attackRoom.value.room.matchId,
+      gameAction: { type: 'attack', card: 0 },
+    });
+    assert.equal(attacked.status, 200, JSON.stringify(attacked.value));
+    const passed = await api.post(uid, {
+      type: 'game-action',
+      clientVersion: 10,
+      actionId: crypto.randomUUID(),
+      roomId: attacked.value.room.id,
+      expectedVersion: attacked.value.room.version,
+      matchId: attacked.value.room.matchId,
+      gameAction: { type: 'pass-attack' },
+    });
+    assert.equal(passed.status, 200, JSON.stringify(passed.value));
+    const defendRoom = await api.post(other, {
+      type: 'sync',
+      clientVersion: 10,
+    });
+    assert.equal(defendRoom.status, 200, JSON.stringify(defendRoom.value));
+    assert.equal(defendRoom.value.room.game.turn, other);
+    const defended = await api.post(other, {
+      type: 'game-action',
+      clientVersion: 10,
+      actionId: crypto.randomUUID(),
+      roomId: defendRoom.value.room.id,
+      expectedVersion: defendRoom.value.room.version,
+      matchId: defendRoom.value.room.matchId,
+      gameAction: { type: 'defend', index: 0, card: 4 },
+    });
+    assert.equal(defended.status, 200, JSON.stringify(defended.value));
+    assert.equal(defended.value.room.version, defendRoom.value.room.version + 1);
   } finally {
     await db.close();
   }

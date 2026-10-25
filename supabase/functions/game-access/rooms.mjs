@@ -1,5 +1,6 @@
 import { gameEngine } from './game-engines.mjs';
 import { configuredSouth, settleConfiguredSouth } from './tienlen-scoring.mjs';
+import { settleNorthVariant, settleSamVariant } from './variant-scoring.mjs';
 
 export function updateRoom(input, uid, action, now, deck) {
   const state = structuredClone(input);
@@ -114,7 +115,7 @@ export function updateRoom(input, uid, action, now, deck) {
         deck,
         now,
         winner,
-        state.gameKind === 'phom' ? state.phomConfig : state.southConfig,
+        gameConfig(state),
       );
       state.phase = 'playing';
       state.members.forEach((p) => {
@@ -135,26 +136,52 @@ export function updateRoom(input, uid, action, now, deck) {
       deck,
       now,
       null,
-      state.gameKind === 'phom' ? state.phomConfig : state.southConfig,
+      gameConfig(state),
     );
     state.phase = 'playing';
     state.members.forEach((p) => {
       p.ready = false;
     });
-  } else if (['play', 'pass'].includes(action.type)) {
+  } else if (['play', 'pass', 'game-action'].includes(action.type)) {
     if (state.phase !== 'playing') throw Error('finished');
+    const kind = state.gameKind ?? 'south';
+    if (['sam', 'tan'].includes(kind)) {
+      if (
+        action.type !== 'game-action' ||
+        !action.gameAction ||
+        typeof action.gameAction !== 'object'
+      )
+        throw Error('invalid-action');
+    } else if (action.type === 'game-action') throw Error('invalid-action');
     if (state.gameKind !== 'phom' && action.phomAction !== undefined)
       throw Error('invalid-input');
-    state.game = gameEngine(state).play(state.game, uid, action, now);
+    state.game = gameEngine(state).play(
+      state.game,
+      uid,
+      action,
+      now,
+    );
   } else throw Error('invalid-input');
   const started =
     action.type === 'start' || shouldStartRematch(input, uid, action);
   return finishRoom(input, state, started);
 }
 
+function gameConfig(state) {
+  if (state.gameKind === 'phom') return state.phomConfig;
+  if (['north', 'sam', 'tan'].includes(state.gameKind))
+    return state.variantConfig;
+  return state.southConfig;
+}
+
 function applyNextRules(state) {
   if (state.gameKind === 'phom') {
     if (state.nextPhomConfig) state.phomConfig = { ...state.nextPhomConfig };
+    return;
+  }
+  if (['north', 'sam', 'tan'].includes(state.gameKind)) {
+    if (state.nextVariantConfig)
+      state.variantConfig = { ...state.nextVariantConfig };
     return;
   }
   if (!state.nextSouthRules) return;
@@ -192,6 +219,7 @@ export function finishRoom(previous, state, started = false) {
       (previous.phase === 'playing' || started)
     ) {
       const ranking = state.game.result?.ranking ?? [];
+      const gameKind = state.gameKind ?? 'south';
       const winner = ranking.find(
         (p) => p.rank === 1 && !p.labels.includes('forfeit'),
       );
@@ -204,18 +232,65 @@ export function finishRoom(previous, state, started = false) {
           'Người chơi';
         const player = state.game.players.find((p) => p.uid === result.uid);
         result.remainingCards = player?.hand.length ?? 0;
-        if (state.gameKind !== 'phom' && !state.game.southConfig)
+        if (
+          gameKind === 'south' &&
+          !state.game.southConfig
+        )
           result.moneyDelta =
             result.uid === winner?.uid
               ? 0
               : -(result.remainingCards * (state.amountPerCard ?? 0));
-        if (result.uid !== winner?.uid && !state.game.southConfig)
+        if (
+          gameKind === 'south' &&
+          result.uid !== winner?.uid &&
+          !state.game.southConfig
+        )
           losersTotal -= result.moneyDelta;
       }
-      if (state.game.southConfig)
+      if (gameKind === 'south' && state.game.southConfig)
         settleConfiguredSouth(state.game, state.amountPerCard ?? 0);
-      else if (winner && state.gameKind !== 'phom')
+      else if (gameKind === 'south' && winner)
         winner.moneyDelta = losersTotal;
+      else if (
+        gameKind === 'north' &&
+        state.variantConfig?.rulesVersion === 'north-v2'
+      ) {
+        settleNorthVariant(state.game, state.variantConfig);
+      } else if (
+        gameKind === 'sam' &&
+        state.variantConfig?.rulesVersion === 'sam-v2'
+      ) {
+        settleSamVariant(state.game, state.variantConfig);
+      } else if (['north', 'sam'].includes(gameKind) && winner) {
+        const pointsPerCard = state.variantConfig?.pointsPerCard ?? 1;
+        losersTotal = 0;
+        for (const result of ranking) {
+          result.moneyDelta =
+            result.uid === winner.uid
+              ? 0
+              : -result.remainingCards * pointsPerCard;
+          if (result.uid !== winner.uid) losersTotal -= result.moneyDelta;
+        }
+        winner.moneyDelta = losersTotal;
+      } else if (gameKind === 'tan' && ranking.length) {
+        const pointsPerCard = state.variantConfig?.pointsPerCard ?? 1;
+        const naturalFinishers = ranking.filter(
+          (result) => !result.labels.includes('forfeit'),
+        );
+        const loser = naturalFinishers.at(-1);
+        const pointsPerOpponent = loser?.remainingCards ?? 0;
+        for (const result of ranking) {
+          result.moneyDelta =
+            state.game.result.reason === 'all-out' ||
+            result.labels.includes('forfeit') ||
+            !loser ||
+            naturalFinishers.length < 2
+              ? 0
+              : result.uid === loser.uid
+                ? -pointsPerOpponent * (naturalFinishers.length - 1) * pointsPerCard
+                : pointsPerOpponent * pointsPerCard;
+        }
+      } else if (gameKind !== 'phom') throw Error('invalid-input');
       for (const result of ranking) {
         const member = state.members.find((p) => p.uid === result.uid);
         const scoreMember = state.scoreMembers.find(
@@ -233,7 +308,11 @@ export function finishRoom(previous, state, started = false) {
     for (const result of state.game.result?.ranking ?? []) {
       const member = state.members.find((p) => p.uid === result.uid);
       const scoreMember = state.scoreMembers.find((p) => p.uid === result.uid);
-      if (result.rank === 1 && !result.labels.includes('forfeit')) {
+      if (
+        result.rank === 1 &&
+        !result.labels.includes('forfeit') &&
+        state.game.result.reason !== 'all-out'
+      ) {
         if (scoreMember) scoreMember.wins++;
         if (member) member.wins++;
       }
@@ -295,10 +374,21 @@ export function roomSnapshot(
       controller,
       topic: `card-room:${record.id}:${record.epoch}`,
       ...(lifecycle && { amountPerCard: state.amountPerCard ?? 0 }),
+      ...(state.gameKind && { gameKind: state.gameKind }),
       ...(state.gameKind === 'phom' && {
-        gameKind: 'phom',
         phomConfig: { ...state.phomConfig },
       }),
+      ...(nextRules >= 10 &&
+        state.gameKind &&
+        ['north', 'sam', 'tan'].includes(state.gameKind) && {
+          variantConfig:
+            nextRules >= 11 &&
+            ['north-v2', 'sam-v2'].includes(
+              state.variantConfig?.rulesVersion,
+            )
+              ? { ...state.variantConfig }
+              : { pointsPerCard: state.variantConfig?.pointsPerCard ?? 1 },
+        }),
       ...(state.southConfig && { southConfig: { ...state.southConfig } }),
       ...(nextRules >= 6 &&
         (nextRules >= 7 || !state.nextPhomConfig?.options) &&
@@ -308,6 +398,16 @@ export function roomSnapshot(
       ...(nextRules &&
         state.nextSouthRules && {
           nextSouthRules: structuredClone(state.nextSouthRules),
+        }),
+      ...(nextRules >= 10 &&
+        state.nextVariantConfig && {
+          nextVariantConfig:
+            nextRules >= 11 ||
+            !['north-v2', 'sam-v2'].includes(
+              state.nextVariantConfig.rulesVersion,
+            )
+              ? { ...state.nextVariantConfig }
+              : { pointsPerCard: state.nextVariantConfig.pointsPerCard },
         }),
       members: state.members.map((p) => ({
         uid: p.uid,
