@@ -53,6 +53,7 @@ export function isPhomView(g: unknown, viewer: string): g is PhomView {
           'discards',
           'laid',
           'turns',
+          'resultCards',
         ]) &&
         uid(p.uid) &&
         count(p.count, 10) &&
@@ -65,6 +66,17 @@ export function isPhomView(g: unknown, viewer: string): g is PhomView {
         cards(p.discards, 4) &&
         typeof p.laid === 'boolean' &&
         count(p.turns, 4) &&
+        (p.resultCards === undefined ||
+          (g.status === 'finished' &&
+            object(p.resultCards) &&
+            keys(p.resultCards, ['discards', 'remaining']) &&
+            cards(p.resultCards.discards, 52) &&
+            cards(p.resultCards.remaining, 10) &&
+            p.resultCards.remaining.length === p.count &&
+            new Set([...p.resultCards.discards, ...p.resultCards.remaining])
+              .size ===
+              p.resultCards.discards.length +
+                p.resultCards.remaining.length)) &&
         Array.isArray(p.melds) &&
         p.melds.length <= 3 &&
         p.melds.every((m) => cards(m, 13) && m.length >= 3) &&

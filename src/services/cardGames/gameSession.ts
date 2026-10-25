@@ -67,10 +67,10 @@ export function createGameSession(deps: Dependencies) {
         optionsKnown ||
         room?.phomConfig?.options ||
         room?.nextPhomConfig?.options;
-      const snapshot = await deps.request(
-        needsOptions ? { ...input, requiredClientVersion: 7 } : input,
-        abort.signal,
-      );
+      // Keep the pending request's identity so its negotiated HTTP protocol
+      // survives retries. This local fence is stripped by gameRequest.
+      if (needsOptions) input.requiredClientVersion = 7;
+      const snapshot = await deps.request(input, abort.signal);
       optionsKnown = !!(
         snapshot.room?.phomConfig?.options ||
         snapshot.room?.nextPhomConfig?.options
@@ -189,11 +189,12 @@ export function createGameSession(deps: Dependencies) {
     }
     const pendingRoomId = pending?.roomId ?? old?.room?.id;
     const pendingResolved =
-      pending?.expectedVersion !== undefined &&
-      !!snapshot.room &&
-      snapshot.room.id === pendingRoomId &&
-      (snapshot.room.version > pending.expectedVersion ||
-        snapshot.room.matchId !== pending.matchId);
+      (pending?.type === 'leave' && snapshot.room === null) ||
+      (pending?.expectedVersion !== undefined &&
+        !!snapshot.room &&
+        snapshot.room.id === pendingRoomId &&
+        (snapshot.room.version > pending.expectedVersion ||
+          snapshot.room.matchId !== pending.matchId));
     if (pendingResolved) {
       pending = null;
       uncertain = false;
@@ -264,7 +265,7 @@ export function createGameSession(deps: Dependencies) {
     }
   };
   const execute = async (input: GameRequest) => {
-    if (!active || state.busy) return;
+    if (!active || state.busy) return false;
     const current = generation;
     pending = input;
     refreshConflict = null;
@@ -275,8 +276,9 @@ export function createGameSession(deps: Dependencies) {
       if (active && current === generation) {
         pending = null;
         uncertain = false;
-        accept(snapshot);
+        const accepted = accept(snapshot);
         emit({ error: null });
+        return accepted && (input.type !== 'leave' || snapshot.room === null);
       }
     } catch (error) {
       if (active && current === generation) {
@@ -309,6 +311,7 @@ export function createGameSession(deps: Dependencies) {
     } finally {
       if (active && current === generation) emit({ busy: false });
     }
+    return false;
   };
   const stop = (clearSnapshot = true) => {
     active = false;
@@ -363,11 +366,11 @@ export function createGameSession(deps: Dependencies) {
     stop: () => stop(),
     async send(intent: GameIntent) {
       if (!active || state.loading || state.busy || pending || !state.connected)
-        return;
+        return false;
       const room = state.snapshot?.room;
       const input: GameRequest = { ...intent, sessionId: deps.sessionId };
       if (!['create', 'join'].includes(intent.type)) {
-        if (!room) return;
+        if (!room) return false;
         input.roomId = room.id;
         if (
           room.phomConfig?.options ||
@@ -383,11 +386,11 @@ export function createGameSession(deps: Dependencies) {
       }
       if (intent.type !== 'takeover') input.actionId = deps.uuid();
       if (!['create', 'join', 'takeover'].includes(intent.type)) {
-        if (!room) return;
+        if (!room) return false;
         input.expectedVersion = room.version;
         input.matchId = room.matchId;
       }
-      await execute(input);
+      return execute(input);
     },
     async retry() {
       if (!active || state.busy) return;

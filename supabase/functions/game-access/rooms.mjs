@@ -200,6 +200,7 @@ export function finishRoom(previous, state, started = false) {
         result.name =
           previous.members.find((p) => p.uid === result.uid)?.name ??
           state.members.find((p) => p.uid === result.uid)?.name ??
+          state.scoreMembers.find((p) => p.uid === result.uid)?.name ??
           'Người chơi';
         const player = state.game.players.find((p) => p.uid === result.uid);
         result.remainingCards = player?.hand.length ?? 0;
@@ -256,7 +257,7 @@ export function roomSnapshot(
   const state = record.state;
   if (!state.members.some((p) => p.uid === uid)) throw Error('not-member');
   const game = state.game?.players.some((p) => p.uid === uid)
-    ? gameEngine(state).view(state.game, uid)
+    ? gameEngine(state).view(state.game, uid, nextRules >= 8)
     : null;
   if (game && lifecycle) {
     const scoreMembers = state.scoreMembers ?? state.members;

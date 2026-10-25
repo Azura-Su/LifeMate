@@ -771,7 +771,7 @@ it('places three opponents around the portrait table for four players', () => {
   ).toBeTruthy();
   expect(screen.getByTestId('portrait-four-player-table')).toBeTruthy();
   expect(StyleSheet.flatten(styles.portraitFourBoard)).toMatchObject({
-    paddingTop: 252,
+    paddingTop: 150,
     paddingBottom: 20,
   });
 });

@@ -33,7 +33,7 @@ const phomRules = [
   ],
   [
     'Tính hạng',
-    'Rác: A=1, J=11, Q=12, K=13; các lá khác theo số. Người có phỏm xếp trước móm; ít điểm rác thắng, hòa xét thứ tự hạ. Tất cả móm thì người hạ trước thắng.',
+    'Điểm bài lẻ (lá không nằm trong phỏm): A=1, J=11, Q=12, K=13; các lá khác theo số. Người có phỏm xếp trước móm; ít điểm hơn thắng, hòa xét thứ tự hạ. Tất cả móm thì người hạ trước thắng.',
   ],
   [
     'Ăn chốt và đền',

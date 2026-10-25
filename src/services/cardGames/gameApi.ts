@@ -77,6 +77,20 @@ function normalizeTokenError(error: unknown): unknown {
   return error;
 }
 
+type ProtocolVersion = 8 | 7 | 6 | 5 | 4 | 3 | 2 | undefined;
+// A pending request owns its protocol until it is released. Retrying after an
+// Edge rollout must preserve the receipt fingerprint, including clientVersion.
+const negotiatedProtocols = new WeakMap<
+  GameRequest,
+  {
+    uid: string;
+    epoch: number;
+    sessionId: string;
+    actionId: string;
+    version: ProtocolVersion;
+  }
+>();
+
 export function gameRequest(
   uid: string,
   input: GameRequest & { type: 'score-list' },
@@ -141,7 +155,15 @@ export async function gameRequest(
   };
   signal.addEventListener('abort', cancel, { once: true });
   const timer = setTimeout(cancel, 15000);
-  let protocolVersion: 7 | 6 | 5 | 4 | 3 | 2 | undefined = 7;
+  const negotiated = negotiatedProtocols.get(input);
+  let protocolVersion: ProtocolVersion =
+    negotiated &&
+    negotiated.uid === uid &&
+    negotiated.epoch === epoch &&
+    negotiated.sessionId === input.sessionId &&
+    negotiated.actionId === input.actionId
+      ? negotiated.version
+      : 8;
   const minimumVersion =
     input.requiredClientVersion ??
     (input.phomConfig?.options
@@ -171,6 +193,8 @@ export async function gameRequest(
       (async () => {
         for (let attempt = 0; attempt < 2; attempt++) {
           assertSession();
+          if ((protocolVersion ?? 1) < minimumVersion)
+            throw new GameApiError('game-update-required', 409);
           const user = getAuth().currentUser!;
           let token: string;
           try {
@@ -179,6 +203,14 @@ export async function gameRequest(
             throw normalizeTokenError(error);
           }
           assertSession();
+          if (input.actionId)
+            negotiatedProtocols.set(input, {
+              uid,
+              epoch,
+              sessionId: input.sessionId,
+              actionId: input.actionId,
+              version: protocolVersion,
+            });
           const response = await fetch(`${origin}/functions/v1/game-access`, {
             method: 'POST',
             signal: controller.signal,
@@ -214,17 +246,19 @@ export async function gameRequest(
               if (protocolVersion <= minimumVersion)
                 throw new GameApiError('game-update-required', 409);
               protocolVersion =
-                protocolVersion === 7
-                  ? 6
-                  : protocolVersion === 6
-                    ? 5
-                    : protocolVersion === 5
-                      ? 4
-                      : protocolVersion === 4
-                        ? 3
-                        : protocolVersion === 3
-                          ? 2
-                          : undefined;
+                protocolVersion === 8
+                  ? 7
+                  : protocolVersion === 7
+                    ? 6
+                    : protocolVersion === 6
+                      ? 5
+                      : protocolVersion === 5
+                        ? 4
+                        : protocolVersion === 4
+                          ? 3
+                          : protocolVersion === 3
+                            ? 2
+                            : undefined;
               attempt -= 1;
               continue;
             }

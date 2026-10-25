@@ -32,6 +32,8 @@ export const cardLabel = (card: number) =>
 export function PlayingCard({
   card,
   selected = false,
+  hinted = false,
+  accessibilityHint,
   onPress,
   disabled = false,
   stacked = false,
@@ -45,6 +47,8 @@ export function PlayingCard({
 }: {
   card: number;
   selected?: boolean;
+  hinted?: boolean;
+  accessibilityHint?: string;
   onPress?: () => void;
   disabled?: boolean;
   stacked?: boolean;
@@ -56,17 +60,19 @@ export function PlayingCard({
   dealIndex?: number;
   dealDelayMs?: number;
 }) {
-  const selection = useRef(new Animated.Value(selected ? 1 : 0)).current;
+  const selection = useRef(
+    new Animated.Value(selected || hinted ? 1 : 0),
+  ).current;
   useEffect(() => {
     const animation = Animated.timing(selection, {
-      toValue: selected ? 1 : 0,
+      toValue: selected || hinted ? 1 : 0,
       duration: 150,
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     });
     animation.start();
     return () => animation.stop();
-  }, [selected, selection]);
+  }, [selected, hinted, selection]);
 
   const lift = stacked ? 14 : 4;
   const dealtKey = useRef<string | null>(null);
@@ -101,6 +107,7 @@ export function PlayingCard({
         styles.face,
         stacked && styles.stackedFace,
         stacked && compact && styles.compactStackedFace,
+        hinted && styles.hinted,
         selected && styles.selected,
       ]}
     >
@@ -130,6 +137,7 @@ export function PlayingCard({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={cardLabel(card)}
+      accessibilityHint={accessibilityHint}
       accessibilityState={{ selected, disabled }}
       disabled={disabled}
       onPress={onPress}
@@ -176,7 +184,11 @@ export function PlayingCard({
       </Animated.View>
     </Pressable>
   ) : (
-    <View accessible accessibilityLabel={cardLabel(card)}>
+    <View
+      accessible
+      accessibilityLabel={cardLabel(card)}
+      accessibilityHint={accessibilityHint}
+    >
       {content}
     </View>
   );
@@ -198,6 +210,11 @@ const styles = StyleSheet.create({
     borderColor: colors.earth,
     borderWidth: 2,
     backgroundColor: colors.sunlightSoft,
+  },
+  hinted: {
+    borderColor: colors.success,
+    borderWidth: 2,
+    backgroundColor: colors.successSoft,
   },
   stackedTarget: { minWidth: 56, minHeight: 84 },
   compactStackedTarget: { minWidth: 44, minHeight: 62 },

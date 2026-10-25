@@ -326,27 +326,56 @@ export function CardGamesScreen({
     !!state?.pending ||
     room?.controller === false;
   const backBlocked =
-    !!room && !cachedRejoin && !!state?.loading && !state?.error;
-  const liveKickContext = useRef({
+    !!room &&
+    !cachedRejoin &&
+    (leavingRoom ||
+      !!state?.busy ||
+      (!!state?.pending && !(state.loading && state.error)) ||
+      (!!state?.loading && !state?.error));
+  const liveRoomContext = useRef({
     uid,
     epoch,
     room,
+    serverRoom,
     active,
     blocked,
     cachedRejoin,
     selectedPlayerUid,
     session,
+    connected: state?.connected === true,
   });
-  liveKickContext.current = {
+  liveRoomContext.current = {
     uid,
     epoch,
     room,
+    serverRoom,
     active,
     blocked,
     cachedRejoin,
     selectedPlayerUid,
     session,
+    connected: state?.connected === true,
   };
+  const leaveAttempt = useRef<typeof liveRoomContext.current | null>(null);
+  const isCurrentLeave = useCallback(
+    (attempt: typeof liveRoomContext.current) => {
+      const current = liveRoomContext.current;
+      const auth = useAuthStore.getState();
+      return (
+        auth.user?.uid === attempt.uid &&
+        auth.sessionEpoch === attempt.epoch &&
+        current.uid === attempt.uid &&
+        current.epoch === attempt.epoch &&
+        current.active &&
+        current.session === attempt.session &&
+        (!current.serverRoom ||
+          (current.serverRoom.id === attempt.serverRoom?.id &&
+            current.serverRoom.matchId === attempt.serverRoom.matchId &&
+            current.serverRoom.controller !== false))
+      );
+    },
+    [],
+  );
   useEffect(() => {
     setEditingRules(false);
   }, [uid, epoch, active, room?.id, room?.matchId, ownerUid, room?.controller]);
@@ -378,7 +407,7 @@ export function CardGamesScreen({
           text: 'Kích người chơi',
           style: 'destructive',
           onPress: () => {
-            const current = liveKickContext.current;
+            const current = liveRoomContext.current;
             const auth = useAuthStore.getState();
             if (
               kickConfirmation.current !== confirmation ||
@@ -540,6 +569,7 @@ export function CardGamesScreen({
     Alert.alert('Thông báo', 'Bạn đã bị chủ phòng mời ra khỏi phòng.');
   }, [uid, active, state?.snapshot?.removal, navigation]);
   const returnToCardScore = useCallback(() => {
+    leaveAttempt.current = null;
     setLastKnownRoom(null);
     setRejoinCode(null);
     setRoomRejoinPending(false);
@@ -548,6 +578,30 @@ export function CardGamesScreen({
     setLeavingRoom(false);
     navigation.navigate('CardScore');
   }, [navigation]);
+  useEffect(() => {
+    const attempt = leaveAttempt.current;
+    if (!attempt) return;
+    if (!isCurrentLeave(attempt)) {
+      leaveAttempt.current = null;
+      setLeavingRoom(false);
+    } else if (
+      state?.snapshot?.room === null &&
+      !state.loading &&
+      !state.busy
+    ) {
+      // A fresh authorized read can confirm a leave whose HTTP ACK was lost.
+      returnToCardScore();
+    }
+  }, [
+    uid,
+    epoch,
+    active,
+    session,
+    room,
+    state,
+    isCurrentLeave,
+    returnToCardScore,
+  ]);
   const handleBack = useCallback(() => {
     if (backBlocked) return;
     if (room && cachedRejoin) {
@@ -571,6 +625,8 @@ export function CardGamesScreen({
       );
       return;
     }
+    const context = liveRoomContext.current;
+    if (context.blocked || !context.connected || !context.session) return;
     Alert.alert(
       playing ? 'Rời ván đang chơi?' : 'Rời phòng?',
       playing
@@ -582,10 +638,27 @@ export function CardGamesScreen({
           text: 'Rời phòng',
           style: 'destructive',
           onPress: () => {
+            const current = liveRoomContext.current;
+            if (
+              !isCurrentLeave(context) ||
+              current.blocked ||
+              !current.connected ||
+              current.cachedRejoin ||
+              !current.serverRoom ||
+              current.room?.phase !== context.room?.phase
+            )
+              return;
+            leaveAttempt.current = context;
             setLeavingRoom(true);
-            void Promise.resolve(session?.send({ type: 'leave' })).finally(
-              returnToCardScore,
-            );
+            void current
+              .session!.send({ type: 'leave' })
+              .then((confirmed) => {
+                if (leaveAttempt.current !== context) return;
+                if (confirmed && isCurrentLeave(context)) returnToCardScore();
+              })
+              .finally(() => {
+                if (leaveAttempt.current === context) setLeavingRoom(false);
+              });
           },
         },
       ],
@@ -600,7 +673,7 @@ export function CardGamesScreen({
     state?.loading,
     state?.error,
     playing,
-    session,
+    isCurrentLeave,
     returnToCardScore,
   ]);
   useEffect(() => {
@@ -1551,7 +1624,7 @@ export function CardGamesScreen({
             blocked={blocked}
             onClose={() => setEditingRules(false)}
             onSave={(intent, version) => {
-              const current = liveKickContext.current;
+              const current = liveRoomContext.current;
               const currentOwner =
                 current.room?.ownerUid !== undefined
                   ? current.room.ownerUid

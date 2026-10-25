@@ -9,6 +9,7 @@ import { newTienLenGame } from '../game-access/tienlen.mjs';
 import { ensureRealtimeRole } from '../game-access/realtimeIdentity.mjs';
 import { createGameHandler } from '../game-access/handler.mjs';
 import { advanceExpiredRoom } from '../game-access/worker.mjs';
+import { DEFAULT_PHOM_CONFIG } from '../game-access/phom-scoring.mjs';
 
 const members = [
   { uid: 'a', name: 'An', ready: true, wins: 0 },
@@ -26,14 +27,85 @@ const others = Array.from({ length: 52 }, (_, i) => i).filter(
 );
 const deck = dragon.flatMap((c, i) => [c, others[i]]).concat(others.slice(13));
 
+for (const gameKind of ['south', 'phom']) {
+  test(`${gameKind} preserves names of players who departed before the final forfeit`, () => {
+    let state = {
+      ...lobby(),
+      gameKind,
+      phomConfig: DEFAULT_PHOM_CONFIG,
+      amountPerCard: 2,
+      members: [
+        ...structuredClone(members),
+        { uid: 'c', name: 'Chi', ready: true, wins: 0 },
+      ],
+    };
+    state = updateRoom(
+      state,
+      'a',
+      { type: 'start' },
+      0,
+      Array.from({ length: 52 }, (_, i) => i),
+    );
+    assert.equal(state.phase, 'playing');
+    state = updateRoom(state, 'b', { type: 'leave' }, 1);
+    state = updateRoom(state, 'c', { type: 'leave' }, 2);
+    assert.equal(state.phase, 'finished');
+    assert.equal(
+      state.game.result.ranking.find((p) => p.uid === 'b').name,
+      'Bình',
+    );
+    assert.equal(
+      state.game.result.ranking.find((p) => p.uid === 'c').name,
+      'Chi',
+    );
+    assert.equal(
+      state.game.result.ranking.reduce((sum, p) => sum + p.moneyDelta, 0),
+      0,
+    );
+  });
+}
+
+test('result names use the current anonymized score roster after erasure', () => {
+  let state = {
+    ...lobby(),
+    members: [
+      ...structuredClone(members),
+      { uid: 'c', name: 'Chi', ready: true, wins: 0 },
+    ],
+  };
+  state = updateRoom(
+    state,
+    'a',
+    { type: 'start' },
+    0,
+    Array.from({ length: 52 }, (_, i) => i),
+  );
+  state = updateRoom(state, 'b', { type: 'leave' }, 1);
+  state.scoreMembers.find((p) => p.uid === 'b').name = 'Người chơi đã xóa';
+  state = updateRoom(state, 'c', { type: 'leave' }, 2);
+  assert.equal(
+    state.game.result.ranking.find((p) => p.uid === 'b').name,
+    'Người chơi đã xóa',
+  );
+});
+
 test('joining preserves the readiness of players already waiting', () => {
   const waiting = { ...lobby(), members: [structuredClone(members[0])] };
   const joined = updateRoom(waiting, 'b', { type: 'join', name: 'Bình' }, 100);
-  assert.deepEqual(joined.members.map((p) => [p.uid, p.ready]), [
-    ['a', true],
-    ['b', false],
-  ]);
-  const started = updateRoom(joined, 'b', { type: 'ready', ready: true }, 200, deck);
+  assert.deepEqual(
+    joined.members.map((p) => [p.uid, p.ready]),
+    [
+      ['a', true],
+      ['b', false],
+    ],
+  );
+  const started = updateRoom(
+    joined,
+    'b',
+    { type: 'ready', ready: true },
+    200,
+    deck,
+  );
   assert.ok(['playing', 'finished'].includes(started.phase));
   assert.equal(waiting.members[0].ready, true);
 });
@@ -192,8 +264,7 @@ test('reopening an expired room keeps its identity and prior score members', () 
   };
 
   assert.throws(
-    () =>
-      updateRoom(expired, 'b', { type: 'reopen', name: 'Bình' }, 100),
+    () => updateRoom(expired, 'b', { type: 'reopen', name: 'Bình' }, 100),
     /not-owner/,
   );
   const reopened = updateRoom(

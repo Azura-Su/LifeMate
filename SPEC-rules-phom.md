@@ -66,14 +66,32 @@ Chủ phòng sửa luật ván tới ngay trong phòng; khi chia match mới m�
 - Chọn1 lá để đánh/gửi; chọn nhiều lá để hạ phỏm. Gợi ý tự xếp tối ưu và hạ tự
   động vẫn có sẵn để không bắt người chơi thao tác nhiều. Các đích gửi có nhãn
   chủ phỏm, không gửi ngay khi chưa chọn đích. Không xóa bài sớm trước commit.
+- Khi server xác nhận ăn được và người chơi còn quyền thao tác ở bước ăn/bốc,
+  lá vừa đánh có nhãn “Ăn được”; hai lá trên tay có thể ghép cùng lá đó được
+  nâng và viền xanh. Gợi ý giữ được các phỏm chứa bài đã ăn trước đó, không tự
+  chọn bài hoặc gửi hành động. Hết quyền/lượt hoặc chuyển bước thì bỏ gợi ý.
+- “Gom phỏm” gom các lá đang chọn để xem trước; “Hạ tự động” để server tự hạ,
+  còn “Hạ phỏm” xác nhận hạ các bộ đã gom. Bài nhỏ luôn hiện số và chất một hàng.
 - Kết quả có hạng, rác/móm/ù/đền, từng khoản và tổng delta; Sẵn sàng ván tiếp
   dùng cơ chế auto-start hiện có. Tự ghi một dòng vào bảng điểm chung theo matchId.
+- Bấm từng dòng kết quả để xem riêng bài đã đánh, bài đã ăn, từng phỏm đã hạ
+  và bài còn trên tay của người đó khi kết thúc ván. Bài đã đánh gồm cả lá đã
+  bị người khác ăn; các nhóm bài hiển thị riêng, không ngụ ý thứ tự đánh.
+  Popup đóng khi đổi phòng/ván, rời màn hoặc bắt đầu ván mới.
 - Khi đang chơi, ghế dùng Game Participants, kể cả người đã bỏ cuộc; số lá còn
   lấy từ `player.count`, không lộ tay đối thủ. Sau ván, ghế chờ/popup/quản lý dùng
   Room Members hiện tại và không hiện số lá giả cho người chưa tham gia ván cũ.
   Kết quả và bài công khai lịch sử vẫn dùng participants của ván đó.
 
 ## Kiến trúc, hợp đồng và quy ước
+
+Chi tiết bài cuối ván dùng capability8: chỉ snapshot Phỏm `finished` gửi thêm
+`players[].resultCards={discards,remaining}`. Không gửi trong ván đang chơi hoặc
+ván hủy, không gửi nọc/tay đối thủ dưới trường `hand`. Capability1–7 giữ nguyên
+hợp đồng cũ. Client mới có thể hạ phiên bản khi server cũ chưa hỗ trợ; thiếu dữ
+liệu phải hiển thị rõ, không suy ra bài từ điểm. Không lưu `resultCards` vào cache
+snapshot trên thiết bị. Hai RPC tiếp quản/sửa luật vẫn nhận capability SQL tối đa7,
+vì capability8 chỉ mở rộng phần xem kết quả, không đổi luật hoặc quyền thao tác.
 
 Expo55/RN0.83/TS5.9, Zustand5; không thêm dependency. Server engine thuần
 `supabase/functions/game-access/phom*.mjs`; Node tests cùng thư mục tests. Client

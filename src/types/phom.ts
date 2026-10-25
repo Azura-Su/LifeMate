@@ -22,6 +22,7 @@ export type PhomView = Omit<TienLenView, 'rulesVersion' | 'players'> & {
     discards: number[];
     laid: boolean;
     turns: number;
+    resultCards?: { discards: number[]; remaining: number[] };
   })[];
   step: 'draw' | 'lay' | 'discard';
   stockCount: number;

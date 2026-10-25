@@ -86,6 +86,7 @@ export function CardGameTable({
   );
   const [handLayout, setHandLayout] = useState({ viewport: 0, width: 0 });
   const [selected, setSelected] = useState<number[]>([]);
+  const [seatHeights, setSeatHeights] = useState({ top: 60, side: 60 });
   const [sortBySuit, setSortBySuit] = useState(false);
   const [activeDealAnimationKey, setActiveDealAnimationKey] = useState<
     string | null
@@ -434,8 +435,10 @@ export function CardGameTable({
           },
       )
     : game.players;
-  const portraitSeatWidth = Math.min(156, Math.max(108, (width - 56) * 0.4));
+  const portraitSeatWidth = Math.min(180, Math.max(108, (width - 48) * 0.46));
   const fourPlayerPortrait = !landscape && seatPlayers.length === 4;
+  // Side seats sit right below the measured top seat so cards never overlap.
+  const portraitSideTop = 6 + seatHeights.top + 8;
   const fourPlayerLandscape = landscape && seatPlayers.length === 4;
   const changeSortOrder = () => {
     if (Platform.OS === 'android') {
@@ -444,170 +447,106 @@ export function CardGameTable({
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSortBySuit((current) => !current);
   };
-  const opponents = getOpponentsInSeatOrder(seatPlayers, uid)
-    .map((p) => {
-      const member = room.members.find((m) => m.uid === p.uid);
-      const inCurrentMatch = game.players.some((player) => player.uid === p.uid);
-      const finalBalance = p.balance ?? member?.balance ?? 0;
-      const result = game.result?.ranking.find((entry) => entry.uid === p.uid);
-      const delta = result?.moneyDelta ?? 0;
-      const isWinner = roundFinished && winnerUID === p.uid;
-      const playerName = p.name ?? member?.name ?? 'Người chơi';
-      const isPlayingTurn = !roundFinished && game.turn === p.uid;
-      return (
+  const opponents = getOpponentsInSeatOrder(seatPlayers, uid).map((p) => {
+    const member = room.members.find((m) => m.uid === p.uid);
+    const inCurrentMatch = game.players.some((player) => player.uid === p.uid);
+    const finalBalance = p.balance ?? member?.balance ?? 0;
+    const result = game.result?.ranking.find((entry) => entry.uid === p.uid);
+    const delta = result?.moneyDelta ?? 0;
+    const isWinner = roundFinished && winnerUID === p.uid;
+    const playerName = p.name ?? member?.name ?? 'Người chơi';
+    const isPlayingTurn = !roundFinished && game.turn === p.uid;
+    return (
+      <View
+        key={p.uid}
+        testID={`opponent-${p.uid}`}
+        style={[
+          styles.opponent,
+          fourPlayerPortrait && styles.portraitFourOpponent,
+          landscape && styles.landscapeOpponent,
+          fourPlayerLandscape && styles.landscapeFourOpponent,
+          isPlayingTurn && styles.currentOpponent,
+          isPlayingTurn &&
+            !landscape &&
+            seconds > 0 &&
+            styles.currentOpponentWithProgress,
+          isPlayingTurn &&
+            seconds > 0 && {
+              borderColor: turnColor,
+              backgroundColor: turnSoftColor,
+              shadowColor: turnColor,
+            },
+        ]}
+      >
+        {isPlayingTurn && !landscape && seconds > 0 && turnProgressBar}
         <View
-          key={p.uid}
-          testID={`opponent-${p.uid}`}
           style={[
-            styles.opponent,
-            fourPlayerPortrait && styles.portraitFourOpponent,
-            landscape && styles.landscapeOpponent,
-            fourPlayerLandscape && styles.landscapeFourOpponent,
-            isPlayingTurn && styles.currentOpponent,
-            isPlayingTurn &&
-              !landscape &&
-              seconds > 0 &&
-              styles.currentOpponentWithProgress,
-            isPlayingTurn &&
-              seconds > 0 && {
-                borderColor: turnColor,
-                backgroundColor: turnSoftColor,
-                shadowColor: turnColor,
-              },
+            styles.opponentIdentityRow,
+            fourPlayerPortrait && styles.portraitFourIdentityRow,
           ]}
+          testID={`opponent-identity-${p.uid}`}
         >
-          {isPlayingTurn && !landscape && seconds > 0 && turnProgressBar}
           <View
             style={[
-              styles.opponentIdentityRow,
-              fourPlayerPortrait && styles.portraitFourIdentityRow,
+              styles.opponentMain,
+              fourPlayerPortrait && styles.portraitFourOpponentMain,
             ]}
-            testID={`opponent-identity-${p.uid}`}
           >
             <View
-              style={[
-                styles.opponentMain,
-                fourPlayerPortrait && styles.portraitFourOpponentMain,
-              ]}
+              style={styles.opponentAvatarColumn}
+              testID={`opponent-avatar-column-${p.uid}`}
             >
               <View
-                style={styles.opponentAvatarColumn}
-                testID={`opponent-avatar-column-${p.uid}`}
-              >
-                <View
-                  ref={anchorRef(`seat:${p.uid}`)}
-                  onLayout={measureAnchors}
-                  style={[
-                    styles.avatarAnchor,
-                    fourPlayerPortrait && styles.portraitFourAvatarAnchor,
-                    landscape && styles.landscapeAvatarAnchor,
-                  ]}
-                >
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Ảnh người chơi ${playerName}`}
-                    disabled={!onPlayerPress || !member}
-                    onPress={() => onPlayerPress?.(p.uid)}
-                    style={[
-                      styles.avatar,
-                      styles.opponentAvatar,
-                      fourPlayerPortrait && styles.portraitFourAvatar,
-                      landscape && styles.landscapeAvatar,
-                      isPlayingTurn &&
-                        seconds > 0 && [
-                          styles.activeTurnAvatar,
-                          { borderColor: turnColor },
-                        ],
-                      isWinner && styles.winnerAvatar,
-                    ]}
-                  >
-                    <Text style={styles.avatarText}>
-                      {(p.name ?? member?.name)?.slice(0, 1).toUpperCase() ?? '—'}
-                    </Text>
-                    <CardGameAvatarImage
-                      uid={p.uid}
-                      url={member?.avatarUrl}
-                      name={playerName}
-                      size={fourPlayerPortrait ? 34 : landscape ? 32 : 36}
-                    />
-                  </Pressable>
-                  {isPlayingTurn && seconds > 0 && (
-                    <Animated.Text
-                      accessibilityLiveRegion="polite"
-                      accessibilityLabel={`Lượt ${p.name ?? member?.name ?? 'người chơi'}, còn ${seconds} giây`}
-                      testID={`opponent-turn-timer-${p.uid}`}
-                      style={[
-                        styles.avatarTurnTimer,
-                        timerTone,
-                        { transform: [{ scale: turnPulse }] },
-                      ]}
-                    >
-                      {seconds}
-                    </Animated.Text>
-                  )}
-                  {isWinner && (
-                    <View
-                      pointerEvents="none"
-                      accessible={false}
-                      testID={`winner-crown-${p.uid}`}
-                      style={styles.winnerCrown}
-                    >
-                      <FontAwesome6
-                        name="crown"
-                        size={12}
-                        color={colors.sunlight}
-                      />
-                    </View>
-                  )}
-                  {isWinner && (
-                    <CardGameWinnerEffects
-                      playerUID={p.uid}
-                      animationKey={`${matchKey}:${p.uid}`}
-                      animate={animateRound}
-                    />
-                  )}
-                </View>
-              </View>
-              <View
+                ref={anchorRef(`seat:${p.uid}`)}
+                onLayout={measureAnchors}
                 style={[
-                  styles.opponentCopy,
-                  fourPlayerPortrait && styles.portraitFourOpponentCopy,
-                  landscape && styles.landscapeOpponentCopy,
+                  styles.avatarAnchor,
+                  fourPlayerPortrait && styles.portraitFourAvatarAnchor,
+                  landscape && styles.landscapeAvatarAnchor,
                 ]}
-                testID={`opponent-copy-${p.uid}`}
               >
-                {isPlayingTurn && (
-                  <Text
-                    testID={`active-player-${p.uid}`}
-                    numberOfLines={1}
-                    style={[styles.activePlayerBadge, { color: turnColor }]}
-                  >
-                    Đang đánh
-                  </Text>
-                )}
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Thông tin người chơi ${playerName}`}
+                  accessibilityLabel={`Ảnh người chơi ${playerName}`}
                   disabled={!onPlayerPress || !member}
                   onPress={() => onPlayerPress?.(p.uid)}
-                  style={{ alignSelf: 'stretch' }}
+                  style={[
+                    styles.avatar,
+                    styles.opponentAvatar,
+                    fourPlayerPortrait && styles.portraitFourAvatar,
+                    landscape && styles.landscapeAvatar,
+                    isPlayingTurn &&
+                      seconds > 0 && [
+                        styles.activeTurnAvatar,
+                        { borderColor: turnColor },
+                      ],
+                    isWinner && styles.winnerAvatar,
+                  ]}
                 >
-                  <Text
-                    testID={`opponent-name-${p.uid}`}
-                    accessibilityLabel={playerName}
-                    numberOfLines={2}
-                    ellipsizeMode="tail"
+                  <Text style={styles.avatarText}>
+                    {(p.name ?? member?.name)?.slice(0, 1).toUpperCase() ?? '—'}
+                  </Text>
+                  <CardGameAvatarImage
+                    uid={p.uid}
+                    url={member?.avatarUrl}
+                    name={playerName}
+                    size={fourPlayerPortrait ? 34 : landscape ? 32 : 36}
+                  />
+                </Pressable>
+                {isPlayingTurn && seconds > 0 && (
+                  <Animated.Text
+                    accessibilityLiveRegion="polite"
+                    accessibilityLabel={`Lượt ${p.name ?? member?.name ?? 'người chơi'}, còn ${seconds} giây`}
+                    testID={`opponent-turn-timer-${p.uid}`}
                     style={[
-                      styles.opponentName,
-                      fourPlayerPortrait && styles.portraitFourOpponentName,
-                      landscape && styles.landscapeOpponentName,
-                      isPlayingTurn && styles.activePlayerName,
-                      isPlayingTurn && seconds > 0 && { color: turnColor },
+                      styles.avatarTurnTimer,
+                      timerTone,
+                      { transform: [{ scale: turnPulse }] },
                     ]}
                   >
-                    {playerName}
-                  </Text>
-                </Pressable>
+                    {seconds}
+                  </Animated.Text>
+                )}
                 {roundFinished && member && (
                   <Text
                     accessibilityLabel={
@@ -622,78 +561,139 @@ export function CardGameTable({
                     testID={`player-ready-${p.uid}`}
                     numberOfLines={1}
                     style={[
-                      styles.playerReadyStatus,
-                      member.ready ? styles.playerReady : styles.playerNotReady,
-                      landscape && styles.landscapePlayerReadyStatus,
+                      member.ready ? styles.readyCheck : styles.readyHidden,
                     ]}
                   >
-                    {member.ready ? 'Sẵn sàng' : 'Chưa sẵn sàng'}
+                    {member.ready ? '✓' : ''}
                   </Text>
                 )}
-                <View style={styles.opponentMetaRow}>
-                  {game.status === 'playing' ? (
-                    <Text
-                      numberOfLines={1}
-                      testID={`remaining-cards-${p.uid}`}
-                      style={[
-                        styles.subtitle,
-                        styles.opponentMeta,
-                        styles.opponentCount,
-                        fourPlayerPortrait && styles.portraitFourOpponentMeta,
-                        landscape && styles.landscapeOpponentMeta,
-                      ]}
-                    >
-                      {p.forfeited
-                        ? `Bỏ cuộc · Còn ${p.count} lá`
-                        : `Còn ${p.count} lá`}
-                    </Text>
-                  ) : (roundFinished && !inCurrentMatch) || p.forfeited ? (
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.subtitle,
-                        styles.opponentMeta,
-                        styles.opponentCount,
-                        fourPlayerPortrait && styles.portraitFourOpponentMeta,
-                        landscape && styles.landscapeOpponentMeta,
-                      ]}
-                    >
-                      {roundFinished && !inCurrentMatch
-                        ? 'Chờ ván mới'
-                        : 'Bỏ cuộc'}
-                    </Text>
-                  ) : null}
-                  <CardGameMoneyCounter
-                    key={`${room.id}:${room.matchId ?? ''}:${p.uid}`}
-                    testID={`opponent-balance-${p.uid}`}
-                    balance={finalBalance}
-                    delta={delta}
+                {isWinner && (
+                  <View
+                    pointerEvents="none"
+                    accessible={false}
+                    testID={`winner-crown-${p.uid}`}
+                    style={styles.winnerCrown}
+                  >
+                    <FontAwesome6
+                      name="crown"
+                      size={12}
+                      color={colors.sunlight}
+                    />
+                  </View>
+                )}
+                {isWinner && (
+                  <CardGameWinnerEffects
+                    playerUID={p.uid}
+                    animationKey={`${matchKey}:${p.uid}`}
                     animate={animateRound}
-                    animationKey={`${room.id}:${room.matchId ?? ''}:${p.uid}`}
-                    balanceStyle={[
+                  />
+                )}
+              </View>
+            </View>
+            <View
+              style={[
+                styles.opponentCopy,
+                fourPlayerPortrait && styles.portraitFourOpponentCopy,
+                landscape && styles.landscapeOpponentCopy,
+              ]}
+              testID={`opponent-copy-${p.uid}`}
+            >
+              {isPlayingTurn && (
+                <Text
+                  testID={`active-player-${p.uid}`}
+                  numberOfLines={1}
+                  style={[styles.activePlayerBadge, { color: turnColor }]}
+                >
+                  Đang đánh
+                </Text>
+              )}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Thông tin người chơi ${playerName}`}
+                disabled={!onPlayerPress || !member}
+                onPress={() => onPlayerPress?.(p.uid)}
+                style={{ alignSelf: 'stretch' }}
+              >
+                <Text
+                  testID={`opponent-name-${p.uid}`}
+                  accessibilityLabel={playerName}
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
+                  style={[
+                    styles.opponentName,
+                    fourPlayerPortrait && styles.portraitFourOpponentName,
+                    landscape && styles.landscapeOpponentName,
+                    isPlayingTurn && styles.activePlayerName,
+                    isPlayingTurn && seconds > 0 && { color: turnColor },
+                  ]}
+                >
+                  {playerName}
+                </Text>
+              </Pressable>
+              <View style={styles.opponentMetaRow}>
+                {game.status === 'playing' ? (
+                  <Text
+                    numberOfLines={1}
+                    testID={`remaining-cards-${p.uid}`}
+                    style={[
                       styles.subtitle,
                       styles.opponentMeta,
-                      styles.opponentBalance,
+                      styles.opponentCount,
                       fourPlayerPortrait && styles.portraitFourOpponentMeta,
                       landscape && styles.landscapeOpponentMeta,
                     ]}
-                  />
-                </View>
-                <AnimatedPassLabel
-                  visible={game.passed.includes(p.uid)}
-                  style={[
+                  >
+                    {p.forfeited
+                      ? `Bỏ cuộc · Còn ${p.count} lá`
+                      : `Còn ${p.count} lá`}
+                  </Text>
+                ) : (roundFinished && !inCurrentMatch) || p.forfeited ? (
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.subtitle,
+                      styles.opponentMeta,
+                      styles.opponentCount,
+                      fourPlayerPortrait && styles.portraitFourOpponentMeta,
+                      landscape && styles.landscapeOpponentMeta,
+                    ]}
+                  >
+                    {roundFinished && !inCurrentMatch
+                      ? 'Chờ ván mới'
+                      : 'Bỏ cuộc'}
+                  </Text>
+                ) : null}
+                <CardGameMoneyCounter
+                  key={`${room.id}:${room.matchId ?? ''}:${p.uid}`}
+                  testID={`opponent-balance-${p.uid}`}
+                  balance={finalBalance}
+                  delta={delta}
+                  animate={animateRound}
+                  animationKey={`${room.id}:${room.matchId ?? ''}:${p.uid}`}
+                  balanceStyle={[
                     styles.subtitle,
                     styles.opponentMeta,
-                    styles.opponentCount,
+                    styles.opponentBalance,
+                    fourPlayerPortrait && styles.portraitFourOpponentMeta,
                     landscape && styles.landscapeOpponentMeta,
                   ]}
                 />
               </View>
+              <AnimatedPassLabel
+                visible={game.passed.includes(p.uid)}
+                style={[
+                  styles.subtitle,
+                  styles.opponentMeta,
+                  styles.opponentCount,
+                  landscape && styles.landscapeOpponentMeta,
+                ]}
+              />
             </View>
           </View>
         </View>
-      );
-    });
+      </View>
+    );
+  });
   const playedBy = game.table
     ? (game.players.find((p) => p.uid === game.table?.uid)?.name ??
       room.members.find((p) => p.uid === game.table?.uid)?.name ??
@@ -704,6 +704,9 @@ export function CardGameTable({
       style={[
         styles.board,
         fourPlayerPortrait && styles.portraitFourBoard,
+        fourPlayerPortrait && {
+          paddingTop: Math.max(150, portraitSideTop + seatHeights.side + 16),
+        },
         landscape && styles.landscapeBoard,
       ]}
     >
@@ -907,6 +910,26 @@ export function CardGameTable({
                     />
                   )}
                 </View>
+                {myMember && (
+                  <Text
+                    accessibilityLabel={
+                      myMember.ready
+                        ? myMember.uid === room.host
+                          ? 'Chủ phòng đã sẵn sàng'
+                          : 'Đã sẵn sàng'
+                        : myMember.uid === room.host
+                          ? 'Chủ phòng chưa sẵn sàng'
+                          : 'Chưa sẵn sàng'
+                    }
+                    testID={`player-ready-${uid}`}
+                    numberOfLines={1}
+                    style={[
+                      myMember.ready ? styles.readyCheck : styles.readyHidden,
+                    ]}
+                  >
+                    {myMember.ready ? '✓' : ''}
+                  </Text>
+                )}
                 {winnerUID === uid && (
                   <View
                     pointerEvents="none"
@@ -933,29 +956,6 @@ export function CardGameTable({
                     }
                   >
                     {ownResult.rank === 1 ? 'Thắng' : 'Thua'}
-                  </Text>
-                )}
-                {myMember && (
-                  <Text
-                    accessibilityLabel={
-                      myMember.ready
-                        ? myMember.uid === room.host
-                          ? 'Chủ phòng đã sẵn sàng'
-                          : 'Đã sẵn sàng'
-                        : myMember.uid === room.host
-                          ? 'Chủ phòng chưa sẵn sàng'
-                          : 'Chưa sẵn sàng'
-                    }
-                    testID={`player-ready-${uid}`}
-                    numberOfLines={1}
-                    style={[
-                      styles.playerReadyStatus,
-                      myMember.ready
-                        ? styles.playerReady
-                        : styles.playerNotReady,
-                    ]}
-                  >
-                    {myMember.ready ? 'Sẵn sàng' : 'Chưa sẵn sàng'}
                   </Text>
                 )}
                 <CardGameMoneyCounter
@@ -1209,6 +1209,10 @@ export function CardGameTable({
             {board}
             <View
               testID="portrait-opponent-top"
+              onLayout={(e) => {
+                const top = Math.round(e.nativeEvent.layout.height);
+                setSeatHeights((h) => (h.top === top ? h : { ...h, top }));
+              }}
               style={[
                 styles.portraitOpponentSlot,
                 styles.portraitOpponentTop,
@@ -1222,20 +1226,29 @@ export function CardGameTable({
             </View>
             <View
               testID="portrait-opponent-left"
+              onLayout={(e) => {
+                const side = Math.round(e.nativeEvent.layout.height);
+                setSeatHeights((h) => (h.side >= side ? h : { ...h, side }));
+              }}
               style={[
                 styles.portraitOpponentSlot,
                 styles.portraitOpponentLeft,
-                { width: portraitSeatWidth },
+                { width: portraitSeatWidth, top: portraitSideTop },
               ]}
             >
               {opponents[0]}
             </View>
             <View
               testID="portrait-opponent-right"
+              onLayout={(e) => {
+                const side = Math.round(e.nativeEvent.layout.height);
+                setSeatHeights((h) => (h.side >= side ? h : { ...h, side }));
+              }}
               style={[
                 styles.portraitOpponentSlot,
                 { width: portraitSeatWidth },
                 styles.portraitOpponentRight,
+                { top: portraitSideTop },
               ]}
             >
               {opponents[2]}

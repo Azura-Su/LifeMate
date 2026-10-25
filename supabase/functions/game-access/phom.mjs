@@ -297,7 +297,7 @@ export function forfeitPhomPlayers(input, uids, now) {
   }
   return state;
 }
-export function viewPhom(state, uid) {
+export function viewPhom(state, uid, includeResultCards = false) {
   const p = state.players.find((q) => q.uid === uid);
   if (!p) throw Error('not-member');
   return {
@@ -314,6 +314,20 @@ export function viewPhom(state, uid) {
       discards: [...q.discards],
       laid: q.laid,
       turns: q.turns,
+      ...(includeResultCards &&
+        state.status === 'finished' && {
+          resultCards: {
+            discards: [
+              ...new Set([
+                ...q.discards,
+                ...(state.eats ?? [])
+                  .filter((eat) => eat.from === q.uid)
+                  .map((eat) => eat.card),
+              ]),
+            ].sort((a, b) => a - b),
+            remaining: [...q.hand],
+          },
+        }),
     })),
     turn: state.turn,
     table: null,

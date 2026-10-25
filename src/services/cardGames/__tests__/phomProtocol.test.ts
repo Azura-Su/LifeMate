@@ -2,6 +2,69 @@ import { parseGameSnapshot } from '../gameProtocol';
 import { phomRoom } from '../../../testing/phomFixture';
 import { DEFAULT_PHOM_CONFIG, isPhomConfig } from '../phomConfig';
 
+function finishedRoom() {
+  const room = phomRoom();
+  room.phase = 'finished';
+  room.game.status = 'finished';
+  room.game.turn = null;
+  room.game.deadline = null;
+  room.game.result = {
+    reason: 'phom-points',
+    ranking: room.game.players.map((p, index) => ({
+      uid: p.uid,
+      rank: index + 1,
+      labels: [],
+      deadwoodPoints: 10,
+      moneyDelta: 0,
+      breakdown: [],
+    })),
+  };
+  room.game.players = room.game.players.map((p) => ({
+    ...p,
+    count: 2,
+    resultCards: { discards: [30, 31, 32, 33, 34], remaining: [40, 41] },
+  }));
+  return room;
+}
+
+it('accepts finished result cards while retaining compatibility with older result snapshots', () => {
+  const room = finishedRoom();
+  const parsed = parseGameSnapshot({ room, serverTime: 1 }, 'a');
+  expect(parsed.room?.game?.players[0]).toHaveProperty(
+    'resultCards.remaining',
+    [40, 41],
+  );
+  room.game.players = room.game.players.map(
+    ({ resultCards: _cards, ...p }) => p,
+  );
+  expect(() => parseGameSnapshot({ room, serverTime: 1 }, 'a')).not.toThrow();
+});
+
+it('rejects premature, private, malformed or inconsistent result cards', () => {
+  for (const bad of [
+    { discards: [0], remaining: [40, 40] },
+    { discards: [40], remaining: [40, 41] },
+    { discards: [52], remaining: [40, 41] },
+    { discards: [], remaining: [40] },
+    { discards: [], remaining: [40, 41], stock: [2] },
+  ]) {
+    const room = finishedRoom();
+    Object.assign(room.game.players[0], { resultCards: bad });
+    expect(() => parseGameSnapshot({ room, serverTime: 1 }, 'a')).toThrow();
+  }
+  for (const status of ['playing', 'cancelled'] as const) {
+    const room = finishedRoom();
+    room.game.status = status;
+    if (status === 'playing') {
+      room.phase = 'playing';
+      room.game.turn = 'a';
+      room.game.deadline = 100;
+      room.game.result = null;
+    }
+    expect(() => parseGameSnapshot({ room, serverTime: 1 }, 'a')).toThrow();
+  }
+});
+
 it('accepts only complete boolean options in active and pending config while retaining legacy defaults', () => {
   const room = phomRoom();
   const config = {

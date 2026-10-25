@@ -305,7 +305,7 @@ it('offers a session initialization retry without retrying a missing session', (
 });
 beforeEach(() => {
   useConfigStore.setState({ gameUsers: ['a@example.invalid'] });
-  send.mockClear();
+  send.mockReset().mockResolvedValue(true);
   jest.restoreAllMocks();
   jest.mocked(getCachedRoomSnapshot).mockReset().mockReturnValue(null);
   jest.mocked(loadCachedRoomSnapshot).mockReset().mockResolvedValue(null);
@@ -1143,6 +1143,193 @@ it('asks before leaving and returns to card score after leaving the room', async
     expect(navigation.navigate).toHaveBeenCalledWith('CardScore'),
   );
 });
+
+it.each(['busy', 'pending'] as const)(
+  'does not leave while another action is %s',
+  async (flag) => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const navigation = { navigate: jest.fn() };
+    const view = setup(base, false, 'a', null, navigation);
+    const current = jest.mocked(useCardGame).mock.results.at(-1)!.value;
+    jest.mocked(useCardGame).mockReturnValue({
+      ...current,
+      state: { ...current.state!, [flag]: true },
+    });
+    view.rerender(
+      <CardGamesScreen navigation={navigation as never} route={{} as never} />,
+    );
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Quay lại Trò chơi & điểm số' }),
+    );
+    await act(async () => {
+      alert.mock.calls
+        .at(-1)?.[2]
+        ?.find((action) => action.text === 'Rời phòng')
+        ?.onPress?.();
+    });
+    expect(send).not.toHaveBeenCalled();
+    expect(navigation.navigate).not.toHaveBeenCalled();
+  },
+);
+
+it('stays in the room when a leave is ignored or unconfirmed, then accepts a confirmed no-room read', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+  const navigation = { navigate: jest.fn() };
+  const view = setup(base, false, 'a', null, navigation);
+  send.mockResolvedValueOnce(false);
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Quay lại Trò chơi & điểm số' }),
+  );
+  await act(async () => {
+    alert.mock.calls
+      .at(-1)?.[2]
+      ?.find((action) => action.text === 'Rời phòng')
+      ?.onPress?.();
+  });
+  expect(send).toHaveBeenCalledWith({ type: 'leave' });
+  expect(navigation.navigate).not.toHaveBeenCalled();
+  const current = jest.mocked(useCardGame).mock.results.at(-1)!.value;
+  jest.mocked(useCardGame).mockReturnValue({
+    ...current,
+    state: {
+      ...current.state!,
+      snapshot: { room: null, serverTime: Date.now() + 1 },
+    },
+  });
+  view.rerender(
+    <CardGamesScreen navigation={navigation as never} route={{} as never} />,
+  );
+  await waitFor(() =>
+    expect(navigation.navigate).toHaveBeenCalledWith('CardScore'),
+  );
+});
+
+it.each([true, false])(
+  'confirms departure from a rejoined finished room before a delayed ACK resolves %s',
+  async (confirmed) => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const navigation = { navigate: jest.fn(), setParams: jest.fn() };
+    const finishedRoom = {
+      ...base,
+      phase: 'finished' as const,
+      game: {
+        rulesVersion: 'south-v1' as const,
+        status: 'finished' as const,
+        hand: [],
+        players: [],
+        turn: null,
+        table: null,
+        passed: [],
+        openingCard: null,
+        deadline: null,
+        result: null,
+      },
+    };
+    const view = setup(finishedRoom, false, 'a', null, navigation);
+    view.rerender(
+      <CardGamesScreen
+        navigation={navigation as never}
+        route={{ params: { roomCode: base.code } } as never}
+      />,
+    );
+    // React Navigation consumes the route; the screen still holds its rejoin code.
+    view.rerender(
+      <CardGamesScreen navigation={navigation as never} route={{} as never} />,
+    );
+    let finishLeave!: (confirmed: boolean) => void;
+    send.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finishLeave = resolve;
+        }),
+    );
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Quay lại Trò chơi & điểm số' }),
+    );
+    act(() => {
+      alert.mock.calls
+        .at(-1)?.[2]
+        ?.find((action) => action.text === 'Rời phòng')
+        ?.onPress?.();
+    });
+    const current = jest.mocked(useCardGame).mock.results.at(-1)!.value;
+    jest.mocked(useCardGame).mockReturnValue({
+      ...current,
+      state: {
+        ...current.state!,
+        snapshot: { room: null, serverTime: Date.now() + 1 },
+      },
+    });
+    view.rerender(
+      <CardGamesScreen navigation={navigation as never} route={{} as never} />,
+    );
+    await act(async () => {
+      finishLeave(confirmed);
+    });
+    expect(navigation.navigate).toHaveBeenCalledWith('CardScore');
+    expect(send).toHaveBeenCalledTimes(1);
+  },
+);
+
+it.each([
+  'match',
+  'room',
+  'account',
+  'session',
+  'background',
+  'controller',
+  'busy',
+  'pending',
+] as const)(
+  'invalidates an old leave confirmation after the %s context changes',
+  async (change) => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const navigation = { navigate: jest.fn() };
+    const view = setup(base, false, 'a', null, navigation);
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Quay lại Trò chơi & điểm số' }),
+    );
+    const confirm = alert.mock.calls
+      .at(-1)?.[2]
+      ?.find((action) => action.text === 'Rời phòng')?.onPress;
+    const current = jest.mocked(useCardGame).mock.results.at(-1)!.value;
+    if (change === 'account') {
+      useAuthStore.getState().setUser(null);
+      useAuthStore
+        .getState()
+        .setUser({ uid: 'a', email: 'a@example.invalid', displayName: 'An' });
+    }
+    jest.mocked(useCardGame).mockReturnValue({
+      ...current,
+      ...(change === 'background' ? { active: false } : null),
+      ...(change === 'session' ? { session: { send, retry } as never } : null),
+      state: {
+        ...current.state!,
+        busy: change === 'busy',
+        pending: change === 'pending',
+        snapshot: {
+          serverTime: Date.now(),
+          room: {
+            ...base,
+            ...(change === 'match'
+              ? { matchId: 'new-match', phase: 'playing' as const }
+              : null),
+            ...(change === 'room' ? { id: 'another-room' } : null),
+            ...(change === 'controller' ? { controller: false } : null),
+          },
+        },
+      },
+    });
+    view.rerender(
+      <CardGamesScreen navigation={navigation as never} route={{} as never} />,
+    );
+    await act(async () => {
+      confirm?.();
+    });
+    expect(send).not.toHaveBeenCalled();
+    expect(navigation.navigate).not.toHaveBeenCalled();
+  },
+);
 
 it.each(['lobby', 'playing'] as const)(
   'confirms Android hardware back before leaving a %s room',

@@ -69,7 +69,7 @@ function validate(input) {
     throw Error('invalid-input');
   if (
     input.clientVersion !== undefined &&
-    ![2, 3, 4, 5, 6, 7].includes(input.clientVersion)
+    ![2, 3, 4, 5, 6, 7, 8].includes(input.clientVersion)
   )
     throw Error('invalid-input');
   const fields = {
@@ -194,10 +194,10 @@ function validate(input) {
     throw Error('invalid-input');
   if (input.type === 'create') {
     if (input.game === 'phom') {
-      if (![3, 4, 5, 6, 7].includes(input.clientVersion))
+      if (![3, 4, 5, 6, 7, 8].includes(input.clientVersion))
         throw Error('game-update-required');
       validatePhomConfig(input.phomConfig);
-      if (input.phomConfig.options && input.clientVersion !== 7)
+      if (input.phomConfig.options && input.clientVersion < 7)
         throw Error('game-update-required');
       if (input.amountPerCard !== undefined || input.southConfig !== undefined)
         throw Error('invalid-input');
@@ -207,7 +207,7 @@ function validate(input) {
         validateSouthConfig(input.southConfig);
         if (
           configuredSouth(input.southConfig) &&
-          ![4, 5, 6, 7].includes(input.clientVersion)
+          ![4, 5, 6, 7, 8].includes(input.clientVersion)
         )
           throw Error('game-update-required');
       }
@@ -222,14 +222,14 @@ function validate(input) {
   )
     throw Error('invalid-input');
   if (input.type === 'set-phom-rules') {
-    if (![6, 7].includes(input.clientVersion))
+    if (![6, 7, 8].includes(input.clientVersion))
       throw Error('game-update-required');
     validatePhomConfig(input.phomConfig);
-    if (input.phomConfig.options && input.clientVersion !== 7)
+    if (input.phomConfig.options && input.clientVersion < 7)
       throw Error('game-update-required');
   }
   if (input.type === 'set-south-rules') {
-    if (![5, 6, 7].includes(input.clientVersion))
+    if (![5, 6, 7, 8].includes(input.clientVersion))
       throw Error('game-update-required');
     validateSouthConfig(input.southConfig);
     if (
@@ -288,7 +288,7 @@ function validate(input) {
     const kind = input.phomAction;
     if (kind !== undefined) {
       if (
-        ![3, 4, 5, 6, 7].includes(input.clientVersion) ||
+        ![3, 4, 5, 6, 7, 8].includes(input.clientVersion) ||
         !['draw', 'eat', 'discard', 'lay', 'send', 'u'].includes(kind)
       )
         throw Error('invalid-input');
@@ -502,7 +502,7 @@ export function createGameHandler({
         rpc('lifemate_game_read', { ...base, p_renew: false });
       const withAvatars = (snapshot) => {
         if (
-          ![2, 3, 4, 5, 6, 7].includes(input.clientVersion) ||
+          ![2, 3, 4, 5, 6, 7, 8].includes(input.clientVersion) ||
           !snapshot.room ||
           typeof avatarStorage !== 'function'
         )
@@ -520,9 +520,9 @@ export function createGameHandler({
             (input.clientVersion ?? 1) < 7 &&
             input.type !== 'leave') ||
           (record?.state?.gameKind === 'phom' &&
-            ![3, 4, 5, 6, 7].includes(input.clientVersion)) ||
+            ![3, 4, 5, 6, 7, 8].includes(input.clientVersion)) ||
           (record?.state?.southConfig &&
-            ![4, 5, 6, 7].includes(input.clientVersion)) ||
+            ![4, 5, 6, 7, 8].includes(input.clientVersion)) ||
           ((record?.state?.nextSouthRules || record?.state?.nextPhomConfig) &&
             (input.clientVersion ?? 1) <
               (record?.state?.nextPhomConfig?.options
@@ -544,7 +544,7 @@ export function createGameHandler({
             p_uid,
             controller,
             Number(now),
-            [2, 3, 4, 5, 6, 7].includes(input.clientVersion),
+            [2, 3, 4, 5, 6, 7, 8].includes(input.clientVersion),
             input.clientVersion >= 6
               ? input.clientVersion
               : input.clientVersion === 5,
@@ -589,7 +589,8 @@ export function createGameHandler({
         await rpc('lifemate_game_takeover', {
           ...base,
           p_room_id: input.roomId,
-          p_client_version: input.clientVersion ?? 1,
+          // Protocol8 only extends result views; SQL rule capabilities stop at7.
+          p_client_version: Math.min(input.clientVersion ?? 1, 7),
         });
         return json(200, await snapshot());
       }
@@ -614,7 +615,7 @@ export function createGameHandler({
           if (
             status.minClientVersion > (input.clientVersion ?? 1) ||
             (status.gameKind === 'phom' &&
-              ![3, 4, 5, 6, 7].includes(input.clientVersion))
+              ![3, 4, 5, 6, 7, 8].includes(input.clientVersion))
           )
             throw Error('game-update-required');
         }
@@ -664,7 +665,7 @@ export function createGameHandler({
             ...(input.type === 'set-phom-rules'
               ? {
                   p_config: input.phomConfig,
-                  p_client_version: input.clientVersion,
+                  p_client_version: Math.min(input.clientVersion, 7),
                 }
               : {
                   p_amount_per_card: input.amountPerCard,

@@ -28,7 +28,16 @@ function redactFinishedSnapshot(snapshot: GameSnapshot): GameSnapshot | null {
       members: room.members.map(
         ({ avatarUrl: _avatarUrl, ...member }) => member,
       ),
-      game: { ...room.game, hand: [] },
+      game:
+        room.game.rulesVersion === 'phom-v1'
+          ? {
+              ...room.game,
+              hand: [],
+              players: room.game.players.map(
+                ({ resultCards: _resultCards, ...player }) => player,
+              ),
+            }
+          : { ...room.game, hand: [] },
     },
   };
 }

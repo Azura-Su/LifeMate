@@ -1,4 +1,5 @@
 import type { CardGameRoom, GameSnapshot } from '../../../types/cardGame';
+import { phomRoom } from '../../../testing/phomFixture';
 import {
   clearCachedRoomSnapshot,
   getCachedRoomSnapshot,
@@ -54,6 +55,26 @@ const snapshot: GameSnapshot = { room: finishedRoom, serverTime: 100 };
 beforeEach(() => {
   jest.clearAllMocks();
   void clearCachedRoomSnapshot(uid);
+});
+
+it('strips every revealed Phỏm result hand from memory and persisted snapshots without changing the live result', async () => {
+  const room = phomRoom();
+  room.phase = 'finished';
+  room.game.status = 'finished';
+  room.game.players = room.game.players.map((p) => ({
+    ...p,
+    resultCards: { discards: [44], remaining: [...room.game.hand] },
+  }));
+  await saveRoomSnapshot(uid, { room, serverTime: 1 });
+  const cached = getCachedRoomSnapshot(uid, room.code)!;
+  expect(cached.room?.game?.hand).toEqual([]);
+  expect(cached.room?.game?.players.every((p) => !('resultCards' in p))).toBe(
+    true,
+  );
+  expect(jest.mocked(setEncryptedItem).mock.calls.at(-1)![2]).not.toContain(
+    'resultCards',
+  );
+  expect(room.game.players[0].resultCards?.remaining).toEqual(room.game.hand);
 });
 
 it('caches only a redacted finished snapshot in memory and encrypted storage', async () => {

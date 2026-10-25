@@ -274,7 +274,7 @@ for (const size of [2, 3, 4]) {
       within(screen.getByTestId('phom-seat-e')).getByText('+99 đ'),
     ).toBeTruthy();
     expect(
-      within(screen.getByTestId('phom-seat-e')).getByText('Sẵn sàng'),
+      within(screen.getByTestId('phom-seat-e')).getByLabelText('Sẵn sàng'),
     ).toBeTruthy();
     expect(
       within(screen.getByTestId('phom-seat-e')).queryByText(/lá/),

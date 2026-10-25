@@ -26,6 +26,74 @@ const flush = async () => {
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());
 
+it('reports ignored/unconfirmed leaves and resolves an uncertain leave from a fresh no-room read', async () => {
+  const onChange = jest.fn();
+  let readyDone!: (value: GameSnapshot) => void;
+  let departed = false;
+  let hint!: () => void;
+  const request = jest.fn(async (input: GameRequest) => {
+    if (input.type === 'ready')
+      return new Promise<GameSnapshot>((resolve) => {
+        readyDone = resolve;
+      });
+    if (input.type === 'leave') throw new Error('ACK lost');
+    return departed ? { room: null, serverTime: 200 } : snapshot();
+  });
+  const session = createGameSession({
+    sessionId: 'leave',
+    request,
+    onChange,
+    uuid: () => 'action',
+    subscribe: (_topic, onHint, status) => {
+      hint = onHint;
+      status(true);
+      return jest.fn();
+    },
+  });
+  expect(await session.send({ type: 'leave' })).toBe(false);
+  session.start();
+  await flush();
+  const ready = session.send({ type: 'ready', ready: true });
+  expect(await session.send({ type: 'leave' })).toBe(false);
+  expect(
+    request.mock.calls.filter(([input]) => input.type === 'leave'),
+  ).toHaveLength(0);
+  readyDone(snapshot());
+  expect(await ready).toBe(true);
+  expect(await session.send({ type: 'leave' })).toBe(false);
+  await flush();
+  expect(onChange.mock.calls.at(-1)![0].pending).toBe(true);
+  expect(await session.send({ type: 'leave' })).toBe(false);
+  departed = true;
+  hint();
+  await flush();
+  expect(onChange.mock.calls.at(-1)![0]).toMatchObject({
+    snapshot: { room: null },
+    pending: false,
+  });
+  session.stop();
+});
+
+it('confirms departure only for an accepted no-room acknowledgement', async () => {
+  const request = jest.fn(async (input: GameRequest) =>
+    input.type === 'leave' ? { room: null, serverTime: 200 } : snapshot(),
+  );
+  const session = createGameSession({
+    sessionId: 'leave',
+    request,
+    onChange: jest.fn(),
+    uuid: () => 'action',
+    subscribe: (_topic, _hint, status) => {
+      status(true);
+      return jest.fn();
+    },
+  });
+  session.start();
+  await flush();
+  expect(await session.send({ type: 'leave' })).toBe(true);
+  session.stop();
+});
+
 it.each(['host', 'guest'])(
   'keeps the %s in the room throughout an explicit reconnect',
   async (role) => {

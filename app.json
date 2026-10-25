@@ -15,6 +15,7 @@
         "aps-environment": "development"
       },
       "infoPlist": {
+        "EXDevMenuShowFloatingActionButton": false,
         "UIBackgroundModes": ["remote-notification", "audio"],
         "ITSAppUsesNonExemptEncryption": false,
         "NSCalendarsUsageDescription": "LifeMate dùng lịch khi bạn chọn thêm công việc vào lịch thiết bị.",
