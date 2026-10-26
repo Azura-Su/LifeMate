@@ -1351,8 +1351,13 @@ it('opens an immediate edit with the committed sharing snapshot before the backg
       photoUri: 'file:///new.jpg',
       photoChange: 'replace',
       visibility: 'friends',
+      photoDimensions: { width: 800, height: 800 },
     }),
   );
+  expect(shareMemory).toHaveBeenCalledWith('u1', 'Asher', created, {
+    width: 800,
+    height: 800,
+  });
   fireEvent.press(screen.getByRole('button', { name: /Sửa ký ức ngày/ }));
   const editingSnapshot = jest.mocked(MemoryEditor).mock.lastCall![0].entry;
   view.unmount();

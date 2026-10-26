@@ -255,6 +255,7 @@ export function HomeScreen({
         onClose={() => setDrawerVisible(false)}
         onOpenNotes={() => navigation.navigate('Notes')}
         onOpenCardScore={() => navigation.navigate('CardScore')}
+        onOpenPets={() => navigation.navigate('Pets')}
         onOpenChecklists={() => navigation.navigate('Checklists')}
         onOpenAgenda={() => navigation.navigate('Agenda')}
         onOpenUserManagement={() => navigation.navigate('UserManagement')}

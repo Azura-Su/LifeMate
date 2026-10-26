@@ -6,7 +6,12 @@ import {
   unshareMemory,
   memoryEmailVerificationNeeded,
   memoryPublishDefinitelyNotStarted,
+  refreshMemoryVerification,
+  publishMemory,
 } from '../memorySharing';
+import * as FileSystem from 'expo-file-system/legacy';
+import { prepareSharedMemoryPhoto } from '../memorySharedPhoto';
+import { memoryPhotoUri } from '../memoryStorage';
 
 jest.mock('@react-native-firebase/auth', () => ({
   getAuth: jest.fn(),
@@ -18,7 +23,15 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   ),
 );
 jest.mock('expo-image-manipulator', () => ({}));
-jest.mock('expo-file-system/legacy', () => ({}));
+jest.mock('expo-file-system/legacy', () => ({
+  createUploadTask: jest.fn(),
+  deleteAsync: jest.fn(),
+  FileSystemUploadType: { BINARY_CONTENT: 0 },
+  FileSystemSessionType: { FOREGROUND: 0 },
+}));
+jest.mock('../memorySharedPhoto', () => ({
+  prepareSharedMemoryPhoto: jest.fn(),
+}));
 jest.mock('../../../config/audioCloud', () => ({
   audioCloudUrl: () => 'https://example.test',
   audioCloudApiKey: () => 'test-publishable-key',
@@ -58,6 +71,120 @@ beforeEach(() => {
 
 afterAll(() => {
   global.fetch = originalFetch;
+});
+
+it('coalesces concurrent state reads without retaining a completed permissions snapshot', async () => {
+  let finish!: (value: unknown) => void;
+  const pending = new Promise((resolve) => {
+    finish = resolve;
+  });
+  mockFetch.mockReturnValue(pending);
+  const both = Promise.all([
+    getMemoryShareState('u1', 'Asher'),
+    getMemoryShareState('u1', 'Asher'),
+  ]);
+  for (let i = 0; i < 15; i++) await Promise.resolve();
+  const concurrentRequests = mockFetch.mock.calls.length;
+  finish(response(200, state));
+  const [first, second] = await both;
+  first.sharedIds.push('only-first-caller');
+  expect(second.sharedIds).toEqual([]);
+  mockFetch.mockResolvedValue(response(200, state));
+  await getMemoryShareState('u1', 'Asher');
+  expect(concurrentRequests).toBe(1);
+  expect(mockFetch).toHaveBeenCalledTimes(2);
+});
+
+it.each([200, 503])(
+  'refreshes state after a mutation settles with HTTP %s',
+  async (status) => {
+    let finishMutation!: (value: unknown) => void;
+    let finishState!: (value: unknown) => void;
+    mockFetch.mockImplementation((_url, request) => {
+      const action = JSON.parse(request.body).action;
+      return new Promise((resolve) => {
+        if (action === 'unshare') finishMutation = resolve;
+        else finishState = resolve;
+      });
+    });
+    const mutation = unshareMemory('u1', 'Asher', 'one').catch(() => undefined);
+    const during = getMemoryShareState('u1', 'Asher');
+    for (let i = 0; i < 15; i++) await Promise.resolve();
+    finishMutation(response(status, { shared: false }));
+    await mutation;
+    const oldState = finishState;
+    mockFetch.mockResolvedValue(
+      response(200, { ...state, sharedIds: ['fresh'] }),
+    );
+    const after = getMemoryShareState('u1', 'Asher');
+    for (let i = 0; i < 15; i++) await Promise.resolve();
+    oldState(response(200, state));
+    await during;
+    expect((await after).sharedIds).toEqual(['fresh']);
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+  },
+);
+
+it('does not reuse a failed state response or a response for another display name', async () => {
+  mockFetch.mockResolvedValueOnce(response(503, {}));
+  await expect(getMemoryShareState('u1', 'Asher')).rejects.toThrow();
+  mockFetch.mockResolvedValue(response(200, state));
+  await Promise.all([
+    getMemoryShareState('u1', 'Asher'),
+    getMemoryShareState('u1', 'Tên mới'),
+  ]);
+  expect(mockFetch).toHaveBeenCalledTimes(3);
+});
+
+it('reads new state after refreshing verification instead of joining a request with the old token', async () => {
+  let finishOld!: (value: unknown) => void;
+  mockFetch.mockReturnValueOnce(
+    new Promise((resolve) => {
+      finishOld = resolve;
+    }),
+  );
+  const old = getMemoryShareState('u1', 'Asher');
+  for (let i = 0; i < 15; i++) await Promise.resolve();
+  jest.mocked(refreshAccountVerification).mockResolvedValueOnce(true);
+  await refreshMemoryVerification('u1');
+  mockFetch.mockResolvedValue(
+    response(200, { ...state, sharedIds: ['verified-state'] }),
+  );
+  const fresh = getMemoryShareState('u1', 'Asher');
+  for (let i = 0; i < 15; i++) await Promise.resolve();
+  finishOld(response(200, state));
+  await old;
+  expect((await fresh).sharedIds).toEqual(['verified-state']);
+  expect(mockFetch).toHaveBeenCalledTimes(2);
+});
+
+it('cancels all joined reads on logout and starts a fresh request after signing into the same UID', async () => {
+  let finishOld!: (value: unknown) => void;
+  mockFetch.mockReturnValue(
+    new Promise((resolve) => {
+      finishOld = resolve;
+    }),
+  );
+  const first = getMemoryShareState('u1', 'Asher').catch(
+    (error: Error) => error,
+  );
+  const joined = getMemoryShareState('u1', 'Asher').catch(
+    (error: Error) => error,
+  );
+  for (let i = 0; i < 15; i++) await Promise.resolve();
+  useAuthStore.getState().setUser(null);
+  useAuthStore
+    .getState()
+    .setUser({ uid: 'u1', email: state.email, displayName: 'Asher' });
+  mockFetch.mockResolvedValue(
+    response(200, { ...state, sharedIds: ['new-session'] }),
+  );
+  const fresh = getMemoryShareState('u1', 'Asher');
+  finishOld(response(200, state));
+  expect(await first).toBeInstanceOf(Error);
+  expect(await joined).toBeInstanceOf(Error);
+  expect((await fresh).sharedIds).toEqual(['new-session']);
+  expect(mockFetch).toHaveBeenCalledTimes(2);
 });
 
 it.each(['timeout', 'logout', 'relogin'] as const)(
@@ -409,4 +536,56 @@ it('does not retry a response for an account that has changed', async () => {
   });
   await expect(getMemoryShareState('u1', 'Asher')).rejects.toThrow('Phiên');
   expect(mockFetch).toHaveBeenCalledTimes(1);
+});
+
+it('uses transient camera dimensions for JPEG preparation but keeps them out of server requests', async () => {
+  const dimensions = { width: 3000, height: 4000 };
+  jest
+    .mocked(memoryPhotoUri)
+    .mockReturnValueOnce('file:///private-original.jpg');
+  jest
+    .mocked(prepareSharedMemoryPhoto)
+    .mockResolvedValueOnce({ uri: 'file:///shared.jpg', sizeBytes: 12_345 });
+  jest.mocked(FileSystem.deleteAsync).mockResolvedValue(undefined);
+  jest.mocked(FileSystem.createUploadTask).mockReturnValue({
+    uploadAsync: jest.fn().mockResolvedValue({ status: 200 }),
+    cancelAsync: jest.fn().mockResolvedValue(undefined),
+  } as never);
+  mockFetch
+    .mockResolvedValueOnce(
+      response(200, {
+        uploadUrl:
+          'https://example.test/storage/v1/object/upload/sign/lifemate-memories/shared/u1/one/photo.jpg?token=test',
+      }),
+    )
+    .mockResolvedValueOnce(response(200, { shared: true }));
+  await publishMemory(
+    'u1',
+    'Asher',
+    {
+      id: 'one',
+      ownerId: 'u1',
+      dateKey: '2026-10-15',
+      text: 'Test',
+      photoFileName: 'original.jpg',
+      createdAt: 100,
+      updatedAt: 100,
+    },
+    dimensions,
+  );
+
+  expect(prepareSharedMemoryPhoto).toHaveBeenCalledWith(
+    'file:///private-original.jpg',
+    dimensions,
+  );
+  expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({
+    action: 'publish',
+    id: 'one',
+    dateKey: '2026-10-15',
+    text: 'Test',
+    hasPhoto: true,
+    sizeBytes: 12_345,
+    displayName: 'Asher',
+  });
+  expect(JSON.parse(mockFetch.mock.calls[1][1].body).action).toBe('confirm');
 });

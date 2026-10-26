@@ -21,6 +21,7 @@ import {
 } from '../memoryCloud';
 import {
   deleteMemory,
+  createMemory,
   readMemories,
   resolveMemorySyncConflict,
   synchronizeMemories,
@@ -677,6 +678,31 @@ it('holds the queue until publication and visibility persistence finish', async 
   expect((await readMemories('alice'))[0].visibility).toBe('friends');
 });
 
+it('forwards dimensions for a new photo without persisting them in the private entry', async () => {
+  const dimensions = { width: 3000, height: 4000 };
+  const created = await createMemory('alice', {
+    dateKey: '2026-10-15',
+    text: 'New',
+    photoUri: 'file:///capture.jpg',
+    photoMimeType: 'image/jpeg',
+    photoChange: 'replace',
+    visibility: 'friends',
+    photoDimensions: dimensions,
+  });
+  expect(created).not.toHaveProperty('photoDimensions');
+  await shareMemory('alice', 'Asher', created, dimensions);
+  expect(publishMemory).toHaveBeenCalledWith(
+    'alice',
+    'Asher',
+    created,
+    dimensions,
+  );
+  expect((await readMemories('alice'))[0]).not.toHaveProperty(
+    'photoDimensions',
+  );
+  expect(await getEncryptedItem('alice', key)).not.toContain('photoDimensions');
+});
+
 it('returns the committed sharing snapshot so an immediate edit uses the current version', async () => {
   await seed([base]);
   const shared = await shareMemory('alice', 'Asher', base);
@@ -792,12 +818,10 @@ it('does not rewrite the encrypted cache when ten synced memories are unchanged'
     })),
   );
   // Like the real client: an intact local original returns its backup proof.
-  jest
-    .mocked(downloadMemoryPhoto)
-    .mockImplementation(async (_uid, entry) => ({
-      fileName: entry.photoFileName!,
-      sizeBytes: entry.photoSizeBytes!,
-    }));
+  jest.mocked(downloadMemoryPhoto).mockImplementation(async (_uid, entry) => ({
+    fileName: entry.photoFileName!,
+    sizeBytes: entry.photoSizeBytes!,
+  }));
   expect((await synchronizeMemories('alice')).synced).toBe(true);
   const write = jest.spyOn(encryptedStorage, 'setEncryptedItem');
   try {

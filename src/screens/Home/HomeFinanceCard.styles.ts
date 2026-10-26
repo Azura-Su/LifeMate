@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors, typography } from '../../theme';
+import { colors, radius, spacing, typography } from '../../theme';
 
 export const styles = StyleSheet.create({
   // Same card shell as the Lịch / Việc cần làm cards below it.
@@ -72,12 +72,12 @@ export const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 4,
   },
-  status: {
-    minHeight: 112,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+  loadingAmount: {
+    width: '60%',
+    height: spacing.md,
+    marginVertical: spacing.xs / 2,
+    borderRadius: radius.xs,
+    backgroundColor: colors.line,
   },
   error: { ...typography.small, color: colors.danger },
   summary: { gap: 8 },

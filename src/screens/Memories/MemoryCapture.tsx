@@ -16,6 +16,8 @@ export type CapturedMemoryPhoto = {
   uri: string;
   mimeType: string | null;
   aspectRatio: number;
+  width?: number;
+  height?: number;
 };
 
 type Props = {
@@ -125,13 +127,16 @@ export function MemoryCapture({ active, onPhoto, onCapturingChange }: Props) {
       if (generation !== captureGeneration.current || !activeRef.current)
         return;
       if (!photo?.uri) throw new Error('Chưa chụp được ảnh. Hãy thử lại.');
+      const hasDimensions =
+        Number.isFinite(photo.width) &&
+        Number.isFinite(photo.height) &&
+        photo.width > 0 &&
+        photo.height > 0;
       onPhoto({
         uri: photo.uri,
         mimeType: 'image/jpeg',
-        aspectRatio:
-          photo.width > 0 && photo.height > 0
-            ? photo.width / photo.height
-            : 3 / 4,
+        aspectRatio: hasDimensions ? photo.width / photo.height : 3 / 4,
+        ...(hasDimensions && { width: photo.width, height: photo.height }),
       });
     } catch (cause) {
       if (generation === captureGeneration.current && activeRef.current)

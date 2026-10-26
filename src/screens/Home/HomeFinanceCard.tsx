@@ -1,9 +1,9 @@
 import Feather from '@expo/vector-icons/Feather';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { FinanceTransaction } from '../../types/finance';
-import { colors, typography } from '../../theme';
+import { colors } from '../../theme';
 import { formatFinanceAmount } from '../../utils/finance';
 import {
   getMonthGrid,
@@ -213,9 +213,20 @@ export function HomeFinanceCard({
       </View>
 
       {loading ? (
-        <View style={styles.status}>
-          <ActivityIndicator color={colors.earth} />
-          <Text style={typography.small}>Đang tải sổ thu chi…</Text>
+        <View
+          accessible
+          accessibilityLabel="Đang tải sổ thu chi"
+          accessibilityState={{ busy: true }}
+          style={styles.totals}
+        >
+          <View style={[styles.total, styles.incomeTotal]}>
+            <Text style={styles.incomeLabel}>Thu</Text>
+            <View style={styles.loadingAmount} />
+          </View>
+          <View style={[styles.total, styles.expenseTotal]}>
+            <Text style={styles.expenseLabel}>Chi</Text>
+            <View style={styles.loadingAmount} />
+          </View>
         </View>
       ) : (
         <>

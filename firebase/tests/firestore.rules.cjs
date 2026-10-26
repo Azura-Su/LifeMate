@@ -87,6 +87,7 @@ async function main() {
   try {
     const owner = environment.authenticatedContext('u1').firestore();
     const outsider = environment.authenticatedContext('u2').firestore();
+    await require('./pets.rules.cjs')(environment);
     // Every persisted namespace must keep reads scoped to its UID path.
     const isolationPaths = [
       'audioLibraries/u1/tracks/isolation-probe',

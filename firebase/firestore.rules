@@ -7,6 +7,89 @@ service cloud.firestore {
           || (get(/databases/$(database)/documents/accountAccess/$(uid)).data.status == 'active'
             && request.auth.token.auth_time >= get(/databases/$(database)/documents/accountAccess/$(uid)).data.validSince));
     }
+    function petInt(v, low, high) {
+      return v is int && v >= low && v <= high;
+    }
+    function petPart(p, species) {
+      return p is string && p.matches('^(cat|dog|rabbit|fox|bear|owl|panda|hamster|penguin|deer|tiger|pig):[012]$')
+        && p.split(':')[0] in species;
+    }
+    function petMotion(p, clips) {
+      return p is map && p.keys().hasOnly(['clipId','variant'])
+        && p.clipId in clips && (p.variant is int && p.variant >= 0 && p.variant <= 7);
+    }
+    function petDNA(d) {
+      let legacy = d.generatorVersion == 'hybrid-3d-v1';
+      let species = d.species;
+      let parts = d.parts;
+      let shape = d.shape;
+      let material = d.material;
+      let animation = d.animation;
+      let skill = d.skill;
+      return d is map
+        && d.keys().hasOnly(['schemaVersion','generatorVersion','catalogVersion','seed','species','parts','shape','material','animation','skill'])
+        && d.schemaVersion == 1
+        && ((legacy && d.catalogVersion == 'chibi-v1')
+          || (d.generatorVersion == 'hybrid-3d-v2' && d.catalogVersion == 'chibi-v2'))
+        && d.seed is string && d.seed.matches('^[0-9a-f]{32}$')
+        && species is list && species.size() >= 1 && species.size() <= 3
+        && species.toSet().size() == species.size()
+        && species.hasOnly(legacy ? ['cat','dog','rabbit','fox','bear','owl'] : ['cat','dog','rabbit','fox','bear','owl','panda','hamster','penguin','deer','tiger','pig'])
+        && parts is map && parts.keys().hasOnly(['head','ears','muzzle','body','feet','tail','wings'])
+        && petPart(parts.head,species) && petPart(parts.ears,species)
+        && petPart(parts.muzzle,species) && petPart(parts.body,species)
+        && petPart(parts.feet,species) && petPart(parts.tail,species)
+        && (species.hasAny(['owl','penguin']) == ('wings' in parts))
+        && (!('wings' in parts) || (petPart(parts.wings,species) && parts.wings.split(':')[0] in ['owl','penguin']))
+        && (!legacy || species.size() == 1 || parts.body.split(':')[0] != 'owl')
+        && [parts.head.split(':')[0],parts.ears.split(':')[0],parts.muzzle.split(':')[0],parts.body.split(':')[0],parts.feet.split(':')[0],parts.tail.split(':')[0],('wings' in parts ? parts.wings.split(':')[0] : '')].hasAll(species)
+        && shape is int && shape >= 0 && shape < 530680951941
+        && material is map && material.keys().hasOnly(['paletteSpecies','code'])
+        && material.paletteSpecies in species
+        && material.code is int && material.code >= 0 && material.code < 216
+        && animation is map && animation.keys().hasOnly(['idle','interaction'])
+        && petMotion(animation.idle,['breathe','curious','sway'])
+        && petMotion(animation.interaction,['greet','bounce','happy'])
+        && skill is map && skill.keys().hasOnly(['effectId','variant'])
+        && skill.effectId in ['fire','water','wind','lightning','ice','light','bubbles','leaves']
+        && (skill.variant is int && skill.variant >= 0 && skill.variant <= 7);
+    }
+    function petRecord(p, uid) {
+      return p is map && p.keys().hasOnly(['petId','ownerId','name','dna','dnaHash','appearanceHash','createdAt','updatedAt'])
+        && p.ownerId == uid && p.petId is string && p.petId.matches('^[A-Za-z0-9_-]{1,128}$')
+        && p.name is string && p.name.size() > 0 && p.name.size() <= 96
+        && p.dnaHash is string && p.dnaHash.matches('^[0-9a-f]{64}$')
+        && p.appearanceHash is string && p.appearanceHash.matches('^[0-9a-f]{64}$')
+        && (p.createdAt is int && p.createdAt >= 0 && p.createdAt <= 253402300799999) && (p.updatedAt is int && p.updatedAt >= p.createdAt && p.updatedAt <= 253402300799999)
+        && petDNA(p.dna);
+    }
+    function petSlot(d, uid) {
+      return d.keys().hasOnly(['schemaVersion','wireVersion','ownerId','revision','previousRevision','lastOperationId','updatedAt','pet'])
+        && d.schemaVersion == 1 && d.wireVersion == 1 && d.ownerId == uid
+        && (d.revision is int && d.revision >= 1 && d.revision <= 1000000000) && (d.previousRevision is int && d.previousRevision >= 0 && d.previousRevision <= 999999999)
+        && d.revision == d.previousRevision + 1
+        && d.lastOperationId is string && d.lastOperationId.matches('^[A-Za-z0-9_-]{1,128}$')
+        && (d.updatedAt is int && d.updatedAt >= 0 && d.updatedAt <= 253402300799999) && (d.pet == null || petRecord(d.pet,uid));
+    }
+    match /petAccounts/{uid}/state/{slotId} {
+      allow get: if slotId == 'current' && owns(uid);
+      allow list, delete: if false;
+      // One write expression avoids evaluating the deep DNA validator twice
+      // for a set() that may be either a create or an update.
+      allow write: if slotId == 'current' && owns(uid) && request.resource != null
+        && ((!exists(/databases/$(database)/documents/petAccounts/$(uid)/state/current)
+              && request.resource.data.revision == 1 && request.resource.data.previousRevision == 0
+              && request.resource.data.pet != null)
+          || (exists(/databases/$(database)/documents/petAccounts/$(uid)/state/current)
+              && request.resource.data.previousRevision == resource.data.revision
+              && request.resource.data.lastOperationId != resource.data.lastOperationId
+              && (resource.data.pet == null ? request.resource.data.pet != null
+                : (request.resource.data.pet == null
+                  || (request.resource.data.pet.petId == resource.data.pet.petId
+                    && request.resource.data.pet.diff(resource.data.pet).affectedKeys().hasOnly(['name','updatedAt']))))))
+        && petSlot(request.resource.data,uid);
+    }
+
     match /memoryAccounts/{uid}/items/{memoryId} {
       allow read: if owns(uid);
       // Keep minimal tombstones so an old offline device cannot recreate a deletion.

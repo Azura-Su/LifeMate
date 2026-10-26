@@ -54,6 +54,8 @@ test('cache ownership does not match a different UID or partial UID', () => {
     false,
   );
   expect(isAccountCacheKey('lifemate:notes:v1:alice', 'alice')).toBe(true);
+  expect(isAccountCacheKey('lifemate:pets:v1:alice', 'alice')).toBe(true);
+  expect(isAccountCacheKey('lifemate:pets:v1:alice2', 'alice')).toBe(false);
   expect(
     isAccountCacheKey('lifemate:loan-repayment-attempt:v1:alice:loan', 'alice'),
   ).toBe(true);
@@ -72,6 +74,7 @@ test('purge drains a pending write before removing only its account data', async
   const uid = 'purge-test';
   let finish!: () => void;
   await AsyncStorage.setItem(`lifemate:notes:v1:${uid}`, 'old');
+  await AsyncStorage.setItem(`lifemate:pets:v1:${uid}`, 'pet DNA and outbox');
   await AsyncStorage.setItem('lifemate:notes:v1:other', 'keep');
   const writing = accountTask(uid, async () => {
     await new Promise<void>((resolve) => {
@@ -86,6 +89,7 @@ test('purge drains a pending write before removing only its account data', async
   await writing;
   await deleting;
   expect(await AsyncStorage.getItem(`lifemate:notes:v1:${uid}`)).toBeNull();
+  expect(await AsyncStorage.getItem(`lifemate:pets:v1:${uid}`)).toBeNull();
   expect(await AsyncStorage.getItem('lifemate:notes:v1:other')).toBe('keep');
   expect(FileSystem.deleteAsync).toHaveBeenCalledWith(
     'file:///documents/audio/purge-test/',

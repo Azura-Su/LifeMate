@@ -25,6 +25,18 @@ type Props = {
   onSave: (draft: MemoryDraft) => Promise<void>;
 };
 
+function dimensionsRatio(width?: number, height?: number) {
+  return typeof width === 'number' &&
+    typeof height === 'number' &&
+    Number.isFinite(width) &&
+    Number.isFinite(height) &&
+    width > 0 &&
+    height > 0 &&
+    Number.isFinite(width / height)
+    ? width / height
+    : null;
+}
+
 export function MemoryEditor({
   visible,
   uid,
@@ -51,6 +63,11 @@ export function MemoryEditor({
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const initializedFor = useRef<string | null>(null);
+  const knownPhoto = useRef<{
+    uri: string;
+    width: number;
+    height: number;
+  } | null>(null);
   const editingVisibility = useRef(initialVisibility);
   const choosingVisibility = !entry && visibilityOpen;
 
@@ -91,20 +108,40 @@ export function MemoryEditor({
         ? memoryPhotoUri(uid, entry.photoFileName)
         : (initialPhoto?.uri ?? null),
     );
-    setPhotoAspectRatio(initialPhoto?.aspectRatio ?? 3 / 4);
+    const ratio = dimensionsRatio(initialPhoto?.width, initialPhoto?.height);
+    knownPhoto.current =
+      ratio !== null && initialPhoto
+        ? {
+            uri: initialPhoto.uri,
+            width: initialPhoto.width!,
+            height: initialPhoto.height!,
+          }
+        : null;
+    setPhotoAspectRatio(
+      ratio ??
+        (initialPhoto &&
+        Number.isFinite(initialPhoto.aspectRatio) &&
+        initialPhoto.aspectRatio > 0
+          ? initialPhoto.aspectRatio
+          : 3 / 4),
+    );
     setPhotoMimeType(entry ? null : (initialPhoto?.mimeType ?? null));
     setPhotoChange(entry ? 'keep' : initialPhoto ? 'replace' : 'keep');
     setError(null);
   }, [visible, entry, initialPhoto, initialVisibility, uid]);
 
   useEffect(() => {
-    if (entry || !visible || !photoUri) return;
+    if (entry || !visible || !photoUri || knownPhoto.current?.uri === photoUri)
+      return;
     let current = true;
     Image.getSize(
       photoUri,
       (width, height) => {
-        if (current && width > 0 && height > 0)
-          setPhotoAspectRatio(width / height);
+        const ratio = dimensionsRatio(width, height);
+        if (current && ratio !== null) {
+          knownPhoto.current = { uri: photoUri, width, height };
+          setPhotoAspectRatio(ratio);
+        }
       },
       () => {
         // Keep the ratio provided by the camera when metadata cannot be read.
@@ -140,11 +177,12 @@ export function MemoryEditor({
       if (asset.fileSize && asset.fileSize > 15 * 1024 * 1024)
         throw new Error('Ảnh cần nhỏ hơn 15 MB. Hãy chọn ảnh khác.');
       setPhotoUri(asset.uri);
-      setPhotoAspectRatio(
-        asset.width > 0 && asset.height > 0
-          ? asset.width / asset.height
-          : 3 / 4,
-      );
+      const ratio = dimensionsRatio(asset.width, asset.height);
+      knownPhoto.current =
+        ratio !== null
+          ? { uri: asset.uri, width: asset.width, height: asset.height }
+          : null;
+      setPhotoAspectRatio(ratio ?? 3 / 4);
       setPhotoMimeType(asset.mimeType ?? null);
       setPhotoChange('replace');
     } catch (cause) {
@@ -161,12 +199,17 @@ export function MemoryEditor({
       return;
     }
     setError(null);
+    const dimensions =
+      !entry && knownPhoto.current?.uri === photoUri
+        ? { width: knownPhoto.current.width, height: knownPhoto.current.height }
+        : undefined;
     try {
       await onSave({
         dateKey: entry?.dateKey ?? toDateKey(new Date()),
         text,
         photoUri: entry ? memoryPhotoUri(uid, entry.photoFileName) : photoUri,
         photoMimeType: entry ? null : photoMimeType,
+        ...(dimensions && { photoDimensions: dimensions }),
         photoChange: entry ? 'keep' : photoChange,
         visibility: entry ? editingVisibility.current : visibility,
       });

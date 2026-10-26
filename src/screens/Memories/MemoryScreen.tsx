@@ -881,7 +881,10 @@ export function MemoryScreen() {
       } else saved = await createMemory(uid, draft);
       if (draft.visibility === 'friends') {
         try {
-          saved = await shareMemory(uid, name, saved);
+          saved =
+            !editing && draft.photoDimensions
+              ? await shareMemory(uid, name, saved, draft.photoDimensions)
+              : await shareMemory(uid, name, saved);
         } catch (cause) {
           if (cause instanceof MemoryShareUnconfirmedError) {
             if (useAuthStore.getState().user?.uid === uid)

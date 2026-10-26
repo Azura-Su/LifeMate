@@ -105,6 +105,22 @@ cache hiện tại. Đây là điều kiện hiển thị UI, không thay quyề
 - expo-camera55.0.23 trên iOS chỉ phát onCameraReady khi khởi tạo session, không phát khi đổi facing trong cùng session. iOS tạo CameraView mới cho mỗi lần đổi để nhận sự kiện đúng; Android giữ view hiện tại để native rebind nhanh và nhận sự kiện OPEN.
 - Không dùng thời gian chờ giả để đánh dấu ready. Giữ timeout10giây cho lỗi thiết bị thật và nút retry. Không đổi dependencies/native code.
 
+## Giảm chờ khi mở và chia sẻ — 26/10/2026
+
+- Các lần đọc state đồng thời cùng UID, phiên đăng nhập và tên hiển thị dùng
+  chung một yêu cầu đang chạy. Không giữ kết quả hoàn tất làm cache quyền.
+  Bắt đầu và kết thúc mutation (kể cả lỗi chưa xác nhận) đều ngăn lần đọc sau
+  dùng chung snapshot cũ; đổi phiên hủy các caller đang chờ.
+- Ảnh mới có metadata camera/picker giữ tỷ lệ, cạnh dài tối đa1024px,
+  fallback760px nếu JPEG vượt2MB; không phóng ảnh nhỏ. Metadata chỉ đi kèm draft
+  trong bộ nhớ, không ghi cache/Firestore hoặc gửi server. Mục cũ không có
+  metadata giữ bước resize theo chiều rộng như trước. Dùng lại pipeline native
+  khi fallback và dọn file tạm khi kiểm tra cỡ/lưu thất bại. Bản gốc riêng không
+  bị thu nhỏ hoặc đổi quality.
+- Camera chuyển width/height hợp lệ vào editor để khỏi đọc lại kích thước file.
+  Tỷ lệ dự phòng3/4 không được coi là metadata thật; thiếu kích thước hoặc chụp
+  lại mà metadata không hợp lệ thì đọc kích thước như trước.
+
 ## Tab mặc định và cache bạn bè — 19/10/2026
 
 - Khi vào tab Ký ức ở foreground và đang focus, tải trạng thái bạn bè ngay cả khi đang ở màn chụp. Không tải feed/ảnh bạn bè cho tới khi mở Dòng ký ức ở tab Bạn bè.

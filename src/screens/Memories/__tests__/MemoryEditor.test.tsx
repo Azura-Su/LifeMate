@@ -14,7 +14,8 @@ import {
   act,
 } from '@testing-library/react-native';
 import { MemoryEditor } from '../MemoryEditor';
-import type { MemoryEntry } from '../../../types/memory';
+import * as ImagePicker from 'expo-image-picker';
+import type { MemoryDraft, MemoryEntry } from '../../../types/memory';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { DialogModal } from '../../../components/DialogModal';
 
@@ -119,7 +120,7 @@ it('allows editing legacy text-only memories without asking for a photo', async 
     ),
   );
 });
-it('retains photo and visibility choices when creating a new memory', () => {
+it('retains photo and visibility choices without rereading known camera dimensions', () => {
   render(
     <MemoryEditor
       visible
@@ -130,6 +131,8 @@ it('retains photo and visibility choices when creating a new memory', () => {
         uri: 'file:///capture.jpg',
         mimeType: 'image/jpeg',
         aspectRatio: 1,
+        width: 800,
+        height: 800,
       }}
       busy={false}
       onSave={jest.fn()}
@@ -137,6 +140,7 @@ it('retains photo and visibility choices when creating a new memory', () => {
     />,
   );
   expect(screen.getByRole('button', { name: 'Chụp lại ảnh' })).toBeTruthy();
+  expect(Image.getSize).not.toHaveBeenCalled();
   expect(screen.getByRole('button', { name: /^Ai có thể xem/ })).toBeTruthy();
   expect(screen.getByLabelText('Ảnh khoảnh khắc đã chọn')).toBeTruthy();
   fireEvent.press(screen.getByRole('button', { name: /^Ai có thể xem/ }));
@@ -148,6 +152,94 @@ it('retains photo and visibility choices when creating a new memory', () => {
   expect(screen.queryByText('Chỉ lưu trên thiết bị này')).toBeNull();
   expect(screen.queryByRole('button', { name: 'Lưu khoảnh khắc' })).toBeNull();
 });
+
+it.each([
+  { aspectRatio: 3 / 4 },
+  { aspectRatio: NaN, width: 0, height: 800 },
+  { aspectRatio: Infinity, width: 600, height: Infinity },
+])(
+  'reads photo dimensions when camera metadata is unknown (%j)',
+  (metadata) => {
+    render(
+      <MemoryEditor
+        visible
+        uid="alice"
+        entry={null}
+        initialVisibility="private"
+        initialPhoto={{
+          uri: 'file:///unknown.jpg',
+          mimeType: 'image/jpeg',
+          ...metadata,
+        }}
+        busy={false}
+        onSave={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+    expect(Image.getSize).toHaveBeenCalledWith(
+      'file:///unknown.jpg',
+      expect.any(Function),
+      expect.any(Function),
+    );
+  },
+);
+
+it.each([true, false])(
+  'uses fresh picker metadata after retaking a photo (known=%s)',
+  async (known) => {
+    const onSave = jest.fn<Promise<void>, [MemoryDraft]>(async () => {});
+    jest
+      .mocked(ImagePicker.requestCameraPermissionsAsync)
+      .mockResolvedValue({ granted: true } as never);
+    jest.mocked(ImagePicker.launchCameraAsync).mockResolvedValue({
+      canceled: false,
+      assets: [
+        {
+          uri: 'file:///retaken.jpg',
+          width: known ? 1200 : 0,
+          height: known ? 800 : 0,
+          mimeType: 'image/jpeg',
+        },
+      ],
+    } as never);
+    render(
+      <MemoryEditor
+        visible
+        uid="alice"
+        entry={null}
+        initialVisibility="private"
+        initialPhoto={{
+          uri: 'file:///original.jpg',
+          mimeType: 'image/jpeg',
+          aspectRatio: 1,
+          width: 800,
+          height: 800,
+        }}
+        busy={false}
+        onSave={onSave}
+        onClose={jest.fn()}
+      />,
+    );
+    await act(async () =>
+      fireEvent.press(screen.getByRole('button', { name: 'Chụp lại ảnh' })),
+    );
+    if (known) expect(Image.getSize).not.toHaveBeenCalled();
+    else
+      expect(Image.getSize).toHaveBeenCalledWith(
+        'file:///retaken.jpg',
+        expect.any(Function),
+        expect.any(Function),
+      );
+    await act(async () =>
+      fireEvent.press(screen.getByRole('button', { name: 'Lưu khoảnh khắc' })),
+    );
+    const draft = onSave.mock.calls[0][0];
+    expect(draft.photoUri).toBe('file:///retaken.jpg');
+    if (known)
+      expect(draft.photoDimensions).toEqual({ width: 1200, height: 800 });
+    else expect(draft).not.toHaveProperty('photoDimensions');
+  },
+);
 it('keeps the text editor open on save failure for retry', async () => {
   render(
     <MemoryEditor

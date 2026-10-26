@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors, layout } from '../../theme';
+import { colors, fontSize, layout, radius, spacing } from '../../theme';
 
 export const styles = StyleSheet.create({
   fixedHeader: {
@@ -46,6 +46,13 @@ export const styles = StyleSheet.create({
     color: colors.ink,
   },
   todayCount: { fontSize: 12, lineHeight: 16, color: colors.muted },
+  todayCountPlaceholder: {
+    width: spacing.xxxl * 2 + spacing.lg,
+    height: fontSize.label,
+    marginVertical: spacing.xs / 2,
+    borderRadius: radius.xs,
+    backgroundColor: colors.line,
+  },
   todayList: {
     gap: 10,
     paddingHorizontal: 16,

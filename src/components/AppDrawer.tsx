@@ -29,6 +29,7 @@ type Props = {
   onOpenNotes: () => void;
   onOpenCardScore: () => void;
   onOpenChecklists: () => void;
+  onOpenPets?: () => void;
   onOpenAgenda?: () => void;
   onOpenUserManagement?: () => void;
   onOpenProfile?: () => void;
@@ -41,6 +42,7 @@ export function AppDrawer({
   onOpenNotes,
   onOpenCardScore,
   onOpenChecklists,
+  onOpenPets,
   onOpenAgenda,
   onOpenUserManagement,
   onOpenProfile,
@@ -202,6 +204,7 @@ export function AppDrawer({
                     label="Trò chơi & điểm số"
                     onPress={() => close(onOpenCardScore)}
                   />
+                  {onOpenPets && <><View style={styles.divider}/><MenuRow icon="heart" tint={colors.earth} badgeStyle={styles.notesIcon} label="Thú cưng của tôi" onPress={()=>close(onOpenPets)}/></>}
                 </View>
               </View>
               <View style={styles.section}>

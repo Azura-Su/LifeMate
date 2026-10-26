@@ -145,6 +145,7 @@ Tests bao gồm Auth/Remote Config/FCM, lưu thư viện riêng, audio/video imp
 ## Tài liệu quyết định kỹ thuật
 
 - [Kế hoạch](tasks/plan.md), [yêu cầu](SPEC.md), [checklist](tasks/todo.md).
+- [Pet lai chibi 3D](SPEC-pets.md): Home → menu → Thú cưng của tôi. Chọn1–3 loài, tạo lại bản nháp, đặt tên, lưu một pet/tài khoản và xóa để nhận pet mới. DNA đồng bộ Firestore; cache mã hóa xem được offline. Tính năng dùng Expo GL mới nên cần rebuild development app (`npm run ios` / `npm run android`) và khởi động lại Metro sau khi cài dependency; OTA hoặc refresh không bổ sung native module. Chạy `npm run test:pets-assets` để kiểm tra GLB/rig/clip và geometry thực tế. Xem [báo cáo triển khai](tasks/chibi-hybrid-pets-todo-2026-10-26.md) cho bằng chứng và giới hạn kiểm thử.
 - [Yêu cầu thư viện âm thanh](SPEC-audio.md), [sử dụng và cấu hình](docs/audio-library.md).
 - [Expo với Firebase](https://docs.expo.dev/guides/using-firebase/).
 - [React Native Firebase setup](https://rnfirebase.io/) và [Remote Config](https://rnfirebase.io/remote-config/usage).

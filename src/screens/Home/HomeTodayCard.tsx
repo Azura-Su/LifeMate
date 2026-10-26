@@ -355,6 +355,10 @@ function TodaySectionHeader({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ busy: loading }}
+      accessibilityValue={{
+        text: loading ? 'Đang tải dữ liệu' : `${count} ${countUnit}`,
+      }}
       onPress={onPress}
       style={({ pressed }) => [
         styles.todayHeader,
@@ -369,7 +373,7 @@ function TodaySectionHeader({
           {title}
         </Text>
         {loading ? (
-          <ActivityIndicator size="small" color={colors.muted} />
+          <View style={styles.todayCountPlaceholder} />
         ) : (
           <Text style={styles.todayCount}>{`${count} ${countUnit}`}</Text>
         )}

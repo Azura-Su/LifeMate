@@ -16,11 +16,15 @@ export type MemoryEntry = {
   updatedAt: number;
 };
 
+export type MemoryPhotoDimensions = { width: number; height: number };
+
 export type MemoryDraft = {
   dateKey: string;
   text: string;
   photoUri: string | null;
   photoMimeType?: string | null;
+  /** Transient dimensions of photoUri; never persisted or sent to the server. */
+  photoDimensions?: MemoryPhotoDimensions;
   photoChange: 'keep' | 'replace';
   visibility: 'private' | 'friends';
 };

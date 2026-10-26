@@ -15,7 +15,11 @@ import {
   uploadMemoryPhoto,
 } from './memoryCloud';
 import * as FileSystem from 'expo-file-system/legacy';
-import type { MemoryDraft, MemoryEntry } from '../../types/memory';
+import type {
+  MemoryDraft,
+  MemoryEntry,
+  MemoryPhotoDimensions,
+} from '../../types/memory';
 import { parseDateKey, toDateKey } from '../../utils/vietnameseCalendar';
 import { accountTask } from '../security/accountLifecycle';
 import {
@@ -390,6 +394,7 @@ export function shareMemory(
   uid: string,
   displayName: string,
   expected: MemoryEntry,
+  photoDimensions?: MemoryPhotoDimensions,
 ): Promise<MemoryEntry> {
   requireUid(uid);
   if (!ID.test(expected.id))
@@ -414,7 +419,9 @@ export function shareMemory(
       return shared;
     };
     try {
-      await publishMemory(uid, displayName, current);
+      if (photoDimensions)
+        await publishMemory(uid, displayName, current, photoDimensions);
+      else await publishMemory(uid, displayName, current);
       return await persistShared();
     } catch (cause) {
       if (!memoryPublishDefinitelyNotStarted(cause)) {

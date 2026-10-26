@@ -14,6 +14,7 @@ import { AgendaScreen } from '../screens/Agenda/AgendaScreen';
 import { CardScoreScreen } from '../screens/CardScore/CardScoreScreen';
 import { CardGamesRoute } from '../screens/CardGames/CardGamesRoute';
 import { ChecklistsScreen } from '../screens/Checklists/ChecklistsScreen';
+import { PetsScreen } from '../screens/Pets/PetsScreen';
 import { colors } from '../theme';
 import { UserManagementScreen } from '../screens/UserManagement/UserManagementScreen';
 import { isUserAdmin } from '../config/userAdmin';
@@ -37,6 +38,7 @@ const icons = {
   CardScore: 'award',
   CardGames: 'layers',
   Checklists: 'check-square',
+  Pets: 'heart',
 } as const;
 
 export function MainTabs() {
@@ -206,6 +208,7 @@ export function MainTabs() {
           tabBarStyle: { display: 'none' },
         }}
       />
+      <Tab.Screen name="Pets" component={PetsScreen} options={{tabBarButton:()=>null,tabBarItemStyle:{display:'none'},tabBarStyle:{display:'none'}}}/>
     </Tab.Navigator>
   );
 }

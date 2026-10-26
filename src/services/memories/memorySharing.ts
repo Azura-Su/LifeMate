@@ -1,19 +1,18 @@
 import { getAuth, getIdToken } from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 import { audioCloudApiKey, audioCloudUrl } from '../../config/audioCloud';
 import { memoryR2Bucket, memoryR2Origin } from '../../config/memoryR2';
 import { useAuthStore } from '../../store/authStore';
-import type { MemoryEntry } from '../../types/memory';
+import type { MemoryEntry, MemoryPhotoDimensions } from '../../types/memory';
 import {
   refreshAccountVerification,
   sendAccountVerificationEmail,
 } from '../firebase/authService';
 import { memoryPhotoUri } from './memoryStorage';
 import { accountTask } from '../security/accountLifecycle';
+import { prepareSharedMemoryPhoto } from './memorySharedPhoto';
 
-const MAX_SHARED_PHOTO_BYTES = 2 * 1024 * 1024;
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
 class MemoryShareNotStartedError extends Error {}
 class MemoryEmailNotVerifiedError extends MemoryShareNotStartedError {}
@@ -41,6 +40,11 @@ export type FriendMemoryPage = {
   items: FriendMemory[];
   nextOffset: number | null;
 };
+
+const pendingShareStates = new Map<
+  string,
+  { epoch: number; displayName: string; promise: Promise<MemoryShareState> }
+>();
 
 function assertSession(uid: string) {
   if (!ID.test(uid) || useAuthStore.getState().user?.uid !== uid)
@@ -124,12 +128,15 @@ export async function sendMemoryVerificationEmail(uid: string) {
 
 export async function refreshMemoryVerification(uid: string) {
   assertSession(uid);
+  pendingShareStates.delete(uid);
   try {
     const verified = await refreshAccountVerification(uid);
     assertSession(uid);
     return verified;
   } catch {
     throw new Error('Chưa kiểm tra được trạng thái email. Hãy thử lại sau.');
+  } finally {
+    pendingShareStates.delete(uid);
   }
 }
 
@@ -142,6 +149,8 @@ async function requestMemoryAction(
   responseDeadline?: number,
 ): Promise<Record<string, unknown>> {
   const user = assertSession(uid);
+  const mutates = !['state', 'feed', 'photo'].includes(String(input.action));
+  if (mutates) pendingShareStates.delete(uid);
   const origin = audioCloudUrl();
   const apiKey = audioCloudApiKey();
   if (!origin || !apiKey)
@@ -278,6 +287,8 @@ async function requestMemoryAction(
     clearTimeout(timeout!);
     controller.abort();
     unsubscribe();
+    // A state read may have begun while the mutation was still committing.
+    if (mutates) pendingShareStates.delete(uid);
   }
 }
 
@@ -295,6 +306,41 @@ function person(value: unknown): MemoryFriend | null {
 }
 
 export async function getMemoryShareState(
+  uid: string,
+  displayName: string,
+): Promise<MemoryShareState> {
+  assertSession(uid);
+  const epoch = useAuthStore.getState().sessionEpoch;
+  const name = displayName.trim().slice(0, 60) || 'Người dùng';
+  let pending = pendingShareStates.get(uid);
+  if (pending?.epoch !== epoch || pending.displayName !== name) {
+    pending = {
+      epoch,
+      displayName: name,
+      promise: readMemoryShareState(uid, name),
+    };
+    pendingShareStates.set(uid, pending);
+  }
+  try {
+    const state = await pending.promise;
+    assertSession(uid);
+    if (useAuthStore.getState().sessionEpoch !== epoch)
+      throw new Error('Phiên tài khoản đã thay đổi.');
+    // Each caller owns its DTO; sharing a request must not share mutable arrays.
+    return {
+      ...state,
+      friends: state.friends.map((friend) => ({ ...friend })),
+      incoming: state.incoming.map((friend) => ({ ...friend })),
+      outgoing: state.outgoing.map((invite) => ({ ...invite })),
+      sharedIds: [...state.sharedIds],
+      legacyIds: [...state.legacyIds],
+    };
+  } finally {
+    if (pendingShareStates.get(uid) === pending) pendingShareStates.delete(uid);
+  }
+}
+
+async function readMemoryShareState(
   uid: string,
   displayName: string,
 ): Promise<MemoryShareState> {
@@ -516,47 +562,17 @@ export async function renewFriendMemoryPhoto(
   return url;
 }
 
-async function resizeForSharing(uri: string) {
-  for (const [width, quality] of [
-    [1024, 0.72],
-    [760, 0.52],
-  ] as const) {
-    const context = ImageManipulator.manipulate(uri);
-    let image: Awaited<ReturnType<typeof context.renderAsync>> | null = null;
-    try {
-      context.resize({ width });
-      image = await context.renderAsync();
-      const saved = await image.saveAsync({
-        format: SaveFormat.JPEG,
-        compress: quality,
-      });
-      const info = await FileSystem.getInfoAsync(saved.uri);
-      if (
-        info.exists &&
-        !info.isDirectory &&
-        info.size &&
-        info.size <= MAX_SHARED_PHOTO_BYTES
-      )
-        return { uri: saved.uri, sizeBytes: info.size };
-      await FileSystem.deleteAsync(saved.uri, { idempotent: true }).catch(
-        () => undefined,
-      );
-    } finally {
-      image?.release();
-      context.release();
-    }
-  }
-  throw new Error('Ảnh quá lớn để chia sẻ. Hãy chọn ảnh khác.');
-}
-
 export async function publishMemory(
   uid: string,
   name: string,
   entry: MemoryEntry,
+  photoDimensions?: MemoryPhotoDimensions,
 ) {
   assertSession(uid);
   const photoUri = memoryPhotoUri(uid, entry.photoFileName);
-  const prepared = photoUri ? await resizeForSharing(photoUri) : null;
+  const prepared = photoUri
+    ? await prepareSharedMemoryPhoto(photoUri, photoDimensions)
+    : null;
   try {
     const result = await requestMemoryAction(uid, name, {
       action: 'publish',

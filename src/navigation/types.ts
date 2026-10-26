@@ -15,4 +15,5 @@ export type MainTabParams = {
       }
     | undefined;
   Checklists: { checklistId?: string } | undefined;
+  Pets: undefined;
 };

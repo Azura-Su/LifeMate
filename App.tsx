@@ -1,5 +1,7 @@
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { useEffect, useState } from 'react';
+import { View } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NotificationBanner } from './src/components/NotificationBanner';
@@ -55,8 +57,16 @@ export default function App({ isHeadless }: { isHeadless?: boolean }) {
   if (headless !== false) return null;
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <LifeMate />
+      <View
+        testID="app-content"
+        style={{ flex: 1 }}
+        onLayout={() => {
+          void SplashScreen.hideAsync().catch(() => undefined);
+        }}
+      >
+        <StatusBar style="dark" />
+        <LifeMate />
+      </View>
     </SafeAreaProvider>
   );
 }

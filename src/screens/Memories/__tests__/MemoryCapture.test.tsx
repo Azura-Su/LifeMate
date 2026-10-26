@@ -55,6 +55,8 @@ it('reports capture immediately and delivers the photo only when ready, blocking
     uri: 'file:///capture.jpg',
     mimeType: 'image/jpeg',
     aspectRatio: 0.75,
+    width: 600,
+    height: 800,
   });
   expect(onCapturingChange).toHaveBeenLastCalledWith(false);
 });
@@ -76,6 +78,27 @@ it('restores capture controls and shows errors if capture fails', async () => {
     screen.getByRole('button', { name: 'Chụp khoảnh khắc' }),
   ).not.toBeDisabled();
   expect(onCapturingChange).toHaveBeenLastCalledWith(false);
+});
+
+it('keeps fallback camera dimensions unknown so the editor can inspect the photo', async () => {
+  mockTakePicture.mockResolvedValue({
+    uri: 'file:///capture.jpg',
+    width: 0,
+    height: 0,
+  });
+  const onPhoto = jest.fn();
+  render(
+    <MemoryCapture active onPhoto={onPhoto} onCapturingChange={jest.fn()} />,
+  );
+  fireEvent(screen.getByTestId('camera'), 'cameraReady');
+  await act(async () =>
+    fireEvent.press(screen.getByRole('button', { name: 'Chụp khoảnh khắc' })),
+  );
+  expect(onPhoto).toHaveBeenCalledWith({
+    uri: 'file:///capture.jpg',
+    mimeType: 'image/jpeg',
+    aspectRatio: 3 / 4,
+  });
 });
 
 it('does not open the editor when an old capture completes after leaving', async () => {
