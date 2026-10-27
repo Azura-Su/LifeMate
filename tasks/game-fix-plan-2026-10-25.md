@@ -34,3 +34,27 @@ Review đã đối chiếu SPEC, code client/backend, quyền và bảng điểm
 3. Reviewer rà diff so với baseline đầu audit (không quy các thay đổi có sẵn thành thay đổi mới).
 4. Chạy full Jest/functions, typecheck/lint và bundle iOS/Android. Probe lại đường bị ảnh hưởng; báo rõ giới hạn của mock auth/PGlite và chưa xác minh trên thiết bị thật.
 5. Không đổi dependency, migration, cấu hình luật, điểm hay deploy trong đợt review này.
+
+## Sửa lỗi xác nhận — 27/10/2026
+
+- P2 / Tấn: ghế ở màn kết quả còn lấy roster ván cũ sau khi người cũ rời,
+  người mới vào; người rời trong lúc chơi cũng mất tên dù snapshot còn tên.
+  Regression phải kiểm tra người mới có ghế, người rời không có ghế sau kết
+  quả, kết quả người rời vẫn giữ nguyên và tên người rời trong ván còn hiển thị.
+- Sửa tối thiểu ở TanGameTable: khi chơi lấy participant snapshot, khi chờ ván
+  kế tiếp lấy thành viên hiện tại; ưu tiên tên member rồi fallback participant.
+  Không đổi engine, điểm, quyền, protocol hay dữ liệu đã lưu.
+- Reviewer game_rules_audit_27 đã duyệt phạm vi sửa UI. Test RED trước sửa,
+  GREEN sau sửa và rà diff cuối cùng cùng các phát hiện khác của lượt audit.
+
+- P2 / Phỏm Tái: hai người móm trong kết quả có người có phỏm bị xếp theo
+  thứ tự hạ thay vì lần đánh cuối. Ghi private `lastDiscardOrder` ở người đánh,
+  bằng tổng discards còn trên bàn + số lượt ăn sau khi thêm lá vừa đánh. Ăn
+  chuyển một lá từ discards sang eats nên số thứ tự tăng đúng một mỗi lần đánh.
+  Chỉ dùng thứ tự này khi so hai người móm trong bàn có người còn chơi có phỏm.
+  Hòa điểm có phỏm và tất cả người còn chơi móm vẫn xét thứ tự hạ; bỏ cuộc,
+  người thắng và các mức điểm giữ nguyên. State cũ thiếu trường fallback laidOrder.
+  Không lộ metadata qua view/snapshot, không rewrite kết quả đã lưu, không migration.
+- Reviewer phom_audit_27 đã duyệt kế hoạch trước sửa. Regression: fixture Tái
+  bảo toàn 52 lá, móm thường, tất cả móm (kể cả người bỏ cuộc đã có phỏm),
+  hòa rác có phỏm, state cũ và privacy. RED → GREEN → review diff cuối.

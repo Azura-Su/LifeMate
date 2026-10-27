@@ -152,6 +152,77 @@ it('backs up old cache and restores the same account on a second device', async 
   );
   expect(await readMemories('alice')).toEqual(second.entries);
 });
+
+it('restores newest remote photos in bounded batches and reports only durable progress', async () => {
+  for (let index = 1; index <= 6; index += 1) {
+    const id = `remote-${index}`;
+    remote.set(
+      id,
+      cloud({ ...base, id, photoFileName: `${id}.jpg`, createdAt: index }),
+    );
+  }
+  let active = 0;
+  let maximum = 0;
+  jest.mocked(downloadMemoryPhoto).mockImplementation(async () => {
+    active += 1;
+    maximum = Math.max(maximum, active);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    active -= 1;
+    return undefined;
+  });
+  const writes = jest.spyOn(encryptedStorage, 'setEncryptedItem');
+  const progress: string[][] = [];
+  const durable: string[][] = [];
+  const result = await synchronizeMemories('alice', (entries) => {
+    progress.push(entries.map(({ id }) => id));
+    const raw = writes.mock.lastCall?.[2];
+    durable.push(
+      raw ? JSON.parse(raw).map((entry: MemoryEntry) => entry.id) : [],
+    );
+  });
+  expect(result.synced).toBe(true);
+  expect(maximum).toBe(3);
+  expect(progress).toHaveLength(2);
+  expect(progress[0]).toEqual(['remote-6', 'remote-5', 'remote-4']);
+  expect(progress[1]).toHaveLength(6);
+  expect(durable).toEqual(progress);
+  writes.mockRestore();
+});
+
+it('drains the active restore batch before releasing the queue after an account change', async () => {
+  for (let index = 1; index <= 3; index += 1) {
+    const id = `remote-${index}`;
+    remote.set(id, cloud({ ...base, id, photoFileName: `${id}.jpg` }));
+  }
+  const finishes: (() => void)[] = [];
+  jest.mocked(downloadMemoryPhoto).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finishes.push(() => resolve(undefined));
+      }),
+  );
+  let settled = false;
+  const progress = jest.fn();
+  const sync = synchronizeMemories('alice', progress).then(
+    () => {
+      settled = true;
+    },
+    () => {
+      settled = true;
+    },
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(finishes).toHaveLength(3);
+  useAuthStore.setState({
+    user: { uid: 'bob', email: null, displayName: null },
+  });
+  finishes[0]();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(settled).toBe(false);
+  finishes.slice(1).forEach((finish) => finish());
+  await sync;
+  expect(progress).not.toHaveBeenCalled();
+});
 it('acknowledges the same persisted intent after commit succeeds but response is lost', async () => {
   await seed([base]);
   const commit = jest.mocked(commitCloudMemory).getMockImplementation()!;
@@ -435,9 +506,14 @@ it('stops orphan cleanup if the signed-in account changes during directory listi
 it('restores other cloud entries after one new photo cannot download', async () => {
   remote.set('one', cloud(base));
   remote.set('two', cloud({ ...base, id: 'two', photoFileName: 'two.jpg' }));
-  jest
-    .mocked(downloadMemoryPhoto)
-    .mockRejectedValueOnce(new Error('Missing original'));
+  let firstAttempt = true;
+  jest.mocked(downloadMemoryPhoto).mockImplementation(async (_uid, entry) => {
+    if (firstAttempt && entry.id === 'one') {
+      firstAttempt = false;
+      throw new Error('Missing original');
+    }
+    return undefined;
+  });
   const result = await synchronizeMemories('alice');
   expect(result.synced).toBe(false);
   expect(result.entries.map(({ id }) => id)).toEqual(['two']);

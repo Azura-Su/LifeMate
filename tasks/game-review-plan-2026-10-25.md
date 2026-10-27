@@ -1,5 +1,20 @@
 # Kế hoạch review và sửa trò chơi — 25/10/2026
 
+## Rà soát tiếp — 27/10/2026
+
+- Phạm vi hiện tại gồm cả Tiến lên Nam/Bắc, Phỏm, Sâm và Tấn; đối chiếu
+  SPEC/rulesVersion đang triển khai, không áp đặt luật bên ngoài dự án.
+- Main rà phòng, phiên/reconnect, protocol/capability, snapshot, bảng điểm và UI.
+  Hai reviewer chỉ đọc rà độc lập nhóm Nam/Bắc/Sâm/Tấn và Phỏm; không full history,
+  không sửa file hoặc delegate tiếp. Bảo toàn diff Ký ức đang có.
+- Kiểm tra thêm tương thích luật v1/v2, mọi vị trí ghế/rời bàn, người đã về trước
+  khi có bỏ cuộc, bảo toàn bộ bài và lượt hợp lệ sau timeout/forfeit.
+- Chỉ sửa bug có bước tái hiện; lập và duyệt kế hoạch sửa trước thay đổi luật,
+  quyền, hợp đồng hoặc dữ liệu điểm. Regression RED → sửa tối thiểu → GREEN.
+- Chạy Jest nhóm game/điểm, backend game tests, typecheck/lint; mở rộng gate khi
+  sửa đường dùng chung. Reviewer rà diff cuối; ghi phạm vi/giới hạn vào báo cáo.
+  Không deploy hoặc tạo dữ liệu phòng thật trong lượt review.
+
 ## Mục tiêu và nguồn chuẩn
 
 Review toàn bộ phần trò chơi đã triển khai: Tiến lên miền Nam, Phỏm, phòng,

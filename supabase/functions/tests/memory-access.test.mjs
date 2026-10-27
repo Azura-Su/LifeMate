@@ -185,6 +185,12 @@ function createWorld(options = {}) {
       return result;
     }
     if (method === 'POST') {
+      if (
+        options.uniqueProfiles &&
+        table === 'lifemate_memory_profiles' &&
+        list.some((row) => row.uid === body.uid)
+      )
+        throw new Error('duplicate profile');
       const row = { created_at: new Date().toISOString(), ...body };
       list.push(row);
       return [row];
@@ -234,6 +240,69 @@ async function befriend(world, a, b) {
   await world.call(a, { action: 'invite', email: users[b].email });
   assert.equal((await world.call(b, { action: 'accept', uid: a })).status, 200);
 }
+
+test('concurrent initial state/feed does not race profile creation', async () => {
+  const world = createWorld({ uniqueProfiles: true });
+  const results = await Promise.all([
+    world.call('alice', { action: 'state' }),
+    world.call('alice', { action: 'feed' }),
+  ]);
+  assert.deepEqual(
+    results.map(({ status }) => status),
+    [200, 200],
+  );
+  assert.equal(
+    world.calls.filter(
+      ({ table, method }) =>
+        table === 'lifemate_memory_profiles' && method === 'POST',
+    ).length,
+    1,
+  );
+});
+
+test('feed, photo and upload confirmation skip unrelated profile/invite roundtrips', async () => {
+  const world = createWorld({
+    r2: async (action, path) =>
+      action === 'head'
+        ? { sizeBytes: 1000, contentType: 'image/jpeg' }
+        : `r2:${action}:${path}`,
+  });
+  await befriend(world, 'alice', 'bob');
+  await world.call('alice', {
+    action: 'publish',
+    id: 'fast',
+    dateKey: '2026-10-15',
+    text: 'Photo',
+    hasPhoto: true,
+    sizeBytes: 1000,
+  });
+  const measured = [];
+  for (const [as, input, expected] of [
+    ['alice', { action: 'confirm', id: 'fast' }, 2],
+    ['bob', { action: 'photo', ownerUid: 'alice', id: 'fast' }, 2],
+    ['bob', { action: 'feed' }, 6],
+  ]) {
+    world.calls.length = 0;
+    assert.equal((await world.call(as, input)).status, 200);
+    measured.push({
+      count: world.calls.length,
+      expected,
+      unrelated: world.calls.some(
+        ({ table, query }) =>
+          table === 'rpc/claim_lifemate_memory_email_invites' ||
+          (table === 'lifemate_memory_profiles' && query.uid === `eq.${as}`),
+      ),
+    });
+  }
+  assert.deepEqual(
+    measured.map(({ count }) => count),
+    measured.map(({ expected }) => expected),
+  );
+  assert.equal(
+    measured.some(({ unrelated }) => unrelated),
+    false,
+  );
+});
 
 test('rejects browser origins, bad tokens, unverified email and extra fields', async () => {
   const world = createWorld();

@@ -1,5 +1,22 @@
 # Vào lại bàn và popup mã phòng — cập nhật 20/10/2026
 
+## Thiết kế lại tạo/vào phòng — 27/10/2026
+
+- [ ] Đưa hai lựa chọn Tạo phòng mới / Vào phòng có sẵn lên đầu danh mục.
+  Tạo phòng chọn game rồi cấu hình; vào phòng chỉ nhập một mã chung, server
+  nhận diện game và trả luật thật của phòng. Bỏ form join lặp trong từng game.
+- [ ] Giữ draft khi đổi chế độ, chặn thao tác lặp khi busy/pending/loading,
+  giữ nguyên rejoin/cache/takeover và các hàng rào UID/phiên/phòng hiện có.
+- [ ] Regression cho vào phòng không chọn game, nhập mã chuẩn hóa, mọi game
+  dùng cùng join, tạo từng game giữ đúng config và quay lại draft không mất.
+- [ ] Tới trắng miền Nam: hiển thị ba điều kiện đã hỗ trợ (sảnh rồng, tứ quý 2,
+  sáu đôi) trong cấu hình trước tạo. Cách tính tiền đang hỏi người dùng; không
+  đổi engine/payout khi chưa chốt. Kế hoạch phần cấu hình tiền nối tiếp tại
+  south-config-plan-2026-10-23.md.
+- [ ] Reviewer duyệt kế hoạch phần contract/điểm trước sửa, rà diff cuối;
+  Jest liên quan, functions nếu đổi backend, typecheck/lint và native/bundle.
+  Không dependency hoặc deploy trong lượt này. Bảo toàn diff có sẵn.
+
 ## Mục tiêu
 
 Khi vào lại phòng đang có snapshot kết thúc trong phiên hiện tại, giữ bàn kết quả làm nền và đặt trạng thái tải tại nút `Sẵn sàng`; không thay bằng trang loading riêng. Snapshot cũ chỉ để hiển thị, khóa mọi thao tác đến khi server trả phòng mới. Nếu không có snapshot cục bộ hoặc server từ chối vào phòng thì dùng trạng thái lỗi/form hiện có. Khi bấm back ở bàn cache thì xóa preview và về bảng điểm; khi xác nhận rời một phòng thật thì gửi lệnh rời, sau đó điều hướng về bảng điểm. Nút `?` mở hộp thoại theo design system thay native alert, hiển thị mã, sao chép mã, xem luật và đóng.

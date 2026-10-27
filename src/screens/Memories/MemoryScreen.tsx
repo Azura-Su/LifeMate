@@ -351,6 +351,7 @@ export function MemoryScreen() {
   >(null);
   const ownLoad = useRef<{
     uid: string;
+    sessionEpoch: number;
     again: boolean;
     promise: Promise<void>;
   } | null>(null);
@@ -372,13 +373,18 @@ export function MemoryScreen() {
 
   const load = useCallback(
     (accountId: string, refresh = false): Promise<void> => {
-      if (ownLoad.current?.uid === accountId) {
+      const sessionEpoch = useAuthStore.getState().sessionEpoch;
+      if (
+        ownLoad.current?.uid === accountId &&
+        ownLoad.current.sessionEpoch === sessionEpoch
+      ) {
         ownLoad.current.again = true;
         if (refresh) setRefreshing(true);
         return ownLoad.current.promise;
       }
       const request = {
         uid: accountId,
+        sessionEpoch,
         again: false,
         promise: Promise.resolve(),
       };
@@ -396,15 +402,27 @@ export function MemoryScreen() {
             const saved = await readMemories(accountId);
             if (
               generation === loadGeneration.current &&
-              useAuthStore.getState().user?.uid === accountId
+              useAuthStore.getState().user?.uid === accountId &&
+              useAuthStore.getState().sessionEpoch === sessionEpoch
             ) {
               setItems(saved);
               setLoadedUid(accountId);
             }
-            const result = await synchronizeMemories(accountId);
+            const result = await synchronizeMemories(accountId, (restored) => {
+              const session = useAuthStore.getState();
+              if (
+                generation === loadGeneration.current &&
+                session.user?.uid === accountId &&
+                session.sessionEpoch === sessionEpoch
+              ) {
+                setItems(restored);
+                setLoadedUid(accountId);
+              }
+            });
             if (
               generation === loadGeneration.current &&
-              useAuthStore.getState().user?.uid === accountId
+              useAuthStore.getState().user?.uid === accountId &&
+              useAuthStore.getState().sessionEpoch === sessionEpoch
             ) {
               setItems(result.entries);
               setOwnSynced(result.synced);
@@ -414,17 +432,22 @@ export function MemoryScreen() {
           } while (
             request.again &&
             ownLoad.current === request &&
-            useAuthStore.getState().user?.uid === accountId
+            useAuthStore.getState().user?.uid === accountId &&
+            useAuthStore.getState().sessionEpoch === sessionEpoch
           );
         } catch (cause) {
           if (
             generation === loadGeneration.current &&
-            useAuthStore.getState().user?.uid === accountId
+            useAuthStore.getState().user?.uid === accountId &&
+            useAuthStore.getState().sessionEpoch === sessionEpoch
           )
             setError((cause as Error).message || 'Chưa đọc được dòng ký ức.');
         } finally {
           if (ownLoad.current === request) ownLoad.current = null;
-          if (generation === loadGeneration.current) {
+          if (
+            generation === loadGeneration.current &&
+            useAuthStore.getState().sessionEpoch === sessionEpoch
+          ) {
             setLoading(false);
             setRefreshing(false);
           }
@@ -443,6 +466,15 @@ export function MemoryScreen() {
       keepVerifiedState = false,
     ) => {
       const generation = ++cloudGeneration.current;
+      const sessionEpoch = useAuthStore.getState().sessionEpoch;
+      const isCurrent = () => {
+        const session = useAuthStore.getState();
+        return (
+          generation === cloudGeneration.current &&
+          session.user?.uid === accountId &&
+          session.sessionEpoch === sessionEpoch
+        );
+      };
       cloudRequest.current = { uid: accountId, includeFeed, generation };
       let stateReceived = false;
       setCloudLoading(true);
@@ -456,15 +488,19 @@ export function MemoryScreen() {
         setFriendNextOffset(null);
       }
       try {
+        // Observe rejection immediately: state can fail before this read finishes.
+        const feedRequest = includeFeed
+          ? getFriendMemories(accountId, displayName).then(
+              (feed) => ({ ok: true as const, feed }),
+              (cause: unknown) => ({ ok: false as const, cause }),
+            )
+          : null;
         const state = await getMemoryShareState(accountId, displayName);
         const friendsKey = JSON.stringify(
           [...new Set(state.friends.map(({ uid }) => uid))].sort(),
         );
         stateReceived = true;
-        if (
-          generation === cloudGeneration.current &&
-          useAuthStore.getState().user?.uid === accountId
-        ) {
+        if (isCurrent()) {
           const scope = friendFeedScope.current;
           if (scope?.uid === accountId && scope.friendsKey !== friendsKey) {
             friendFeedScope.current = null;
@@ -494,20 +530,13 @@ export function MemoryScreen() {
               state.legacyIds,
             )
               .then((failed) => {
-                if (
-                  failed > 0 &&
-                  generation === cloudGeneration.current &&
-                  useAuthStore.getState().user?.uid === accountId
-                )
+                if (failed > 0 && isCurrent())
                   setCloudError(
                     'Một số ảnh chia sẻ cũ chưa chuyển được sang R2. Kéo xuống để thử lại.',
                   );
               })
               .catch(() => {
-                if (
-                  generation === cloudGeneration.current &&
-                  useAuthStore.getState().user?.uid === accountId
-                )
+                if (isCurrent())
                   setCloudError(
                     'Chưa chuyển được ảnh cũ. Kéo xuống để thử lại.',
                   );
@@ -517,16 +546,22 @@ export function MemoryScreen() {
               });
           }
         }
-        if (
-          includeFeed &&
-          generation === cloudGeneration.current &&
-          useAuthStore.getState().user?.uid === accountId
-        ) {
-          const feed = await getFriendMemories(accountId, displayName);
-          if (
-            generation === cloudGeneration.current &&
-            useAuthStore.getState().user?.uid === accountId
-          ) {
+        if (feedRequest && isCurrent()) {
+          const outcome = await feedRequest;
+          if (!outcome.ok) throw outcome.cause;
+          let feed = outcome.feed;
+          const friends = new Set(state.friends.map(({ uid }) => uid));
+          const incompatible = () =>
+            feed.items.some(({ ownerId }) => !friends.has(ownerId));
+          if (isCurrent() && incompatible()) {
+            // A friendship can change between the two concurrent snapshots.
+            feed = await getFriendMemories(accountId, displayName);
+            if (incompatible())
+              throw new Error(
+                'Danh sách bạn bè vừa thay đổi. Kéo xuống để tải lại.',
+              );
+          }
+          if (isCurrent()) {
             friendFeedScope.current = { uid: accountId, friendsKey };
             setFriendItems(feed.items);
             setFriendNextOffset(feed.nextOffset);
@@ -534,10 +569,7 @@ export function MemoryScreen() {
           }
         }
       } catch (cause) {
-        if (
-          generation === cloudGeneration.current &&
-          useAuthStore.getState().user?.uid === accountId
-        ) {
+        if (isCurrent()) {
           chooseInitialTimelineTab.current = false;
           if (!stateReceived) setShareState(null);
           setCloudError(

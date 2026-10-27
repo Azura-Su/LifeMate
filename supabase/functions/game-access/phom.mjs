@@ -243,6 +243,9 @@ export function playPhom(input, uid, action, now) {
   p.hand = rest;
   p.discards.push(card);
   p.turns++;
+  // Eating moves a discard into eats, so their sum preserves the action order.
+  p.lastDiscardOrder =
+    state.players.reduce((sum, q) => sum + q.discards.length, 0) + state.eats.length;
   state.lastDiscard = { uid, card, chot: p.turns === 4 };
   // A completed 9-card hand or laid/sent hand is automatically a valid ù.
   if (canWin({ ...state, step: 'draw' }, p))

@@ -215,6 +215,30 @@ it('does not request the friend photo feed while viewing own memories', async ()
   expect(getFriendMemories).not.toHaveBeenCalled();
 });
 
+it('shows restored own photos before the remaining cloud sync has finished', async () => {
+  jest.mocked(readMemories).mockResolvedValue([]);
+  jest.mocked(getMemoryShareState).mockResolvedValue(verifiedState);
+  let progress!: (entries: MemoryEntry[]) => void;
+  let finish!: () => void;
+  jest
+    .mocked(synchronizeMemories)
+    .mockImplementationOnce((_uid, onProgress) => {
+      progress = onProgress!;
+      return new Promise((resolve) => {
+        finish = () => resolve({ entries: [local], synced: true });
+      });
+    });
+  render(<MemoryScreen />);
+  fireEvent.press(screen.getByRole('button', { name: 'Xem dòng ký ức' }));
+  await waitFor(() => expect(synchronizeMemories).toHaveBeenCalled());
+  expect(screen.queryByText(local.text)).toBeNull();
+  act(() => progress([local]));
+  expect(screen.getByText(local.text)).toBeTruthy();
+  expect(screen.queryByText('Đã đồng bộ theo tài khoản')).toBeNull();
+  await act(async () => finish());
+  expect(screen.getByText('Đã đồng bộ theo tài khoản')).toBeTruthy();
+});
+
 it.each(['private', 'friends'] as const)(
   'keeps confirmed %s visibility when returning to My tab while refreshing in the background',
   async (visibility) => {
@@ -410,8 +434,61 @@ const friendPhoto = {
   photoUrl: 'https://example.com/friend.jpg',
 };
 
+const verifiedFriendsState = {
+  ...verifiedState,
+  friends: [{ uid: 'u2', name: 'An', email: 'b@example.com' }],
+};
+
+it('starts the friend feed while sharing state is still pending', async () => {
+  await openMine();
+  let finishState!: () => void;
+  jest.mocked(getMemoryShareState).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishState = () => resolve(verifiedFriendsState);
+      }),
+  );
+  jest
+    .mocked(getFriendMemories)
+    .mockResolvedValueOnce({ items: [friendPhoto], nextOffset: null });
+  fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Bạn bè' }));
+  await act(async () => {
+    await Promise.resolve();
+  });
+  const startedBeforeState = jest.mocked(getFriendMemories).mock.calls.length;
+  await act(async () => finishState());
+  expect(startedBeforeState).toBe(1);
+  expect(await screen.findByText(friendPhoto.text)).toBeTruthy();
+});
+
+it('refetches an incompatible concurrent feed without retaining a revoked owner or cursor', async () => {
+  await openMine();
+  const eligible = {
+    ...friendPhoto,
+    id: 'eligible',
+    ownerId: 'u3',
+    text: 'Ảnh được phép',
+  };
+  jest.mocked(getMemoryShareState).mockResolvedValue({
+    ...verifiedState,
+    friends: [{ uid: 'u3', name: 'Mai', email: 'c@example.com' }],
+  });
+  jest
+    .mocked(getFriendMemories)
+    .mockResolvedValueOnce({ items: [friendPhoto, eligible], nextOffset: 30 })
+    .mockResolvedValueOnce({ items: [eligible], nextOffset: null });
+  fireEvent.press(screen.getByRole('button', { name: 'Xem ký ức Bạn bè' }));
+  expect(await screen.findByText(eligible.text)).toBeTruthy();
+  expect(screen.queryByText(friendPhoto.text)).toBeNull();
+  expect(
+    screen.queryByRole('button', { name: 'Xem thêm ký ức của bạn bè' }),
+  ).toBeNull();
+  expect(getFriendMemories).toHaveBeenCalledTimes(2);
+});
+
 it('keeps only Friends-tab management and waits for the feed with one inline loading indicator', async () => {
   await openMine();
+  jest.mocked(getMemoryShareState).mockResolvedValue(verifiedFriendsState);
   expect(screen.queryByRole('button', { name: 'Quản lý bạn bè' })).toBeNull();
   let finishFeed!: () => void;
   jest.mocked(getFriendMemories).mockImplementationOnce(
@@ -440,6 +517,7 @@ it.each([
   'reuses the $description Friends feed across tab changes without loading again',
   async ({ items, content }) => {
     await openMine();
+    jest.mocked(getMemoryShareState).mockResolvedValue(verifiedFriendsState);
     jest
       .mocked(getFriendMemories)
       .mockResolvedValueOnce({ items, nextOffset: null });
@@ -452,7 +530,7 @@ it.each([
       jest.mocked(getMemoryShareState).mockImplementationOnce(
         () =>
           new Promise((resolve) => {
-            finishState = () => resolve(verifiedState);
+            finishState = () => resolve(verifiedFriendsState);
           }),
       );
       fireEvent.press(
@@ -476,6 +554,7 @@ it.each([
 
 it('keeps loaded friend pages when switching tabs and replaces them on pull-to-refresh', async () => {
   await openMine();
+  jest.mocked(getMemoryShareState).mockResolvedValue(verifiedFriendsState);
   const olderPhoto = { ...friendPhoto, id: 'older', text: 'Ảnh cũ của An' };
   const newPhoto = { ...friendPhoto, id: 'new', text: 'Ảnh mới của An' };
   jest
@@ -508,6 +587,7 @@ it('keeps loaded friend pages when switching tabs and replaces them on pull-to-r
 
 it('clears cached friend memories when the signed-in account changes', async () => {
   await openMine();
+  jest.mocked(getMemoryShareState).mockResolvedValue(verifiedFriendsState);
   jest
     .mocked(getFriendMemories)
     .mockResolvedValueOnce({ items: [friendPhoto], nextOffset: null });
@@ -693,6 +773,7 @@ it('keeps the inline indicator until the friend feed finishes after acceptance a
       }),
   );
   let accepting!: Promise<void>;
+  jest.mocked(getMemoryShareState).mockResolvedValue(verifiedFriendsState);
   act(() => {
     accepting = jest
       .mocked(MemoryFriendsModal)

@@ -10,6 +10,7 @@ import {
 import {
   ActivityIndicator,
   Animated,
+  Image,
   Modal,
   PanResponder,
   Pressable,
@@ -43,11 +44,13 @@ function ZoomableMemoryPhoto({
   onClose,
   onNext,
   onPrevious,
+  onReady,
 }: {
   photo: MemoryViewerPhoto;
   onClose: () => void;
   onNext?: () => void;
   onPrevious?: () => void;
+  onReady: () => void;
 }) {
   const surface = useRef<View>(null);
   const viewport = useRef({ width: 0, height: 0, left: 0, top: 0 });
@@ -311,6 +314,7 @@ function ZoomableMemoryPhoto({
           if (width > 0 && height > 0) image.current = { width, height };
           setLoading(false);
           apply(bound(transform.current));
+          onReady();
         }}
         onError={() => {
           if (photo.renew && !renewalAttempted.current) {
@@ -366,9 +370,34 @@ export function MemoryPhotoViewer({
   const insets = useContext(SafeAreaInsetsContext);
   const active = useScreenActive();
   const [index, setIndex] = useState(initialIndex);
+  const prefetched = useRef(new Set<string>());
+  const prefetching = useRef(new Set<string>());
   useEffect(() => {
     if (!active) onClose();
   }, [active, onClose]);
+  const prefetchNearby = () => {
+    if (!active) return;
+    // Current photo has decoded. Warm only its two neighbors, using the same
+    // authorized URLs and native cache as Image; never fetch the whole feed.
+    for (const neighbor of [photos[index + 1], photos[index - 1]]) {
+      const uri = neighbor?.uri;
+      if (
+        !uri?.startsWith('https://') ||
+        prefetched.current.has(uri) ||
+        prefetching.current.size >= 2
+      )
+        continue;
+      prefetched.current.add(uri);
+      prefetching.current.add(uri);
+      void Image.prefetch(uri)
+        .catch(() => {
+          prefetched.current.delete(uri);
+        })
+        .finally(() => {
+          prefetching.current.delete(uri);
+        });
+    }
+  };
   const photo = photos[index];
   if (!photo) return null;
   const previous =
@@ -441,6 +470,7 @@ export function MemoryPhotoViewer({
           onClose={onClose}
           onPrevious={previous}
           onNext={next}
+          onReady={prefetchNearby}
         />
         {!!photo.text?.trim() && (
           <ScrollView

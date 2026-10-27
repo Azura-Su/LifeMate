@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import {
   AppState,
+  Image,
   PanResponder,
   StyleSheet,
   type GestureResponderEvent,
@@ -67,6 +68,40 @@ function setup(initialIndex = 1) {
     });
   return { handlers, swipe, onClose };
 }
+
+it('waits for the current image then prefetches at most two authorized remote neighbors', async () => {
+  const pending: (() => void)[] = [];
+  const prefetch = jest.spyOn(Image, 'prefetch').mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        pending.push(() => resolve(true));
+      }),
+  );
+  const remote = Array.from({ length: 6 }, (_, index) => ({
+    id: String(index),
+    uri: `https://example.com/${index}.jpg`,
+    label: String(index),
+  }));
+  render(
+    <MemoryPhotoViewer photos={remote} initialIndex={2} onClose={jest.fn()} />,
+  );
+  expect(prefetch).not.toHaveBeenCalled();
+  fireEvent(screen.getByLabelText('Ảnh phóng lớn: 2'), 'load', {
+    nativeEvent: { source: { width: 400, height: 600 } },
+  });
+  expect(prefetch.mock.calls.map(([uri]) => uri)).toEqual([
+    remote[3].uri,
+    remote[1].uri,
+  ]);
+  fireEvent.press(screen.getByRole('button', { name: 'Ảnh tiếp theo' }));
+  fireEvent(screen.getByLabelText('Ảnh phóng lớn: 3'), 'load', {
+    nativeEvent: { source: { width: 400, height: 600 } },
+  });
+  expect(prefetch).toHaveBeenCalledTimes(2);
+  await act(async () => {
+    pending.forEach((finish) => finish());
+  });
+});
 
 it('pinches around the focal point and clamps zoom and panning to the fitted photo', () => {
   expect(

@@ -551,7 +551,10 @@ function syncConflict(
     remoteDeleted: remote?.deleted === true,
   };
 }
-export function synchronizeMemories(uid: string): Promise<MemorySyncResult> {
+export function synchronizeMemories(
+  uid: string,
+  onProgress?: (entries: MemoryEntry[]) => void,
+): Promise<MemorySyncResult> {
   requireUid(uid);
   return enqueue(uid, async () => {
     assertMemorySession(uid);
@@ -723,11 +726,27 @@ export function synchronizeMemories(uid: string): Promise<MemorySyncResult> {
         await persist();
       }
       const localIds = new Set(entries.map(({ id }) => id));
-      for (const current of remote.values()) {
-        if (current.deleted || localIds.has(current.id)) continue;
-        if (!(await download(current.entry!)).ok) continue;
-        entries.push(current.entry!);
+      const incoming = sortEntries(
+        [...remote.values()].flatMap((current) =>
+          !current.deleted && !localIds.has(current.id) ? [current.entry!] : [],
+        ),
+      );
+      for (let offset = 0; offset < incoming.length; offset += 3) {
+        const batch = incoming.slice(offset, offset + 3);
+        // Drain every transfer before releasing the UID queue, even on logout.
+        const restored = await Promise.allSettled(
+          batch.map((entry) => download(entry)),
+        );
+        assertMemorySession(uid);
+        for (let index = 0; index < restored.length; index += 1) {
+          const result = restored[index];
+          if (result.status === 'rejected') throw result.reason;
+          if (result.value.ok) entries.push(batch[index]);
+        }
         await persist();
+        onProgress?.(
+          sortEntries([...entries]).filter((entry) => !entry.deletedAt),
+        );
       }
       await persist();
       await cleanup();

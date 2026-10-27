@@ -63,6 +63,36 @@ const send = jest.fn(),
   retry = jest.fn(),
   retrySessionInitialization = jest.fn();
 
+it('offers one shared room entry without choosing a game', () => {
+  setup();
+  expect(screen.getAllByRole('button', { name: 'Vào phòng có sẵn' })).toHaveLength(1);
+  fireEvent.press(screen.getByRole('button', { name: 'Vào phòng có sẵn' }));
+  expect(screen.queryByRole('button', { name: 'Chọn Tiến lên miền Nam' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Tạo phòng' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Vào phòng' })).toBeDisabled();
+  fireEvent.changeText(screen.getByLabelText('Mã phòng'), 'ab cd ef gh');
+  expect(screen.getByLabelText('Mã phòng').props.value).toBe('ABCDEFGH');
+  fireEvent.press(screen.getByRole('button', { name: 'Vào phòng' }));
+  expect(send).toHaveBeenCalledWith({ type: 'join', name: 'An', code: 'ABCDEFGH' });
+});
+
+it('preserves creation drafts and does not validate them when joining a shared room', () => {
+  setup();
+  fireEvent.press(screen.getByRole('button', { name: 'Chọn Phỏm' }));
+  fireEvent.changeText(screen.getByLabelText('Mức Nhì'), '123');
+  fireEvent.press(screen.getByRole('button', { name: 'Vào phòng có sẵn' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Tạo phòng mới' }));
+  expect(screen.getByLabelText('Mức Nhì').props.value).toBe('123');
+  fireEvent.press(screen.getByRole('button', { name: 'Chọn Tiến lên miền Nam' }));
+  fireEvent.changeText(screen.getByLabelText('Số tiền phạt cho mỗi lá 2 bị chặt'), '');
+  expect(screen.getByRole('button', { name: 'Tạo phòng' })).toBeDisabled();
+  fireEvent.press(screen.getByRole('button', { name: 'Vào phòng có sẵn' }));
+  fireEvent.changeText(screen.getByLabelText('Mã phòng'), 'ABCDEFGH');
+  expect(screen.getByRole('button', { name: 'Vào phòng' })).toBeEnabled();
+  fireEvent.press(screen.getByRole('button', { name: 'Tạo phòng mới' }));
+  expect(screen.getByLabelText('Số tiền phạt cho mỗi lá 2 bị chặt').props.value).toBe('');
+});
+
 it('selects the South finish mode from a dropdown and creates with its independent two-cut fine', () => {
   setup();
   fireEvent.press(

@@ -207,3 +207,76 @@ it('shows Tấn round deltas and cumulative balances in points beside rematch co
   );
   expect(screen.getByRole('button', { name: 'Sẵn sàng' })).toBeTruthy();
 });
+
+it('keeps a departed player named while their hand is still in the current round', () => {
+  render(
+    <TanGameTable
+      room={{
+        ...room,
+        members: room.members.filter((member) => member.uid !== 'b'),
+        game: {
+          ...room.game!,
+          players: [
+            { uid: 'a', name: 'An', count: 3, finished: false, forfeited: false },
+            { uid: 'b', name: 'Bình', count: 8, finished: false, forfeited: true },
+          ],
+        } as TanView,
+      }}
+      uid="a"
+      serverTime={Date.now()}
+      active
+      disabled={false}
+      busy={false}
+      onAction={jest.fn()}
+    />,
+  );
+
+  expect(screen.getByRole('button', { name: 'Người chơi Bình, còn 8 lá' })).toBeTruthy();
+  expect(screen.getByText('Bỏ cuộc')).toBeTruthy();
+});
+
+it.each(['finished', 'cancelled'] as const)(
+  'shows the current seats after a %s round and preserves any recorded results',
+  (status) => {
+    render(
+      <TanGameTable
+        room={{
+          ...room,
+          phase: 'finished',
+          members: [
+            { ...room.members[0], ready: false },
+            { uid: 'c', name: 'Chi', ready: false, wins: 0 },
+          ],
+          game: {
+            ...room.game!,
+            status,
+            step: 'finished',
+            turn: null,
+            deadline: null,
+            result: status === 'cancelled' ? null : {
+              reason: 'last-standing',
+              ranking: [
+                { uid: 'a', name: 'An', rank: 1, labels: [], moneyDelta: 8, remainingCards: 0 },
+                { uid: 'b', name: 'Bình', rank: 2, labels: [], moneyDelta: -8, remainingCards: 8 },
+              ],
+            },
+          } as TanView,
+        }}
+        uid="a"
+        serverTime={Date.now()}
+        active
+        disabled={false}
+        busy={false}
+        onAction={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Người chơi Chi' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Người chơi.*còn 8 lá/ })).toBeNull();
+    if (status === 'finished') {
+      expect(screen.getByText('Bình')).toBeTruthy();
+      expect(screen.getByTestId('tan-result-delta-b')).toHaveTextContent('-8 điểm');
+    }
+    expect(screen.getByRole('button', { name: 'Sẵn sàng' })).toBeTruthy();
+  },
+);

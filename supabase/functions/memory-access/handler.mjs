@@ -354,16 +354,20 @@ export function createHandler({ verifyIdentity, database, storage, r2 }) {
       }
       return json(200, { shared: false });
     }
-    await profile(identity, input.displayName);
-    await database(
-      'rpc/claim_lifemate_memory_email_invites',
-      'POST',
-      {},
-      {
-        p_uid: uid,
-        p_email: identity.email,
-      },
-    );
+    // State refresh owns profile/invite maintenance. Photo reads and upload
+    // confirmation authorize independently and need no extra profile writes.
+    if (!['feed', 'photo', 'confirm'].includes(input.action)) {
+      await profile(identity, input.displayName);
+      await database(
+        'rpc/claim_lifemate_memory_email_invites',
+        'POST',
+        {},
+        {
+          p_uid: uid,
+          p_email: identity.email,
+        },
+      );
+    }
     if (input.action === 'state') {
       const [people, shares] = await Promise.all([
         relationships(uid),

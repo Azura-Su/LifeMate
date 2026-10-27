@@ -105,12 +105,20 @@ export function TanGameTable({
     selected !== null &&
     canDefend(selected, target.attackCard, game.trumpSuit);
   const members = room.members;
+  const playing = game.status === 'playing';
+  const seats = playing
+    ? game.players
+    : members.map((member) => ({ uid: member.uid }));
   const readyCount = members.filter((member) => member.ready).length;
   const memberInfo = (playerUid: string) =>
     members.find((member) => member.uid === playerUid);
   const ownMember = memberInfo(uid);
   const nameOf = (playerUid: string | null) =>
-    playerUid ? memberInfo(playerUid)?.name ?? 'Người chơi' : '—';
+    playerUid
+      ? memberInfo(playerUid)?.name ??
+        game.players.find((player) => player.uid === playerUid)?.name ??
+        'Người chơi'
+      : '—';
   const pointsPerCard = room.variantConfig?.pointsPerCard ?? 1;
   const resultRanking = game.result?.ranking ?? [];
   const naturalFinishers = resultRanking.filter(
@@ -128,40 +136,48 @@ export function TanGameTable({
 
   const players = (
     <View style={[styles.players, landscape && styles.playersLandscape]}>
-      {game.players
+      {seats
         .filter((player) => player.uid !== uid)
         .map((player) => {
           const member = memberInfo(player.uid);
-          const activeTurn = game.turn === player.uid;
+          const participant = game.players.find(
+            (item) => item.uid === player.uid,
+          );
+          const name = nameOf(player.uid);
+          const activeTurn = playing && game.turn === player.uid;
           return (
             <Pressable
               key={player.uid}
               accessibilityRole="button"
-              accessibilityLabel={`Người chơi ${member?.name ?? 'Người chơi'}, còn ${player.count} lá`}
+              accessibilityLabel={`Người chơi ${name}${playing ? `, còn ${participant?.count ?? 0} lá` : ''}`}
               onPress={() => onPlayerPress?.(player.uid)}
               style={[styles.player, activeTurn && styles.playerActive]}
             >
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>
-                  {(member?.name ?? '?').slice(0, 1).toUpperCase()}
+                  {name.slice(0, 1).toUpperCase()}
                 </Text>
                 <CardGameAvatarImage
                   uid={player.uid}
                   url={member?.avatarUrl}
-                  name={member?.name ?? 'Người chơi'}
+                  name={name}
                   size={34}
                 />
               </View>
               <View style={styles.playerCopy}>
                 <Text numberOfLines={1} style={styles.playerName}>
-                  {member?.name ?? 'Người chơi'}
+                  {name}
                 </Text>
                 <Text style={styles.playerMeta}>
-                  {player.finished
-                    ? 'Đã hết bài'
-                    : player.forfeited
-                      ? 'Bỏ cuộc'
-                      : `${player.count} lá`}
+                  {!playing
+                    ? member?.ready
+                      ? 'Đã sẵn sàng'
+                      : 'Chưa sẵn sàng'
+                    : participant?.finished
+                      ? 'Đã hết bài'
+                      : participant?.forfeited
+                        ? 'Bỏ cuộc'
+                        : `${participant?.count ?? 0} lá`}
                 </Text>
               </View>
               {activeTurn && <View style={styles.turnDot} />}

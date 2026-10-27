@@ -71,6 +71,18 @@ cache hiện tại. Đây là điều kiện hiển thị UI, không thay quyề
 - Nhãn quyền xem có padding dọc 4pt, nền cao tối thiểu 28pt trong vùng chạm 44pt. Chỉ hiện “Đang kiểm tra…” khi đang gửi yêu cầu; khi đọc thất bại hiện “Chưa xác định”, cho thử lại và hiện lỗi ở Của tôi. Phản hồi JSON thiếu/hỏng và quá hạn phải báo rõ, không biến thành danh sách chia sẻ rỗng.
 - Của tôi chỉ tải trạng thái chia sẻ; chỉ lấy feed ảnh bạn bè khi tab Bạn bè cần. Lần chia sẻ ảnh mới vẫn cần nén và tải bản chia sẻ riêng tối đa2MB; bản gốc private không trở thành ảnh public.
 
+- Khi cần Bạn bè, state và trang feed đầu được lấy đồng thời; chỉ áp dụng feed
+  sau state thành công và đúng UID/sessionEpoch/generation. Nếu feed có chủ ảnh
+  ngoài danh sách bạn bè vừa xác minh, đọc lại feed một lần; vẫn lệch thì bỏ
+  kết quả/cursor và báo tải lại. Lỗi feed giữ state mới; lỗi state không dùng feed.
+- Trình xem ảnh chỉ nạp trước tối đa hai ảnh HTTPS liền kề sau khi ảnh hiện tại
+  decode xong, dùng cache native theo URL đã cấp; cache không thay kiểm quyền,
+  không làm mới URL tự động và không tải trước toàn bộ thư viện.
+- `feed`, `photo`, `confirm` giữ kiểm identity/email và các kiểm quyền ảnh riêng;
+  bỏ cập nhật profile/claim lời mời thừa trên ba đường này. `state` vẫn cập nhật
+  profile và lời mời. Deploy `memory-access` mới trước khi phát hành client chạy
+  state/feed song song để tránh hai request cùng tạo profile lần đầu.
+
 - Chạm ảnh trong Của tôi hoặc Bạn bè mở ảnh lớn toàn màn hình, giữ tỉ lệ đầy đủ và có loading/lỗi. Chạm hai lần liên tiếp tại cùng vùng ảnh để phóng2,5 lần quanh vị trí chạm; khi đang phóng, chạm hai lần đưa về kích thước chuẩn. Không nhận nhầm thao tác kéo, giữ lâu hoặc chạm đa điểm thành chạm đôi. Chụm hai ngón thu/phóng từ1–4 lần, kéo để xem vùng ảnh khi đang phóng. Ở kích thước chuẩn, vuốt xuống đóng ảnh, vuốt trái/phải chuyển ảnh sau/trước theo thứ tự danh sách đang mở; bỏ qua mục không có ảnh và dừng ở hai đầu. Nội dung ghi chú của ảnh hiện ở cuối màn xem, dưới ảnh; ghi chú dài cuộn riêng và đổi theo ảnh đang xem, mục không có nội dung không giữ vùng trống. Mỗi ảnh mới trở về kích thước chuẩn. Giữ nút đóng và điều khiển chuyển ảnh cho khả năng tiếp cận. Link ảnh bạn bè lỗi được làm mới một lần qua kiểm tra quyền hiện có; bỏ qua kết quả cũ khi đã chuyển ảnh/đổi tài khoản. Trình xem đóng khi app vào nền hoặc rời màn hình. Nút xóa trên thẻ vẫn thao tác độc lập.
 
 - Bấm chụp hiện ngay lớp xử lý ảnh che toàn bộ preview và khóa thao tác điều hướng/chụp lặp. Khi camera trả ảnh hợp lệ mở form nội dung; lỗi chụp trả lại camera với thông báo. Kết quả chụp cũ sau khi rời màn hình không được mở form. Giữ xử lý hướng ảnh gốc của camera.

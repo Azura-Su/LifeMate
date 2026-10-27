@@ -49,6 +49,11 @@ export function validatePhomConfig(value) {
 export function settlePhom(game, config) {
   const players = game.players;
   const points = (p) => p.hand.reduce((s, c) => s + phomPoint(c), 0);
+  const allMom = players.filter((p) => !p.forfeited).every((p) => !p.melds.length);
+  const tieOrder = (p) =>
+    (!allMom && !p.melds.length ? p.lastDiscardOrder : undefined) ??
+    p.laidOrder ??
+    99;
   const order = [...players].sort((a, b) => {
     if (game.winnerUid) {
       if (a.uid === game.winnerUid) return -1;
@@ -60,7 +65,7 @@ export function settlePhom(game, config) {
     if (momA !== momB) return momA ? 1 : -1;
     return (
       (!momA && points(a) - points(b)) ||
-      (a.laidOrder ?? 99) - (b.laidOrder ?? 99) ||
+      tieOrder(a) - tieOrder(b) ||
       players.indexOf(a) - players.indexOf(b)
     );
   });

@@ -1,5 +1,78 @@
 # Tối ưu phản hồi Ký ức — 26/10/2026
 
+## Tiếp tục: xem ảnh và upload — 27/10/2026
+
+Giả định: tăng tốc ảnh của mình/bạn bè, giữ bản gốc, quyền xem, xác nhận lưu và
+upload; không đổi schema hoặc dùng cache làm bằng chứng quyền. Dùng API đã có,
+không thêm image renderer/dependency.
+
+Bằng chứng từ đường gọi hiện tại:
+
+- Bạn bè chờ `state` xong mới bắt đầu `feed`; hai endpoint tự xác minh identity
+  và quyền. Có thể chạy đồng thời nhưng chỉ nhận feed sau state hợp lệ.
+- Trên máy mới, vòng sync tải từng ảnh riêng nối tiếp và màn hình nhận toàn bộ
+  kết quả khi mọi ảnh xong. Có thể tải ba ảnh mới/lượt và phát tiến trình sau khi
+  file, proof và cache bền vững; giữ queue theo UID, commit/conflict tuần tự.
+- `feed`, `confirm` và `photo` đọc profile/claim email invites trước các kiểm tra riêng.
+  Hai bước này không tham gia quyền của ảnh: confirm dùng owner/token và kiểm
+  HEAD + reservation; photo kiểm friendship + active row. Bỏ hai DB roundtrip
+  này riêng cho ba action, vẫn giữ mọi verifyIdentity/email gate. `state` vẫn
+  cập nhật profile/lời mời; feed không tạo profile nên không đụng insert lần đầu.
+
+Công việc:
+
+- [x] Reviewer chỉ đọc duyệt plan về session, quyền ảnh và partial sync. Đã xử lý
+      rủi ro tạo profile đồng thời và feed cũ sau gỡ bạn: nếu chủ ảnh không thuộc
+      state mới, đọc lại feed một lần; còn lệch thì bỏ kết quả/cursor và báo refresh.
+- [x] Bạn bè chạy state/feed đồng thời, giữ state khi feed lỗi, bỏ feed khi
+      state lỗi hoặc stale UID/generation; prefetch tối đa hai ảnh remote liền kề
+      trong viewer bằng native Image cache, không tải toàn bộ thư viện.
+- [x] Sync ảnh cloud chưa có local theo batch tối đa ba, mới nhất trước;
+      callback chỉ sau persist và không để request trong batch chạy sau queue.
+      Giữ xử lý các local mutation/conflict và rollback hiện có.
+- [x] Feed/confirm/photo bỏ truy vấn profile/invite thừa; regression cho unauthorized,
+      revoked friendship, unconfirmed/size mismatch và reservation races.
+- [x] Đo deterministic request/concurrency/critical-path trước/sau bằng fixture
+      có độ trễ cố định; test các đường lỗi/đổi account. Không suy ra mạng thật.
+- [x] Typecheck, lint file đổi, Jest Memories/service, functions tests, export
+      hai nền tảng; final review. Ghi rõ native/runtime và production chưa kiểm chứng.
+
+Chỉ số kiểm chứng: state/feed từ hai pha nối tiếp xuống một pha đồng thời;
+6 ảnh remote từ 6 lượt nối tiếp xuống 2 batch (giới hạn 3), UI nhận batch đầu
+trước batch cuối; confirm/photo bớt 2 DB request cho profile/invite đã tồn tại.
+Các phần backend chỉ có hiệu lực production sau khi deploy Edge Function.
+
+### Kết quả 27/10
+
+Baseline: commit `aecef15`. Benchmark handler dùng dữ liệu tổng hợp, DB adapter
+trễ cố định20ms/call, warm-up1 +5 mẫu/phiên bản. Không có dữ liệu hoặc upload thật.
+
+| Luồng                    | DB call cũ → mới                    | Trung vị fixture cũ → mới |
+| ------------------------ | ----------------------------------- | ------------------------- |
+| Confirm upload           | 4 → 2                               | 85,1 → 43,5ms             |
+| Làm mới URL ảnh          | 4 → 2                               | 84,8 → 43,0ms             |
+| Feed                     | 8 → 6                               | 107,1 → 63,6ms            |
+| State + feed trên client | 16 → 14, từ nối tiếp sang đồng thời | 192,4 → 85,3ms            |
+
+Khoảng min/max của confirm cũ84,5–86,3ms, mới42,5–44,0ms; timeline cũ192,0–193,2ms,
+mới84,4–86,7ms. Đây là mô phỏng critical path, không phải tốc độ Internet thật.
+Fixture/script ở `/private/tmp/lifemate-memory-latency-20261027.{json,mjs}`.
+Regression sáu ảnh có delay20ms/ảnh: concurrency từ1 lên3, hai batch và hai lần
+progress đã durable. Mẫu baseline142ms, các lượt sau43–50ms; không dùng mẫu này
+để tuyên bố tỷ lệ tăng tốc thiết bị.
+
+208/208 test Memories/service và359/359 test functions đạt; typecheck/lint/diff
+check đạt. Export Android/iOS mỗi HBC khoảng5,6MB, không có dependency mới.
+Simulator iOS26.3 đã mở danh sách của mình/bạn bè, mở ảnh lớn và chuyển ảnh ở cả
+hai phía; không thấy lỗi runtime mới. Warning require-cycle Memories đã có sẵn.
+Không tạo/upload/xóa ký ức thật trong kiểm tra. Chưa đo Android native hoặc mạng
+thiết bị thật. Reviewer cuối không còn finding cần sửa.
+
+Chưa deploy production. Triển khai `memory-access` trước client mới: backend cũ
+còn có thể đụng insert profile nếu hai request đầu tiên chạy đồng thời. Không
+cần migration/rules mới; mọi kiểm identity, email, owner/friendship, HEAD và
+reservation token được giữ.
+
 ## Bằng chứng và phạm vi
 
 Luồng chụp mở editor sau khi camera trả file. Lưu riêng đã kết thúc sau copy file
@@ -27,14 +100,14 @@ Ba phần có thể giảm công việc mà vẫn giữ các ranh giới trên:
 ## Công việc và kiểm chứng
 
 - [x] Reviewer chỉ đọc rà plan trước implementation, tập trung mutation/session
-  fences và quyền riêng tư.
+      fences và quyền riêng tư.
 - [x] Gộp state request đang chạy. Regression: hai caller dùng một request;
-  sau hoàn tất/lỗi/mutation/đổi phiên phải đọc mới. Giữ deadline20 giây và retry.
+      sau hoàn tất/lỗi/mutation/đổi phiên phải đọc mới. Giữ deadline20 giây và retry.
 - [x] Tách xử lý JPEG vào helper nhỏ; ảnh mới đủ metadata dùng cạnh dài và không
-  phóng ảnh nhỏ; kiểm tra <=2MB, legacy fallback, cleanup, lỗi render/save.
+      phóng ảnh nhỏ; kiểm tra <=2MB, legacy fallback, cleanup, lỗi render/save.
 - [x] Bỏ đọc kích thước thừa cho ảnh camera; kiểm tra fallback và đổi ảnh.
 - [x] Chạy Jest Memories/service, typecheck, lint và diff review; kiểm tra native
-  nếu có camera phù hợp. Giữ thay đổi Home đang có trong working tree.
+      nếu có camera phù hợp. Giữ thay đổi Home đang có trong working tree.
 
 ## Tiêu chí đo trước/sau
 
@@ -57,11 +130,11 @@ tổng hợp, không có ảnh người dùng hoặc upload cloud. Mỗi fixture
 warm-up cho mỗi thuật toán, bốn mẫu đo/thuật toán, xen kẽ thứ tự cũ/mới. Thời
 gian tính đến khi kiểm tra dung lượng file xong, chưa bao gồm mạng.
 
-| Fixture | Kích thước cũ → mới | JPEG cũ → mới | Trung vị xử lý cũ → mới |
-|---|---|---|---|
-| Dọc3000×4000 | 1024×1366 → 768×1024 | 311.836 → 210.768 byte (−32,4%) | 117,6 → 102,0ms |
-| Ngang4000×3000 | 1024×768 → 1024×768 | 211.529 → 211.529 byte | 97,0 → 92,2ms; nằm trong dao động |
-| Nhỏ480×640 | 1024×1366 → 480×640 | 214.160 → 86.094 byte (−59,8%) | 23,7 → 6,0ms |
+| Fixture        | Kích thước cũ → mới  | JPEG cũ → mới                   | Trung vị xử lý cũ → mới           |
+| -------------- | -------------------- | ------------------------------- | --------------------------------- |
+| Dọc3000×4000   | 1024×1366 → 768×1024 | 311.836 → 210.768 byte (−32,4%) | 117,6 → 102,0ms                   |
+| Ngang4000×3000 | 1024×768 → 1024×768  | 211.529 → 211.529 byte          | 97,0 → 92,2ms; nằm trong dao động |
+| Nhỏ480×640     | 1024×1366 → 480×640  | 214.160 → 86.094 byte (−59,8%)  | 23,7 → 6,0ms                      |
 
 - Đã loại phương án render ảnh gốc trước để đọc kích thước: fixture dọc tăng
   113,7→160,9ms, ảnh ngang tăng93,4→164,7ms.
