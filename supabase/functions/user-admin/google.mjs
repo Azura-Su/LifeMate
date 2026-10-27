@@ -116,7 +116,6 @@ export function createGoogleAdmin(credentials, bucket, request = fetch) {
         noteAccounts: ['notes', 'deletedNotes'],
         agendaAccounts: ['items', 'deletedItems'],
         memoryAccounts: ['items'],
-        petAccounts: ['state'],
       };
       for (const [root, collections] of Object.entries(roots)) {
         for (const collection of collections) {
