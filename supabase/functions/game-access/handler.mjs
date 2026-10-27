@@ -75,7 +75,7 @@ function validate(input) {
     throw Error('invalid-input');
   if (
     input.clientVersion !== undefined &&
-    ![2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion)
+    ![2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(input.clientVersion)
   )
     throw Error('invalid-input');
   const fields = {
@@ -218,13 +218,13 @@ function validate(input) {
     throw Error('invalid-input');
   if (input.type === 'create') {
     if (['north', 'sam', 'tan'].includes(input.game)) {
-      if (![9, 10, 11].includes(input.clientVersion))
+      if (![9, 10, 11, 12].includes(input.clientVersion))
         throw Error('game-update-required');
       if (input.variantConfig !== undefined) {
         const config = validateVariantConfig(input.variantConfig, input.game);
         if (
           (['north-v2', 'sam-v2'].includes(config.rulesVersion) &&
-            input.clientVersion !== 11) ||
+            input.clientVersion < 11) ||
           (config.rulesVersion === undefined && input.clientVersion < 10)
         )
           throw Error('game-update-required');
@@ -236,7 +236,7 @@ function validate(input) {
       )
         throw Error('invalid-input');
     } else if (input.game === 'phom') {
-      if (![3, 4, 5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion))
+      if (![3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(input.clientVersion))
         throw Error('game-update-required');
       validatePhomConfig(input.phomConfig);
       if (input.phomConfig.options && input.clientVersion < 7)
@@ -257,7 +257,12 @@ function validate(input) {
         validateSouthConfig(input.southConfig);
         if (
           configuredSouth(input.southConfig) &&
-          ![4, 5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion)
+          ![4, 5, 6, 7, 8, 9, 10, 11, 12].includes(input.clientVersion)
+        )
+          throw Error('game-update-required');
+        if (
+          input.southConfig.instantWinAmount !== undefined &&
+          input.clientVersion !== 12
         )
           throw Error('game-update-required');
       }
@@ -272,16 +277,21 @@ function validate(input) {
   )
     throw Error('invalid-input');
   if (input.type === 'set-phom-rules') {
-    if (![6, 7, 8, 9, 10, 11].includes(input.clientVersion))
+    if (![6, 7, 8, 9, 10, 11, 12].includes(input.clientVersion))
       throw Error('game-update-required');
     validatePhomConfig(input.phomConfig);
     if (input.phomConfig.options && input.clientVersion < 7)
       throw Error('game-update-required');
   }
   if (input.type === 'set-south-rules') {
-    if (![5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion))
+    if (![5, 6, 7, 8, 9, 10, 11, 12].includes(input.clientVersion))
       throw Error('game-update-required');
     validateSouthConfig(input.southConfig);
+    if (
+      input.southConfig.instantWinAmount !== undefined &&
+      input.clientVersion !== 12
+    )
+      throw Error('game-update-required');
     if (
       !Number.isSafeInteger(input.amountPerCard) ||
       input.amountPerCard < 1 ||
@@ -293,7 +303,7 @@ function validate(input) {
     const config = validateVariantConfig(input.variantConfig);
     if (
       (['north-v2', 'sam-v2'].includes(config.rulesVersion) &&
-        input.clientVersion !== 11) ||
+        input.clientVersion < 11) ||
       (config.rulesVersion === undefined && input.clientVersion < 10)
     )
       throw Error('game-update-required');
@@ -324,7 +334,7 @@ function validate(input) {
   if (input.type === 'ready' && typeof input.ready !== 'boolean')
     throw Error('invalid-input');
   if (input.type === 'game-action') {
-    if (![9, 10, 11].includes(input.clientVersion))
+    if (![9, 10, 11, 12].includes(input.clientVersion))
       throw Error('game-update-required');
     const action = input.gameAction;
     const exactKeys = (expected) =>
@@ -357,7 +367,7 @@ function validate(input) {
         action.index >= 0 &&
         action.index <= 7 &&
         validCard(action.card));
-    if (![9, 10, 11].includes(input.clientVersion) || (!samAction && !tanAction))
+    if (![9, 10, 11, 12].includes(input.clientVersion) || (!samAction && !tanAction))
       throw Error('invalid-input');
   }
   if (
@@ -386,7 +396,7 @@ function validate(input) {
     const kind = input.phomAction;
     if (kind !== undefined) {
       if (
-        ![3, 4, 5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion) ||
+        ![3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(input.clientVersion) ||
         !['draw', 'eat', 'discard', 'lay', 'send', 'u'].includes(kind)
       )
         throw Error('invalid-input');
@@ -600,7 +610,7 @@ export function createGameHandler({
         rpc('lifemate_game_read', { ...base, p_renew: false });
       const withAvatars = (snapshot) => {
         if (
-          ![2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion) ||
+          ![2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(input.clientVersion) ||
           !snapshot.room ||
           typeof avatarStorage !== 'function'
         )
@@ -635,9 +645,12 @@ export function createGameHandler({
             (input.clientVersion ?? 1) < 7 &&
             input.type !== 'leave') ||
           (record?.state?.gameKind === 'phom' &&
-            ![3, 4, 5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion)) ||
+            ![3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(input.clientVersion)) ||
           (record?.state?.southConfig &&
-            ![4, 5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion)) ||
+            ![4, 5, 6, 7, 8, 9, 10, 11, 12].includes(input.clientVersion)) ||
+          ((record?.state?.southConfig?.instantWinAmount !== undefined ||
+            record?.state?.nextSouthRules?.southConfig?.instantWinAmount !== undefined) &&
+            input.clientVersion < 12 && input.type !== 'leave') ||
           ((record?.state?.nextSouthRules ||
             record?.state?.nextPhomConfig ||
             record?.state?.nextVariantConfig) &&
@@ -668,7 +681,7 @@ export function createGameHandler({
             p_uid,
             controller,
             Number(now),
-            [2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion),
+            [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(input.clientVersion),
             input.clientVersion >= 6
               ? input.clientVersion
               : input.clientVersion === 5,
@@ -745,9 +758,9 @@ export function createGameHandler({
           if (
             status.minClientVersion > (input.clientVersion ?? 1) ||
             (status.gameKind === 'phom' &&
-              ![3, 4, 5, 6, 7, 8, 9, 10, 11].includes(input.clientVersion)) ||
+              ![3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(input.clientVersion)) ||
             (['north', 'sam', 'tan'].includes(status.gameKind) &&
-              ![9, 10, 11].includes(input.clientVersion))
+              ![9, 10, 11, 12].includes(input.clientVersion))
           )
             throw Error('game-update-required');
         }

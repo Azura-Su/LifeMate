@@ -118,6 +118,13 @@ const variantV2ScoringSql = await readFile(
   ),
   'utf8',
 );
+const southInstantWinSql = await readFile(
+  new URL(
+    '../../migrations/20261027220000_south_instant_win_penalty.sql',
+    import.meta.url,
+  ),
+  'utf8',
+);
 const uid = 'game-a',
   other = 'game-b';
 const session = '11111111-1111-4111-8111-111111111111';
@@ -250,6 +257,7 @@ async function setup(beforePhomRules = false) {
   await db.exec(newOnlineGameVariantsSql);
   await db.exec(variantRoomConfigurationSql);
   await db.exec(variantV2ScoringSql);
+  await db.exec(southInstantWinSql);
   return db;
 }
 
@@ -295,6 +303,9 @@ test('configured South RPC pins mode/fine, preserves legacy rooms and rejects ma
       { ...config, cutTwoAmount: -1 },
       { ...config, cutTwoAmount: 1.1 },
       { ...config, cutTwoAmount: 1000000001 },
+      { ...config, instantWinAmount: -1 },
+      { ...config, instantWinAmount: 1.5 },
+      { ...config, instantWinAmount: 1000000001 },
       { ...config, other: true },
     ]) {
       await assert.rejects(
@@ -409,6 +420,116 @@ test('capability4 preserves Phỏm and gates configured South before seating, ta
     } finally {
       await db2.close();
     }
+  } finally {
+    await db.close();
+  }
+});
+
+test('South instant-win fees persist under capability12 and settle from every opponent', async () => {
+  const db = await setup();
+  try {
+    const a = Array.from({ length: 13 }, (_, rank) => rank * 4);
+    const allCards = Array.from({ length: 52 }, (_, card) => card);
+    const b = allCards.filter((card) => !a.includes(card)).slice(0, 13);
+    const deck = a.flatMap((card, i) => [card, b[i]]);
+    deck.push(...allCards.filter((card) => !deck.includes(card)));
+    const api = readyApi(db, undefined, () => deck);
+    const config = {
+      finishMode: 'continue',
+      cutTwoAmount: 0,
+      instantWinAmount: 20,
+    };
+    const created = await api.post(uid, {
+      type: 'create',
+      clientVersion: 12,
+      actionId: crypto.randomUUID(),
+      game: 'south',
+      amountPerCard: 5,
+      southConfig: config,
+      name: 'An',
+    });
+    assert.equal(created.status, 200, JSON.stringify(created.value));
+    assert.deepEqual(created.value.room.southConfig, config);
+    assert.equal(
+      (await rpc(db, 'lifemate_game_status', [
+        uid,
+        authTime,
+        session,
+        created.value.room.id,
+      ])).minClientVersion,
+      12,
+    );
+    await assert.rejects(
+      rpc(db, 'lifemate_game_takeover', [
+        uid,
+        authTime,
+        crypto.randomUUID(),
+        created.value.room.id,
+        11,
+      ]),
+      /game-update-required/,
+    );
+    const legacyJoin = await api.post(other, {
+      type: 'join',
+      clientVersion: 11,
+      actionId: crypto.randomUUID(),
+      code: created.value.room.code,
+      name: 'Bình',
+    });
+    assert.equal(legacyJoin.status, 409);
+    assert.equal(legacyJoin.value.error, 'game-update-required');
+    assert.equal(
+      (await db.query('select count(*) n from public.lifemate_game_seats where uid=$1', [other])).rows[0].n,
+      0,
+    );
+    const joined = await api.post(other, {
+      type: 'join',
+      clientVersion: 12,
+      actionId: crypto.randomUUID(),
+      code: created.value.room.code,
+      name: 'Bình',
+    });
+    assert.equal(joined.status, 200, JSON.stringify(joined.value));
+    const updatedRules = await api.post(uid, {
+      type: 'set-south-rules',
+      clientVersion: 12,
+      actionId: crypto.randomUUID(),
+      roomId: created.value.room.id,
+      expectedVersion: joined.value.room.version,
+      matchId: null,
+      amountPerCard: 5,
+      southConfig: { ...config, instantWinAmount: 30 },
+    });
+    assert.equal(updatedRules.status, 200, JSON.stringify(updatedRules.value));
+    assert.equal(updatedRules.value.room.nextSouthRules.southConfig.instantWinAmount, 30);
+    let current = updatedRules.value.room;
+    for (const actor of [uid, other])
+      current = (
+        await api.post(actor, {
+          type: 'ready',
+          clientVersion: 12,
+          actionId: crypto.randomUUID(),
+          roomId: current.id,
+          expectedVersion: current.version,
+          matchId: current.matchId,
+          ready: true,
+        })
+      ).value.room;
+    assert.equal(current.phase, 'finished');
+    assert.deepEqual(
+      current.game.result.ranking.map((entry) => entry.moneyDelta),
+      [95, -95],
+    );
+    assert.equal(
+      current.game.result.ranking[1].breakdown.some(
+        (entry) => entry.kind === 'instant-win' && entry.amount === -30,
+      ),
+      true,
+    );
+    assert.equal(
+      current.members.reduce((sum, member) => sum + member.balance, 0),
+      0,
+    );
   } finally {
     await db.close();
   }

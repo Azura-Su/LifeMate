@@ -532,6 +532,36 @@ it('never silently downgrades configured South or sends its local retry fence', 
     );
 });
 
+it('pins South instant-win configuration to protocol 12 without downgrading', async () => {
+  global.fetch = jest.fn().mockResolvedValue({
+    status: 400,
+    ok: false,
+    json: async () => ({ error: 'invalid-input' }),
+  });
+  await expect(
+    gameRequest(
+      'a',
+      {
+        type: 'create',
+        game: 'south',
+        name: 'An',
+        amountPerCard: 1,
+        southConfig: {
+          finishMode: 'continue',
+          cutTwoAmount: 0,
+          instantWinAmount: 10,
+        },
+        sessionId: 'session',
+      } as never,
+      new AbortController().signal,
+    ),
+  ).rejects.toMatchObject({ code: 'game-update-required' });
+  expect(global.fetch).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(jest.mocked(global.fetch).mock.calls[0][1]!.body as string)).toMatchObject({
+    clientVersion: 12,
+  });
+});
+
 it('localizes a Firebase Secure Token connection failure without exposing host details', async () => {
   const authError = Object.assign(
     new Error(

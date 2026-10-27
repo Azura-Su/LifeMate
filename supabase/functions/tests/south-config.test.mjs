@@ -46,6 +46,78 @@ test('configured South pins settings while default games retain the legacy proje
   assert.deepEqual(viewTienLen(next, 'a').southConfig, config);
   assert.notEqual(next.southConfig, config);
 });
+
+test('instant-win fee is charged once by each opponent and only on instant wins', () => {
+  const game = {
+    result: {
+      reason: 'dragon',
+      ranking: [
+        { uid: 'p0', rank: 1, labels: ['instant-win'], remainingCards: 0 },
+        { uid: 'p1', rank: 2, labels: [], remainingCards: 2 },
+        { uid: 'p2', rank: 2, labels: [], remainingCards: 3 },
+        { uid: 'p3', rank: 2, labels: [], remainingCards: 4 },
+      ],
+    },
+    cutTwoFees: [],
+  };
+  settleConfiguredSouth(game, 2, {
+    finishMode: 'continue',
+    cutTwoAmount: 0,
+    instantWinAmount: 20,
+  });
+  assert.deepEqual(
+    game.result.ranking.map((p) => p.moneyDelta),
+    [78, -24, -26, -28],
+  );
+  assert.equal(
+    game.result.ranking.reduce((sum, player) => sum + player.moneyDelta, 0),
+    0,
+  );
+  assert.equal(
+    game.result.ranking[1].breakdown.some((entry) => entry.kind === 'instant-win'),
+    true,
+  );
+
+  const regular = {
+    result: {
+      reason: 'normal',
+      ranking: [
+        { uid: 'p0', rank: 1, labels: [], remainingCards: 0 },
+        { uid: 'p1', rank: 2, labels: [], remainingCards: 2 },
+      ],
+    },
+    cutTwoFees: [],
+  };
+  settleConfiguredSouth(regular, 2, {
+    finishMode: 'continue',
+    cutTwoAmount: 0,
+    instantWinAmount: 20,
+  });
+  assert.deepEqual(regular.result.ranking.map((p) => p.moneyDelta), [4, -4]);
+});
+
+test('South config keeps legacy two-key data and validates the optional instant-win fee', () => {
+  assert.doesNotThrow(() =>
+    validateSouthConfig({ finishMode: 'continue', cutTwoAmount: 0 }),
+  );
+  assert.doesNotThrow(() =>
+    validateSouthConfig({
+      finishMode: 'continue',
+      cutTwoAmount: 0,
+      instantWinAmount: 0,
+    }),
+  );
+  for (const instantWinAmount of [-1, 1.5, 1_000_000_001])
+    assert.throws(
+      () =>
+        validateSouthConfig({
+          finishMode: 'continue',
+          cutTwoAmount: 0,
+          instantWinAmount,
+        }),
+      /invalid-input/,
+    );
+});
 test('first-winner stops immediately, ties remaining players and preserves all private hands', () => {
   const game = fixture([[0], [4, 8], [12, 16], [20, 24]]);
   const result = playTienLen(game, 'p0', { type: 'play', cards: [0] }, 1);
@@ -297,7 +369,10 @@ test('next-round South settings are promoted only when dealing, including defaul
     host: 'p0',
     phase: 'lobby',
     amountPerCard: 3,
-    nextSouthRules: { amountPerCard: 9, southConfig: config },
+    nextSouthRules: {
+      amountPerCard: 9,
+      southConfig: { ...config, instantWinAmount: 10 },
+    },
     members: ['p0', 'p1'].map((uid) => ({
       uid,
       name: uid,
@@ -310,7 +385,7 @@ test('next-round South settings are promoted only when dealing, including defaul
   assert.equal(result.phase, 'finished');
   assert.deepEqual(
     result.game.result.ranking.map((p) => p.moneyDelta),
-    [117, -117],
+    [127, -127],
   );
 });
 

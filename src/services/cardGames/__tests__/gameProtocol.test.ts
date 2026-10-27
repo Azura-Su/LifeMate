@@ -355,8 +355,26 @@ it('accepts protocol 11 room capability metadata and rejects unsupported version
   };
   expect(parseGameRoomStatus(status, id)).toEqual(status);
   expect(() =>
-    parseGameRoomStatus({ ...status, minClientVersion: 12 }, id),
+    parseGameRoomStatus({ ...status, minClientVersion: 13 }, id),
   ).toThrow();
+});
+
+it('accepts protocol 12 room capability metadata for South instant-win rules', () => {
+  const status = {
+    roomId: id,
+    minClientVersion: 12,
+    gameKind: 'south',
+    exists: true,
+    owner: true,
+    canRejoin: true,
+    canReopen: false,
+    canDelete: false,
+    expired: false,
+    phase: 'playing',
+    version: 3,
+    matchId: '33333333-3333-4333-8333-333333333333',
+  };
+  expect(parseGameRoomStatus(status, id)).toEqual(status);
 });
 
 it('separates new North/Sâm profiles from the legacy room defaults', () => {

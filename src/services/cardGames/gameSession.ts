@@ -73,9 +73,13 @@ export function createGameSession(deps: Dependencies) {
         optionsKnown ||
         room?.phomConfig?.options ||
         room?.nextPhomConfig?.options;
+      const needsSouthV12 =
+        room?.southConfig?.instantWinAmount !== undefined ||
+        room?.nextSouthRules?.southConfig.instantWinAmount !== undefined;
       // Keep the pending request's identity so its negotiated HTTP protocol
       // survives retries. This local fence is stripped by gameRequest.
-      if (['north', 'sam', 'tan'].includes(room?.gameKind ?? ''))
+      if (needsSouthV12) input.requiredClientVersion = 12;
+      else if (['north', 'sam', 'tan'].includes(room?.gameKind ?? ''))
         input.requiredClientVersion =
           requiresVariantV11(room?.variantConfig) ||
           requiresVariantV11(room?.nextVariantConfig)
@@ -384,7 +388,14 @@ export function createGameSession(deps: Dependencies) {
       if (!['create', 'join'].includes(intent.type)) {
         if (!room) return false;
         input.roomId = room.id;
-        if (['north', 'sam', 'tan'].includes(room.gameKind ?? ''))
+        if (
+          room.southConfig?.instantWinAmount !== undefined ||
+          room.nextSouthRules?.southConfig.instantWinAmount !== undefined ||
+          (intent.type === 'set-south-rules' &&
+            intent.southConfig.instantWinAmount !== undefined)
+        )
+          input.requiredClientVersion = 12;
+        else if (['north', 'sam', 'tan'].includes(room.gameKind ?? ''))
           input.requiredClientVersion =
             requiresVariantV11(room.variantConfig) ||
             requiresVariantV11(room.nextVariantConfig) ||

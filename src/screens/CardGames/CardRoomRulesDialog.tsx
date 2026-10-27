@@ -52,6 +52,10 @@ function draftFrom(props: Props) {
       props.gameKind === 'south'
         ? String(props.rules.southConfig.cutTwoAmount)
         : '',
+    instantWinFine:
+      props.gameKind === 'south'
+        ? String(props.rules.southConfig.instantWinAmount ?? 0)
+        : '',
     finishMode:
       props.gameKind === 'south'
         ? props.rules.southConfig.finishMode
@@ -92,6 +96,8 @@ export function CardRoomRulesDialog(props: Props) {
     southConfig: {
       finishMode: draft.finishMode,
       cutTwoAmount: draft.fine === '' ? NaN : Number(draft.fine),
+      instantWinAmount:
+        draft.instantWinFine === '' ? NaN : Number(draft.instantWinFine),
     },
   };
   const pointsPerCard =
@@ -165,6 +171,10 @@ export function CardRoomRulesDialog(props: Props) {
               onAmountPerCard={(amount) => setDraft({ ...draft, amount })}
               cutTwoAmount={draft.fine}
               onCutTwoAmount={(fine) => setDraft({ ...draft, fine })}
+              instantWinAmount={draft.instantWinFine}
+              onInstantWinAmount={(instantWinFine) =>
+                setDraft({ ...draft, instantWinFine })
+              }
               disabled={blocked || stale}
             />
             {(!Number.isSafeInteger(nextRules.amountPerCard) ||

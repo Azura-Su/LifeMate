@@ -190,7 +190,7 @@ export type GameIntent =
   | { type: 'takeover' };
 export type GameRequest = {
   // Local retry fence; removed before serializing the HTTP body.
-  requiredClientVersion?: 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
+  requiredClientVersion?: 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
   type: string;
   roomId?: string;
   sessionId: string;

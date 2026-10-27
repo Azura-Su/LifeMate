@@ -248,7 +248,11 @@ export function finishRoom(previous, state, started = false) {
           losersTotal -= result.moneyDelta;
       }
       if (gameKind === 'south' && state.game.southConfig)
-        settleConfiguredSouth(state.game, state.amountPerCard ?? 0);
+        settleConfiguredSouth(
+          state.game,
+          state.amountPerCard ?? 0,
+          state.game.southConfig,
+        );
       else if (gameKind === 'south' && winner)
         winner.moneyDelta = losersTotal;
       else if (

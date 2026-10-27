@@ -301,6 +301,11 @@ export function CardGameRules({
               chặt bộ chặt khác không tính khoản này.
             </Text>
             <Text style={styles.body}>
+              Tới trắng: mỗi đối thủ trả{' '}
+              {(southConfig.instantWinAmount ?? 0).toLocaleString('vi-VN')}{' '}
+              đ cho người thắng; 0 là tắt.
+            </Text>
+            <Text style={styles.body}>
               {southConfig.finishMode === 'first-winner'
                 ? 'Người đầu tiên hết bài làm ván kết thúc ngay; người còn chơi đồng hạng nhì và trả theo số lá còn.'
                 : 'Ván tiếp tục đến khi chỉ còn một người có bài, giữ thứ hạng theo thứ tự hết bài.'}{' '}
@@ -324,7 +329,9 @@ export function CardGameRules({
               {nextSouthRules.amountPerCard.toLocaleString('vi-VN')} đ/lá còn ·
               Chặt 2:{' '}
               {nextSouthRules.southConfig.cutTwoAmount.toLocaleString('vi-VN')}{' '}
-              đ/lá 2.
+              đ/lá 2 · Tới trắng:{' '}
+              {(nextSouthRules.southConfig.instantWinAmount ?? 0).toLocaleString('vi-VN')}{' '}
+              đ/người.
             </Text>
             <Text style={styles.body}>
               Áp dụng khi chia ván mới. Các ván đã tính điểm giữ nguyên.

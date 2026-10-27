@@ -29,13 +29,7 @@ import { colors } from '../../theme';
 import type { CardGameRoom, GameIntent } from '../../types/cardGame';
 import { CardGameRules } from './CardGameRules';
 import { CardRoomRulesDialog } from './CardRoomRulesDialog';
-import { TienLenGameSettings } from './TienLenGameSettings';
-import {
-  configuredSouth,
-  DEFAULT_SOUTH_CONFIG,
-  isSouthConfig,
-} from '../../services/cardGames/tienLenConfig';
-import type { SouthConfig } from '../../types/tienLen';
+import { DEFAULT_SOUTH_CONFIG } from '../../services/cardGames/tienLenConfig';
 import { CardGameTable } from './CardGameTable';
 import { PhomGameTable } from './PhomGameTable';
 import { PhomGameEntry } from './PhomGameEntry';
@@ -43,10 +37,8 @@ import { CardGameLobbyTable } from './CardGameLobbyTable';
 import { CardGameAvatarImage } from './CardGameAvatarImage';
 import { CardGamePlayerDialog } from './CardGamePlayerDialog';
 import { VariantGameEntry } from './VariantGameEntry';
-import {
-  RoomEntryModeSelector,
-  roomEntryActions,
-} from './RoomEntryModeSelector';
+import { RoomEntryModeSelector } from './RoomEntryModeSelector';
+import { CardGameCreatePanel, type CreateGame } from './CardGameCreatePanel';
 import { TanGameTable } from './TanGameTable';
 import {
   getCachedRoomSnapshot,
@@ -80,6 +72,7 @@ const scorePartLabels: Record<string, string> = {
   'remaining-cards': 'Bài còn',
   'remaining-two': '2 còn',
   'cut-two': 'Chặt 2',
+  'instant-win': 'Tới trắng',
   'sam-report': 'Báo Sâm',
 };
 const seenRemovals = new Set<string>();
@@ -102,17 +95,7 @@ export function CardGamesScreen({
   const codeInputFocused = useRef(false);
   const playerName = user?.displayName?.trim().slice(0, 30) || 'Người chơi';
   const [code, setCode] = useState('');
-  const [amountPerCard, setAmountPerCard] = useState('1');
-  const [finishMode, setFinishMode] =
-    useState<SouthConfig['finishMode']>('continue');
-  const [cutTwoAmount, setCutTwoAmount] = useState('0');
-  const southConfig: SouthConfig = {
-    finishMode,
-    cutTwoAmount: cutTwoAmount === '' ? NaN : Number(cutTwoAmount),
-  };
-  const [selectedGame, setSelectedGame] = useState<
-    'south' | 'phom' | 'north' | 'sam' | 'tan' | null
-  >(null);
+  const [selectedGame, setSelectedGame] = useState<CreateGame | null>(null);
   const [connectRequested, setConnectRequested] = useState(false);
   const [createPending, setCreatePending] = useState(false);
   const [leavingRoom, setLeavingRoom] = useState(false);
@@ -1009,157 +992,41 @@ export function CardGamesScreen({
                     Tạo phòng mới hoặc vào phòng bằng mã.
                   </Text>
                 </View>
-                <View
-                  style={[
-                    styles.gameCard,
-                    selectedGame === 'south' && styles.gameCardSelected,
-                  ]}
-                >
-                  <View style={styles.gameCardHeader}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Chọn Tiến lên miền Nam"
-                      accessibilityState={{
-                        expanded: selectedGame === 'south',
-                      }}
-                      onPress={() => {
-                        if (selectedGame === 'south') {
-                          setSelectedGame(null);
-                          setCode('');
-                          setConnectRequested(false);
-                          setQueuedRoomIntent(null);
-                        } else {
-                          setCode('');
-                          setRoomEntryMode('create');
-                          setSelectedGame('south');
-                        }
-                      }}
-                      style={({ pressed }) => [
-                        styles.gameOption,
-                        pressed && styles.gameOptionPressed,
-                      ]}
-                    >
-                      <View style={styles.gameOptionIcon}>
-                        <Feather name="layers" size={18} color={colors.earth} />
-                      </View>
-                      <View style={styles.grow}>
-                        <Text style={styles.name}>Tiến lên miền Nam</Text>
-                        <Text style={styles.gameMeta}>
-                          2–4 người · Chơi theo lượt
-                        </Text>
-                      </View>
-                      <Feather
-                        name={
-                          selectedGame === 'south'
-                            ? 'chevron-up'
-                            : 'chevron-down'
-                        }
-                        size={18}
-                        color={colors.muted}
-                      />
-                    </Pressable>
-                    {selectedGame === 'south' && (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Xem luật chơi"
-                        style={styles.gameExpansionRules}
-                        onPress={() => setRules(true)}
-                      >
-                        <Feather
-                          name="book-open"
-                          size={16}
-                          color={colors.earth}
-                        />
-                      </Pressable>
-                    )}
-                  </View>
-                  {selectedGame === 'south' && (
+                <View style={styles.sharedEntryCard}>
+                  <RoomEntryModeSelector
+                    mode={roomEntryMode}
+                    onChange={setRoomEntryMode}
+                  />
+                  {roomEntryMode === 'join' && (
                     <View style={styles.gameExpansion}>
-                      <RoomEntryModeSelector
-                        mode={roomEntryMode}
-                        onChange={setRoomEntryMode}
-                      />
-                      {roomEntryMode === 'create' && (
-                        <TienLenGameSettings
-                          finishMode={finishMode}
-                          onFinishMode={setFinishMode}
-                          amountPerCard={amountPerCard}
-                          onAmountPerCard={setAmountPerCard}
-                          cutTwoAmount={cutTwoAmount}
-                          onCutTwoAmount={setCutTwoAmount}
-                          disabled={blocked}
-                        />
-                      )}
-                      {roomEntryMode === 'join' && (
-                        <>
-                          <Text style={styles.formLabel}>Mã phòng</Text>
-                          <AppTextInput
-                            accessibilityLabel="Mã phòng"
-                            value={code}
-                            onChangeText={(v) =>
-                              setCode(
-                                v.toUpperCase().replace(/\s/g, '').slice(0, 8),
-                              )
-                            }
-                            autoCapitalize="characters"
-                            autoCorrect={false}
-                            maxLength={8}
-                            editable={!state?.busy}
-                            placeholder="Nhập mã phòng 8 ký tự"
-                            placeholderTextColor={colors.muted}
-                            style={[styles.input, styles.codeInput]}
-                            returnKeyType="go"
-                            onFocus={() => {
-                              codeInputFocused.current = true;
-                              if (Platform.OS === 'ios') {
-                                setTimeout(
-                                  () =>
-                                    scrollRef.current?.scrollToEnd({
-                                      animated: true,
-                                    }),
-                                  250,
-                                );
-                              }
-                            }}
-                            onBlur={() => {
-                              codeInputFocused.current = false;
-                            }}
-                            onSubmitEditing={() => {
-                              if (code.length === 8 && !blocked)
-                                startRoomAction({
-                                  type: 'join',
-                                  name: playerName,
-                                  code,
-                                });
-                            }}
-                          />
-                        </>
-                      )}
-                      <Button
-                        title={roomEntryActions[roomEntryMode].title}
-                        variant={roomEntryActions[roomEntryMode].variant}
-                        loading={connecting || state?.busy}
-                        disabled={
-                          blocked ||
-                          (roomEntryMode === 'create' &&
-                            (!Number.isSafeInteger(Number(amountPerCard)) ||
-                              Number(amountPerCard) < 1 ||
-                              Number(amountPerCard) > 1_000_000_000 ||
-                              !isSouthConfig(southConfig))) ||
-                          (roomEntryMode === 'join' && code.length !== 8)
+                      <Text style={styles.formLabel}>Mã phòng</Text>
+                      <AppTextInput
+                        accessibilityLabel="Mã phòng"
+                        value={code}
+                        onChangeText={(value) =>
+                          setCode(
+                            value.toUpperCase().replace(/\s/g, '').slice(0, 8),
+                          )
                         }
-                        onPress={() => {
-                          if (roomEntryMode === 'create')
-                            startRoomAction({
-                              type: 'create',
-                              name: playerName,
-                              game: 'south',
-                              amountPerCard: Number(amountPerCard),
-                              ...(configuredSouth(southConfig) && {
-                                southConfig,
-                              }),
-                            });
-                          else
+                        autoCapitalize="characters"
+                        autoCorrect={false}
+                        maxLength={8}
+                        editable={!state?.busy}
+                        placeholder="Nhập mã phòng 8 ký tự"
+                        placeholderTextColor={colors.muted}
+                        style={[styles.input, styles.codeInput]}
+                        returnKeyType="go"
+                        onFocus={() => {
+                          codeInputFocused.current = true;
+                          requestAnimationFrame(() =>
+                            scrollRef.current?.scrollToEnd({ animated: true }),
+                          );
+                        }}
+                        onBlur={() => {
+                          codeInputFocused.current = false;
+                        }}
+                        onSubmitEditing={() => {
+                          if (code.length === 8 && !blocked)
                             startRoomAction({
                               type: 'join',
                               name: playerName,
@@ -1167,80 +1034,121 @@ export function CardGamesScreen({
                             });
                         }}
                       />
+                      <Text style={styles.body}>
+                        Mã phòng sẽ tự nhận diện trò chơi.
+                      </Text>
+                      <Button
+                        title="Vào phòng"
+                        variant="secondary"
+                        loading={connecting || state?.busy}
+                        disabled={blocked || code.length !== 8}
+                        onPress={() =>
+                          startRoomAction({
+                            type: 'join',
+                            name: playerName,
+                            code,
+                          })
+                        }
+                      />
                     </View>
                   )}
+                  <View
+                    style={
+                      roomEntryMode === 'create'
+                        ? undefined
+                        : styles.hiddenEntry
+                    }
+                  >
+                    <View style={styles.gameExpansion}>
+                      <Text style={styles.formLabel}>Chọn trò chơi</Text>
+                      <View style={styles.gameOptionsList}>
+                        <View
+                          style={[
+                            styles.gameCard,
+                            selectedGame === 'south' && styles.gameCardSelected,
+                          ]}
+                        >
+                          <View style={styles.gameCardHeader}>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel="Chọn Tiến lên miền Nam"
+                              accessibilityState={{
+                                selected: selectedGame === 'south',
+                              }}
+                              onPress={() => setSelectedGame('south')}
+                              style={styles.gameOption}
+                            >
+                              <View style={styles.gameOptionIcon}>
+                                <Feather
+                                  name="layers"
+                                  size={18}
+                                  color={colors.earth}
+                                />
+                              </View>
+                              <View style={styles.grow}>
+                                <Text style={styles.name}>
+                                  Tiến lên miền Nam
+                                </Text>
+                                <Text style={styles.gameMeta}>
+                                  2–4 người · Chơi theo lượt
+                                </Text>
+                              </View>
+                              {selectedGame === 'south' && (
+                                <Feather
+                                  name="check-circle"
+                                  size={18}
+                                  color={colors.earth}
+                                />
+                              )}
+                            </Pressable>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel="Xem luật chơi"
+                              style={styles.gameExpansionRules}
+                              onPress={() => {
+                                setSelectedGame('south');
+                                setRules(true);
+                              }}
+                            >
+                              <Feather
+                                name="book-open"
+                                size={16}
+                                color={colors.earth}
+                              />
+                            </Pressable>
+                          </View>
+                        </View>
+                        <PhomGameEntry
+                          expanded={selectedGame === 'phom'}
+                          onToggle={() => setSelectedGame('phom')}
+                          onRules={() => {
+                            setSelectedGame('phom');
+                            setRules(true);
+                          }}
+                        />
+                        {(['north', 'sam', 'tan'] as const).map((game) => (
+                          <VariantGameEntry
+                            key={game}
+                            game={game}
+                            expanded={selectedGame === game}
+                            onToggle={() => setSelectedGame(game)}
+                            onRules={() => {
+                              setSelectedGame(game);
+                              setRules(true);
+                            }}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                    <CardGameCreatePanel
+                      game={selectedGame}
+                      name={playerName}
+                      disabled={blocked}
+                      busy={connecting || !!state?.busy}
+                      onCreate={startRoomAction}
+                    />
+                  </View>
                 </View>
-                <PhomGameEntry
-                  expanded={selectedGame === 'phom'}
-                  disabled={blocked}
-                  busy={connecting || !!state?.busy}
-                  onToggle={() => {
-                    setSelectedGame(selectedGame === 'phom' ? null : 'phom');
-                    setCode('');
-                    setQueuedRoomIntent(null);
-                    setConnectRequested(false);
-                  }}
-                  onRules={() => setRules(true)}
-                  onCreate={(phomConfig) =>
-                    startRoomAction({
-                      type: 'create',
-                      game: 'phom',
-                      phomConfig,
-                      name: playerName,
-                    })
-                  }
-                  onJoin={(roomCode) =>
-                    startRoomAction({
-                      type: 'join',
-                      name: playerName,
-                      code: roomCode,
-                    })
-                  }
-                  onCodeFocus={() => {
-                    codeInputFocused.current = true;
-                    requestAnimationFrame(() =>
-                      scrollRef.current?.scrollToEnd({ animated: true }),
-                    );
-                  }}
-                />
-                {(['north', 'sam', 'tan'] as const).map((game) => (
-                  <VariantGameEntry
-                    key={game}
-                    game={game}
-                    expanded={selectedGame === game}
-                    disabled={blocked}
-                    busy={connecting || !!state?.busy}
-                    onToggle={() => {
-                      setSelectedGame(selectedGame === game ? null : game);
-                      setCode('');
-                      setQueuedRoomIntent(null);
-                      setConnectRequested(false);
-                    }}
-                    onRules={() => setRules(true)}
-                    onCreate={(variantConfig) =>
-                      startRoomAction({
-                        type: 'create',
-                        name: playerName,
-                        game,
-                        variantConfig,
-                      })
-                    }
-                    onJoin={(roomCode) =>
-                      startRoomAction({
-                        type: 'join',
-                        name: playerName,
-                        code: roomCode,
-                        game,
-                      })
-                    }
-                    onCodeFocus={() => {
-                      codeInputFocused.current = true;
-                      requestAnimationFrame(() =>
-                        scrollRef.current?.scrollToEnd({ animated: true }),
-                      );
-                    }}
-                  />
-                ))}
               </View>
             </>
           ) : tableVisible ? (
@@ -1418,7 +1326,10 @@ export function CardGamesScreen({
                             {(p.moneyDelta ?? 0).toLocaleString('vi-VN')} {unit}
                           </Text>
                           {!!detail && (
-                            <Text testID={`score-breakdown-${p.uid}`} style={styles.subtitle}>
+                            <Text
+                              testID={`score-breakdown-${p.uid}`}
+                              style={styles.subtitle}
+                            >
                               {detail}
                             </Text>
                           )}
@@ -1552,11 +1463,9 @@ export function CardGamesScreen({
           southConfig={
             room
               ? (room.southConfig ?? DEFAULT_SOUTH_CONFIG)
-              : isSouthConfig(southConfig)
-                ? southConfig
-                : undefined
+              : DEFAULT_SOUTH_CONFIG
           }
-          amountPerCard={room?.amountPerCard ?? Number(amountPerCard)}
+          amountPerCard={room?.amountPerCard ?? 1}
           onClose={() => setRules(false)}
         />
         <DialogModal
@@ -1649,8 +1558,7 @@ export function CardGamesScreen({
                   },
                 ownerUid === uid &&
                   room?.controller &&
-                  !cachedRejoin &&
-                  {
+                  !cachedRejoin && {
                     key: 'rules-edit',
                     icon: 'sliders' as const,
                     title: 'Sửa luật ván tới',
@@ -1732,13 +1640,13 @@ export function CardGamesScreen({
                     rules: room.nextVariantConfig ??
                       room.variantConfig ?? { pointsPerCard: 1 },
                   }
-              : {
-                  gameKind: 'south' as const,
-                  rules: room.nextSouthRules ?? {
-                    amountPerCard: room.amountPerCard ?? 0,
-                    southConfig: room.southConfig ?? DEFAULT_SOUTH_CONFIG,
-                  },
-                })}
+                : {
+                    gameKind: 'south' as const,
+                    rules: room.nextSouthRules ?? {
+                      amountPerCard: room.amountPerCard ?? 0,
+                      southConfig: room.southConfig ?? DEFAULT_SOUTH_CONFIG,
+                    },
+                  })}
             version={room.version}
             blocked={blocked}
             onClose={() => setEditingRules(false)}
@@ -1770,7 +1678,11 @@ export function CardGamesScreen({
       {selectedPlayer && active && (
         <CardGamePlayerDialog
           member={selectedPlayer}
-          balanceUnit={['north', 'sam', 'tan'].includes(room?.gameKind ?? '') ? 'điểm' : 'đ'}
+          balanceUnit={
+            ['north', 'sam', 'tan'].includes(room?.gameKind ?? '')
+              ? 'điểm'
+              : 'đ'
+          }
           owner={selectedPlayer.uid === ownerUid}
           self={selectedPlayer.uid === uid}
           canKick={

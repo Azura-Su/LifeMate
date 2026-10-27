@@ -1,30 +1,42 @@
 export const DEFAULT_SOUTH_CONFIG = Object.freeze({
   finishMode: 'continue',
   cutTwoAmount: 0,
+  instantWinAmount: 0,
 });
 
 export function validateSouthConfig(config) {
+  const legacy = config && Object.keys(config).length === 2;
   if (
     !config ||
     typeof config !== 'object' ||
     Array.isArray(config) ||
-    Object.keys(config).length !== 2 ||
+    (!legacy && Object.keys(config).length !== 3) ||
     !['continue', 'first-winner'].includes(config.finishMode) ||
     !Number.isSafeInteger(config.cutTwoAmount) ||
     config.cutTwoAmount < 0 ||
-    config.cutTwoAmount > 1_000_000_000
+    config.cutTwoAmount > 1_000_000_000 ||
+    (!legacy &&
+      (!Number.isSafeInteger(config.instantWinAmount) ||
+        config.instantWinAmount < 0 ||
+        config.instantWinAmount > 1_000_000_000))
   )
     throw Error('invalid-input');
 }
 export function configuredSouth(config) {
   return (
     config !== undefined &&
-    (config.finishMode !== 'continue' || config.cutTwoAmount !== 0)
+    (config.finishMode !== 'continue' ||
+      config.cutTwoAmount !== 0 ||
+      (config.instantWinAmount ?? 0) !== 0)
   );
 }
 
 // Card penalties go to the first winner; chop transfers retain their actual payer/payee.
-export function settleConfiguredSouth(game, amountPerCard) {
+export function settleConfiguredSouth(
+  game,
+  amountPerCard,
+  config = DEFAULT_SOUTH_CONFIG,
+) {
   const ranking = game.result.ranking;
   const winner = ranking.find(
     (p) => p.rank === 1 && !p.labels.includes('forfeit'),
@@ -54,6 +66,13 @@ export function settleConfiguredSouth(game, amountPerCard) {
           'remaining-cards',
         );
     }
+  if (
+    winner?.labels.includes('instant-win') &&
+    (config.instantWinAmount ?? 0) > 0
+  )
+    for (const p of ranking)
+      if (p.uid !== winner.uid)
+        transfer(p.uid, winner.uid, config.instantWinAmount, 'instant-win');
   for (const fee of game.cutTwoFees ?? [])
     transfer(fee.from, fee.to, fee.amount, 'cut-two');
   if (

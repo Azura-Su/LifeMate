@@ -26,6 +26,8 @@ export function TienLenGameSettings({
   onAmountPerCard,
   cutTwoAmount,
   onCutTwoAmount,
+  instantWinAmount,
+  onInstantWinAmount,
   disabled,
 }: {
   finishMode: SouthConfig['finishMode'];
@@ -34,12 +36,18 @@ export function TienLenGameSettings({
   onAmountPerCard: (value: string) => void;
   cutTwoAmount: string;
   onCutTwoAmount: (value: string) => void;
+  instantWinAmount: string;
+  onInstantWinAmount: (value: string) => void;
   disabled: boolean;
 }) {
   const validFine =
     cutTwoAmount !== '' &&
     Number.isSafeInteger(Number(cutTwoAmount)) &&
     Number(cutTwoAmount) <= 1_000_000_000;
+  const validInstantWinFine =
+    instantWinAmount !== '' &&
+    Number.isSafeInteger(Number(instantWinAmount)) &&
+    Number(instantWinAmount) <= 1_000_000_000;
   const rates = [
     {
       key: 'card',
@@ -62,6 +70,17 @@ export function TienLenGameSettings({
       onChange: onCutTwoAmount,
       placeholder: '0',
       invalid: !validFine,
+    },
+    {
+      key: 'instant-win',
+      title: 'Phạt tới trắng',
+      hint: 'Mỗi đối thủ trả · 0 là tắt',
+      unit: 'đ/người',
+      label: 'Mức phạt mỗi người khi tới trắng',
+      value: instantWinAmount,
+      onChange: onInstantWinAmount,
+      placeholder: '0',
+      invalid: !validInstantWinFine,
     },
   ];
   return (
@@ -131,9 +150,9 @@ export function TienLenGameSettings({
           ))}
         </View>
       </View>
-      {!validFine && (
+      {(!validFine || !validInstantWinFine) && (
         <Text accessibilityRole="alert" style={styles.error}>
-          Tiền chặt 2 từ 0 đến 1.000.000.000 đ/lá.
+          Mức phạt phải là số nguyên từ 0 đến 1.000.000.000.
         </Text>
       )}
     </View>

@@ -65,15 +65,23 @@ const send = jest.fn(),
 
 it('offers one shared room entry without choosing a game', () => {
   setup();
-  expect(screen.getAllByRole('button', { name: 'Vào phòng có sẵn' })).toHaveLength(1);
+  expect(
+    screen.getAllByRole('button', { name: 'Vào phòng có sẵn' }),
+  ).toHaveLength(1);
   fireEvent.press(screen.getByRole('button', { name: 'Vào phòng có sẵn' }));
-  expect(screen.queryByRole('button', { name: 'Chọn Tiến lên miền Nam' })).toBeNull();
+  expect(
+    screen.queryByRole('button', { name: 'Chọn Tiến lên miền Nam' }),
+  ).toBeNull();
   expect(screen.queryByRole('button', { name: 'Tạo phòng' })).toBeNull();
   expect(screen.getByRole('button', { name: 'Vào phòng' })).toBeDisabled();
   fireEvent.changeText(screen.getByLabelText('Mã phòng'), 'ab cd ef gh');
   expect(screen.getByLabelText('Mã phòng').props.value).toBe('ABCDEFGH');
   fireEvent.press(screen.getByRole('button', { name: 'Vào phòng' }));
-  expect(send).toHaveBeenCalledWith({ type: 'join', name: 'An', code: 'ABCDEFGH' });
+  expect(send).toHaveBeenCalledWith({
+    type: 'join',
+    name: 'An',
+    code: 'ABCDEFGH',
+  });
 });
 
 it('preserves creation drafts and does not validate them when joining a shared room', () => {
@@ -83,14 +91,21 @@ it('preserves creation drafts and does not validate them when joining a shared r
   fireEvent.press(screen.getByRole('button', { name: 'Vào phòng có sẵn' }));
   fireEvent.press(screen.getByRole('button', { name: 'Tạo phòng mới' }));
   expect(screen.getByLabelText('Mức Nhì').props.value).toBe('123');
-  fireEvent.press(screen.getByRole('button', { name: 'Chọn Tiến lên miền Nam' }));
-  fireEvent.changeText(screen.getByLabelText('Số tiền phạt cho mỗi lá 2 bị chặt'), '');
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Chọn Tiến lên miền Nam' }),
+  );
+  fireEvent.changeText(
+    screen.getByLabelText('Số tiền phạt cho mỗi lá 2 bị chặt'),
+    '',
+  );
   expect(screen.getByRole('button', { name: 'Tạo phòng' })).toBeDisabled();
   fireEvent.press(screen.getByRole('button', { name: 'Vào phòng có sẵn' }));
   fireEvent.changeText(screen.getByLabelText('Mã phòng'), 'ABCDEFGH');
   expect(screen.getByRole('button', { name: 'Vào phòng' })).toBeEnabled();
   fireEvent.press(screen.getByRole('button', { name: 'Tạo phòng mới' }));
-  expect(screen.getByLabelText('Số tiền phạt cho mỗi lá 2 bị chặt').props.value).toBe('');
+  expect(
+    screen.getByLabelText('Số tiền phạt cho mỗi lá 2 bị chặt').props.value,
+  ).toBe('');
 });
 
 it('selects the South finish mode from a dropdown and creates with its independent two-cut fine', () => {
@@ -106,6 +121,10 @@ it('selects the South finish mode from a dropdown and creates with its independe
     '2500',
   );
   fireEvent.changeText(
+    screen.getByLabelText('Mức phạt mỗi người khi tới trắng'),
+    '5000',
+  );
+  fireEvent.changeText(
     screen.getByLabelText('Số tiền trừ cho mỗi lá còn lại'),
     '1000',
   );
@@ -115,7 +134,36 @@ it('selects the South finish mode from a dropdown and creates with its independe
     name: expect.any(String),
     game: 'south',
     amountPerCard: 1000,
-    southConfig: { finishMode: 'first-winner', cutTwoAmount: 2500 },
+    southConfig: {
+      finishMode: 'first-winner',
+      cutTwoAmount: 2500,
+      instantWinAmount: 5000,
+    },
+  });
+});
+
+it('uses the requested default penalties when creating a South room', () => {
+  setup();
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Chọn Tiến lên miền Nam' }),
+  );
+  expect(
+    screen.getByLabelText('Số tiền phạt cho mỗi lá 2 bị chặt').props.value,
+  ).toBe('4');
+  expect(
+    screen.getByLabelText('Mức phạt mỗi người khi tới trắng').props.value,
+  ).toBe('15');
+  fireEvent.press(screen.getByRole('button', { name: 'Tạo phòng' }));
+  expect(send).toHaveBeenCalledWith({
+    type: 'create',
+    name: expect.any(String),
+    game: 'south',
+    amountPerCard: 1,
+    southConfig: {
+      finishMode: 'continue',
+      cutTwoAmount: 4,
+      instantWinAmount: 15,
+    },
   });
 });
 
@@ -139,6 +187,16 @@ it('keeps the old South mode selected and rejects an empty or excessive two-cut 
   expect(screen.getByRole('button', { name: 'Tạo phòng' })).toBeDisabled();
   fireEvent.changeText(
     screen.getByLabelText('Số tiền phạt cho mỗi lá 2 bị chặt'),
+    '0',
+  );
+  expect(screen.getByRole('button', { name: 'Tạo phòng' })).toBeEnabled();
+  fireEvent.changeText(
+    screen.getByLabelText('Mức phạt mỗi người khi tới trắng'),
+    '1000000001',
+  );
+  expect(screen.getByRole('button', { name: 'Tạo phòng' })).toBeDisabled();
+  fireEvent.changeText(
+    screen.getByLabelText('Mức phạt mỗi người khi tới trắng'),
     '0',
   );
   expect(screen.getByRole('button', { name: 'Tạo phòng' })).toBeEnabled();
@@ -1104,14 +1162,20 @@ it('offers all supported games and opens the South lobby', () => {
   expect(
     screen.getByRole('tab', { name: 'Chơi online' }).props.accessibilityState,
   ).toMatchObject({ selected: true });
-  expect(screen.queryByText('Chọn trò chơi')).toBeNull();
+  expect(screen.getByText('Chọn trò chơi')).toBeTruthy();
   expect(screen.getByText('Tiến lên miền Bắc')).toBeTruthy();
   expect(screen.getByText('Sâm')).toBeTruthy();
   expect(screen.getByText('Tấn')).toBeTruthy();
   expect(screen.getByText('Phỏm')).toBeTruthy();
   expect(screen.queryByText('Sắp ra mắt')).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Xem luật chơi' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Xem luật chơi' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Chọn Phỏm' })).toBeTruthy();
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Chọn Tiến lên miền Nam' }),
+  );
+  expect(screen.getAllByRole('button', { name: 'Tạo phòng' })).toHaveLength(1);
+  fireEvent.press(screen.getByRole('button', { name: 'Chọn Sâm' }));
+  expect(screen.getAllByRole('button', { name: 'Tạo phòng' })).toHaveLength(1);
   fireEvent.press(
     screen.getByRole('button', { name: 'Chọn Tiến lên miền Nam' }),
   );
@@ -1130,23 +1194,23 @@ it('offers all supported games and opens the South lobby', () => {
     name: 'An',
     code: 'ABCDEFGH',
   });
+  fireEvent.press(screen.getByRole('button', { name: 'Tạo phòng mới' }));
   expect(
     screen.getByRole('button', { name: 'Chọn Tiến lên miền Nam' }),
   ).toBeTruthy();
 });
 
-it('joins a selected variant with its game kind attached for protocol negotiation', () => {
+it('joins by the shared room code without requiring a selected game', () => {
   setup();
   fireEvent.press(screen.getByRole('button', { name: 'Chọn Sâm' }));
   fireEvent.press(screen.getByRole('button', { name: 'Vào phòng có sẵn' }));
-  fireEvent.changeText(screen.getByLabelText('Mã phòng Sâm'), 'abcdefgh');
+  fireEvent.changeText(screen.getByLabelText('Mã phòng'), 'abcdefgh');
   fireEvent.press(screen.getByRole('button', { name: 'Vào phòng' }));
 
   expect(send).toHaveBeenCalledWith({
     type: 'join',
     name: 'An',
     code: 'ABCDEFGH',
-    game: 'sam',
   });
 });
 
@@ -1239,6 +1303,11 @@ it('moves into the ready table after creating a room', () => {
     name: 'An',
     game: 'south',
     amountPerCard: 1,
+    southConfig: {
+      finishMode: 'continue',
+      cutTwoAmount: 4,
+      instantWinAmount: 15,
+    },
   });
   expect(screen.getByTestId('lobby-game-table')).toBeTruthy();
   expect(screen.getByTestId('lobby-deck')).toBeTruthy();
@@ -2325,6 +2394,10 @@ it('lets only the controlling South owner edit next-round rules from the room me
     screen.getByLabelText('Số tiền phạt cho mỗi lá 2 bị chặt'),
     '17',
   );
+  fireEvent.changeText(
+    screen.getByLabelText('Mức phạt mỗi người khi tới trắng'),
+    '25',
+  );
   fireEvent.press(
     screen.getByRole('radio', { name: 'Có người về nhất thì dừng ngay' }),
   );
@@ -2332,7 +2405,11 @@ it('lets only the controlling South owner edit next-round rules from the room me
   expect(send).toHaveBeenCalledWith({
     type: 'set-south-rules',
     amountPerCard: 9,
-    southConfig: { finishMode: 'first-winner', cutTwoAmount: 17 },
+    southConfig: {
+      finishMode: 'first-winner',
+      cutTwoAmount: 17,
+      instantWinAmount: 25,
+    },
   });
 });
 
@@ -2352,7 +2429,11 @@ it('shows pending rules to members and keeps the active rules separate', () => {
       amountPerCard: 5,
       nextSouthRules: {
         amountPerCard: 9,
-        southConfig: { finishMode: 'first-winner', cutTwoAmount: 17 },
+        southConfig: {
+          finishMode: 'first-winner',
+          cutTwoAmount: 17,
+          instantWinAmount: 25,
+        },
       },
     },
     false,
@@ -2361,7 +2442,11 @@ it('shows pending rules to members and keeps the active rules separate', () => {
   fireEvent.press(screen.getByRole('button', { name: 'Mã phòng' }));
   fireEvent.press(screen.getByRole('button', { name: 'Xem luật chơi' }));
   expect(screen.getByText('Luật ván tới')).toBeTruthy();
-  expect(screen.getByText(/9 đ\/lá còn · Chặt 2: 17 đ\/lá 2/)).toBeTruthy();
+  expect(
+    screen.getByText(
+      /9 đ\/lá còn · Chặt 2: 17 đ\/lá 2 · Tới trắng: 25 đ\/người/,
+    ),
+  ).toBeTruthy();
   expect(screen.getByText(/Chặt 2: 0 đ\/lá 2/)).toBeTruthy();
 });
 
@@ -2381,7 +2466,11 @@ it('blocks a stale rules draft when the room changes and can reload it', () => {
           amountPerCard: 5,
           nextSouthRules: {
             amountPerCard: 10,
-            southConfig: { finishMode: 'continue', cutTwoAmount: 0 },
+            southConfig: {
+              finishMode: 'continue',
+              cutTwoAmount: 0,
+              instantWinAmount: 0,
+            },
           },
         },
         serverTime: Date.now(),

@@ -1,6 +1,8 @@
 export type SouthConfig = {
   finishMode: 'continue' | 'first-winner';
   cutTwoAmount: number;
+  /** Missing on rooms created before the instant-win penalty was introduced. */
+  instantWinAmount?: number;
 };
 export type CutTwoFee = {
   from: string;

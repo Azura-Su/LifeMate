@@ -227,6 +227,8 @@ export function parseGameSnapshot(
           !isSouthConfig(r.southConfig) ||
           g.southConfig.finishMode !== r.southConfig.finishMode ||
           g.southConfig.cutTwoAmount !== r.southConfig.cutTwoAmount ||
+          (g.southConfig.instantWinAmount ?? 0) !==
+            (r.southConfig.instantWinAmount ?? 0) ||
           !Array.isArray(g.cutTwoFees) ||
           g.cutTwoFees.length > 4 ||
           !g.cutTwoFees.every(
@@ -330,7 +332,7 @@ export function parseGameSnapshot(
                   (b) =>
                     object(b) &&
                     keys(b, ['kind', 'amount', 'otherUid']) &&
-                    ['remaining-cards', 'cut-two'].includes(b.kind as string) &&
+                    ['remaining-cards', 'cut-two', 'instant-win'].includes(b.kind as string) &&
                     Number.isSafeInteger(b.amount) &&
                     uid(b.otherUid),
                 ))) &&
@@ -398,7 +400,7 @@ export function parseGameRoomStatus(value: unknown, expectedRoomId: string) {
     typeof value.canDelete !== 'boolean' ||
     typeof value.expired !== 'boolean' ||
     (value.minClientVersion !== undefined &&
-      (!integer(value.minClientVersion) || value.minClientVersion > 11)) ||
+      (!integer(value.minClientVersion) || value.minClientVersion > 12)) ||
     (value.gameKind !== undefined &&
       !['south', 'phom', 'north', 'sam', 'tan'].includes(
         value.gameKind as string,

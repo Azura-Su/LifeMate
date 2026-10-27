@@ -337,6 +337,16 @@ export const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.line,
   },
+  sharedEntryCard: {
+    gap: 8,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: colors.sunlightBorder,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+  },
+  hiddenEntry: { display: 'none' },
+  gameOptionsList: { gap: 7 },
   gameExpansionRules: {
     width: 36,
     height: 36,

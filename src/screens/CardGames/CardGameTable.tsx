@@ -56,6 +56,7 @@ const scorePartLabels: Record<string, string> = {
   'remaining-cards': 'Bài còn',
   'remaining-two': '2 còn',
   'cut-two': 'Chặt 2',
+  'instant-win': 'Tới trắng',
   'sam-report': 'Báo Sâm',
 };
 type ClimbingTableView = TienLenView & {

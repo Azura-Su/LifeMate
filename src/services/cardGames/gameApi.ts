@@ -80,7 +80,7 @@ function normalizeTokenError(error: unknown): unknown {
   return error;
 }
 
-type ProtocolVersion = 11 | 10 | 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | undefined;
+type ProtocolVersion = 12 | 11 | 10 | 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | undefined;
 // A pending request owns its protocol until it is released. Retrying after an
 // Edge rollout must preserve the receipt fingerprint, including clientVersion.
 const negotiatedProtocols = new WeakMap<
@@ -162,6 +162,10 @@ export async function gameRequest(
     input.variantConfig && 'rulesVersion' in input.variantConfig
       ? input.variantConfig.rulesVersion
       : undefined;
+  const requiresV12 =
+    input.requiredClientVersion === 12 ||
+    (input.southConfig?.instantWinAmount !== undefined &&
+      ['create', 'set-south-rules'].includes(input.type));
   const requiresV11 =
     input.requiredClientVersion === 11 ||
     ((variantRulesVersion === 'north-v2' ||
@@ -186,14 +190,18 @@ export async function gameRequest(
     negotiated.sessionId === input.sessionId &&
     negotiated.actionId === input.actionId
       ? negotiated.version
-      : requiresV11
+      : requiresV12
+        ? 12
+        : requiresV11
         ? 11
         : requiresV10
           ? 10
           : requiresV9
             ? 9
             : 8;
-  const minimumVersion = requiresV11
+  const minimumVersion = requiresV12
+    ? 12
+    : requiresV11
     ? 11
     : input.requiredClientVersion ??
       (requiresV10
@@ -278,10 +286,16 @@ export async function gameRequest(
               code === 'game-update-required' &&
               response.status === 409 &&
               protocolVersion !== undefined &&
-              protocolVersion < 11
+              protocolVersion < 12
             ) {
               protocolVersion =
-                protocolVersion < 9 ? 9 : protocolVersion < 10 ? 10 : 11;
+                protocolVersion < 9
+                  ? 9
+                  : protocolVersion < 10
+                    ? 10
+                    : protocolVersion < 11
+                      ? 11
+                      : 12;
               negotiationFloor = Math.max(negotiationFloor, protocolVersion);
               attempt -= 1;
               continue;
@@ -294,7 +308,9 @@ export async function gameRequest(
               if (protocolVersion <= negotiationFloor)
                 throw new GameApiError('game-update-required', 409);
               protocolVersion =
-                protocolVersion === 11
+                protocolVersion === 12
+                  ? 11
+                  : protocolVersion === 11
                   ? 10
                   : protocolVersion === 10
                     ? 9

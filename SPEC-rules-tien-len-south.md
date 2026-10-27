@@ -49,6 +49,12 @@ Ba đôi thông và tứ quý phải đúng lượt và chưa bỏ vòng. Bốn 
 - Phí được ghi trước khi thay bộ trên bàn, gồm cả cú chặt làm người đánh hết bài.
   Người đã hết bài vẫn phải trả nếu lá2 cuối bị chặt ở chế độ đánh tiếp. Mỗi cú
   được ghi một lần nhờ action receipt/CAS. Không đổi số dư giữa ván.
+- Mức **chặt 2** mặc định ở phòng mới là4 điểm trên mỗi lá2 bị chặt.
+- Mức **tới trắng** là số điểm cố định mỗi đối thủ trả cho người tới trắng; người
+  thắng nhận tổng các khoản. Phòng mới mặc định15 điểm/người; đặt0 để tắt. Chỉ
+  áp dụng khi kết quả có nhãn `instant-win`, cộng cùng tiền bài còn theo cấu
+  hình hiện hành; ván thường và ván hủy không phát sinh khoản này. Cấu hình
+  phòng cũ thiếu trường mới tiếp tục hiểu là0, không đổi luật đã lưu.
 - Khi kết thúc, cộng tiền bài và các khoản chặt vào delta mỗi người, tổng bằng0.
   Người không về nhất có thể dương điểm nhờ chặt2; người nhất có thể âm nếu tiền
   chặt phải trả lớn hơn tiền bài nhận. Ván hủy vì tất cả mất kết nối không tính
@@ -56,6 +62,9 @@ Ba đôi thông và tứ quý phải đúng lượt và chưa bỏ vòng. Bốn 
 - Config mặc định không phát sinh southConfig/south-v2 mới, giữ hợp đồng cũ.
   Phòng có cấu hình khác cần capability4; client cũ bị chặn trước khi nhận ghế,
   tiếp quản hay mở lại. Client4 vẫn chơi được Phỏm3 và south-v1.
+- South config cũ gồm2 trường tiếp tục hợp lệ và được hiểu là mức tới trắng0.
+  Config có `instantWinAmount` cần capability12; trạng thái phòng và takeover
+  chặn client cũ trước khi nhận/tiếp quản ghế.
 
 Fixture dương/âm cho mọi loại bộ, chặt ngoài lượt, mở vòng sau người hết bài, đầu ván thiếu 3 bích, tới trắng đồng thời, cóng/thối, bỏ cuộc và timeout. Invariant: 52 lá duy nhất ở tay + bài đã đánh + bài dư + bài bỏ cuộc, input không bị mutate, mọi lượt hoặc kết thúc đều tiến triển được. Snapshot không chứa tay người khác hay bài dư.
 
@@ -63,8 +72,8 @@ Tham khảo biến thể: [ZingPlay miền Nam](https://play.zing.vn/detail-game
 
 ## Sửa luật trong phòng
 
-- Chủ phòng đang điều khiển có thể lưu chế độ kết thúc, tiền mỗi lá và tiền
-  chặt 2 ở menu phòng → “Sửa luật ván tới”. Cấu hình riêng `nextSouthRules`
+- Chủ phòng đang điều khiển có thể lưu chế độ kết thúc, tiền mỗi lá, tiền
+  chặt 2 và mức phạt tới trắng ở menu phòng → “Sửa luật ván tới”. Cấu hình riêng `nextSouthRules`
   chỉ được đưa vào amountPerCard/southConfig khi chia match mới, kể cả tới
   trắng. Không thay bài, lượt, deadline, phí chặt hay điểm của match đang chơi.
 - Lưu ở sảnh/kết quả xóa cờ sẵn sàng; lệnh ready đã gửi theo version cũ bị từ

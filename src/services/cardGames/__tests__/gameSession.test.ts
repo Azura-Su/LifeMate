@@ -1020,6 +1020,38 @@ it('fences rules edits and later room commands at protocol5', async () => {
   controller.stop();
 });
 
+it('requires protocol12 for South instant-win rules and subsequent room actions', async () => {
+  const nextSouthRules = {
+    amountPerCard: 9,
+    southConfig: {
+      finishMode: 'continue' as const,
+      cutTwoAmount: 0,
+      instantWinAmount: 10,
+    },
+  };
+  const current = snapshot();
+  current.room!.southConfig = nextSouthRules.southConfig;
+  const request = jest.fn(async () => current);
+  const controller = createGameSession({
+    sessionId: 'session',
+    request,
+    onChange: jest.fn(),
+    uuid: () => 'action',
+    subscribe: (_topic, _hint, status) => {
+      status(true);
+      return jest.fn();
+    },
+  });
+  controller.start();
+  await flush();
+  await controller.send({ type: 'ready', ready: true });
+  expect(request).toHaveBeenLastCalledWith(
+    expect.objectContaining({ type: 'ready', requiredClientVersion: 12 }),
+    expect.anything(),
+  );
+  controller.stop();
+});
+
 it('fences Phỏm rules edits and later room actions at capability6', async () => {
   const room = snapshot();
   room.room!.gameKind = 'phom';
