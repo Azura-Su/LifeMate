@@ -8,6 +8,7 @@ export type MainTabParams = {
   Notes: undefined;
   Agenda: undefined;
   CardScore: undefined;
+  PixelPet: undefined;
   CardGames:
     | {
         roomCode?: string;

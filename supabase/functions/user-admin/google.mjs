@@ -140,6 +140,53 @@ export function createGoogleAdmin(credentials, bucket, request = fetch) {
       }
       return true;
     },
+    // Pet EXP reads finance rows server-side; clients never submit EXP.
+    // A partial read would revoke EXP, so this pages to the end or throws.
+    async listFinanceTransactions(uid, fromMs) {
+      const fields = ['type', 'incomeSource', 'expenseSource', 'category', 'createdAt'];
+      const value = (field) =>
+        field?.stringValue ??
+        (field?.integerValue !== undefined
+          ? Number(field.integerValue)
+          : field?.doubleValue);
+      const rows = [];
+      let cursor = null;
+      for (let page = 0; page < 20; page += 1) {
+        const result = await api(`${firestore}/financeAccounts/${uid}:runQuery`, 'POST', {
+          structuredQuery: {
+            from: [{ collectionId: 'transactions' }],
+            select: { fields: fields.map((fieldPath) => ({ fieldPath })) },
+            where: {
+              fieldFilter: {
+                field: { fieldPath: 'createdAt' },
+                op: 'GREATER_THAN_OR_EQUAL',
+                value: { integerValue: String(Math.max(0, Math.floor(fromMs))) },
+              },
+            },
+            orderBy: [
+              { field: { fieldPath: 'createdAt' }, direction: 'ASCENDING' },
+              { field: { fieldPath: '__name__' }, direction: 'ASCENDING' },
+            ],
+            ...(cursor ? { startAt: { values: cursor, before: false } } : {}),
+            limit: 500,
+          },
+        });
+        if (!Array.isArray(result)) throw new Error('Google operation unavailable');
+        const documents = result.filter((row) => row.document).map((row) => row.document);
+        for (const document of documents)
+          rows.push(
+            Object.fromEntries(
+              fields
+                .map((name) => [name, value(document.fields?.[name])])
+                .filter(([, field]) => field !== undefined),
+            ),
+          );
+        if (documents.length < 500) return rows;
+        const last = documents.at(-1);
+        cursor = [last.fields.createdAt, { referenceValue: last.name }];
+      }
+      throw new Error('Finance history too large');
+    },
     async clearStorage(uid, budget) {
       for (const prefix of [`audio/${uid}/`, `memories/${uid}/`]) {
         if (!budget()) return false;

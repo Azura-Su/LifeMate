@@ -19,6 +19,7 @@ Yêu cầu và kiến trúc: [tasks/plan.md](tasks/plan.md). Ranh giới module:
 - Sổ thu chi theo UID, báo cáo thu nhập/chi tiêu theo năm hoặc khoảng tháng nhiều năm: [SPEC-finance.md](SPEC-finance.md).
 - Cho vay theo UID, ghi nhận các lần nhận lại vào Tài chính với nguồn riêng: [tasks/loan-ledger-plan-2026-10-11.md](tasks/loan-ledger-plan-2026-10-11.md).
 - Tiện ích tài chính, nghe MP3, ghi chú và lịch/việc: [SPEC-life-utilities.md](SPEC-life-utilities.md).
+- Linh thú pixel: 15 cá thể duy nhất, nhận nuôi qua backend, EXP theo thói quen ghi chép (không theo số tiền): [SPEC-pixel-pet.md](SPEC-pixel-pet.md).
 
 ## Quy ước
 

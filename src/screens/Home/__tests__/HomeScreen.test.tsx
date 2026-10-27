@@ -42,6 +42,9 @@ function findRenderedCardIds(node: RenderedNode): string[] {
 }
 
 jest.mock('@expo/vector-icons/Feather', () => 'Feather');
+jest.mock('../../../services/pixelPet/pixelPetApi', () => ({
+  syncPixelPetInBackground: jest.fn(),
+}));
 jest.mock('@react-native-async-storage/async-storage', () =>
   jest.requireActual(
     '@react-native-async-storage/async-storage/jest/async-storage-mock',

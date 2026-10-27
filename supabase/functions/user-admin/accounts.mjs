@@ -9,6 +9,7 @@ export function createAccounts({
   google,
   clearObjects,
   clearGames = async () => undefined,
+  clearPets = async () => undefined,
   now = Date.now,
   uuid = () => crypto.randomUUID(),
 }) {
@@ -95,6 +96,8 @@ export function createAccounts({
   async function purgeData(row, update, budget) {
     // Metadata first; a slow object inventory must not keep user data/profile alive.
     await clearGames(row.uid);
+    // Revokes the pet so it returns to AVAILABLE with no prior progress.
+    await clearPets(row.uid);
     if (!(await google.clearFirestore(row.uid, budget))) return row;
     for (const table of [
       'lifemate_memory_deletions',

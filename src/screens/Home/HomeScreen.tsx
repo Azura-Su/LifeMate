@@ -16,6 +16,7 @@ import { HomeFinanceCard } from './HomeFinanceCard';
 import { HomeTodayCard } from './HomeTodayCard';
 import { getCalendarNoteDateKey } from '../../utils/calendarNotes';
 import { useAuthStore } from '../../store/authStore';
+import { syncPixelPetInBackground } from '../../services/pixelPet/pixelPetApi';
 import { readPrepChecklists } from '../../services/checklists/checklistStorage';
 import type { PrepChecklist } from '../../types/prepChecklist';
 
@@ -45,6 +46,12 @@ export function HomeScreen({
   const [refreshing, setRefreshing] = useState(false);
   const refreshInFlight = useRef(false);
   const checklistLoadGeneration = useRef(0);
+
+  useEffect(() => {
+    if (!uid) return;
+    syncPixelPetInBackground(uid);
+    return navigation.addListener('focus', () => syncPixelPetInBackground(uid));
+  }, [navigation, uid]);
 
   const refreshChecklists = useCallback(async () => {
     const generation = ++checklistLoadGeneration.current;
@@ -210,6 +217,13 @@ export function HomeScreen({
                 colors.sunlightSoft,
                 colors.sunlight,
                 'CardScore',
+              ],
+              [
+                'feather',
+                'Linh thú',
+                colors.successSoft,
+                colors.success,
+                'PixelPet',
               ],
             ] as const
           ).map(([icon, label, background, tint, route]) => (

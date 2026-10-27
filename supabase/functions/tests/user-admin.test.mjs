@@ -290,6 +290,9 @@ function jobsFixture() {
       events.push('games');
       if (gameCleanupFail) throw Error('Game cleanup offline');
     },
+    clearPets: async () => {
+      events.push('pets');
+    },
     now: () => clock,
     uuid: () => 'lease',
   });
@@ -333,6 +336,9 @@ test('game cleanup failure keeps deletion retryable and must finish before other
   assert.equal(f.row.status, 'deleted');
   assert.equal(f.row.phase, 'complete');
   assert.ok(f.events.indexOf('games') < f.events.indexOf('firestore'));
+  // Pet revocation runs with metadata cleanup, before the Firestore sweep.
+  assert.ok(f.events.indexOf('pets') > f.events.indexOf('games'));
+  assert.ok(f.events.indexOf('pets') < f.events.indexOf('firestore'));
 });
 test('durable block survives provider failure; sweep deletes Auth and data without grace wait', async () => {
   const f = jobsFixture();

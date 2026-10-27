@@ -14,6 +14,7 @@ import { AgendaScreen } from '../screens/Agenda/AgendaScreen';
 import { CardScoreScreen } from '../screens/CardScore/CardScoreScreen';
 import { CardGamesRoute } from '../screens/CardGames/CardGamesRoute';
 import { ChecklistsScreen } from '../screens/Checklists/ChecklistsScreen';
+import { PixelPetScreen } from '../screens/PixelPet/PixelPetScreen';
 import { colors } from '../theme';
 import { UserManagementScreen } from '../screens/UserManagement/UserManagementScreen';
 import { isUserAdmin } from '../config/userAdmin';
@@ -35,6 +36,7 @@ const icons = {
   Notes: 'edit-3',
   Agenda: 'calendar',
   CardScore: 'award',
+  PixelPet: 'feather',
   CardGames: 'layers',
   Checklists: 'check-square',
 } as const;
@@ -197,6 +199,15 @@ export function MainTabs() {
           }}
         />
       )}
+      <Tab.Screen
+        name="PixelPet"
+        component={PixelPetScreen}
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+          tabBarStyle: { display: 'none' },
+        }}
+      />
       <Tab.Screen
         name="Checklists"
         component={ChecklistsScreen}
