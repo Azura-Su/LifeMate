@@ -20,14 +20,15 @@ export { assertMemorySession } from './memoryPrivatePhotos';
 
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
 const PHOTO = /^[A-Za-z0-9_-]{1,128}\.(jpg|jpeg|png|webp|heic|heif|gif)$/;
-function readDeadline<T>(promise: Promise<T>): Promise<T> {
+const MEMORY_LIST_READ_TIMEOUT_MS = 8000;
+function readDeadline<T>(promise: Promise<T>, timeoutMs = 15000): Promise<T> {
   let timer: ReturnType<typeof setTimeout>;
   return Promise.race([
     promise,
     new Promise<never>((_, reject) => {
       timer = setTimeout(
         () => reject(new Error('Chưa kết nối được cloud. Hãy thử lại.')),
-        15000,
+        timeoutMs,
       );
     }),
   ]).finally(() => clearTimeout(timer));
@@ -83,6 +84,7 @@ export async function readCloudMemories(uid: string) {
     getDocsFromServer(
       collection(getFirestore(), 'memoryAccounts', uid, 'items'),
     ),
+    MEMORY_LIST_READ_TIMEOUT_MS,
   );
   assertMemorySession(uid);
   return snapshot.docs.map((item) => ({

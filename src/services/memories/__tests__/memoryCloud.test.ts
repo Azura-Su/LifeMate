@@ -2,6 +2,7 @@ import { getAuth } from '@react-native-firebase/auth';
 import {
   doc,
   getDocFromServer,
+  getDocsFromServer,
   getFirestore,
   setDoc,
 } from '@react-native-firebase/firestore';
@@ -16,6 +17,7 @@ import {
   commitCloudMemory,
   downloadMemoryPhoto,
   MemoryCloudConflict,
+  readCloudMemories,
   uploadMemoryPhoto,
 } from '../memoryCloud';
 import type { MemoryEntry } from '../../../types/memory';
@@ -78,6 +80,26 @@ beforeEach(() => {
     .mocked(FileSystem.getInfoAsync)
     .mockResolvedValue({ exists: false } as never);
 });
+it('stops waiting on an unavailable cloud memory list after eight seconds', async () => {
+  jest.useFakeTimers();
+  try {
+    jest
+      .mocked(getDocsFromServer)
+      .mockReturnValueOnce(new Promise(() => {}) as never);
+    const reading = readCloudMemories('alice').then(
+      () => 'resolved',
+      (cause: Error) => cause.message,
+    );
+
+    await jest.advanceTimersByTimeAsync(8000);
+    await expect(
+      Promise.race([reading, Promise.resolve('still pending')]),
+    ).resolves.toBe('Chưa kết nối được cloud. Hãy thử lại.');
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
 it('uses server CAS and retries the same intent idempotently for unverified owners', async () => {
   await commitCloudMemory('alice', entry);
   expect((await getDocFromServer(reference())).data()?.revision).toBe(
