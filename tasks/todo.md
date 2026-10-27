@@ -1,6 +1,0 @@
-- [ ] Catalog/types and deterministic fantasy randomization
-- [ ] Reference import and build-time pixel/RLE conversion
-- [ ] Pixel renderer, animations and skill registry
-- [ ] Firestore one-pet/species reservation
-- [ ] Finance progression and Home bottom-bar integration
-- [ ] Full tests, rules and iOS/Android bundle
