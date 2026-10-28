@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors } from '../theme';
+import { colors, fontSize, radius, spacing } from '../theme';
 
 export const styles = StyleSheet.create({
   overlay: {
@@ -12,8 +12,8 @@ export const styles = StyleSheet.create({
   panel: {
     height: '100%',
     backgroundColor: colors.background,
-    borderTopLeftRadius: 22,
-    borderBottomLeftRadius: 22,
+    borderTopLeftRadius: radius.xxl,
+    borderBottomLeftRadius: radius.xxl,
     overflow: 'hidden',
     shadowColor: colors.ink,
     shadowOpacity: 0.18,
@@ -27,40 +27,49 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingLeft: 20,
-    paddingRight: 8,
+    paddingLeft: spacing.xl,
+    paddingRight: spacing.sm,
   },
   closeButton: {
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 16,
+    borderRadius: radius.lg,
   },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingTop: 4, gap: 18, paddingBottom: 16 },
-  section: { gap: 8 },
+  content: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
+    gap: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  section: { gap: spacing.sm },
   sectionTitle: {
-    fontSize: 11,
+    fontSize: fontSize.caption,
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     color: colors.muted,
-    marginLeft: 6,
+    marginLeft: spacing.xs + 2,
   },
   group: {
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 16,
+    borderRadius: radius.lg,
     backgroundColor: colors.surface,
     overflow: 'hidden',
   },
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.line,
-    marginLeft: 58,
+    marginLeft: 58, // icon badge + gap
   },
-  profileEmail: { fontSize: 12, lineHeight: 17, color: colors.muted },
+  profileEmail: {
+    fontSize: fontSize.label,
+    lineHeight: 17,
+    color: colors.muted,
+  },
   profileLink: {
     marginTop: 2,
     fontSize: 12,
@@ -71,15 +80,42 @@ export const styles = StyleSheet.create({
   profile: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    padding: 16,
-    borderRadius: 20,
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.xl,
     backgroundColor: colors.sunlightFaint,
     borderWidth: 1,
     borderColor: colors.sunlightLine,
   },
+  flexShrink: { flexShrink: 1 },
+  profileNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  adminPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.sunlightAction,
+  },
+  adminPillText: {
+    fontSize: fontSize.micro,
+    fontWeight: '700',
+    color: colors.sunlight,
+  },
+  petAdminIcon: { backgroundColor: colors.successSoft },
+  usersAdminIcon: { backgroundColor: colors.skySoft },
   profileText: { flex: 1, minWidth: 0, gap: 1 },
-  name: { fontSize: 17, lineHeight: 22, fontWeight: '700', color: colors.ink },
+  name: {
+    fontSize: fontSize.bodyLarge,
+    lineHeight: 22,
+    fontWeight: '700',
+    color: colors.ink,
+  },
   actionRow: {
     minHeight: 52,
     flexDirection: 'row',
@@ -102,7 +138,7 @@ export const styles = StyleSheet.create({
     height: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
+    borderRadius: radius.md - 2,
   },
   notesIcon: { backgroundColor: colors.primarySoft },
   cardScoreIcon: { backgroundColor: colors.sunlightSoft },

@@ -155,6 +155,9 @@ export function HomeScreen({
               style={styles.menuButton}
             >
               <UserAvatar size={32} />
+              <View style={styles.menuBadge}>
+                <Feather name="menu" size={10} color={colors.surface} />
+              </View>
             </Pressable>
           </View>
         }
@@ -236,8 +239,8 @@ export function HomeScreen({
                 [
                   'feather',
                   'Linh thú',
-                  colors.successSoft,
-                  colors.success,
+                  colors.dangerSoft,
+                  colors.danger,
                   'PixelPet',
                 ],
               ] as const

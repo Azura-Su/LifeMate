@@ -155,9 +155,24 @@ export function AppDrawer({
               >
                 <UserAvatar size={52} />
                 <View style={styles.profileText}>
-                  <Text numberOfLines={1} style={styles.name}>
-                    {model.name}
-                  </Text>
+                  <View style={styles.profileNameRow}>
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.name, styles.flexShrink]}
+                    >
+                      {model.name}
+                    </Text>
+                    {isUserAdmin(model.user) && (
+                      <View style={styles.adminPill}>
+                        <Feather
+                          name="shield"
+                          size={10}
+                          color={colors.sunlight}
+                        />
+                        <Text style={styles.adminPillText}>Quản trị</Text>
+                      </View>
+                    )}
+                  </View>
                   <Text numberOfLines={1} style={styles.profileEmail}>
                     {model.user?.email}
                   </Text>
@@ -264,8 +279,8 @@ export function AppDrawer({
                   <View style={styles.group}>
                     <MenuRow
                       icon="users"
-                      tint={colors.earth}
-                      badgeStyle={styles.notesIcon}
+                      tint={colors.sky}
+                      badgeStyle={styles.usersAdminIcon}
                       label="Quản lý người dùng"
                       onPress={() => close(onOpenUserManagement)}
                     />
@@ -274,8 +289,8 @@ export function AppDrawer({
                         <View style={styles.divider} />
                         <MenuRow
                           icon="feather"
-                          tint={colors.earth}
-                          badgeStyle={styles.notesIcon}
+                          tint={colors.success}
+                          badgeStyle={styles.petAdminIcon}
                           label="Quản lý linh thú"
                           onPress={() => close(onOpenPetManagement)}
                         />
