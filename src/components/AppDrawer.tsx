@@ -31,6 +31,7 @@ type Props = {
   onOpenChecklists: () => void;
   onOpenAgenda?: () => void;
   onOpenUserManagement?: () => void;
+  onOpenPetManagement?: () => void;
   onOpenProfile?: () => void;
   privacy: ReturnType<typeof useFinancePrivacy>;
 };
@@ -43,6 +44,7 @@ export function AppDrawer({
   onOpenChecklists,
   onOpenAgenda,
   onOpenUserManagement,
+  onOpenPetManagement,
   onOpenProfile,
   privacy,
 }: Props) {
@@ -267,6 +269,18 @@ export function AppDrawer({
                       label="Quản lý người dùng"
                       onPress={() => close(onOpenUserManagement)}
                     />
+                    {onOpenPetManagement && (
+                      <>
+                        <View style={styles.divider} />
+                        <MenuRow
+                          icon="feather"
+                          tint={colors.earth}
+                          badgeStyle={styles.notesIcon}
+                          label="Quản lý linh thú"
+                          onPress={() => close(onOpenPetManagement)}
+                        />
+                      </>
+                    )}
                   </View>
                 </View>
               )}

@@ -21,10 +21,26 @@ export const PET_ART: Partial<Record<PixelPetSpeciesId, ImageSourcePropType>> =
     phoenix: require('../../../assets/pixelPet/phoenix.png'),
     anubis: require('../../../assets/pixelPet/anubis.png'),
     garuda: require('../../../assets/pixelPet/garuda.png'),
+    celestial_stag: require('../../../assets/pixelPet/celestial_stag.png'),
   };
 
+/** Layer cut-outs for the hand-rigged Celestial Stag puppet (no atlas). */
+export const STAG_LAYERS: Record<
+  'body' | 'wingL' | 'wingR' | 'tail' | 'head',
+  ImageSourcePropType
+> = {
+  body: require('../../../assets/pixelPet/celestial_stag/body.png'),
+  wingL: require('../../../assets/pixelPet/celestial_stag/wing_l.png'),
+  wingR: require('../../../assets/pixelPet/celestial_stag/wing_r.png'),
+  tail: require('../../../assets/pixelPet/celestial_stag/tail.png'),
+  head: require('../../../assets/pixelPet/celestial_stag/head.png'),
+};
+
 /** Only the currently displayed atlas is mounted/decoded; no global preload. */
-export const PET_ATLASES: Record<PixelPetSpeciesId, ImageSourcePropType> = {
+export const PET_ATLASES: Record<
+  Exclude<PixelPetSpeciesId, 'celestial_stag'>,
+  ImageSourcePropType
+> = {
   nine_tail_fox: require('../../../assets/pixelPet/animations/nine_tail_fox.png'),
   qilin: require('../../../assets/pixelPet/animations/qilin.png'),
   alicorn: require('../../../assets/pixelPet/animations/alicorn.png'),

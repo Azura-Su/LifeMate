@@ -16,7 +16,16 @@ import {
   STAGE_LOOK,
   type PixelLayer,
 } from '../../services/pixelPet/pixelPetRig';
-import type { PixelPetClipId, PixelPetStage } from '../../types/pixelPet';
+import {
+  CELESTIAL_STAG_ID,
+  isExtraClip,
+} from '../../services/pixelPet/celestialStagPuppet';
+import type {
+  PixelPetAnyClipId,
+  PixelPetClipId,
+  PixelPetStage,
+} from '../../types/pixelPet';
+import { CelestialStagPuppet } from './CelestialStagPuppet';
 import { PET_ART, PET_ATLASES } from './petArt';
 import { PixelPetAtlas } from './PixelPetAtlas';
 import { usePetPlayback } from './usePetPlayback';
@@ -25,7 +34,8 @@ type Props = {
   species: PixelPetSpecies;
   stage: PixelPetStage;
   size: number;
-  clip?: PixelPetClipId;
+  /** Extra clips are only played by the Celestial Stag puppet. */
+  clip?: PixelPetAnyClipId;
   /** Off-screen or unfocused pets stop animating. */
   active?: boolean;
   /** Loop the locomotion poses for roaming or a local animation preview. */
@@ -87,16 +97,37 @@ function useLayerStyle(
   });
 }
 
+/** The admin's stag is a hand-rigged puppet; every other species uses the shared rig. */
+export function PixelPetSprite({ clip = 'idle', ...props }: Props) {
+  if (props.species.id === CELESTIAL_STAG_ID)
+    return (
+      <CelestialStagPuppet
+        {...props}
+        clip={clip}
+        active={props.active ?? true}
+        loopMovement={props.loopMovement ?? false}
+      />
+    );
+  return (
+    <RiggedPixelPetSprite
+      {...props}
+      clip={isExtraClip(clip) ? 'happy' : clip}
+    />
+  );
+}
+
+type RiggedProps = Omit<Props, 'clip'> & { clip: PixelPetClipId };
+
 /** One shared rig, clip and stage transform drive every species. */
-export function PixelPetSprite({
+function RiggedPixelPetSprite({
   species,
   stage,
   size,
-  clip = 'idle',
+  clip,
   active = true,
   loopMovement = false,
   onClipEnd,
-}: Props) {
+}: RiggedProps) {
   const { progress, reducedMotion } = usePetPlayback({
     clip,
     speciesId: species.id,
@@ -147,7 +178,7 @@ export function PixelPetSprite({
         )}
         <PixelPetAtlas
           key={species.id}
-          source={PET_ATLASES[species.id]}
+          source={PET_ATLASES[species.id as keyof typeof PET_ATLASES]}
           size={size}
           clip={clip}
           progress={progress}

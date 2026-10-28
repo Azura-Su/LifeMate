@@ -11,13 +11,18 @@ import {
   newPixelPetAction,
   type PixelPetRequest,
 } from '../../services/pixelPet/pixelPetApi';
-import { pixelPetSpecies } from '../../services/pixelPet/pixelPetCatalog';
+import {
+  PIXEL_PET_EXCLUSIVE,
+  pixelPetSpecies,
+} from '../../services/pixelPet/pixelPetCatalog';
+import { PUPPET_EXTRA_CLIPS } from '../../services/pixelPet/celestialStagPuppet';
 import { EFFECT_CLIP } from '../../services/pixelPet/pixelPetRig';
 import { petMovementLabel } from '../../services/pixelPet/pixelPetFrames';
 import { useScreenActive } from '../../hooks/useScreenActive';
+import { usePixelPetRefresh } from '../../hooks/usePixelPetRefresh';
 import { useAuthStore } from '../../store/authStore';
 import type {
-  PixelPetClipId,
+  PixelPetAnyClipId,
   PixelPetEffect,
   PixelPetState,
 } from '../../types/pixelPet';
@@ -62,9 +67,10 @@ export function PixelPetScreen({ navigation }: Props) {
   const [state, setState] = useState<PixelPetState | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [clip, setClip] = useState<PixelPetClipId>('idle');
+  const [clip, setClip] = useState<PixelPetAnyClipId>('idle');
   const [loopMovement, setLoopMovement] = useState(false);
   const latest = useRef(0);
+  usePixelPetRefresh(uid, focused && active && !busy, setState, false);
 
   const run = useCallback(
     async (request: PixelPetRequest, then?: (next: PixelPetState) => void) => {
@@ -100,7 +106,7 @@ export function PixelPetScreen({ navigation }: Props) {
     setLoopMovement(false);
     setClip('idle');
   }, []);
-  const playClip = (next: PixelPetClipId, loop = false) => {
+  const playClip = (next: PixelPetAnyClipId, loop = false) => {
     setLoopMovement(loop);
     setClip(next);
   };
@@ -169,6 +175,27 @@ export function PixelPetScreen({ navigation }: Props) {
               accessibilityLabel={label}
               accessibilityState={{ selected: clip === value }}
               onPress={() => playClip(value, value === 'move')}
+              style={[
+                styles.chip,
+                styles.motionChip,
+                clip === value && styles.chipSelected,
+              ]}
+            >
+              <Text style={styles.chipText}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
+      {species && PIXEL_PET_EXCLUSIVE.includes(species) && (
+        <View style={styles.row}>
+          {PUPPET_EXTRA_CLIPS.map(({ clip: value, label }) => (
+            <Pressable
+              key={value}
+              accessibilityRole="button"
+              accessibilityLabel={label}
+              accessibilityState={{ selected: clip === value }}
+              onPress={() => playClip(value, false)}
               style={[
                 styles.chip,
                 styles.motionChip,
@@ -250,6 +277,7 @@ export function PixelPetScreen({ navigation }: Props) {
             <Text style={styles.name}>{species.name}</Text>
             <Text style={styles.meta}>
               Lv {pet.level} · {STAGE_LABEL[pet.stage]} · {species.personality}
+              {PIXEL_PET_EXCLUSIVE.includes(species) ? ' · Độc quyền' : ''}
             </Text>
             <View style={styles.barTrack}>
               <View

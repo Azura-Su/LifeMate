@@ -59,6 +59,13 @@ function fixture(
     sweep: async () => calls.push('sweep'),
     workerSecret: 'server-only',
     readAvatar,
+    pets: {
+      list: async (actor) => (calls.push(['pet-list', actor]), { pets: [] }),
+      revoke: async (actor, input) => (
+        calls.push(['pet-revoke', actor, input]),
+        { pets: [] }
+      ),
+    },
   });
   const post = (body, headers = {}) =>
     handler(
@@ -70,6 +77,49 @@ function fixture(
     );
   return { post, calls, google, accounts };
 }
+const petRevoke = {
+  action: 'pet-revoke',
+  targetUid: 'target',
+  speciesId: 'phoenix',
+  adoptionId: '11111111-1111-4111-8111-111111111111',
+  actionId: '22222222-2222-4222-8222-222222222222',
+};
+test('pet operations use live admin checks and server-derived actor', async () => {
+  const f = fixture();
+  assert.equal((await f.post({ action: 'pet-list' })).status, 200);
+  assert.equal((await f.post(petRevoke)).status, 200);
+  assert.equal(f.calls[1][1].uid, ADMIN_UID);
+  for (const change of [
+    { uid: 'other' },
+    { emailVerified: false },
+    { authTime: 99 },
+  ]) {
+    const denied = fixture({
+      uid: ADMIN_UID,
+      email: ADMIN_EMAIL,
+      emailVerified: true,
+      authTime: 101,
+      ...change,
+    });
+    assert.equal((await denied.post(petRevoke)).status, 403);
+    assert.deepEqual(denied.calls, []);
+  }
+  f.google.lookup = async () => ({ ...admin, disabled: true });
+  assert.equal((await f.post(petRevoke)).status, 403);
+});
+test('pet revoke rejects overposting and malformed IDs before mutation', async () => {
+  const f = fixture();
+  for (const bad of [
+    { ...petRevoke, totalExp: 100 },
+    { ...petRevoke, actorUid: ADMIN_UID },
+    { ...petRevoke, adoptionId: 'bad' },
+    { ...petRevoke, targetUid: '../x' },
+    { ...petRevoke, speciesId: '../x' },
+    { ...petRevoke, actionId: undefined },
+  ])
+    assert.equal((await f.post(bad)).status, 400);
+  assert.deepEqual(f.calls, []);
+});
 test('admin list returns allowlisted fields only', async () => {
   const { post } = fixture();
   const response = await post({ action: 'list' });

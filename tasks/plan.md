@@ -1,4 +1,31 @@
-# Linh thú — thêm khung hình animation, 28/10/2026
+# Quản lý linh thú cho admin, 28/10/2026
+
+1. Trang riêng trong menu Quản trị: danh mục 15 linh thú, trạng thái trống/giữ
+   chỗ/có chủ, tên/email/UID người giữ, cấp độ và EXP do backend tính. Tìm kiếm
+   cục bộ, tải lại/kéo để làm mới. Thumbnail tĩnh, không chạy 15 animation.
+2. Dùng user-admin và kiểm tra admin Firebase hiện hành; RPC chỉ service_role,
+   kiểm tra lại admin ở SQL. Không nhận UID người thao tác hoặc EXP từ client.
+3. Thu hồi có xác nhận; gửi UID + loài + adoptionId đã xem và actionId ổn định.
+   Giao dịch khóa tài khoản pet, kiểm tra đúng lượt nhận nuôi, lưu audit và
+   chống thực thi lại. Pet trở lại kho; lượt random đã dùng được giữ nguyên,
+   tiến trình cũ không chuyển sang người nhận nuôi mới.
+4. Vô hiệu kết quả yêu cầu cũ, chặn khôi phục sau thu hồi; lượt random còn lại
+   vẫn dùng được. Đồng bộ EXP kiểm tra adoptionId để snapshot cũ không áp dụng
+   sang pet mới. Màn đang hoạt động đọc trạng thái nhẹ để bỏ pet đã thu hồi.
+5. Reviewer đọc plan trước triển khai và diff sau triển khai. Regression SQL
+   (quyền, CAS, idempotency, restore, receipt, EXP, xóa tài khoản), Edge auth,
+   client/UI và session/abort. Chạy test:functions, Jest liên quan, typecheck,
+   ESLint và export. Không thêm thư viện, không thao tác pet thật. Deploy
+   Supabase và Firebase Rules theo yêu cầu ngày 28/10.
+
+Triển khai: migration → pet-access mới → user-admin mới. App native cần phát
+hành riêng để màn admin xuất hiện cho người dùng.
+Nguồn: Supabase Database Functions (security definer/search_path và EXECUTE),
+https://supabase.com/docs/guides/database/functions; changelog đã kiểm tra 28/10.
+
+---
+
+# Đã hoàn tất: Linh thú — thêm khung hình animation, 28/10/2026
 
 ## Mục tiêu và thiết kế
 

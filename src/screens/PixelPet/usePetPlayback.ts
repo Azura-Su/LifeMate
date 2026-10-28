@@ -8,7 +8,11 @@ import {
   withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
-import type { PixelPetClipId, PixelPetSpeciesId } from '../../types/pixelPet';
+import type {
+  PixelPetAnyClipId,
+  PixelPetClipId,
+  PixelPetSpeciesId,
+} from '../../types/pixelPet';
 import { petPlayback } from '../../services/pixelPet/pixelPetFrames';
 
 export function usePetPlayback({
@@ -17,19 +21,23 @@ export function usePetPlayback({
   active,
   loopMovement,
   onClipEnd,
+  playback,
 }: {
-  clip: PixelPetClipId;
+  clip: PixelPetAnyClipId;
   speciesId: PixelPetSpeciesId;
   active: boolean;
   loopMovement: boolean;
   onClipEnd?: () => void;
+  /** Puppet pets own their timings; atlas pets use the shared clip table. */
+  playback?: { durationMs: number; loop: boolean };
 }) {
   const progress = useSharedValue(0);
   const reducedMotion = useReducedMotion();
   const generation = useRef({ value: 0 });
   const callback = useRef(onClipEnd);
   callback.current = onClipEnd;
-  const { durationMs, loop } = petPlayback(clip, loopMovement);
+  const { durationMs, loop } =
+    playback ?? petPlayback(clip as PixelPetClipId, loopMovement);
 
   useEffect(() => {
     const guard = generation.current;

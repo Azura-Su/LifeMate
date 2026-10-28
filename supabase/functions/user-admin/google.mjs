@@ -71,6 +71,19 @@ export function createGoogleAdmin(credentials, bucket, request = fetch) {
   return {
     lookup: async (query) =>
       (await api(`${auth}:lookup`, 'POST', query)).users?.[0] ?? null,
+    lookupMany: async (uids) => {
+      if (
+        !Array.isArray(uids) ||
+        uids.length > 15 ||
+        uids.some((uid) => !/^[A-Za-z0-9_-]{1,128}$/.test(uid))
+      )
+        throw new Error('Invalid profile lookup');
+      if (!uids.length) return [];
+      return (
+        (await api(`${auth}:lookup`, 'POST', { localId: [...new Set(uids)] }))
+          .users ?? []
+      );
+    },
     list: (pageToken) => {
       const url = new URL(`${auth}:batchGet`);
       url.searchParams.set('maxResults', '50');

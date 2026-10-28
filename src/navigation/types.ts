@@ -1,6 +1,7 @@
 export type MainTabParams = {
   Profile: undefined;
   UserManagement: undefined;
+  PetManagement: undefined;
   Home: undefined;
   Finance: undefined;
   Memories: undefined;

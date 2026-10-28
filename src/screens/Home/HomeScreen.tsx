@@ -20,6 +20,8 @@ import { useAuthStore } from '../../store/authStore';
 import { syncPixelPetInBackground } from '../../services/pixelPet/pixelPetApi';
 import { readPrepChecklists } from '../../services/checklists/checklistStorage';
 import type { PrepChecklist } from '../../types/prepChecklist';
+import { useScreenActive } from '../../hooks/useScreenActive';
+import { usePixelPetRefresh } from '../../hooks/usePixelPetRefresh';
 
 function greeting() {
   const hour = new Date().getHours();
@@ -34,6 +36,8 @@ export function HomeScreen({
 }: BottomTabScreenProps<MainTabParams, 'Home'>) {
   const model = useHomeScreen();
   const uid = useAuthStore((state) => state.user?.uid);
+  const active = useScreenActive();
+  usePixelPetRefresh(uid, active);
   const [checklists, setChecklists] = useState<PrepChecklist[]>([]);
   const [checklistsLoading, setChecklistsLoading] = useState(true);
   const [checklistsError, setChecklistsError] = useState<string | null>(null);
@@ -283,6 +287,7 @@ export function HomeScreen({
           onOpenChecklists={() => navigation.navigate('Checklists')}
           onOpenAgenda={() => navigation.navigate('Agenda')}
           onOpenUserManagement={() => navigation.navigate('UserManagement')}
+          onOpenPetManagement={() => navigation.navigate('PetManagement')}
           onOpenProfile={() => navigation.navigate('Profile')}
           privacy={model.privacy}
         />

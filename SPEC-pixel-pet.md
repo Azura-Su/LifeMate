@@ -103,6 +103,34 @@ is null`; nếu tài khoản khác thắng thì chọn lại (tối đa 6 lần,
 
 ## 4. Thu hồi khi xoá tài khoản
 
+### Quản lý linh thú cho admin
+
+- Home → Menu → Quản trị → **Quản lý linh thú**, chỉ tài khoản admin hiện hành
+  thấy trang. Danh sách đủ 15 loài, trạng thái trống/giữ chỗ/có chủ, tên/email/UID,
+  cấp độ, EXP và ngày nhận nuôi. Tìm kiếm trên danh sách đã tải; thumbnail tĩnh.
+- `user-admin` thêm `pet-list`, `pet-revoke`; dùng nguyên kiểm tra JWT và Firebase
+  admin trực tiếp. Profile holder lấy theo một batch tối đa 15 UID; level/stage
+  tính bằng `progressFor` phía Edge. Client không gửi EXP hoặc actor UID.
+- Thu hồi có xác nhận, mang targetUid/speciesId/adoptionId và actionId ổn định.
+  RPC chỉ service_role; kiểm tra fixed admin UID, account active/authTime, khóa
+  access rồi pet_account, CAS đúng adoption, và ghi audit/idempotency nguyên tử.
+  Tài khoản bị khóa vẫn thu hồi được; tài khoản đang xóa phải đợi hoàn tất.
+- Pet trở lại kho. Giữ nguyên rolls_used/restores_used; đánh dấu revoked_at,
+  xóa last_species, vô hiệu receipt cũ. Retry receipt cũ trả trạng thái chuẩn,
+  không thi hành lại. Restore bị chặn sau thu hồi, chỉ một lượt random thành công
+  từ số lượt còn lại mới bỏ chặn. Người nhận nuôi mới có adoptionId mới, EXP 0.
+- Ledger cũ giữ để đối soát; audit mới tham chiếu pet_account và tự xóa khi xóa
+  tài khoản. Chặn finance snapshot trước adoption mới, kể cả RPC reconcile cũ;
+  pet-access mới còn kiểm tra chính xác adoptionId lúc bắt đầu đọc.
+- Home/màn Linh thú đọc ownership nhẹ khoảng 30 giây khi đang mở; không quét
+  finance mỗi lần. Dừng khi vào nền/đổi màn; offline giữ pet gần nhất tới lần đọc
+  thành công. Cache chống phản hồi cũ/session cũ ghi đè trạng thái thu hồi.
+- Migration `20261028052536_pet_admin_management.sql` được tạo bằng Supabase CLI.
+  Thứ tự deploy: migration → pet-access → user-admin → app. Chưa deploy trong
+  lượt triển khai này. Không thay Firestore rules hoặc thêm thư viện.
+
+### Dọn dữ liệu khi xóa tài khoản
+
 `lifemate_pet_erase_account(uid)` được `user-admin` gọi trong `purgeData`
 (dependency `clearPets`), ngay sau `clearGames` và trước khi quét Firestore, chỉ
 sau khi trạng thái đã là `deleting`. Mọi RPC pet giữ khoá `for share` trên

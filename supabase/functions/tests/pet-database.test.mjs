@@ -9,12 +9,14 @@ const migration = (name) =>
 const gameSql = await migration('202610190003_card_game_rooms.sql');
 const petSql = await migration('20261027181510_pixel_pet.sql');
 const petSearchPathSql = await migration('20261027181952_pixel_pet_fix_search_path.sql');
+const petAdminSql = await migration('20261028052536_pet_admin_management.sql');
+const petExclusiveSql = await migration('20261028130000_pet_exclusive_celestial_stag.sql');
 const authTime = Math.floor(Date.now() / 1000);
 let actions = 0;
 const action = () =>
   `00000000-0000-4000-8000-${String(++actions).padStart(12, '0')}`;
 
-async function setup() {
+async function setup({ exclusive = true } = {}) {
   const db = new PGlite();
   await db.exec(`
     create role anon; create role authenticated; create role service_role bypassrls;
@@ -29,6 +31,8 @@ async function setup() {
   await db.exec(gameSql);
   await db.exec(petSql);
   await db.exec(petSearchPathSql);
+  await db.exec(petAdminSql);
+  if (exclusive) await db.exec(petExclusiveSql);
   return db;
 }
 const one = async (db, sql, params) => (await db.query(sql, params)).rows[0];
@@ -78,8 +82,9 @@ const addDays = (day, n) =>
   new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400000)
     .toISOString()
     .slice(0, 10);
-let readMs = 1;
+let readMs = Date.now() + 1000;
 async function sync(db, uid, days) {
+  readMs = Math.max(readMs, Date.now() + 1000);
   return (
     await one(
       db,
@@ -100,6 +105,234 @@ async function ledgerMatches(db, uid) {
   assert.equal(row.total_exp, row.g);
   return row.total_exp;
 }
+
+const adminUid = 'CQmmT9iJvKPP79UZqYbvmZ3gXZQ2';
+const revoke = async (db, uid, pet, id = action(), actor = adminUid) =>
+  (
+    await one(
+      db,
+      'select public.lifemate_pet_admin_revoke($1,$2,$3,$4,$5,$6) r',
+      [actor, authTime, id, uid, pet.speciesId, pet.adoptionId],
+    )
+  ).r;
+
+test('admin inventory and revoke RPCs reject clients and non-admin actors', async () => {
+  const db = await setup();
+  try {
+    await fails(
+      db.query('select public.lifemate_pet_admin_list($1,$2)', [
+        'other',
+        authTime,
+      ]),
+      'admin-required',
+    );
+    const list = (
+      await one(db, 'select public.lifemate_pet_admin_list($1,$2) r', [
+        adminUid,
+        authTime,
+      ])
+    ).r;
+    assert.equal(list.pets.length, 15);
+    assert.ok(
+      list.pets.every((p) => p.status === 'available' && p.holderUid === null),
+    );
+    const owner = await adopt(db, 'inventory-owner');
+    const reserved = await command(db, 'inventory-reserved', 'roll');
+    const inventory = (await one(db, 'select public.lifemate_pet_admin_list($1,$2) r', [adminUid, authTime])).r;
+    const ownedRow = inventory.pets.find(p => p.speciesId === owner.pet.speciesId);
+    assert.equal(ownedRow.status, 'owned');
+    assert.equal(ownedRow.holderUid, 'inventory-owner');
+    assert.equal(ownedRow.adoption.id, owner.pet.adoptionId);
+    assert.equal(inventory.pets.find(p => p.speciesId === reserved.reservation.speciesId).status, 'reserved');
+    await fails(revoke(db, 'inventory-owner', owner.pet, action(), 'other'), 'admin-required');
+    await db.exec('set role service_role');
+    assert.equal((await one(db, 'select public.lifemate_pet_admin_list($1,$2) r', [adminUid, authTime])).r.pets.length, 15);
+    await fails(db.query('select public.lifemate_pet_command_before_admin($1,$2,$3,$4,$5,$6,$7)',
+      ['inventory-owner', authTime, action(), 'care:{}', 'care', {}, EXP_RULES]), 'permission denied');
+    await db.exec('reset role');
+    for (const role of ['anon', 'authenticated']) {
+      await db.exec(`set role ${role}`);
+      await fails(
+        db.query('select public.lifemate_pet_admin_list($1,$2)', [
+          adminUid,
+          authTime,
+        ]),
+        'permission denied',
+      );
+      await fails(revoke(db, 'inventory-owner', owner.pet), 'permission denied');
+      await fails(
+        db.query('select * from public.lifemate_pet_admin_revocations'),
+        'permission denied',
+      );
+      await db.exec('reset role');
+    }
+    await db.query(
+      'update public.lifemate_account_access set valid_since=$2 where uid=$1',
+      [adminUid, authTime + 1],
+    );
+    await fails(
+      db.query('select public.lifemate_pet_admin_list($1,$2)', [
+        adminUid,
+        authTime,
+      ]),
+      'invalid-session',
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+test('revoke is CAS/idempotent, preserves rolls, blocks restore and stale receipts', async () => {
+  const db = await setup();
+  try {
+    const rollId = action(),
+      confirmId = action(),
+      careId = action();
+    const rolled = await command(db, 'a', 'roll', {}, rollId);
+    const args = { reservationId: rolled.reservation.id };
+    const owned = await command(db, 'a', 'confirm', args, confirmId);
+    await command(db, 'a', 'care', {}, careId);
+    const id = action();
+    await fails(
+      revoke(db, 'a', { ...owned.pet, adoptionId: action() }),
+      'pet-changed',
+    );
+    assert.deepEqual(await revoke(db, 'a', owned.pet, id), { ok: true });
+    assert.deepEqual(await revoke(db, 'a', owned.pet, id), { ok: true });
+    for (const [type, input, receipt] of [
+      ['roll', {}, rollId],
+      ['confirm', args, confirmId],
+      ['care', {}, careId],
+    ]) {
+      const replay = await command(db, 'a', type, input, receipt);
+      assert.equal(replay.pet, null);
+      assert.equal(replay.rollsLeft, 2);
+      assert.equal(replay.restoresLeft, 0);
+    }
+    await fails(command(db, 'a', 'restore'), 'no-restores');
+    const replacement = await adopt(db, 'a');
+    assert.notEqual(replacement.pet.adoptionId, owned.pet.adoptionId);
+    assert.equal(replacement.pet.totalExp, 0);
+    assert.equal(replacement.rollsLeft, 1);
+    await revoke(db, 'a', owned.pet, id); // old retry cannot revoke replacement
+    await fails(revoke(db, 'a', replacement.pet, id), 'idempotency-conflict');
+    assert.equal((await command(db, 'a', 'care', {}, careId)).pet.totalExp, 0);
+    assert.equal(
+      (
+        await one(
+          db,
+          'select count(*)::int n from public.lifemate_pet_admin_revocations',
+        )
+      ).n,
+      1,
+    );
+    await db.query(
+      "update public.lifemate_account_access set status='deleting' where uid='a'",
+    );
+    await db.query("select public.lifemate_pet_erase_account('a')");
+    assert.equal(
+      (
+        await one(
+          db,
+          'select count(*)::int n from public.lifemate_pet_admin_revocations',
+        )
+      ).n,
+      0,
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+test('disabled owners can be revoked; deleting owners cannot; next owner gets fresh progress', async () => {
+  const db = await setup();
+  try {
+    const owned = await adopt(db, 'a');
+    await command(db, 'a', 'care');
+    await db.query(
+      "update public.lifemate_account_access set status='deleting' where uid='a'",
+    );
+    await fails(revoke(db, 'a', owned.pet), 'account-busy');
+    await db.query(
+      "update public.lifemate_account_access set status='disabled' where uid='a'",
+    );
+    await revoke(db, 'a', owned.pet);
+    await db.query(
+      "update public.lifemate_pet_species set owner_uid='o'||sort where id<>$1 and exclusive_uid is null",
+      [owned.pet.speciesId],
+    );
+    const next = await adopt(db, 'b');
+    assert.equal(next.pet.speciesId, owned.pet.speciesId);
+    assert.equal(next.pet.totalExp, 0);
+    assert.notEqual(next.pet.adoptionId, owned.pet.adoptionId);
+  } finally {
+    await db.close();
+  }
+});
+
+test('old and adoption-aware finance snapshots cannot grant EXP to a replacement', async () => {
+  const db = await setup();
+  try {
+    const owned = await adopt(db, 'a');
+    await revoke(db, 'a', owned.pet);
+    const next = await adopt(db, 'a');
+    const day = await today(db);
+    await db.query(
+      "update public.lifemate_pet_adoptions set adopted_at=now()+interval '1 second' where uid='a'",
+    );
+    await fails(
+      db.query(
+        'select public.lifemate_pet_reconcile($1,$2,$3,$4::date[],$5,$6,$7)',
+        ['a', authTime, Date.now(), [day], EXP_RULES, 2, WEEKLY_RECORD_DAYS],
+      ),
+      'stale-snapshot',
+    );
+    await fails(
+      db.query(
+        'select public.lifemate_pet_reconcile_current($1,$2,$3,$4,$5::date[],$6,$7,$8)',
+        [
+          'a',
+          authTime,
+          owned.pet.adoptionId,
+          Date.now() + 2000,
+          [day],
+          EXP_RULES,
+          2,
+          WEEKLY_RECORD_DAYS,
+        ],
+      ),
+      'stale-snapshot',
+    );
+    assert.equal(
+      (
+        await one(
+          db,
+          "select total_exp n from public.lifemate_pet_adoptions where uid='a'",
+        )
+      ).n,
+      0,
+    );
+    assert.ok(next.pet);
+    await db.exec('set role service_role');
+    await fails(
+      db.query(
+        'select public.lifemate_pet_reconcile_before_admin($1,$2,$3,$4::date[],$5,$6,$7)',
+        [
+          'a',
+          authTime,
+          Date.now() + 2000,
+          [day],
+          EXP_RULES,
+          2,
+          WEEKLY_RECORD_DAYS,
+        ],
+      ),
+      'permission denied',
+    );
+  } finally {
+    await db.close();
+  }
+});
 
 test('15 accounts adopt 15 distinct pets; the 16th cannot', async () => {
   const db = await setup();
@@ -160,7 +393,7 @@ test('retrying an action returns the same result without another roll', async ()
   const owned = await command(db, 'a', 'confirm', { reservationId: first.reservation.id });
   const repeat = await command(db, 'a', 'confirm', { reservationId: first.reservation.id });
   assert.equal(repeat.pet.speciesId, owned.pet.speciesId);
-  assert.equal((await one(db, `select count(*)::int n from public.lifemate_pet_adoptions`)).n, 1);
+  assert.equal((await one(db, `select count(*)::int n from public.lifemate_pet_adoptions where uid='a'`)).n, 1);
 });
 
 test('expired reservations cannot be confirmed and are released', async () => {
@@ -207,7 +440,7 @@ test('account deletion revokes the pet; the next owner starts at level 1', async
   await db.query(`select public.lifemate_pet_erase_account('a')`);
   await db.query(`select public.lifemate_pet_erase_account('a')`); // idempotent retry
   assert.equal((await one(db, `select count(*)::int n from public.lifemate_pet_exp_ledger`)).n, 0);
-  await db.query(`update public.lifemate_pet_species set owner_uid='o'||sort where id<>$1`, [owned.pet.speciesId]);
+  await db.query(`update public.lifemate_pet_species set owner_uid='o'||sort where id<>$1 and exclusive_uid is null`, [owned.pet.speciesId]);
   const next = await adopt(db, 'b');
   assert.equal(next.pet.speciesId, owned.pet.speciesId);
   assert.equal(next.pet.totalExp, 0);
@@ -288,4 +521,95 @@ test('older Firestore snapshots cannot overwrite newer EXP', async () => {
     db.query('select public.lifemate_pet_reconcile($1,$2,0,$3::date[],$4,2,4)', ['a', authTime, [], EXP_RULES]),
     'stale-snapshot',
   );
+});
+
+test('the admin owns the exclusive Celestial Stag outside the 15-pet pool', async () => {
+  const db = await setup();
+  try {
+    const state = (
+      await one(db, 'select public.lifemate_pet_read($1,$2) r', [adminUid, authTime])
+    ).r;
+    assert.equal(state.status, 'owned');
+    assert.equal(state.pet.speciesId, 'celestial_stag');
+    assert.equal(state.pet.totalExp, 0);
+    assert.deepEqual(state.availability, { total: 15, owned: 0, reserved: 0 });
+    // The pool still yields exactly the 15 original pets and never the stag.
+    const species = new Set();
+    for (let i = 0; i < 15; i += 1)
+      species.add((await adopt(db, `user${i}`)).pet.speciesId);
+    assert.equal(species.size, 15);
+    assert.ok(!species.has('celestial_stag'));
+    await fails(command(db, 'user15', 'roll'), 'all-adopted');
+    // Care still works for the admin's stag.
+    const cared = await command(db, adminUid, 'care');
+    assert.equal(cared.pet.speciesId, 'celestial_stag');
+    assert.ok(cared.pet.caredToday);
+  } finally {
+    await db.close();
+  }
+});
+
+test('only the bound account can hold the exclusive pet, and it cannot be revoked or listed', async () => {
+  const db = await setup();
+  try {
+    await db.query(`insert into public.lifemate_pet_accounts(uid) values('other')`);
+    await fails(
+      db.query(
+        `insert into public.lifemate_pet_adoptions(uid,adoption_id,species_id,adopted_day)
+         values('other',gen_random_uuid(),'celestial_stag',current_date)`,
+      ),
+      'exclusive-pet',
+    );
+    const list = (
+      await one(db, 'select public.lifemate_pet_admin_list($1,$2) r', [adminUid, authTime])
+    ).r;
+    assert.equal(list.pets.length, 15);
+    assert.ok(list.pets.every((p) => p.speciesId !== 'celestial_stag'));
+    const pet = (
+      await one(db, 'select public.lifemate_pet_read($1,$2) r', [adminUid, authTime])
+    ).r.pet;
+    await fails(revoke(db, adminUid, pet), 'invalid-input');
+    await fails(revoke(db, adminUid, pet, action(), 'other'), 'admin-required');
+    const kept = await one(
+      db,
+      'select species_id from public.lifemate_pet_adoptions where uid=$1',
+      [adminUid],
+    );
+    assert.equal(kept.species_id, 'celestial_stag');
+  } finally {
+    await db.close();
+  }
+});
+
+test('granting the stag swaps an existing admin pet in place and keeps its EXP', async () => {
+  const db = await setup({ exclusive: false });
+  try {
+    const before = await adopt(db, adminUid);
+    const day = await today(db);
+    const synced = await sync(db, adminUid, [day]);
+    assert.ok(synced.pet.totalExp > 0);
+    await command(db, adminUid, 'care');
+    const exp = await ledgerMatches(db, adminUid);
+    await db.exec(petExclusiveSql);
+    const after = (
+      await one(db, 'select public.lifemate_pet_read($1,$2) r', [adminUid, authTime])
+    ).r;
+    assert.equal(after.pet.speciesId, 'celestial_stag');
+    assert.equal(after.pet.adoptionId, before.pet.adoptionId);
+    assert.equal(after.pet.totalExp, exp);
+    assert.equal(await ledgerMatches(db, adminUid), exp);
+    // The admin's previous species is free for the next random roll again.
+    const freed = await one(
+      db,
+      'select owner_uid from public.lifemate_pet_species where id=$1',
+      [before.pet.speciesId],
+    );
+    assert.equal(freed.owner_uid, null);
+    assert.equal(after.availability.owned, 0);
+    // A pre-swap receipt replays the current state rather than the old pet.
+    const replay = await command(db, adminUid, 'care', {}, action());
+    assert.equal(replay.pet.speciesId, 'celestial_stag');
+  } finally {
+    await db.close();
+  }
 });

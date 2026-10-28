@@ -11,6 +11,26 @@ const config = async () => {
     private_key: await exportPKCS8(privateKey),
   });
 };
+test('pet profile lookup is bounded and batches holders in one request', async () => {
+  const calls = [];
+  const google = createGoogleAdmin(
+    await config(),
+    'baseapp-dd227.appspot.com',
+    async (url, options) => {
+      if (url.includes('oauth2'))
+        return Response.json({ access_token: 'not-logged', expires_in: 3600 });
+      calls.push(JSON.parse(options.body));
+      return Response.json({ users: [{ localId: 'a' }] });
+    },
+  );
+  assert.deepEqual(await google.lookupMany([]), []);
+  assert.deepEqual(await google.lookupMany(['a', 'b', 'a']), [
+    { localId: 'a' },
+  ]);
+  assert.deepEqual(calls, [{ localId: ['a', 'b'] }]);
+  await assert.rejects(google.lookupMany(Array(16).fill('a')));
+  await assert.rejects(google.lookupMany(['../x']));
+});
 test('Firestore sweeps nonexistent UID parents, repeats first page safely, stays under UID', async () => {
   const calls = [];
   let docs = Array.from({ length: 51 }, (_, i) => `d${i}`);

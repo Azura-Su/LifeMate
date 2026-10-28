@@ -8,6 +8,7 @@ import { createObjectCleanup } from './objects.mjs';
 import { createR2Cleanup } from './r2Cleanup.mjs';
 import { createGameBackend } from '../game-access/backend.mjs';
 import { createPetBackend } from '../pet-access/backend.mjs';
+import { createPetAdmin } from './pets.mjs';
 
 const url = Deno.env.get('SUPABASE_URL');
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -42,6 +43,10 @@ Deno.serve(
   createAdminHandler({
     verifyIdentity: createFirebaseIdentityVerifier('baseapp-dd227'),
     google,
+    pets: createPetAdmin({
+      rpc: createPetBackend(url, serviceKey),
+      lookupMany: google.lookupMany,
+    }),
     accounts,
     sweep: accounts.sweep,
     readAvatar: (path: string) =>

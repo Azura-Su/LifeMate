@@ -312,8 +312,29 @@ export const PIXEL_PET_SPECIES: readonly PixelPetSpecies[] = [
   },
 ];
 
+/**
+ * Pets outside the 15-pet random pool. Each is bound to one account by the
+ * backend (lifemate_pet_species.exclusive_uid) and is never rolled or revoked.
+ */
+export const PIXEL_PET_EXCLUSIVE: readonly PixelPetSpecies[] = [
+  {
+    id: 'celestial_stag',
+    name: 'Thiên Dực Linh Lộc',
+    rig: 'quadruped',
+    palette: ['#E5792B', '#B4531C', '#6FD8FF', '#3A1E10'],
+    skill: 'Ngũ Sắc Thiên Vũ',
+    motif: 'light',
+    personality: 'Cao quý',
+    crest: HORNS,
+    feature: WINGS,
+  },
+];
+
 export const PIXEL_PET_BY_ID = Object.fromEntries(
-  PIXEL_PET_SPECIES.map((species) => [species.id, species]),
+  [...PIXEL_PET_SPECIES, ...PIXEL_PET_EXCLUSIVE].map((species) => [
+    species.id,
+    species,
+  ]),
 ) as Record<PixelPetSpeciesId, PixelPetSpecies>;
 
 export function pixelPetSpecies(id: string): PixelPetSpecies | null {

@@ -19,3 +19,36 @@ it('falls back to the pixel rig for species without art', () => {
   render(<PixelPetSprite species={PIXEL_PET_BY_ID.white_tiger} stage="hatchling" size={96} />);
   expect(screen.getByLabelText('Bạch Hổ, ấu thể')).toBeTruthy();
 });
+
+it('renders the Celestial Stag puppet for every clip, including its extras', () => {
+  for (const clip of [
+    'idle',
+    'move',
+    'happy',
+    'skill',
+    'fly',
+    'flap',
+    'prance',
+    'bow',
+    'glow',
+    'blaze',
+    'spin',
+  ] as const) {
+    const view = render(
+      <PixelPetSprite
+        species={PIXEL_PET_BY_ID.celestial_stag}
+        stage="ascended"
+        size={224}
+        clip={clip}
+        loopMovement={clip === 'move'}
+      />,
+    );
+    expect(screen.getByLabelText('Thiên Dực Linh Lộc, thăng hoa')).toBeTruthy();
+    view.unmount();
+  }
+});
+
+it('keeps atlas pets on the shared rig when handed a puppet-only clip', () => {
+  render(<PixelPetSprite species={PIXEL_PET_BY_ID.phoenix} stage="juvenile" size={96} clip="fly" />);
+  expect(screen.getByLabelText('Phượng Hoàng, trưởng thành')).toBeTruthy();
+});

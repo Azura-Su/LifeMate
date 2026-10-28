@@ -13,7 +13,8 @@ export type PixelPetSpeciesId =
   | 'lac_bird'
   | 'phoenix'
   | 'anubis'
-  | 'garuda';
+  | 'garuda'
+  | 'celestial_stag';
 export type PixelPetRigId = 'quadruped' | 'serpentine' | 'avian' | 'biped';
 export type PixelPetStage = 'hatchling' | 'juvenile' | 'ascended';
 export type PixelPetClipId =
@@ -23,6 +24,16 @@ export type PixelPetClipId =
   | 'heal'
   | 'happy'
   | 'skill';
+/** Extra clips only the hand-rigged Celestial Stag puppet can play. */
+export type PixelPetExtraClipId =
+  | 'fly'
+  | 'flap'
+  | 'prance'
+  | 'bow'
+  | 'glow'
+  | 'blaze'
+  | 'spin';
+export type PixelPetAnyClipId = PixelPetClipId | PixelPetExtraClipId;
 export type PixelPetMotif = 'flame' | 'water' | 'wind' | 'light' | 'earth' | 'arcane';
 /** Care effects derived server-side from finance records (capped per day). */
 export type PixelPetEffect = 'eat' | 'wardrobe' | 'move' | 'heal' | 'mood' | 'neutral';

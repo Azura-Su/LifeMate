@@ -90,8 +90,9 @@ export function createPetHandler({
       toDay,
       offsetMinutes: PET_TIME_ZONE_OFFSET_MINUTES,
     });
-    const state = await rpc('lifemate_pet_reconcile', {
+    const state = await rpc('lifemate_pet_reconcile_current', {
       ...args,
+      p_adoption_id: current.pet.adoptionId,
       p_read_ms: readMs,
       p_days: days,
       p_rules: EXP_RULES,

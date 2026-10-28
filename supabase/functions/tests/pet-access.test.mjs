@@ -108,7 +108,7 @@ test('client cannot send EXP, level or arbitrary fields', async () => {
 
 test('sync derives recorded days on the server and returns progression', async () => {
   const calls = [];
-  const pet = { speciesId: 'phoenix', adoptedAt: at('2026-10-20T00:00:00Z'), totalExp: 85 };
+  const pet = { speciesId: 'phoenix', adoptionId: 'adoption', adoptedAt: at('2026-10-20T00:00:00Z'), totalExp: 85 };
   const run = handler(
     async (name, args) => {
       calls.push([name, args]);
@@ -117,7 +117,8 @@ test('sync derives recorded days on the server and returns progression', async (
     [expense('Ăn uống', 5, at('2026-10-28T02:00:00Z')), expense('Khác', 5, at('2026-10-26T02:00:00Z'))],
   );
   const body = await (await run(post({ type: 'sync' }))).json();
-  const reconcile = calls.find(([name]) => name === 'lifemate_pet_reconcile')[1];
+  const reconcile = calls.find(([name]) => name === 'lifemate_pet_reconcile_current')[1];
+  assert.equal(reconcile.p_adoption_id, pet.adoptionId);
   assert.deepEqual(reconcile.p_days, ['2026-10-26', '2026-10-28']);
   assert.equal(reconcile.p_rules.record_day, 10);
   assert.equal(body.pet.level, 3);

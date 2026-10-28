@@ -34,10 +34,10 @@ type Result = {
   jobs?: CleanupJob[];
 };
 
-export async function manageUsers(
+export async function requestAdmin(
   input: Record<string, string>,
   signal?: AbortSignal,
-): Promise<Result> {
+): Promise<unknown> {
   const user = getAuth().currentUser;
   if (!isUserAdmin(user) || !isUserAdmin(useAuthStore.getState().user))
     throw new Error('Bạn không có quyền quản lý người dùng.');
@@ -95,6 +95,11 @@ export async function manageUsers(
         'account-busy': 'Tài khoản đang được xử lý. Hãy tải lại sau ít giây.',
         'deletion-in-progress': 'Tài khoản đang xóa và không thể mở lại.',
         'user-not-found': 'Không tìm thấy tài khoản. Hãy tải lại danh sách.',
+        'pet-changed':
+          'Lượt nhận nuôi đã thay đổi. Hãy tải lại trước khi thu hồi.',
+        'idempotency-conflict':
+          'Yêu cầu không còn khớp. Hãy tải lại danh sách.',
+        'rate-limited': 'Bạn thao tác hơi nhanh. Hãy đợi một lát.',
       };
       throw new Error(
         messages[result.error] ??
@@ -103,6 +108,7 @@ export async function manageUsers(
     }
     if (
       getAuth().currentUser?.uid !== uid ||
+      useAuthStore.getState().sessionEpoch !== sessionEpoch ||
       !isUserAdmin(useAuthStore.getState().user)
     )
       throw new Error('Phiên đăng nhập đã thay đổi.');
@@ -112,4 +118,11 @@ export async function manageUsers(
     signal?.removeEventListener('abort', abort);
     unsubscribe();
   }
+}
+
+export async function manageUsers(
+  input: Record<string, string>,
+  signal?: AbortSignal,
+): Promise<Result> {
+  return (await requestAdmin(input, signal)) as Result;
 }

@@ -1,6 +1,8 @@
 export const ADMIN_UID = 'CQmmT9iJvKPP79UZqYbvmZ3gXZQ2';
 export const ADMIN_EMAIL = 'su.azura99@gmail.com';
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
+const UUID =
+  /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const json = (status, value) =>
   Response.json(value, {
     status,
@@ -35,6 +37,14 @@ async function input(request) {
       jobs: ['action'],
       sweep: ['action'],
       status: ['action', 'uid'],
+      'pet-list': ['action'],
+      'pet-revoke': [
+        'action',
+        'targetUid',
+        'speciesId',
+        'adoptionId',
+        'actionId',
+      ],
     };
     if (
       !body ||
@@ -66,6 +76,15 @@ async function input(request) {
       (typeof body.email !== 'string' || body.email.length > 254)
     )
       throw new Error('email');
+    if (
+      body.action === 'pet-revoke' &&
+      (['targetUid', 'speciesId', 'adoptionId', 'actionId'].some(key => typeof body[key] !== 'string') ||
+        !ID.test(body.targetUid ?? '') ||
+        !/^[a-z0-9_]{1,40}$/.test(body.speciesId ?? '') ||
+        !UUID.test(body.adoptionId ?? '') ||
+        !UUID.test(body.actionId ?? ''))
+    )
+      throw new Error('pet');
     return body;
   } finally {
     reader.releaseLock();
@@ -100,6 +119,7 @@ export function createAdminHandler({
   sweep,
   workerSecret,
   readAvatar = async () => null,
+  pets,
 }) {
   async function withAvatar(user, access) {
     const value = publicUser(user, access);
@@ -153,6 +173,10 @@ export function createAdminHandler({
         identity.authTime < Number(admin.validSince ?? 0)
       )
         return json(403, { error: 'admin-required' });
+      if (body.action === 'pet-list')
+        return json(200, await pets.list(identity));
+      if (body.action === 'pet-revoke')
+        return json(200, await pets.revoke(identity, body));
       if (body.action === 'jobs')
         return json(200, { jobs: await accounts.jobs() });
       if (body.action === 'list' || body.action === 'search') {
@@ -210,6 +234,20 @@ export function createAdminHandler({
               ),
       });
     } catch (cause) {
+      const petErrors = {
+        'pet-changed': 409,
+        'invalid-input': 400,
+        'idempotency-conflict': 409,
+        'account-busy': 409,
+        'rate-limited': 429,
+        'invalid-session': 401,
+        'admin-required': 403,
+      };
+      if (
+        ['pet-list', 'pet-revoke'].includes(body.action) &&
+        cause?.message in petErrors
+      )
+        return json(petErrors[cause.message], { error: cause.message });
       if (cause?.message === 'Account busy')
         return json(409, { error: 'account-busy' });
       if (cause?.message === 'Deletion cannot be cancelled')

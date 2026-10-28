@@ -4,6 +4,7 @@ import { audioCloudApiKey, audioCloudUrl } from '../../config/audioCloud';
 import type { PixelPetState } from '../../types/pixelPet';
 import { assertAccountWritable } from '../security/accountLifecycle';
 import { pixelPetSpecies } from './pixelPetCatalog';
+import { useAuthStore } from '../../store/authStore';
 
 const messages: Record<string, string> = {
   'invalid-session': 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.',
@@ -63,10 +64,17 @@ export function parsePixelPetState(value: unknown): PixelPetState {
 
 type OwnedPet = PixelPetState['pet'];
 const ownedPets = new Map<string, OwnedPet>();
+const responseGeneration = new Map<string, number>();
 const ownedPetListeners = new Set<() => void>();
 function rememberOwnedPet(uid: string, pet: OwnedPet) {
   ownedPets.set(uid, pet);
   ownedPetListeners.forEach((listener) => listener());
+}
+
+/** Also fences responses already in flight when an admin revokes this owner. */
+export function invalidateOwnedPixelPet(uid: string) {
+  responseGeneration.set(uid, (responseGeneration.get(uid) ?? 0) + 1);
+  rememberOwnedPet(uid, null);
 }
 
 /** Last pet seen in any server response; lets Home show it without a call. */
@@ -100,10 +108,18 @@ export async function callPixelPet(
   const user = getAuth().currentUser;
   if (!origin || !apiKey) throw new PixelPetApiError('pet-unavailable');
   if (!user || user.uid !== uid) throw new PixelPetApiError('invalid-session');
+  const epoch = useAuthStore.getState().sessionEpoch;
+  const generation = (responseGeneration.get(uid) ?? 0) + 1;
+  responseGeneration.set(uid, generation);
   let lastError: unknown;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       const token = await getIdToken(user, attempt === 1);
+      if (
+        getAuth().currentUser?.uid !== uid ||
+        useAuthStore.getState().sessionEpoch !== epoch
+      )
+        throw new PixelPetApiError('invalid-session');
       const response = await fetch(`${origin}/functions/v1/pet-access`, {
         method: 'POST',
         headers: {
@@ -114,11 +130,15 @@ export async function callPixelPet(
         body: JSON.stringify(input),
       });
       const result: unknown = await response.json().catch(() => null);
-      if (getAuth().currentUser?.uid !== uid)
+      if (
+        getAuth().currentUser?.uid !== uid ||
+        useAuthStore.getState().sessionEpoch !== epoch
+      )
         throw new PixelPetApiError('invalid-session');
       if (response.ok) {
         const state = parsePixelPetState(result);
-        rememberOwnedPet(uid, state.pet);
+        if (responseGeneration.get(uid) === generation)
+          rememberOwnedPet(uid, state.pet);
         return state;
       }
       const code =

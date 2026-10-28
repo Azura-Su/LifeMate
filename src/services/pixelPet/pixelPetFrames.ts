@@ -45,7 +45,9 @@ export function petFrameAt(
 
 export function petMovementKind(species: PixelPetSpecies) {
   if (
-    ['alicorn', 'sphinx', 'lac_bird', 'phoenix', 'garuda'].includes(species.id)
+    ['alicorn', 'sphinx', 'lac_bird', 'phoenix', 'garuda', 'celestial_stag'].includes(
+      species.id,
+    )
   )
     return 'wings';
   return species.rig === 'serpentine' ? 'slither' : 'walk';
@@ -59,7 +61,11 @@ export function petMovementLabel(species: PixelPetSpecies) {
 
 /** Reference art facing left needs a flip on the outgoing Home pass. */
 export function petFacesLeft(species: PixelPetSpecies) {
-  return ['rune_wolf', 'sphinx', 'azure_dragon', 'white_tiger'].includes(
-    species.id,
-  );
+  return [
+    'rune_wolf',
+    'sphinx',
+    'azure_dragon',
+    'white_tiger',
+    'celestial_stag',
+  ].includes(species.id);
 }

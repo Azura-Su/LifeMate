@@ -17,6 +17,7 @@ import { ChecklistsScreen } from '../screens/Checklists/ChecklistsScreen';
 import { PixelPetScreen } from '../screens/PixelPet/PixelPetScreen';
 import { colors } from '../theme';
 import { UserManagementScreen } from '../screens/UserManagement/UserManagementScreen';
+import { PetManagementScreen } from '../screens/PetManagement/PetManagementScreen';
 import { isUserAdmin } from '../config/userAdmin';
 import { useAuthStore } from '../store/authStore';
 import { useConfigStore } from '../store/configStore';
@@ -29,6 +30,7 @@ const Tab = createBottomTabNavigator<MainTabParams>();
 const icons = {
   Profile: 'user',
   UserManagement: 'users',
+  PetManagement: 'feather',
   Home: 'home',
   Finance: 'pie-chart',
   Memories: 'camera',
@@ -141,6 +143,17 @@ export function MainTabs() {
           tabBarAccessibilityLabel: `MP3, tab, ${visibleTabCount} of ${visibleTabCount}`,
         }}
       />
+      {admin && (
+        <Tab.Screen
+          name="PetManagement"
+          component={PetManagementScreen}
+          options={{
+            tabBarButton: () => null,
+            tabBarItemStyle: { display: 'none' },
+            tabBarStyle: { display: 'none' },
+          }}
+        />
+      )}
       {admin && (
         <Tab.Screen
           name="UserManagement"
