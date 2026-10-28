@@ -43,8 +43,9 @@
   14); request smoke không xác thực trả 401 `invalid-session`.
 - Firebase project `baseapp-dd227`: Firestore Rules được biên dịch và phát hành;
   Storage Rules đã đúng phiên bản hiện tại và được giữ nguyên.
-- Migration `20261028130000_pet_exclusive_celestial_stag.sql` chưa được áp dụng;
-  đó là thay đổi khác đang có trong working tree.
+- Migration Thiên Lộc `20261028075042_pet_exclusive_celestial_stag.sql` đã được
+  áp dụng sau lượt triển khai quản lý linh thú này; admin giữ nguyên adoption và
+  EXP, còn Phượng Hoàng trở lại kho.
 - App là iOS/Android native. `firebase.json` không cấu hình Hosting hoặc Firebase
   Functions và repository không có gói app build sẵn. Màn admin phía client cần
   được phát hành qua luồng app native để xuất hiện cho người dùng.

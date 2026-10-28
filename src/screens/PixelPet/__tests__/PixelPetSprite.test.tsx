@@ -15,7 +15,7 @@ it('renders a stage of a species from the shared rig', () => {
   expect(screen.getByLabelText('Phượng Hoàng, thăng hoa')).toBeTruthy();
 });
 
-it('falls back to the pixel rig for species without art', () => {
+it('renders Bạch Hổ from its illustrated art', () => {
   render(<PixelPetSprite species={PIXEL_PET_BY_ID.white_tiger} stage="hatchling" size={96} />);
   expect(screen.getByLabelText('Bạch Hổ, ấu thể')).toBeTruthy();
 });

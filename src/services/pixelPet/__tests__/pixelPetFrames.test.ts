@@ -3,6 +3,7 @@ import { PIXEL_CLIPS } from '../pixelPetRig';
 import {
   PET_ATLAS,
   petFrameAt,
+  petFrameBlendAt,
   petMovementLabel,
   petPlayback,
 } from '../pixelPetFrames';
@@ -48,4 +49,19 @@ it('offers wing movement only to the five species whose art has wings', () => {
   expect(
     petMovementLabel(PIXEL_PET_SPECIES.find((p) => p.id === 'azure_dragon')!),
   ).toBe('Lượn mình');
+});
+
+it('fades into the next pose only at the tail of each pose', () => {
+  // Looping move: 4 poses in 400ms, so each pose spans 0.25 of progress.
+  expect(petFrameBlendAt('move', 0.05, true)).toEqual({ from: 4, to: 5, mix: 0 });
+  const tail = petFrameBlendAt('move', 0.24, true);
+  expect(tail.from).toBe(4);
+  expect(tail.to).toBe(5);
+  expect(tail.mix).toBeGreaterThan(0.8);
+  expect(petFrameBlendAt('move', 0.99, true).to).toBe(4);
+  // One-shot clips hold their last pose instead of wrapping.
+  expect(petFrameBlendAt('happy', 0.99, false)).toMatchObject({ from: 11, to: 11 });
+  for (const clip of Object.keys(PIXEL_CLIPS) as (keyof typeof PIXEL_CLIPS)[])
+    for (const t of [0, 0.3, 0.7, 1])
+      expect(petFrameBlendAt(clip, t, false).from).toBe(petFrameAt(clip, t, false));
 });

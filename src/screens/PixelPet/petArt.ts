@@ -14,6 +14,7 @@ export const PET_ART: Partial<Record<PixelPetSpeciesId, ImageSourcePropType>> =
     black_tortoise: require('../../../assets/pixelPet/black_tortoise.png'),
     sphinx: require('../../../assets/pixelPet/sphinx.png'),
     centaur: require('../../../assets/pixelPet/centaur.png'),
+    white_tiger: require('../../../assets/pixelPet/white_tiger.png'),
     azure_dragon: require('../../../assets/pixelPet/azure_dragon.png'),
     koi_dragon: require('../../../assets/pixelPet/koi_dragon.png'),
     scylla: require('../../../assets/pixelPet/scylla.png'),

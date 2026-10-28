@@ -40,6 +40,8 @@ type Props = {
   active?: boolean;
   /** Loop the locomotion poses for roaming or a local animation preview. */
   loopMovement?: boolean;
+  /** Roaming on the ground: the puppet trots instead of flapping. */
+  walking?: boolean;
   onClipEnd?: () => void;
 };
 
@@ -98,7 +100,7 @@ function useLayerStyle(
 }
 
 /** The admin's stag is a hand-rigged puppet; every other species uses the shared rig. */
-export function PixelPetSprite({ clip = 'idle', ...props }: Props) {
+export function PixelPetSprite({ clip = 'idle', walking, ...props }: Props) {
   if (props.species.id === CELESTIAL_STAG_ID)
     return (
       <CelestialStagPuppet
@@ -106,6 +108,7 @@ export function PixelPetSprite({ clip = 'idle', ...props }: Props) {
         clip={clip}
         active={props.active ?? true}
         loopMovement={props.loopMovement ?? false}
+        walking={walking}
       />
     );
   return (
@@ -144,6 +147,13 @@ function RiggedPixelPetSprite({
     head: useLayerStyle('head', progress, clip, px, swing),
     feature: useLayerStyle('feature', progress, clip, px, swing),
   };
+  // Sub-frame motion between atlas poses: the shared body track's lift and
+  // squash (not its horizontal shift, which would fight Home roaming).
+  const sway = useAnimatedStyle(() => {
+    if (clip === 'move') return { transform: [] };
+    const [, dy, , scale] = sampleTrack(PIXEL_CLIPS[clip].body, progress.value);
+    return { transform: [{ translateY: dy * px }, { scale }] };
+  });
   const art = PET_ART[species.id];
   const layers = art ? [] : pixelPetLayers(species, stage);
   const motif = clip === 'skill' ? MOTIF_GRIDS[species.motif] : null;
@@ -176,38 +186,48 @@ function RiggedPixelPetSprite({
             ]}
           />
         )}
-        <PixelPetAtlas
-          key={species.id}
-          source={PET_ATLASES[species.id as keyof typeof PET_ATLASES]}
-          size={size}
-          clip={clip}
-          progress={progress}
-          loopMovement={loopMovement}
-          animating={active && !reducedMotion}
-          fallback={
-            <>
-              {art && (
-                // Illustrated art moves as one piece on the body track.
-                <Animated.View style={[local.fill, styles.body]}>
-                  <Image source={art} style={local.art} resizeMode="contain" />
-                </Animated.View>
-              )}
-              {layers.map((layer, index) => (
-                <Animated.View
-                  key={`${layer.part}-${index}`}
-                  style={[
-                    local.layer,
-                    // polishGrid pads one cell for the outline.
-                    { left: (layer.x - 1) * px, top: (layer.y - 1) * px },
-                    styles[layer.part],
-                  ]}
-                >
-                  <PixelGrid layer={layer} palette={species.palette} px={px} />
-                </Animated.View>
-              ))}
-            </>
-          }
-        />
+        <Animated.View style={[local.fill, sway]}>
+          <PixelPetAtlas
+            key={species.id}
+            source={PET_ATLASES[species.id as keyof typeof PET_ATLASES]}
+            size={size}
+            clip={clip}
+            progress={progress}
+            loopMovement={loopMovement}
+            animating={active && !reducedMotion}
+            fallback={
+              <>
+                {art && (
+                  // Moves with the sway wrapper; no second body track here.
+                  <View style={local.fill}>
+                    <Image
+                      source={art}
+                      style={local.art}
+                      resizeMode="contain"
+                    />
+                  </View>
+                )}
+                {layers.map((layer, index) => (
+                  <Animated.View
+                    key={`${layer.part}-${index}`}
+                    style={[
+                      local.layer,
+                      // polishGrid pads one cell for the outline.
+                      { left: (layer.x - 1) * px, top: (layer.y - 1) * px },
+                      styles[layer.part],
+                    ]}
+                  >
+                    <PixelGrid
+                      layer={layer}
+                      palette={species.palette}
+                      px={px}
+                    />
+                  </Animated.View>
+                ))}
+              </>
+            }
+          />
+        </Animated.View>
         {motif && (
           <View style={[local.layer, { left: px, top: px }]}>
             <PixelGrid

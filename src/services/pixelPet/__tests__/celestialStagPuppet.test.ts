@@ -39,7 +39,7 @@ describe('Celestial Stag puppet', () => {
     const sql = readFileSync(
       join(
         __dirname,
-        '../../../../supabase/migrations/20261028130000_pet_exclusive_celestial_stag.sql',
+        '../../../../supabase/migrations/20261028075042_pet_exclusive_celestial_stag.sql',
       ),
       'utf8',
     );

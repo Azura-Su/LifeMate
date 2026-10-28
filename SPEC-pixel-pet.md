@@ -1,11 +1,13 @@
-# Spec: Pixel Pet — 15 linh thú
+# Spec: Pixel Pet — 15 linh thú trong kho và Thiên Lộc của admin
 
 Module viết mới (`src/services/pixelPet`, `src/screens/PixelPet`,
 `supabase/functions/pet-access`). Không dùng lại code thú cưng đã xoá ở 53271d8.
 
 ## 1. Danh mục 15 linh thú
 
-Mỗi loài là **một cá thể duy nhất** trên toàn hệ thống. ID ổn định (không đổi
+Mỗi loài trong kho là **một cá thể duy nhất** trên toàn hệ thống. Thiên Lộc
+(`celestial_stag`) là cá thể thứ 16 dành riêng cho admin, không nằm trong kho
+random. ID ổn định (không đổi
 khi đổi tên hiển thị); thứ tự và ID được seed ở migration và `pixelPetCatalog.ts`.
 
 | ID               | Tên             | Rig        | Kỹ năng độc quyền | Tính cách    |
@@ -29,8 +31,8 @@ khi đổi tên hiển thị); thứ tự và ID được seed ở migration và
 Thay đổi so với bộ ảnh tham khảo: chú chim hồng thường (trùng vai trò với
 Phượng Hoàng/Chim Lạc, không phải linh thú) được thay bằng **Bạch Hổ**. Ảnh do
 người dùng gửi được tách nền, cắt vuông 384px và đóng gói tại `assets/pixelPet/`
-(14 loài, map trong `src/screens/PixelPet/petArt.ts`). Ảnh gốc được giữ làm fallback trong khi atlas tải hoặc bị lỗi. Bạch Hổ giữ
-phong cách rig pixel hiện tại; cả15 loài có atlas animation riêng từ28/10/2026.
+(15 loài, map trong `src/screens/PixelPet/petArt.ts`). Ảnh gốc được giữ làm fallback trong khi atlas tải hoặc bị lỗi. Atlas Bạch Hổ
+dựng từ một ảnh duy nhất, tách lớp cánh/đầu/đuôi rồi xoay quanh khớp để ra 16 tư thế (vỗ cánh, nghiêng đầu, vẫy đuôi, nhảy, hào quang); cả 15 loài có atlas animation riêng từ28/10/2026.
 
 ## 2. Hình thái và animation — khung hình, cập nhật28/10/2026
 
@@ -79,7 +81,8 @@ Trạng thái loài: `AVAILABLE` (không chủ, không giữ chỗ còn hạn), 
 (`reserved_by` + `reserved_until > now()`), `OWNED` (`owner_uid`).
 
 - Ràng buộc DB: `owner_uid` unique, `reserved_by` unique → mỗi tài khoản ≤ 1
-  linh thú và ≤ 1 giữ chỗ; mỗi loài ≤ 1 chủ, ≤ 1 giữ chỗ. Không có hàng thứ 16.
+  linh thú và ≤ 1 giữ chỗ; mỗi loài ≤ 1 chủ, ≤ 1 giữ chỗ. Kho random có đúng
+  15 hàng; hàng thứ 16 `celestial_stag` gắn với UID admin và không được random.
 - Giữ chỗ 5 phút theo đồng hồ DB. Client chỉ hiển thị thời gian còn lại.
 - 3 lượt random/tài khoản, lưu ở `lifemate_pet_accounts.rolls_used`, không reset.
   Random lại: giải phóng giữ chỗ cũ và cấp mới trong cùng transaction.
@@ -125,9 +128,11 @@ is null`; nếu tài khoản khác thắng thì chọn lại (tối đa 6 lần,
 - Home/màn Linh thú đọc ownership nhẹ khoảng 30 giây khi đang mở; không quét
   finance mỗi lần. Dừng khi vào nền/đổi màn; offline giữ pet gần nhất tới lần đọc
   thành công. Cache chống phản hồi cũ/session cũ ghi đè trạng thái thu hồi.
-- Migration `20261028052536_pet_admin_management.sql` được tạo bằng Supabase CLI.
-  Thứ tự deploy: migration → pet-access → user-admin → app. Chưa deploy trong
-  lượt triển khai này. Không thay Firestore rules hoặc thêm thư viện.
+- Migration `20261028052536_pet_admin_management.sql` đã triển khai cùng
+  `pet-access` và `user-admin`. Migration
+  `20261028075042_pet_exclusive_celestial_stag.sql` cấp riêng Thiên Lộc cho
+  admin, giữ adoption/EXP của thú cũ và trả thú cũ về kho. Không thay Firestore
+  rules hoặc thêm thư viện.
 
 ### Dọn dữ liệu khi xóa tài khoản
 

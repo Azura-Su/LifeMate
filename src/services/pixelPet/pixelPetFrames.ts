@@ -43,11 +43,48 @@ export function petFrameAt(
   ];
 }
 
+/** Share of each pose spent cross-fading into the next one. */
+const BLEND_SHARE = 0.4;
+
+/**
+ * Like petFrameAt, plus the next pose and how far to fade into it. The fade
+ * only covers the tail of each pose, so distinct poses never look ghosted
+ * for long while 10fps steps still read as continuous motion.
+ */
+export function petFrameBlendAt(
+  clip: PixelPetClipId,
+  progress: number,
+  loopMovement = false,
+) {
+  'worklet';
+  const playback = petPlayback(clip, loopMovement);
+  const t = Math.max(0, Math.min(1, progress));
+  const track = FRAME_TRACKS[clip];
+  if (t === 1 && !playback.loop) {
+    const last = clip === 'move' ? 0 : track[track.length - 1];
+    return { from: last, to: last, mix: 0 };
+  }
+  const cycleMs = clip === 'move' ? 400 : playback.durationMs;
+  const position =
+    (((t * playback.durationMs) % cycleMs) / cycleMs) * track.length;
+  const index = Math.min(track.length - 1, Math.floor(position));
+  const wraps = playback.loop || clip === 'move';
+  const next = index + 1 < track.length ? index + 1 : wraps ? 0 : index;
+  const local = (position - index - (1 - BLEND_SHARE)) / BLEND_SHARE;
+  const k = Math.max(0, Math.min(1, local));
+  return { from: track[index], to: track[next], mix: k * k * (3 - 2 * k) };
+}
+
 export function petMovementKind(species: PixelPetSpecies) {
   if (
-    ['alicorn', 'sphinx', 'lac_bird', 'phoenix', 'garuda', 'celestial_stag'].includes(
-      species.id,
-    )
+    [
+      'alicorn',
+      'sphinx',
+      'lac_bird',
+      'phoenix',
+      'garuda',
+      'celestial_stag',
+    ].includes(species.id)
   )
     return 'wings';
   return species.rig === 'serpentine' ? 'slither' : 'walk';

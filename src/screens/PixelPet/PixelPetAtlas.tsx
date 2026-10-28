@@ -2,7 +2,10 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { StyleSheet, View, type ImageSourcePropType } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import type { PixelPetClipId } from '../../types/pixelPet';
-import { PET_ATLAS, petFrameAt } from '../../services/pixelPet/pixelPetFrames';
+import {
+  PET_ATLAS,
+  petFrameBlendAt,
+} from '../../services/pixelPet/pixelPetFrames';
 
 export function PixelPetAtlas({
   source,
@@ -30,16 +33,25 @@ export function PixelPetAtlas({
       mounted.current = false;
     };
   }, []);
+  const cell = (frame: number) => {
+    'worklet';
+    return [
+      { translateX: -(frame % PET_ATLAS.columns) * size },
+      { translateY: -Math.floor(frame / PET_ATLAS.columns) * size },
+    ];
+  };
+  // Two copies of the same atlas: the pose and the next one fading in on top.
   const frameStyle = useAnimatedStyle(() => {
     const frame = animating
-      ? petFrameAt(clip, progress.value, loopMovement)
+      ? petFrameBlendAt(clip, progress.value, loopMovement).from
       : 0;
-    return {
-      transform: [
-        { translateX: -(frame % PET_ATLAS.columns) * size },
-        { translateY: -Math.floor(frame / PET_ATLAS.columns) * size },
-      ],
-    };
+    return { transform: cell(frame) };
+  });
+  const nextStyle = useAnimatedStyle(() => {
+    const blend = animating
+      ? petFrameBlendAt(clip, progress.value, loopMovement)
+      : { to: 0, mix: 0 };
+    return { opacity: ready ? blend.mix : 0, transform: cell(blend.to) };
   });
   return (
     <View style={[styles.viewport, { width: size, height: size }]}>
@@ -65,6 +77,22 @@ export function PixelPetAtlas({
               opacity: ready ? 1 : 0,
             },
             frameStyle,
+          ]}
+        />
+      )}
+      {!failed && ready && animating && (
+        <Animated.Image
+          accessible={false}
+          source={source}
+          resizeMode="stretch"
+          fadeDuration={0}
+          style={[
+            styles.image,
+            {
+              width: size * PET_ATLAS.columns,
+              height: size * PET_ATLAS.rows,
+            },
+            nextStyle,
           ]}
         />
       )}

@@ -2,6 +2,17 @@
 -- 15-pet random pool: never rolled, restored, counted in availability, listed
 -- for revocation, or adopted by anyone else. owner_uid stays null on purpose so
 -- the "15 owned" availability maths and the all-adopted check are unchanged.
+-- Lock the admin account before taking the species table's DDL lock. Pet
+-- commands take locks in that order, so an in-flight admin request finishes
+-- before this migration continues rather than deadlocking with the swap.
+do $$
+begin
+  insert into public.lifemate_pet_accounts(uid) values('CQmmT9iJvKPP79UZqYbvmZ3gXZQ2')
+    on conflict do nothing;
+  perform 1 from public.lifemate_pet_accounts
+    where uid='CQmmT9iJvKPP79UZqYbvmZ3gXZQ2' for update;
+end $$;
+
 alter table public.lifemate_pet_species add column exclusive_uid text unique
   check(exclusive_uid is null or exclusive_uid ~ '^[A-Za-z0-9_-]{1,128}$');
 
@@ -94,9 +105,6 @@ end $$;
 do $$
 declare v_uid constant text:='CQmmT9iJvKPP79UZqYbvmZ3gXZQ2'; v_old public.lifemate_pet_adoptions;
 begin
-  insert into public.lifemate_pet_accounts(uid) values(v_uid) on conflict do nothing;
-  -- Same lock the pet commands take, so an in-flight admin command finishes first.
-  perform 1 from public.lifemate_pet_accounts where uid=v_uid for update;
   update public.lifemate_pet_species set reserved_by=null,reservation_id=null,reserved_until=null
     where reserved_by=v_uid;
   select * into v_old from public.lifemate_pet_adoptions where uid=v_uid;

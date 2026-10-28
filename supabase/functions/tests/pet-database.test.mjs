@@ -10,7 +10,7 @@ const gameSql = await migration('202610190003_card_game_rooms.sql');
 const petSql = await migration('20261027181510_pixel_pet.sql');
 const petSearchPathSql = await migration('20261027181952_pixel_pet_fix_search_path.sql');
 const petAdminSql = await migration('20261028052536_pet_admin_management.sql');
-const petExclusiveSql = await migration('20261028130000_pet_exclusive_celestial_stag.sql');
+const petExclusiveSql = await migration('20261028075042_pet_exclusive_celestial_stag.sql');
 const authTime = Math.floor(Date.now() / 1000);
 let actions = 0;
 const action = () =>

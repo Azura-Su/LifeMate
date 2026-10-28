@@ -25,32 +25,32 @@ type PuppetPlacement = {
 };
 
 export const PUPPET_LAYOUT: Record<PuppetPart, PuppetPlacement> = {
-  body: { left: 0.34133, top: 0.44933, width: 0.59467, height: 0.39067 },
+  body: { left: 0.34133, top: 0.45867, width: 0.476, height: 0.38267 },
   wingL: {
     left: 0.02533,
     top: 0.17733,
     width: 0.40667,
-    height: 0.41067,
+    height: 0.41467,
     pivot: [0.427, 0.522],
   },
   wingR: {
     left: 0.56933,
-    top: 0.17733,
-    width: 0.40667,
-    height: 0.39067,
+    top: 0.176,
+    width: 0.408,
+    height: 0.392,
     pivot: [0.595, 0.525],
   },
   tail: {
     left: 0.74533,
-    top: 0.472,
-    width: 0.19467,
+    top: 0.47333,
+    width: 0.196,
     height: 0.27067,
     pivot: [0.772, 0.605],
   },
   head: {
-    left: 0.364,
+    left: 0.36533,
     top: 0.16,
-    width: 0.284,
+    width: 0.28267,
     height: 0.352,
     pivot: [0.487, 0.489],
   },
@@ -106,7 +106,7 @@ export type PuppetClip = {
   fx: ClipTrack;
   blink: ClipTrack;
 };
-export type PuppetTrackKey = PixelPetAnyClipId | 'roam';
+export type PuppetTrackKey = PixelPetAnyClipId | 'roam' | 'trot';
 
 const TAU = Math.PI * 2;
 const sin = (t: number, cycles: number, phase = 0) =>
@@ -146,7 +146,7 @@ const blink = (f: (t: number) => number): ClipTrack =>
  * Head rotation: the stag faces left, so a negative angle lowers the nose and
  * a positive one lifts it. Wings: positive raises them.
  */
-const CLIPS: Record<PuppetTrackKey, PuppetClip> = {
+const BASE_CLIPS: Record<Exclude<PuppetTrackKey, 'trot'>, PuppetClip> = {
   idle: {
     durationMs: 3200,
     loop: true,
@@ -395,18 +395,30 @@ const CLIPS: Record<PuppetTrackKey, PuppetClip> = {
   },
 };
 
+// Home walking: the trot on a loop, so the puppet never remounts per stride.
+const CLIPS: Record<PuppetTrackKey, PuppetClip> = {
+  ...BASE_CLIPS,
+  trot: { ...BASE_CLIPS.move, loop: true },
+};
 export const PUPPET_CLIPS = CLIPS;
 
-/** Home roaming (looping `move`) uses the flap-glide track. */
+/** Home roaming (looping `move`) flaps in flight and trots when walking. */
 export function puppetTrackKey(
   clip: PixelPetAnyClipId,
   loopMovement: boolean,
+  walking = false,
 ): PuppetTrackKey {
-  return clip === 'move' && loopMovement ? 'roam' : clip;
+  if (clip !== 'move' || !loopMovement) return clip;
+  return walking ? 'trot' : 'roam';
 }
 
-export function puppetPlayback(clip: PixelPetAnyClipId, loopMovement = false) {
-  const { durationMs, loop } = CLIPS[puppetTrackKey(clip, loopMovement)];
+export function puppetPlayback(
+  clip: PixelPetAnyClipId,
+  loopMovement = false,
+  walking = false,
+) {
+  const { durationMs, loop } =
+    CLIPS[puppetTrackKey(clip, loopMovement, walking)];
   return { durationMs, loop };
 }
 

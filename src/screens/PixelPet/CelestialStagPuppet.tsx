@@ -31,6 +31,7 @@ type Props = {
   clip: PixelPetAnyClipId;
   active: boolean;
   loopMovement: boolean;
+  walking?: boolean;
   onClipEnd?: () => void;
 };
 type Progress = { value: number };
@@ -138,11 +139,16 @@ function PuppetLayer({
 }) {
   const place = PUPPET_LAYOUT[part];
   const style = useTrackStyle(part, progress, clipKey, size);
+  const width = place.width * size;
+  const height = place.height * size;
+  // Pixel origins: percentage strings are misapplied on animated views here.
   const origin = place.pivot
-    ? `${((place.pivot[0] - place.left) / place.width) * 100}% ${
-        ((place.pivot[1] - place.top) / place.height) * 100
-      }%`
-    : '50% 50%';
+    ? [
+        (place.pivot[0] - place.left) * size,
+        (place.pivot[1] - place.top) * size,
+        0,
+      ]
+    : [width / 2, height / 2, 0];
   return (
     <Animated.View
       style={[
@@ -150,8 +156,8 @@ function PuppetLayer({
           position: 'absolute',
           left: place.left * size,
           top: place.top * size,
-          width: place.width * size,
-          height: place.height * size,
+          width,
+          height,
           transformOrigin: origin,
         },
         style,
@@ -159,7 +165,7 @@ function PuppetLayer({
     >
       <Image
         source={STAG_LAYERS[part]}
-        style={StyleSheet.absoluteFill}
+        style={{ width, height }}
         resizeMode="stretch"
         fadeDuration={0}
       />
@@ -386,21 +392,26 @@ export function CelestialStagPuppet({
   clip,
   active,
   loopMovement,
+  walking = false,
   onClipEnd,
 }: Props) {
-  const clipKey = puppetTrackKey(clip, loopMovement);
+  const clipKey = puppetTrackKey(clip, loopMovement, walking);
   const { progress } = usePetPlayback({
     clip,
     speciesId: species.id,
     active,
     loopMovement,
     onClipEnd,
-    playback: puppetPlayback(clip, loopMovement),
+    playback: puppetPlayback(clip, loopMovement, walking),
   });
   const look = STAGE_LOOK[stage];
   const root = useTrackStyle('root', progress, clipKey, size);
   const body = useTrackStyle('body', progress, clipKey, size);
-  const bodyOrigin = `${PUPPET_BODY_PIVOT[0] * 100}% ${PUPPET_BODY_PIVOT[1] * 100}%`;
+  const bodyOrigin = [
+    PUPPET_BODY_PIVOT[0] * size,
+    PUPPET_BODY_PIVOT[1] * size,
+    0,
+  ];
   const lite = size < 96;
   const at = (anchor: readonly [number, number], layer?: PuppetPart) => {
     const place = layer ? PUPPET_LAYOUT[layer] : null;

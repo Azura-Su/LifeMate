@@ -2,16 +2,16 @@
   "body": {
     "file": "body.png",
     "left": 0.34133,
-    "top": 0.44533,
-    "width": 0.61067,
-    "height": 0.39467
+    "top": 0.45867,
+    "width": 0.476,
+    "height": 0.38267
   },
   "wingL": {
     "file": "wing_l.png",
     "left": 0.02533,
     "top": 0.17733,
     "width": 0.40667,
-    "height": 0.41067,
+    "height": 0.41467,
     "pivot": [
       0.427,
       0.522
@@ -20,9 +20,9 @@
   "wingR": {
     "file": "wing_r.png",
     "left": 0.56933,
-    "top": 0.17733,
-    "width": 0.40667,
-    "height": 0.39067,
+    "top": 0.176,
+    "width": 0.408,
+    "height": 0.392,
     "pivot": [
       0.595,
       0.525
@@ -31,9 +31,9 @@
   "tail": {
     "file": "tail.png",
     "left": 0.74533,
-    "top": 0.47067,
-    "width": 0.19467,
-    "height": 0.272,
+    "top": 0.47333,
+    "width": 0.196,
+    "height": 0.27067,
     "pivot": [
       0.772,
       0.605
@@ -41,9 +41,9 @@
   },
   "head": {
     "file": "head.png",
-    "left": 0.364,
+    "left": 0.36533,
     "top": 0.16,
-    "width": 0.284,
+    "width": 0.28267,
     "height": 0.352,
     "pivot": [
       0.487,
