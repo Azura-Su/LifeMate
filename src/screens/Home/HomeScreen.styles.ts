@@ -2,6 +2,7 @@ import { StyleSheet } from 'react-native';
 import { colors, fontSize, layout, radius, spacing } from '../../theme';
 
 export const styles = StyleSheet.create({
+  root: { flex: 1 },
   fixedHeader: {
     paddingHorizontal: layout.screenGutter,
     paddingTop: 8,

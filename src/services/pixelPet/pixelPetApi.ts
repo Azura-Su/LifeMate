@@ -61,6 +61,26 @@ export function parsePixelPetState(value: unknown): PixelPetState {
   return state;
 }
 
+type OwnedPet = PixelPetState['pet'];
+const ownedPets = new Map<string, OwnedPet>();
+const ownedPetListeners = new Set<() => void>();
+function rememberOwnedPet(uid: string, pet: OwnedPet) {
+  ownedPets.set(uid, pet);
+  ownedPetListeners.forEach((listener) => listener());
+}
+
+/** Last pet seen in any server response; lets Home show it without a call. */
+export function readOwnedPixelPet(uid: string): OwnedPet {
+  return ownedPets.get(uid) ?? null;
+}
+
+export function subscribeOwnedPixelPet(listener: () => void) {
+  ownedPetListeners.add(listener);
+  return () => {
+    ownedPetListeners.delete(listener);
+  };
+}
+
 export function newPixelPetAction() {
   return randomUUID();
 }
@@ -73,7 +93,8 @@ export async function callPixelPet(
   uid: string,
   input: PixelPetRequest,
 ): Promise<PixelPetState> {
-  if (input.type !== 'state' && input.type !== 'sync') assertAccountWritable(uid);
+  if (input.type !== 'state' && input.type !== 'sync')
+    assertAccountWritable(uid);
   const origin = audioCloudUrl();
   const apiKey = audioCloudApiKey();
   const user = getAuth().currentUser;
@@ -95,7 +116,11 @@ export async function callPixelPet(
       const result: unknown = await response.json().catch(() => null);
       if (getAuth().currentUser?.uid !== uid)
         throw new PixelPetApiError('invalid-session');
-      if (response.ok) return parsePixelPetState(result);
+      if (response.ok) {
+        const state = parsePixelPetState(result);
+        rememberOwnedPet(uid, state.pet);
+        return state;
+      }
       const code =
         result && typeof result === 'object' && 'error' in result
           ? String(result.error)

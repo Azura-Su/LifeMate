@@ -132,7 +132,7 @@ export const STAGE_LOOK: Record<
   PixelPetStage,
   { scale: number; feature: boolean; aura: boolean }
 > = {
-  hatchling: { scale: 0.72, feature: false, aura: false },
+  hatchling: { scale: 0.72, feature: true, aura: false },
   juvenile: { scale: 0.88, feature: true, aura: false },
   ascended: { scale: 1, feature: true, aura: true },
 };
@@ -177,8 +177,57 @@ export function gridRects(grid: readonly string[]) {
   return rects;
 }
 
+/**
+ * Render-time polish: pads the grid by one cell, rings the silhouette with an
+ * ink outline ('o') and lights the top edge of base cells ('h'). Draw the
+ * result one pixel up-left of the layer origin.
+ */
+export function polishGrid(grid: readonly string[]): string[] {
+  const filled = (x: number, y: number) => {
+    const slot = grid[y]?.[x];
+    return slot !== undefined && slot !== '.';
+  };
+  const rows = grid.length + 2;
+  const cols = (grid[0]?.length ?? 0) + 2;
+  const out: string[] = [];
+  for (let y = 0; y < rows; y += 1) {
+    let row = '';
+    for (let x = 0; x < cols; x += 1) {
+      const gx = x - 1;
+      const gy = y - 1;
+      const slot = grid[gy]?.[gx] ?? '.';
+      if (slot === '1' && !filled(gx, gy - 1)) row += 'h';
+      else if (slot !== '.') row += slot;
+      else if (
+        filled(gx - 1, gy) ||
+        filled(gx + 1, gy) ||
+        filled(gx, gy - 1) ||
+        filled(gx, gy + 1)
+      )
+        row += 'o';
+      else row += '.';
+    }
+    out.push(row);
+  }
+  return out;
+}
+
+/** Mixes a #RRGGBB colour toward white by `amount` (0..1). */
+function lighten(hex: string, amount: number) {
+  const value = parseInt(hex.slice(1), 16);
+  const channel = (shift: number) => {
+    const c = (value >> shift) & 255;
+    return Math.round(c + (255 - c) * amount)
+      .toString(16)
+      .padStart(2, '0');
+  };
+  return `#${channel(16)}${channel(8)}${channel(0)}`;
+}
+
 export function slotColor(slot: string, palette: PixelPetSpecies['palette']) {
   if (slot === 'w') return '#FFFFFF';
+  if (slot === 'o') return palette[3];
+  if (slot === 'h') return lighten(palette[0], 0.35);
   const index = Number(slot) - 1;
   return palette[index] ?? palette[3];
 }

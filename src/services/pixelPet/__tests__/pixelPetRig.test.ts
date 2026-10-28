@@ -9,6 +9,7 @@ import {
   PIXEL_CLIPS,
   PIXEL_RIGS,
   pixelPetLayers,
+  polishGrid,
   sampleTrack,
 } from '../pixelPetRig';
 import { parsePixelPetState } from '../pixelPetApi';
@@ -23,10 +24,21 @@ const rectangular = (grid: readonly string[], w?: number, h?: number) => {
   if (h) expect(grid.length).toBe(h);
 };
 
+describe('polishGrid', () => {
+  it('outlines the silhouette and lights the top edge', () => {
+    expect(polishGrid(['11', '12'])).toEqual([
+      '.oo.',
+      'ohho',
+      'o12o',
+      '.oo.',
+    ]);
+  });
+});
+
 describe('pixel pet catalog', () => {
   it('has exactly the 15 species seeded by the backend migration', () => {
     const sql = readFileSync(
-      join(__dirname, '../../../../supabase/migrations/20261028090000_pixel_pet.sql'),
+      join(__dirname, '../../../../supabase/migrations/20261027181510_pixel_pet.sql'),
       'utf8',
     );
     const seeded = [...sql.matchAll(/\('([a-z_]+)',(\d+)\)/g)].map((m) => m[1]);
@@ -51,9 +63,7 @@ describe('pixel pet catalog', () => {
     for (const species of PIXEL_PET_SPECIES)
       for (const stage of ['hatchling', 'juvenile', 'ascended'] as const) {
         const layers = pixelPetLayers(species, stage);
-        expect(layers.some((layer) => layer.part === 'feature')).toBe(
-          stage !== 'hatchling',
-        );
+        expect(layers.some((layer) => layer.part === 'feature')).toBe(true);
         for (const layer of layers) {
           rectangular(layer.grid);
           expect(layer.x).toBeGreaterThanOrEqual(0);

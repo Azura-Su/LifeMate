@@ -1,5 +1,5 @@
 import { memo, useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -19,12 +19,14 @@ import {
   PIXEL_CLIPS,
   PIXEL_RIGS,
   pixelPetLayers,
+  polishGrid,
   sampleTrack,
   slotColor,
   STAGE_LOOK,
   type PixelLayer,
 } from '../../services/pixelPet/pixelPetRig';
 import type { PixelPetClipId, PixelPetStage } from '../../types/pixelPet';
+import { PET_ART } from './petArt';
 
 type Props = {
   species: PixelPetSpecies;
@@ -45,15 +47,16 @@ const PixelGrid = memo(function PixelGrid({
   palette: PixelPetSpecies['palette'];
   px: number;
 }) {
-  const rows = layer.grid.length;
-  const cols = layer.grid[0]?.length ?? 0;
+  const grid = polishGrid(layer.grid);
+  const rows = grid.length;
+  const cols = grid[0]?.length ?? 0;
   return (
     <Svg
       width={cols * px}
       height={rows * px}
       viewBox={`0 0 ${cols} ${rows}`}
     >
-      {gridRects(layer.grid).map((rect) => (
+      {gridRects(grid).map((rect) => (
         <Rect
           key={`${rect.x}-${rect.y}`}
           x={rect.x}
@@ -131,7 +134,8 @@ export function PixelPetSprite({
     head: useLayerStyle('head', progress, clip, px, swing),
     feature: useLayerStyle('feature', progress, clip, px, swing),
   };
-  const layers = pixelPetLayers(species, stage);
+  const art = PET_ART[species.id];
+  const layers = art ? [] : pixelPetLayers(species, stage);
   const motif = clip === 'skill' ? MOTIF_GRIDS[species.motif] : null;
 
   return (
@@ -158,12 +162,19 @@ export function PixelPetSprite({
             ]}
           />
         )}
+        {art && (
+          // Illustrated art moves as one piece on the body track.
+          <Animated.View style={[local.fill, styles.body]}>
+            <Image source={art} style={local.art} resizeMode="contain" />
+          </Animated.View>
+        )}
         {layers.map((layer, index) => (
           <Animated.View
             key={`${layer.part}-${index}`}
             style={[
               local.layer,
-              { left: layer.x * px, top: layer.y * px },
+              // polishGrid pads one cell for the outline.
+              { left: (layer.x - 1) * px, top: (layer.y - 1) * px },
               styles[layer.part],
             ]}
           >
@@ -171,7 +182,7 @@ export function PixelPetSprite({
           </Animated.View>
         ))}
         {motif && (
-          <View style={[local.layer, { left: 2 * px, top: 2 * px }]}>
+          <View style={[local.layer, { left: px, top: px }]}>
             <PixelGrid
               layer={{ part: 'feature', x: 0, y: 0, grid: motif }}
               palette={species.palette}
@@ -188,5 +199,6 @@ const local = StyleSheet.create({
   canvas: { overflow: 'hidden' },
   fill: { ...StyleSheet.absoluteFillObject },
   layer: { position: 'absolute' },
+  art: { width: '100%', height: '100%' },
   aura: { position: 'absolute', borderWidth: 2, opacity: 0.5 },
 });

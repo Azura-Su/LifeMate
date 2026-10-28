@@ -44,6 +44,9 @@ test('Firestore sweeps nonexistent UID parents, repeats first page safely, stays
   assert.ok(
     calls.some(([url]) => url.includes('/memoryAccounts/target/items?')),
   );
+  assert.ok(
+    calls.some(([url]) => url.includes('/petAccounts/target/state?')),
+  );
 
   assert.ok(
     calls.some(

@@ -7,7 +7,8 @@ import { EXP_RULES, WEEKLY_RECORD_DAYS } from '../pet-access/expConfig.mjs';
 const migration = (name) =>
   readFile(new URL(`../../migrations/${name}`, import.meta.url), 'utf8');
 const gameSql = await migration('202610190003_card_game_rooms.sql');
-const petSql = await migration('20261028090000_pixel_pet.sql');
+const petSql = await migration('20261027181510_pixel_pet.sql');
+const petSearchPathSql = await migration('20261027181952_pixel_pet_fix_search_path.sql');
 const authTime = Math.floor(Date.now() / 1000);
 let actions = 0;
 const action = () =>
@@ -27,9 +28,34 @@ async function setup() {
   `);
   await db.exec(gameSql);
   await db.exec(petSql);
+  await db.exec(petSearchPathSql);
   return db;
 }
 const one = async (db, sql, params) => (await db.query(sql, params)).rows[0];
+
+test('pet tables and RPCs reject client database roles', async () => {
+  const db = await setup();
+  try {
+    for (const role of ['anon', 'authenticated']) {
+      await db.exec(`set role ${role}`);
+      try {
+        await assert.rejects(
+          db.query('select public.lifemate_pet_read($1,$2)', ['u1', authTime]),
+          /permission denied/,
+        );
+        await assert.rejects(
+          db.query('select count(*) from public.lifemate_pet_species'),
+          /permission denied/,
+        );
+      } finally {
+        await db.exec('reset role');
+      }
+    }
+  } finally {
+    await db.close();
+  }
+});
+
 async function command(db, uid, type, args = {}, id = action()) {
   const row = await one(
     db,

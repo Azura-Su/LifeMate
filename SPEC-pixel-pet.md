@@ -28,8 +28,9 @@ khi đổi tên hiển thị); thứ tự và ID được seed ở migration và
 
 Thay đổi so với bộ ảnh tham khảo: chú chim hồng thường (trùng vai trò với
 Phượng Hoàng/Chim Lạc, không phải linh thú) được thay bằng **Bạch Hổ**. Ảnh do
-người dùng gửi chỉ là tham chiếu nhân vật (màu, đặc điểm); chúng không phải pixel
-art, có nền caro/watermark/chữ lỗi nên **không đóng gói vào app**.
+người dùng gửi được tách nền, cắt vuông 384px và đóng gói tại `assets/pixelPet/`
+(14 loài, map trong `src/screens/PixelPet/petArt.ts`). Ảnh di chuyển như một
+khối theo track `body` của clip; Bạch Hổ chưa có ảnh nên vẫn dùng rig pixel.
 
 ## 2. Hình thái và animation — dùng chung rig
 
@@ -46,9 +47,11 @@ Mục tiêu: giữ đủ 15 loài nhưng giảm asset làm riêng. Nguồn: `pix
 - **Phần riêng từng loài**: bảng màu 4 ô (`1` nền, `2` bóng, `3` điểm nhấn,
   `4` viền/mắt), một lưới mào 8×4 và một lưới đặc trưng 8×8. Một số lưới dùng
   lại giữa các loài (đôi cánh cho Thiên Mã, Nhân Sư, Garuda).
-- **Giai đoạn**: `hatchling` (Lv 1–3, scale 0.72, chưa có lớp đặc trưng),
-  `juvenile` (Lv 4–7, 0.88, có lớp đặc trưng), `ascended` (Lv 8+, 1.0, thêm hào
+- **Giai đoạn**: `hatchling` (Lv 1–3, scale 0.72, đã có lớp đặc trưng),
+  `juvenile` (Lv 4–7, 0.88), `ascended` (Lv 8+, 1.0, thêm hào
   quang). Không vẽ lại thân cho từng giai đoạn.
+- **Viền & bóng tự động** (`polishGrid`, lúc render): mỗi lưới được đệm 1 ô,
+  viền 1px màu `4` quanh hình và ô nền `1` ở mép trên được làm sáng.
 - **Kỹ năng**: clip `skill` + 6 motif 8×8 dùng chung (`flame`, `water`, `wind`,
   `light`, `earth`, `arcane`) tô bằng bảng màu loài.
 - **Hiệu ứng chăm sóc** từ sổ thu chi dùng lại clip: `eat`→eat, `move`→move,
@@ -56,8 +59,12 @@ Mục tiêu: giữ đủ 15 loài nhưng giảm asset làm riêng. Nguồn: `pix
 
 Số lưới làm riêng: 4 thân + 2 đầu + ≤15 mào + ≤15 đặc trưng + 6 motif ≈ 40,
 so với ~15 loài × 3 giai đoạn × 6 clip × 6 khung ≈ 1.600 khung nếu vẽ riêng.
-Pixel render bằng `react-native-svg` (gộp ô liền màu theo hàng), không tải ảnh
+Pixel render (chỉ cho loài chưa có ảnh) bằng `react-native-svg` (gộp ô liền màu theo hàng), không tải ảnh
 mạng. Reduced Motion và màn hình mất focus dừng clip.
+- **Bay trên Home**: `HomePetRoamer` cho linh thú đã nhận nuôi bay qua lại ngay trên
+  tab bar (lật hướng ở hai đầu, nhấp nhô), chạm để mở màn Linh thú. Dữ liệu lấy từ
+  phản hồi server gần nhất (`readOwnedPixelPet`), không gọi thêm API; dừng khi Home
+  mất focus, mở lịch hoặc bật Reduced Motion.
 
 ## 3. Quyền sở hữu, giữ chỗ, random
 
@@ -164,13 +171,23 @@ Bảng ánh xạ nằm ở adapter, thêm danh mục không cần sửa engine.
 
 ## 7. Schema & migration
 
-Migration `20261028090000_pixel_pet.sql` (chỉ thêm mới, không chạm bảng cũ):
+Migration `20261027181510_pixel_pet.sql` (chỉ thêm mới, không chạm bảng cũ):
 `lifemate_pet_species` (15 hàng seed), `lifemate_pet_accounts`,
 `lifemate_pet_adoptions`, `lifemate_pet_exp_grants`, `lifemate_pet_exp_ledger`,
 `lifemate_pet_receipts`; RLS bật, revoke mọi quyền client; RPC
 `security definer` chỉ cấp cho `service_role`. Rollback: drop các bảng/RPC
 `lifemate_pet_*` (không ảnh hưởng dữ liệu khác). Không thêm collection/rule
-Firestore. Triển khai: `supabase db push`, deploy `pet-access` và `user-admin`.
+Firestore. Triển khai migration theo lịch sử đã kiểm chứng, rồi deploy
+`pet-access` và `user-admin`.
+
+Production LifeMate đã áp dụng riêng migration `20261027181510_pixel_pet.sql`.
+Migration `20261027181952_pixel_pet_fix_search_path.sql` cố định `search_path`
+cho hai hàm Pet còn thiếu và cũng đã được áp dụng.
+Migration game `20261027220000_south_instant_win_penalty.sql` vẫn đang chờ; kiểm tra
+lịch sử và danh sách dry-run trước khi dùng `supabase db push` lần tiếp theo.
+`pet-access` và bản `user-admin` có dọn Pet đã được triển khai trên Supabase.
+Firebase tiếp tục cung cấp Auth và giao dịch Firestore hiện có; Pixel Pet không
+thêm rules hoặc Cloud Function Firebase.
 
 ## 8. Ngoài phạm vi phiên bản này
 

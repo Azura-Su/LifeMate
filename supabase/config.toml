@@ -17,3 +17,7 @@ verify_jwt = false
 [functions.game-access]
 # Firebase JWT verified in Edge; account revocation rechecked by transactional RPCs.
 verify_jwt = false
+
+[functions.pet-access]
+# Firebase JWT is verified by the handler before any pet RPC is called.
+verify_jwt = false
