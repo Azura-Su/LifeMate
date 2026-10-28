@@ -12,6 +12,10 @@ import Animated, {
 import { PixelPetSprite } from '../PixelPet/PixelPetSprite';
 import { pixelPetSpecies } from '../../services/pixelPet/pixelPetCatalog';
 import {
+  petFacesLeft,
+  petMovementKind,
+} from '../../services/pixelPet/pixelPetFrames';
+import {
   readOwnedPixelPet,
   subscribeOwnedPixelPet,
 } from '../../services/pixelPet/pixelPetApi';
@@ -36,6 +40,8 @@ export function HomePetRoamer({ uid, active, onPress }: Props) {
   const [width, setWidth] = useState(0);
   const progress = useSharedValue(0);
   const range = Math.max(0, width - SIZE - spacing.md * 2);
+  const facing = species && petFacesLeft(species) ? -1 : 1;
+  const bob = species && petMovementKind(species) === 'walk' ? 1 : 5;
 
   useEffect(() => {
     cancelAnimation(progress);
@@ -57,8 +63,8 @@ export function HomePetRoamer({ uid, active, onPress }: Props) {
     return {
       transform: [
         { translateX: eased * range },
-        { translateY: Math.sin(p * Math.PI * 6) * 5 },
-        { scaleX: outbound ? 1 : -1 },
+        { translateY: Math.sin(p * Math.PI * 6) * bob },
+        { scaleX: (outbound ? 1 : -1) * facing },
       ],
     };
   });
@@ -81,6 +87,8 @@ export function HomePetRoamer({ uid, active, onPress }: Props) {
             species={species}
             stage={pet.stage}
             size={SIZE}
+            clip="move"
+            loopMovement
             active={active}
           />
         </Pressable>

@@ -8,63 +8,68 @@ Module viết mới (`src/services/pixelPet`, `src/screens/PixelPet`,
 Mỗi loài là **một cá thể duy nhất** trên toàn hệ thống. ID ổn định (không đổi
 khi đổi tên hiển thị); thứ tự và ID được seed ở migration và `pixelPetCatalog.ts`.
 
-| ID | Tên | Rig | Kỹ năng độc quyền | Tính cách |
-|---|---|---|---|---|
-| `nine_tail_fox` | Cửu Vĩ Hồ | quadruped | Hồ Hỏa Mê Ảnh | tinh nghịch |
-| `qilin` | Kỳ Lân Hỏa | quadruped | Lân Hỏa Bộ | nhiệt huyết |
-| `alicorn` | Thiên Mã Kỳ Lân | quadruped | Tinh Vân Dực | mơ mộng |
-| `rune_wolf` | Lang Linh | quadruped | Phù Văn Hú | trung thành |
-| `black_tortoise` | Huyền Vũ | quadruped | Quy Giáp Thủ | điềm tĩnh |
-| `sphinx` | Nhân Sư | quadruped | Câu Đố Sa Mạc | thông thái |
-| `centaur` | Nhân Mã | quadruped | Lục Mộc Tiễn | phóng khoáng |
-| `white_tiger` | Bạch Hổ | quadruped | Hổ Khiếu Phong | dũng cảm |
-| `azure_dragon` | Thanh Long | serpentine | Long Châu Vũ | cao quý |
-| `koi_dragon` | Lý Ngư Hóa Long | serpentine | Vượt Vũ Môn | kiên trì |
-| `scylla` | Scylla | serpentine | Lục Khuyển Hỏa | nóng nảy |
-| `lac_bird` | Chim Lạc | avian | Đồng Cổ Vũ | hiền hoà |
-| `phoenix` | Phượng Hoàng | avian | Niết Bàn Hỏa | lạc quan |
-| `anubis` | Anubis | biped | Cán Cân Linh Hồn | nghiêm túc |
-| `garuda` | Garuda | biped | Kim Sí Phong | chính trực |
+| ID               | Tên             | Rig        | Kỹ năng độc quyền | Tính cách    |
+| ---------------- | --------------- | ---------- | ----------------- | ------------ |
+| `nine_tail_fox`  | Cửu Vĩ Hồ       | quadruped  | Hồ Hỏa Mê Ảnh     | tinh nghịch  |
+| `qilin`          | Kỳ Lân Hỏa      | quadruped  | Lân Hỏa Bộ        | nhiệt huyết  |
+| `alicorn`        | Thiên Mã Kỳ Lân | quadruped  | Tinh Vân Dực      | mơ mộng      |
+| `rune_wolf`      | Lang Linh       | quadruped  | Phù Văn Hú        | trung thành  |
+| `black_tortoise` | Huyền Vũ        | quadruped  | Quy Giáp Thủ      | điềm tĩnh    |
+| `sphinx`         | Nhân Sư         | quadruped  | Câu Đố Sa Mạc     | thông thái   |
+| `centaur`        | Nhân Mã         | quadruped  | Lục Mộc Tiễn      | phóng khoáng |
+| `white_tiger`    | Bạch Hổ         | quadruped  | Hổ Khiếu Phong    | dũng cảm     |
+| `azure_dragon`   | Thanh Long      | serpentine | Long Châu Vũ      | cao quý      |
+| `koi_dragon`     | Lý Ngư Hóa Long | serpentine | Vượt Vũ Môn       | kiên trì     |
+| `scylla`         | Scylla          | serpentine | Lục Khuyển Hỏa    | nóng nảy     |
+| `lac_bird`       | Chim Lạc        | avian      | Đồng Cổ Vũ        | hiền hoà     |
+| `phoenix`        | Phượng Hoàng    | avian      | Niết Bàn Hỏa      | lạc quan     |
+| `anubis`         | Anubis          | biped      | Cán Cân Linh Hồn  | nghiêm túc   |
+| `garuda`         | Garuda          | biped      | Kim Sí Phong      | chính trực   |
 
 Thay đổi so với bộ ảnh tham khảo: chú chim hồng thường (trùng vai trò với
 Phượng Hoàng/Chim Lạc, không phải linh thú) được thay bằng **Bạch Hổ**. Ảnh do
 người dùng gửi được tách nền, cắt vuông 384px và đóng gói tại `assets/pixelPet/`
-(14 loài, map trong `src/screens/PixelPet/petArt.ts`). Ảnh di chuyển như một
-khối theo track `body` của clip; Bạch Hổ chưa có ảnh nên vẫn dùng rig pixel.
+(14 loài, map trong `src/screens/PixelPet/petArt.ts`). Ảnh gốc được giữ làm fallback trong khi atlas tải hoặc bị lỗi. Bạch Hổ giữ
+phong cách rig pixel hiện tại; cả15 loài có atlas animation riêng từ28/10/2026.
 
-## 2. Hình thái và animation — dùng chung rig
+## 2. Hình thái và animation — khung hình, cập nhật28/10/2026
 
-Mục tiêu: giữ đủ 15 loài nhưng giảm asset làm riêng. Nguồn: `pixelPetRig.ts`,
-`pixelPetCatalog.ts`, renderer `PixelPetSprite.tsx`. Canvas 32×32 pixel.
-
-- **4 rig** (`quadruped` 8 loài, `serpentine` 3, `avian` 2, `biped` 2). Mỗi rig có
-  một lưới thân, một lưới đầu (9×8; avian dùng đầu có mỏ) và các *điểm neo*
-  cố định cho đầu, mào và lớp đặc trưng.
-- **6 clip dùng chung cho mọi rig và mọi giai đoạn**: `idle` (lặp), `eat`,
-  `move`, `heal`, `happy`, `skill`. Clip là keyframe transform (dịch, xoay, co
-  giãn) cho 3 phần `body`/`head`/`feature`, nội suy trên UI thread (Reanimated),
-  không phải khung hình vẽ tay. Rig chỉ thêm biên độ lắc của lớp đặc trưng.
-- **Phần riêng từng loài**: bảng màu 4 ô (`1` nền, `2` bóng, `3` điểm nhấn,
-  `4` viền/mắt), một lưới mào 8×4 và một lưới đặc trưng 8×8. Một số lưới dùng
-  lại giữa các loài (đôi cánh cho Thiên Mã, Nhân Sư, Garuda).
-- **Giai đoạn**: `hatchling` (Lv 1–3, scale 0.72, đã có lớp đặc trưng),
-  `juvenile` (Lv 4–7, 0.88), `ascended` (Lv 8+, 1.0, thêm hào
-  quang). Không vẽ lại thân cho từng giai đoạn.
-- **Viền & bóng tự động** (`polishGrid`, lúc render): mỗi lưới được đệm 1 ô,
-  viền 1px màu `4` quanh hình và ô nền `1` ở mép trên được làm sáng.
-- **Kỹ năng**: clip `skill` + 6 motif 8×8 dùng chung (`flame`, `water`, `wind`,
-  `light`, `earth`, `arcane`) tô bằng bảng màu loài.
-- **Hiệu ứng chăm sóc** từ sổ thu chi dùng lại clip: `eat`→eat, `move`→move,
-  `heal`→heal, `mood`/`wardrobe`→happy, `neutral`→idle.
-
-Số lưới làm riêng: 4 thân + 2 đầu + ≤15 mào + ≤15 đặc trưng + 6 motif ≈ 40,
-so với ~15 loài × 3 giai đoạn × 6 clip × 6 khung ≈ 1.600 khung nếu vẽ riêng.
-Pixel render (chỉ cho loài chưa có ảnh) bằng `react-native-svg` (gộp ô liền màu theo hàng), không tải ảnh
-mạng. Reduced Motion và màn hình mất focus dừng clip.
-- **Bay trên Home**: `HomePetRoamer` cho linh thú đã nhận nuôi bay qua lại ngay trên
-  tab bar (lật hướng ở hai đầu, nhấp nhô), chạm để mở màn Linh thú. Dữ liệu lấy từ
-  phản hồi server gần nhất (`readOwnedPixelPet`), không gọi thêm API; dừng khi Home
-  mất focus, mở lịch hoặc bật Reduced Motion.
+- **15 atlas ×16 pose =240 khung** trong `assets/pixelPet/animations/`. Mỗi PNG
+  1024×1024,4×4 ô256px, nền trong suốt. Bốn hàng lần lượt là nghỉ/chớp mắt,
+  di chuyển, vui vẻ và kỹ năng. Pose nghỉ/hồi phục có thể tương tự nhau để nối
+  vòng.14 atlas minh họa sinh từ ảnh gốc bằng imagegen; Bạch Hổ bake từ rig pixel
+  hiện có với chân/đầu/đuôi đổi pose, không đổi sang loài hoặc phong cách khác.
+- Các bộ phận thay tư thế trong từng khung:5 loài có cánh (Thiên Mã, Nhân Sư,
+  Chim Lạc, Phượng Hoàng, Garuda) vỗ cánh;3 loài serpentine uốn thân/bơi lượn;
+  các loài còn lại bước chân. Đóng gói tách toàn bộ silhouette trước khi xếp ô,
+  giữ một tỷ lệ/hệ tọa độ chung cho từng loài và lề trong suốt chống bleed.
+- **6 clip cũ giữ nguyên ID và thời lượng**: `idle`, `eat`, `move`, `heal`,
+  `happy`, `skill`. Mapping pose ở `pixelPetFrames.ts`. `move` từ hiệu ứng sổ
+  thu chi vẫn chạy một lần1s. Chỉ Home và nút xem thử di chuyển chọn lặp4 pose
+  trong400ms (10fps); trạng thái lặp riêng, không suy ra chỉ từ tên clip.
+- `usePetPlayback` chạy đồng hồ tuyến tính trên UI thread bằng Reanimated;
+  `PixelPetAtlas` cắt/đổi tọa độ atlas theo chỉ số khung. Không có JS timer hoặc
+  React setState theo từng frame. Callback kết thúc one-shot chỉ dùng một lần,
+  có generation guard để callback đã xếp hàng từ clip cũ không reset clip mới.
+- Giữ ảnh gốc/rig pixel trong lúc atlas chưa tải xong hoặc lỗi. Key theo loài
+  để phản hồi load cũ không thay trạng thái pet mới. Mất focus, vào nền hoặc
+  Reduced Motion dừng chuyển động; atlas dừng ở pose trung tính.
+- Không preload toàn bộ15 atlas. Tổng PNG hiện khoảng4,08MB; một atlas khi giải
+  mã RGBA ước tính4MiB, không phải số đo bộ nhớ ứng dụng. Nguồn/prompt và cách
+  đóng gói ở `assets/pixelPet/animations/provenance.json` và README cùng thư mục.
+- **Giai đoạn** không đổi: hatchling Lv1–3 scale0.72; juvenile Lv4–7 scale0.88;
+  ascended Lv8+ scale1 và hào quang. Dùng lại cùng bộ khung cho cả ba giai đoạn.
+- **Kỹ năng** dùng hàng pose skill cùng6 motif pixel hiện có (`flame`, `water`,
+  `wind`, `light`, `earth`, `arcane`), vẫn theo level/skillTier server. Các hiệu
+  ứng chăm sóc từ sổ thu chi tiếp tục ánh xạ qua EFFECT_CLIP như trước.
+- Màn Linh thú có xem thử **Đi dạo/Vỗ cánh/Lượn mình**, **Vui vẻ**, **Nghỉ ngơi**.
+  Đây là điều khiển hiển thị tại máy, không gọi API, không trừ lượt random hoặc
+  chăm sóc. Xem kỹ năng vẫn theo quyền/cấp hiện tại.
+- `HomePetRoamer` dùng pose di chuyển lặp, lật theo hướng ảnh gốc ở hai đầu,
+  loài đi bộ chỉ nhấp nhô nhẹ. Chạm mở màn Linh thú; không thêm API. Dừng khi
+  Home mất focus, mở lịch hoặc Reduced Motion.
+- **4 rig** và các lưới/màu trong `pixelPetRig.ts`/`pixelPetCatalog.ts` được giữ làm
+  fallback và nguồn của Bạch Hổ. Không thay sở hữu, loài, EXP, tài khoản hay API.
 
 ## 3. Quyền sở hữu, giữ chỗ, random
 
@@ -91,7 +96,7 @@ Trạng thái loài: `AVAILABLE` (không chủ, không giữ chỗ còn hạn), 
   `idempotency-conflict`.
 - Hàng tài khoản bị khoá `for update` → hai thiết bị cùng tài khoản được tuần
   tự hoá. Loài được giữ bằng `update … where owner_uid is null and reserved_by
-  is null`; nếu tài khoản khác thắng thì chọn lại (tối đa 6 lần, sau đó
+is null`; nếu tài khoản khác thắng thì chọn lại (tối đa 6 lần, sau đó
   `pet-busy`), unique constraint là chốt chặn cuối.
 - Tài khoản không `active` trong `lifemate_account_access` bị từ chối (đọc với
   `for share` để không chen giữa lúc chuyển sang `deleting`).
@@ -111,13 +116,13 @@ Level 1, EXP 0. Đăng xuất hoặc gỡ app không thu hồi.
 
 Cấu hình tập trung (`supabase/functions/pet-access/expConfig.mjs`):
 
-| Nguồn (`sourceType`) | EXP | Giới hạn / `periodKey` |
-|---|---:|---|
-| `record_day` | 10 | 1 lần/ngày (`YYYY-MM-DD`) |
-| `care_day` | 5 | 1 lần/ngày |
-| `streak_3` | 15 | 1 lần/chuỗi (khoá theo ngày bắt đầu chuỗi) |
-| `streak_7` | 30 | 1 lần/chuỗi |
-| `weekly_record` | 20 | tuần ISO có ≥ 4 ngày ghi chép (`YYYY-Www`) |
+| Nguồn (`sourceType`) | EXP | Giới hạn / `periodKey`                     |
+| -------------------- | --: | ------------------------------------------ |
+| `record_day`         |  10 | 1 lần/ngày (`YYYY-MM-DD`)                  |
+| `care_day`           |   5 | 1 lần/ngày                                 |
+| `streak_3`           |  15 | 1 lần/chuỗi (khoá theo ngày bắt đầu chuỗi) |
+| `streak_7`           |  30 | 1 lần/chuỗi                                |
+| `weekly_record`      |  20 | tuần ISO có ≥ 4 ngày ghi chép (`YYYY-Www`) |
 
 Số tiền **không** ảnh hưởng EXP. Không chi tiêu vẫn nhận `care_day`.
 
@@ -133,7 +138,7 @@ Số tiền **không** ảnh hưởng EXP. Không chi tiêu vẫn nhận `care_d
   (`stale-snapshot`). `sync` bị giới hạn 20 lần/phút.
 - **Đồng bộ** (`sync`): Edge Function đọc
   `financeAccounts/{uid}/transactions` bằng service account (client không gửi
-  EXP), tính *mục tiêu* cho các nguồn tài chính, RPC
+  EXP), tính _mục tiêu_ cho các nguồn tài chính, RPC
   `lifemate_pet_reconcile` so với `lifemate_pet_exp_grants` và ghi
   `delta = mục tiêu − đã cấp` vào `lifemate_pet_exp_ledger` (append-only, cả âm
   lẫn dương). Sửa/xoá/đổi ngày giao dịch tự động được tính lại cho cả ngày cũ và
@@ -145,7 +150,7 @@ Số tiền **không** ảnh hưởng EXP. Không chi tiêu vẫn nhận `care_d
   revision tăng dưới khoá hàng tài khoản. Grant không bao giờ âm nên
   `total_exp = sum(ledger) = sum(grants) ≥ 0`, được đối soát trong test.
 - Level từ tổng EXP: ngưỡng tích luỹ `[0, 30, 80, 150, 240, 350, 480, 630, 800,
-  1000]` (Lv 1–10). Level có thể giảm khi EXP bị thu hồi; giai đoạn và cấp kỹ
+1000]` (Lv 1–10). Level có thể giảm khi EXP bị thu hồi; giai đoạn và cấp kỹ
   năng (`0` <Lv5, `1` Lv5–7, `2` Lv8+) luôn theo Level hiện tại. Không xoá
   lịch sử.
 
@@ -153,15 +158,15 @@ Số tiền **không** ảnh hưởng EXP. Không chi tiêu vẫn nhận `care_d
 
 `financeAdapter.mjs` phân loại từng giao dịch:
 
-| Giao dịch | Ghi chép ngày | Tác động chăm sóc |
-|---|---|---|
-| Chi thường, danh mục hệ thống | có | theo bảng dưới |
-| Chi `loan_lending` (cho vay) | không | không |
-| Thu `loan_repayment` (trả nợ) | không | không |
-| Thu `expense_reimbursement` (hoàn tiền) | không | không |
-| Thu thường | có | `mood` |
-| Danh mục tự tạo / lạ | có | `neutral` |
-| Đóng hộ (`sharedExpense`) | có (1 giao dịch) | theo danh mục, không nhân theo người |
+| Giao dịch                               | Ghi chép ngày    | Tác động chăm sóc                    |
+| --------------------------------------- | ---------------- | ------------------------------------ |
+| Chi thường, danh mục hệ thống           | có               | theo bảng dưới                       |
+| Chi `loan_lending` (cho vay)            | không            | không                                |
+| Thu `loan_repayment` (trả nợ)           | không            | không                                |
+| Thu `expense_reimbursement` (hoàn tiền) | không            | không                                |
+| Thu thường                              | có               | `mood`                               |
+| Danh mục tự tạo / lạ                    | có               | `neutral`                            |
+| Đóng hộ (`sharedExpense`)               | có (1 giao dịch) | theo danh mục, không nhân theo người |
 
 Danh mục hệ thống → hiệu ứng: Ăn uống → `eat`, Mua sắm → `wardrobe`, Di
 chuyển/Xăng xe → `move`, Sức khỏe → `heal`, Vui chơi → `mood`, Điện nước/Khác →

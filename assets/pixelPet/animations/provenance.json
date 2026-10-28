@@ -1,0 +1,115 @@
+{
+  "date": "2026-10-28",
+  "generator": "Built-in image_gen; referenced existing project pet artwork",
+  "layout": {
+    "columns": 4,
+    "rows": 4,
+    "cellPixels": 256,
+    "atlasPixels": 1024
+  },
+  "promptTemplate": "EDIT the supplied existing character into ONE production animation sprite sheet. Preserve the same individual: exact species, face, colours, eye shape, outfit/markings, accessories, silhouette language and painted chibi illustration style. Match the reference viewing angle; never turn the camera. ONE square canvas with EXACTLY4 columns and4 rows of equal square cells (16 separate full-body poses). True transparent background. No text, no labels, no visible grid, no shadows, no terrain/platform/pedestal, no detached particles. Every complete character fits within the central80% of its cell with generous transparent gutter on all four sides. Keep the same head size, body scale and centered torso anchor across all16 cells. Never crop ears, tail, wings, feet or accessories. Row1 idle4 poses: resting neutral, breathing inhale, CLOSED-EYES blink, breathing exhale neutral. Row2 locomotion4 poses: {MOTION}. Row3 happy4 poses: anticipation crouch, joyful small hop, soft landing, settle smile. Row4 skill4 poses: anticipation, charging pose, casting gesture/open-mouth pose, recovery. {SKILL} Real different poses of legs/wings/neck/tail; do NOT just shift/rotate the identical drawing. Ensure sequential motion loops smoothly and every pose remains clearly the same pet. Clean isolated alpha edges. Target1024x1024 square atlas,256x256 cells.",
+  "variants": [
+    {
+      "id": "alicorn",
+      "motion": "a continuous four-phase wing-flap flight loop: wings high up; halfway down; fully down; halfway up. All four legs tuck for flying, flowing lavender mane and tail",
+      "skill": "Keep its single golden horn, white horse body, lavender feathered wings and blue eyes; skill is a horn-and-wings charging gesture without a projectile.",
+      "reference": "../alicorn.png",
+      "generatedSource": "exec-23640b7e-a366-48b5-95ae-94e8e5bca4dd.png"
+    },
+    {
+      "id": "nine_tail_fox",
+      "motion": "a four-phase quadruped WALK cycle, alternating front and rear paws visibly stepping in place, with all nine fluffy orange tails softly following. Transition from sitting idle to standing walk only in row2; preserve the same front/three-quarter facial angle",
+      "skill": "Keep blue eyes, white face/chest, little neck bell and nine orange white-tipped tails; skill poses fan the tails and open mouth without adding projectile.",
+      "reference": "../nine_tail_fox.png",
+      "generatedSource": "exec-05072a9b-4ee6-4dda-97de-549b30ac13a6.png"
+    },
+    {
+      "id": "qilin",
+      "motion": "four distinct phases of a quadruped stepping/trotting-in-place cycle: near front hoof up, contact, far front hoof up, contact; hind legs alternate and mane/tail follow",
+      "skill": "Keep teal green scales, gold horn shapes, orange flame mane and fiery hooves. Skill poses lower and raise the head/horns; no new animals or detached fireballs.",
+      "reference": "../qilin.png",
+      "generatedSource": "exec-3089caa0-bbee-4b5c-9db7-7ce6f4cf0145.png"
+    },
+    {
+      "id": "rune_wolf",
+      "motion": "four distinct phases of a quadruped walking-in-place cycle with alternating forepaws and hindpaws, tail swishing. REMOVE the rock pedestal in all cells so the animal is standalone",
+      "skill": "Keep its grey fur, small dark horns, white forehead diamond and glowing white rune markings. Skill pose gradually lifts head to howl; no pedestal.",
+      "reference": "../rune_wolf.png",
+      "generatedSource": "exec-d17a277c-e839-48d5-bbd7-871a7f5a6053.png"
+    },
+    {
+      "id": "black_tortoise",
+      "motion": "a slow four-phase tortoise WALK cycle: clearly alternate front and back feet, neck extends and retracts a little, shell stays solid and consistent",
+      "skill": "Keep the same green tortoise face, circular gold shell motifs. Skill sequence retracts head partly into shell, braces feet, then returns; no new appendages.",
+      "reference": "../black_tortoise.png",
+      "generatedSource": "exec-a8aef875-5ae5-42ba-b70c-2ca1a4fc2ebb.png"
+    },
+    {
+      "id": "sphinx",
+      "motion": "a four-phase WING FLAP hover cycle: pale feathered wings fully up, half down, down, half up; lion paws tuck. Preserve the human pharaoh head looking same direction",
+      "skill": "Keep gold-blue striped headdress, human face and lion body. Skill poses brace front paws and lift head with wings spreading, no projectiles.",
+      "reference": "../sphinx.png",
+      "generatedSource": "exec-a478a9db-e24b-43ae-995c-31ccfe57f949.png"
+    },
+    {
+      "id": "centaur",
+      "motion": "four distinct frames of a little centaur WALK cycle, alternating all four deer/horse legs stepping; human upper body remains upright holding bow",
+      "skill": "Keep the same smiling brown-haired flower-crowned female centaur, green outfit, brown spotted quadruped body and bow. Skill draws the bow in anticipation then releases and recovers; no floating projectile.",
+      "reference": "../centaur.png",
+      "generatedSource": "exec-4d44888a-733b-4d3e-b236-dbfcc6b8e3e0.png"
+    },
+    {
+      "id": "azure_dragon",
+      "motion": "four distinct poses of a serpentine floating/slithering loop: the curled green scaled body uncoils slightly left, curves to a soft S, flows right, returns; tiny limbs and tail follow, keep head anchor stable",
+      "skill": "Keep golden horns, green scales, cream belly, long whiskers and gold orb. Skill poses cradle then raise the orb; do not change species or create wings.",
+      "reference": "../azure_dragon.png",
+      "generatedSource": "exec-507c0314-f34e-42e7-a55d-48951a31b820.png"
+    },
+    {
+      "id": "koi_dragon",
+      "motion": "four distinct SWIMMING-in-air poses: long gold koi tail and fin edges wave left/up, center/down, right/up, center/down; body arcs slightly while preserving the reference diagonal facing angle",
+      "skill": "Keep orange-gold koi/dragon, little antlers, whiskers and long translucent golden fins. Skill builds a leaping posture and recovers; no water pedestal or detached splashes.",
+      "reference": "../koi_dragon.png",
+      "generatedSource": "exec-c4cbb940-bb43-400c-befe-fea24c4bb93a.png"
+    },
+    {
+      "id": "scylla",
+      "motion": "four phases of a serpentine slither: coiled teal lower body undulates left/center/right/center while six dog-head appendages sway in distinct follow-through poses. Keep the female main face stable",
+      "skill": "Keep teal-haired female main head and exactly six smaller blue-green dog heads on flaming necks, coiled teal serpent body. Skill draws necks inward then fans them out; all six dog heads remain present.",
+      "reference": "../scylla.png",
+      "generatedSource": "exec-60800459-a9be-4270-87dc-5c5067b7df46.png"
+    },
+    {
+      "id": "lac_bird",
+      "motion": "a four-phase wing-flap flight loop: wings high up, half down, fully down, half up; tiny feet tuck and long patterned tail follows. REMOVE the stone platform in all cells",
+      "skill": "Keep teal/gold bronze-patterned feathers, crest, small orange beak and decorative long tail. Skill is a graceful raised-wing dance, no platform, no text.",
+      "reference": "../lac_bird.png",
+      "generatedSource": "exec-43da85fe-b338-4e21-bf66-4c66fa5aba1d.png"
+    },
+    {
+      "id": "anubis",
+      "motion": "four distinct frames of a two-legged WALK cycle with alternate feet forward and back; arms holding staff and ankh sway slightly",
+      "skill": "Keep the same brown jackal child, tall ears, teal/gold Egyptian headcloth and outfit, staff in one hand and gold ankh in the other. Skill raises staff then ankh and recovers.",
+      "reference": "../anubis.png",
+      "generatedSource": "exec-ce793f71-f4ff-42b2-ac86-9f0e8b80af9a.png"
+    },
+    {
+      "id": "garuda",
+      "motion": "a four-phase WING FLAP hover cycle: golden feathered wings fully up, half down, fully down, half up; two legs tuck and gold cloth follows",
+      "skill": "Keep the same crowned smiling human-faced chibi Garuda, gold wings, orange dhoti, red/gold jewels and tiny held snake. Skill raises one hand and fans wings, no detached effects.",
+      "reference": "../garuda.png",
+      "generatedSource": "exec-04765ada-06fa-4f0a-a998-c41e2fef844e.png"
+    }
+  ],
+  "phoenix": {
+    "reference": "../phoenix.png",
+    "generatedSource": "exec-b90e0444-3e84-49c7-b9fa-df8a1be727ba.png",
+    "prompt": "Create a production sprite animation atlas from the supplied phoenix character. This is an EDIT of the existing pet: preserve its exact cute orange/gold chibi phoenix identity, eye shape, face, feather style, outline thickness, palette, large flame tail, golden wings, and 3/4-facing-right viewing angle. Output ONE SQUARE PNG atlas with EXACTLY 4 columns and 4 rows, 16 equal square cells, edge-to-edge layout. No visible grid, no text, no labels, no ground, no background or shadows; true transparent alpha. Every cell contains exactly one complete phoenix at identical head size and aligned body center, plenty of transparent padding so even spread wings and tail fit in the cell. Do not crop any part. Camera and perspective stay fixed across all16 cells. Row1 idle4 frames: neutral relaxed wings, gentle inhale, eyes closed blink, exhale neutral. Row2 flight4 frames in a clear looping wing flap: wings high up, wings halfway down, wings strongly down, wings halfway up; wing feathers and their shapes MUST change pose, not just rotate the entire image. Feet tuck, flame tail follows flight. Row3 happy4 frames: crouch, cheerful small hop with wings raised, soft landing with wings spread, settle smile. Row4 skill4 frames: anticipation with wings drawn in, raised wing charging stance, open-beak casting with wings spread, recovered stance. The skill row has NO detached particles or flame projectile; the character itself changes pose. Keep all16 animals the same individual with unchanged design and scale. Cute polished hand-painted illustration matching the input, not pixel art, not3D. Target1024x1024 square, one cell256x256. Render actual different limb poses and clean stable animation registration."
+  },
+  "white_tiger": {
+    "generator": "Code-native pixel rig poses",
+    "source": "src/services/pixelPet/pixelPetRig.ts and pixelPetCatalog.ts",
+    "note": "Original palette/head/body/feature retained. Four leg-offset poses, blink, head anticipation and hop poses baked into atlas; no invented illustrated replacement."
+  },
+  "conditioning": "Segment the16 character alpha components from whole sheet before packing (not a rigid crop through wings). Remove isolated matte noise, retain2px antialiased edge, scale every pose of a species by the SAME factor with original cell coordinates as registration. Add>=6px transparent edge. Quantize256 colours; palette PNG uses tRNS alpha."
+}

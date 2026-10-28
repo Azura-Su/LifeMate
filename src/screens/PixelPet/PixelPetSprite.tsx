@@ -1,16 +1,7 @@
-import { memo, useEffect } from 'react';
+import { memo } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
-import Animated, {
-  cancelAnimation,
-  Easing,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import Svg, { Rect } from 'react-native-svg';
-import { scheduleOnRN } from 'react-native-worklets';
 import type { PixelPetSpecies } from '../../services/pixelPet/pixelPetCatalog';
 import {
   gridRects,
@@ -26,7 +17,9 @@ import {
   type PixelLayer,
 } from '../../services/pixelPet/pixelPetRig';
 import type { PixelPetClipId, PixelPetStage } from '../../types/pixelPet';
-import { PET_ART } from './petArt';
+import { PET_ART, PET_ATLASES } from './petArt';
+import { PixelPetAtlas } from './PixelPetAtlas';
+import { usePetPlayback } from './usePetPlayback';
 
 type Props = {
   species: PixelPetSpecies;
@@ -35,6 +28,8 @@ type Props = {
   clip?: PixelPetClipId;
   /** Off-screen or unfocused pets stop animating. */
   active?: boolean;
+  /** Loop the locomotion poses for roaming or a local animation preview. */
+  loopMovement?: boolean;
   onClipEnd?: () => void;
 };
 
@@ -51,11 +46,7 @@ const PixelGrid = memo(function PixelGrid({
   const rows = grid.length;
   const cols = grid[0]?.length ?? 0;
   return (
-    <Svg
-      width={cols * px}
-      height={rows * px}
-      viewBox={`0 0 ${cols} ${rows}`}
-    >
+    <Svg width={cols * px} height={rows * px} viewBox={`0 0 ${cols} ${rows}`}>
       {gridRects(grid).map((rect) => (
         <Rect
           key={`${rect.x}-${rect.y}`}
@@ -83,7 +74,8 @@ function useLayerStyle(
       PIXEL_CLIPS[clip][part],
       progress.value,
     );
-    const extra = part === 'feature' ? swing * Math.sin(progress.value * Math.PI * 2) : 0;
+    const extra =
+      part === 'feature' ? swing * Math.sin(progress.value * Math.PI * 2) : 0;
     return {
       transform: [
         { translateX: dx * px },
@@ -102,32 +94,19 @@ export function PixelPetSprite({
   size,
   clip = 'idle',
   active = true,
+  loopMovement = false,
   onClipEnd,
 }: Props) {
-  const reducedMotion = useReducedMotion();
-  const progress = useSharedValue(0);
+  const { progress, reducedMotion } = usePetPlayback({
+    clip,
+    speciesId: species.id,
+    active,
+    loopMovement,
+    onClipEnd,
+  });
   const look = STAGE_LOOK[stage];
   const px = size / PIXEL_CANVAS;
   const swing = PIXEL_RIGS[species.rig].featureSwing;
-  const definition = PIXEL_CLIPS[clip];
-
-  useEffect(() => {
-    cancelAnimation(progress);
-    progress.value = 0;
-    if (!active || reducedMotion) {
-      if (!definition.loop) onClipEnd?.();
-      return;
-    }
-    const timing = withTiming(
-      1,
-      { duration: definition.durationMs, easing: Easing.inOut(Easing.quad) },
-      (finished) => {
-        if (finished && !definition.loop && onClipEnd) scheduleOnRN(onClipEnd);
-      },
-    );
-    progress.value = definition.loop ? withRepeat(timing, -1, false) : timing;
-    return () => cancelAnimation(progress);
-  }, [active, reducedMotion, definition, onClipEnd, progress]);
 
   const styles = {
     body: useLayerStyle('body', progress, clip, px, swing),
@@ -142,7 +121,11 @@ export function PixelPetSprite({
     <View
       accessibilityRole="image"
       accessibilityLabel={`${species.name}, ${
-        stage === 'hatchling' ? 'ấu thể' : stage === 'juvenile' ? 'trưởng thành' : 'thăng hoa'
+        stage === 'hatchling'
+          ? 'ấu thể'
+          : stage === 'juvenile'
+            ? 'trưởng thành'
+            : 'thăng hoa'
       }`}
       style={[local.canvas, { width: size, height: size }]}
     >
@@ -162,25 +145,38 @@ export function PixelPetSprite({
             ]}
           />
         )}
-        {art && (
-          // Illustrated art moves as one piece on the body track.
-          <Animated.View style={[local.fill, styles.body]}>
-            <Image source={art} style={local.art} resizeMode="contain" />
-          </Animated.View>
-        )}
-        {layers.map((layer, index) => (
-          <Animated.View
-            key={`${layer.part}-${index}`}
-            style={[
-              local.layer,
-              // polishGrid pads one cell for the outline.
-              { left: (layer.x - 1) * px, top: (layer.y - 1) * px },
-              styles[layer.part],
-            ]}
-          >
-            <PixelGrid layer={layer} palette={species.palette} px={px} />
-          </Animated.View>
-        ))}
+        <PixelPetAtlas
+          key={species.id}
+          source={PET_ATLASES[species.id]}
+          size={size}
+          clip={clip}
+          progress={progress}
+          loopMovement={loopMovement}
+          animating={active && !reducedMotion}
+          fallback={
+            <>
+              {art && (
+                // Illustrated art moves as one piece on the body track.
+                <Animated.View style={[local.fill, styles.body]}>
+                  <Image source={art} style={local.art} resizeMode="contain" />
+                </Animated.View>
+              )}
+              {layers.map((layer, index) => (
+                <Animated.View
+                  key={`${layer.part}-${index}`}
+                  style={[
+                    local.layer,
+                    // polishGrid pads one cell for the outline.
+                    { left: (layer.x - 1) * px, top: (layer.y - 1) * px },
+                    styles[layer.part],
+                  ]}
+                >
+                  <PixelGrid layer={layer} palette={species.palette} px={px} />
+                </Animated.View>
+              ))}
+            </>
+          }
+        />
         {motif && (
           <View style={[local.layer, { left: px, top: px }]}>
             <PixelGrid

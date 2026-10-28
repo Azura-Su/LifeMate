@@ -45,6 +45,12 @@ export const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },
-  chipText: { fontSize: fontSize.label, color: colors.sunlight, fontWeight: '600' },
+  chipText: {
+    fontSize: fontSize.label,
+    color: colors.sunlight,
+    fontWeight: '600',
+  },
+  motionChip: { minHeight: layout.hitSize, justifyContent: 'center' },
+  chipSelected: { backgroundColor: colors.sunlightAction },
   actions: { gap: spacing.sm },
 });

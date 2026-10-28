@@ -13,6 +13,8 @@ import {
 } from '../../services/pixelPet/pixelPetApi';
 import { pixelPetSpecies } from '../../services/pixelPet/pixelPetCatalog';
 import { EFFECT_CLIP } from '../../services/pixelPet/pixelPetRig';
+import { petMovementLabel } from '../../services/pixelPet/pixelPetFrames';
+import { useScreenActive } from '../../hooks/useScreenActive';
 import { useAuthStore } from '../../store/authStore';
 import type {
   PixelPetClipId,
@@ -56,10 +58,12 @@ function useCountdown(expiresAt: number | null, serverNow: number | null) {
 export function PixelPetScreen({ navigation }: Props) {
   const uid = useAuthStore((state) => state.user?.uid ?? null);
   const focused = useIsFocused();
+  const active = useScreenActive();
   const [state, setState] = useState<PixelPetState | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [clip, setClip] = useState<PixelPetClipId>('idle');
+  const [loopMovement, setLoopMovement] = useState(false);
   const latest = useRef(0);
 
   const run = useCallback(
@@ -92,14 +96,21 @@ export function PixelPetScreen({ navigation }: Props) {
     reservation?.expiresAt ?? null,
     state?.now ?? null,
   );
-  const onClipEnd = useCallback(() => setClip('idle'), []);
+  const onClipEnd = useCallback(() => {
+    setLoopMovement(false);
+    setClip('idle');
+  }, []);
+  const playClip = (next: PixelPetClipId, loop = false) => {
+    setLoopMovement(loop);
+    setClip(next);
+  };
   const pet = state?.pet ?? null;
   const species = pixelPetSpecies(
     pet?.speciesId ?? reservation?.speciesId ?? '',
   );
   const command = (type: 'roll' | 'restore' | 'care') =>
     run({ type, actionId: newPixelPetAction() }, () => {
-      if (type === 'care') setClip('happy');
+      if (type === 'care') playClip('happy');
     });
 
   return (
@@ -136,9 +147,37 @@ export function PixelPetScreen({ navigation }: Props) {
             stage={pet?.stage ?? 'hatchling'}
             size={224}
             clip={clip}
-            active={focused}
+            active={focused && active}
+            loopMovement={loopMovement}
             onClipEnd={onClipEnd}
           />
+        </View>
+      )}
+
+      {species && (
+        <View style={styles.row}>
+          {(
+            [
+              ['move', petMovementLabel(species)],
+              ['happy', 'Vui vẻ'],
+              ['idle', 'Nghỉ ngơi'],
+            ] as const
+          ).map(([value, label]) => (
+            <Pressable
+              key={value}
+              accessibilityRole="button"
+              accessibilityLabel={label}
+              accessibilityState={{ selected: clip === value }}
+              onPress={() => playClip(value, value === 'move')}
+              style={[
+                styles.chip,
+                styles.motionChip,
+                clip === value && styles.chipSelected,
+              ]}
+            >
+              <Text style={styles.chipText}>{label}</Text>
+            </Pressable>
+          ))}
         </View>
       )}
 
@@ -150,7 +189,9 @@ export function PixelPetScreen({ navigation }: Props) {
             ngẫu nhiên; linh thú được giữ cho bạn 5 phút để quyết định.
           </Text>
           {state.availability.owned >= state.availability.total ? (
-            <Text style={styles.notice}>Tất cả 15 linh thú đã được nhận nuôi.</Text>
+            <Text style={styles.notice}>
+              Tất cả 15 linh thú đã được nhận nuôi.
+            </Text>
           ) : state.rollsLeft > 0 ? (
             <Button
               title={`Chọn ngẫu nhiên (còn ${state.rollsLeft} lượt)`}
@@ -230,7 +271,9 @@ export function PixelPetScreen({ navigation }: Props) {
             </View>
             <Text style={styles.meta}>
               {pet.totalExp} EXP
-              {pet.nextLevelExp !== null ? ` / ${pet.nextLevelExp}` : ' · tối đa'}
+              {pet.nextLevelExp !== null
+                ? ` / ${pet.nextLevelExp}`
+                : ' · tối đa'}
             </Text>
             <Text style={styles.body}>
               Kỹ năng {species.skill}:{' '}
@@ -238,31 +281,34 @@ export function PixelPetScreen({ navigation }: Props) {
             </Text>
           </View>
 
-          {!!state?.todayEffects && Object.keys(state.todayEffects).length > 0 && (
-            <View style={styles.card}>
-              <Text style={styles.meta}>Hôm nay từ sổ thu chi</Text>
-              <View style={styles.row}>
-                {(Object.keys(state.todayEffects) as PixelPetEffect[]).map(
-                  (effect) => (
-                    <Pressable
-                      key={effect}
-                      accessibilityRole="button"
-                      onPress={() => setClip(EFFECT_CLIP[effect])}
-                      style={styles.chip}
-                    >
-                      <Text style={styles.chipText}>
-                        {EFFECT_LABEL[effect]} ×{state.todayEffects![effect]}
-                      </Text>
-                    </Pressable>
-                  ),
-                )}
+          {!!state?.todayEffects &&
+            Object.keys(state.todayEffects).length > 0 && (
+              <View style={styles.card}>
+                <Text style={styles.meta}>Hôm nay từ sổ thu chi</Text>
+                <View style={styles.row}>
+                  {(Object.keys(state.todayEffects) as PixelPetEffect[]).map(
+                    (effect) => (
+                      <Pressable
+                        key={effect}
+                        accessibilityRole="button"
+                        onPress={() => playClip(EFFECT_CLIP[effect])}
+                        style={styles.chip}
+                      >
+                        <Text style={styles.chipText}>
+                          {EFFECT_LABEL[effect]} ×{state.todayEffects![effect]}
+                        </Text>
+                      </Pressable>
+                    ),
+                  )}
+                </View>
               </View>
-            </View>
-          )}
+            )}
 
           <View style={styles.actions}>
             <Button
-              title={pet.caredToday ? 'Đã chăm sóc hôm nay' : 'Vuốt ve, chăm sóc'}
+              title={
+                pet.caredToday ? 'Đã chăm sóc hôm nay' : 'Vuốt ve, chăm sóc'
+              }
               disabled={pet.caredToday}
               loading={busy === 'care'}
               onPress={() => void command('care')}
@@ -271,7 +317,7 @@ export function PixelPetScreen({ navigation }: Props) {
               <Button
                 variant="secondary"
                 title={`Thi triển ${species.skill}`}
-                onPress={() => setClip('skill')}
+                onPress={() => playClip('skill')}
               />
             )}
           </View>
