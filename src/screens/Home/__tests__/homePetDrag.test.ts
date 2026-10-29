@@ -1,8 +1,4 @@
-import {
-  clampDragPosition,
-  nextDragPhase,
-  petFallStyle,
-} from '../homePetDrag';
+import { clampDragPosition, nextDragPhase, petFallStyle } from '../homePetDrag';
 import { PIXEL_PET_SPECIES } from '../../../services/pixelPet/pixelPetCatalog';
 import { CELESTIAL_STAG_ID } from '../../../services/pixelPet/celestialStagPuppet';
 
@@ -10,20 +6,25 @@ describe('clampDragPosition', () => {
   it.each([
     { width: 390, height: 844, minY: 104, maxY: 720 },
     { width: 430, height: 932, minY: 118, maxY: 808 },
-  ])('keeps the pet within bounds on a $width×$height screen', ({ width, minY, maxY }) => {
-    const bounds = {
-      minX: 0,
-      maxX: width - 144,
-      minY,
-      maxY,
-    };
-    expect(
-      clampDragPosition({ x: 900, y: -200 }, bounds),
-    ).toEqual({ x: bounds.maxX, y: minY });
-    expect(
-      clampDragPosition({ x: -20, y: 900 }, bounds),
-    ).toEqual({ x: 0, y: maxY });
-  });
+  ])(
+    'keeps the pet within bounds on a $width×$height screen',
+    ({ width, minY, maxY }) => {
+      const bounds = {
+        minX: 0,
+        maxX: width - 144,
+        minY,
+        maxY,
+      };
+      expect(clampDragPosition({ x: 900, y: -200 }, bounds)).toEqual({
+        x: bounds.maxX,
+        y: minY,
+      });
+      expect(clampDragPosition({ x: -20, y: 900 }, bounds)).toEqual({
+        x: 0,
+        y: maxY,
+      });
+    },
+  );
 
   it('normalizes collapsed bounds on a very small container', () => {
     expect(
@@ -43,7 +44,7 @@ describe('nextDragPhase', () => {
   };
   const ground = { ...wings, airborne: false };
 
-  it('keeps a quick tap in roam and lifts only after the hold threshold', () => {
+  it('lifts from roam and ignores unrelated animation advances', () => {
     expect(nextDragPhase('roam', 'advance', wings)).toBe('roam');
     expect(nextDragPhase('roam', 'lift', wings)).toBe('lifted');
   });
@@ -75,7 +76,10 @@ describe('nextDragPhase', () => {
 
 describe('petFallStyle', () => {
   it('assigns a fall style to every species and the exclusive Stag', () => {
-    const species = [...PIXEL_PET_SPECIES.map(({ id }) => id), CELESTIAL_STAG_ID];
+    const species = [
+      ...PIXEL_PET_SPECIES.map(({ id }) => id),
+      CELESTIAL_STAG_ID,
+    ];
     for (const id of species) expect(petFallStyle(id)).toBeTruthy();
     expect(petFallStyle('azure_dragon')).toBe('coil');
     expect(petFallStyle('koi_dragon')).toBe('flop');

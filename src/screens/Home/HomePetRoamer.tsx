@@ -8,7 +8,6 @@ import {
 } from 'react';
 import {
   PanResponder,
-  Pressable,
   StyleSheet,
   useWindowDimensions,
   View,
@@ -67,8 +66,6 @@ const GROUND_Y = SIZE * 0.24 + spacing.xs;
 const LAND_MS = 900;
 const TRICK_MS = 2600;
 const REST_MS = 4000;
-const DRAG_HOLD_MS = 250;
-const DRAG_CANCEL_DISTANCE = 8;
 
 export type StagHomePhase = CelestialStagHomePhase;
 
@@ -166,8 +163,7 @@ type Props = {
   active: boolean;
   containerWidth: number;
   containerHeight: number;
-  headerBottom: number;
-  onPress: () => void;
+  topInset: number;
 };
 
 type DepartingGarden = {
@@ -183,8 +179,7 @@ export function HomePetRoamer({
   active,
   containerWidth,
   containerHeight,
-  headerBottom,
-  onPress,
+  topInset,
 }: Props) {
   const read = useCallback(() => (uid ? readOwnedPixelPet(uid) : null), [uid]);
   const pet = useSyncExternalStore(subscribeOwnedPixelPet, read, read);
@@ -225,18 +220,14 @@ export function HomePetRoamer({
   const dragMode = useSharedValue(0);
   const dragScale = useSharedValue(1);
   const dragRotation = useSharedValue(0);
-  const dragReady = useRef(false);
-  const pressConsumed = useRef(false);
-  const dragging = useRef(false);
   const dragCompleted = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
-  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fallStyle = petFallStyle(species?.id ?? '');
   const bounds: DragBounds = {
     minX: 0,
     maxX: range,
-    minY: headerBottom,
-    maxY: Math.max(headerBottom, laneTop + GROUND_Y),
+    minY: topInset,
+    maxY: Math.max(topInset, laneTop + GROUND_Y),
   };
   const boundsRef = useRef(bounds);
   boundsRef.current = bounds;
@@ -249,6 +240,9 @@ export function HomePetRoamer({
     range > 0 &&
     dragPhase === 'roam';
   const sleeping = stag && stagPhase === 'sleep';
+  // Keep the same responder while waking the pet during an active touch.
+  const sleepingRef = useRef(sleeping);
+  sleepingRef.current = sleeping;
   const roaming =
     !!species &&
     !!pet &&
@@ -300,11 +294,6 @@ export function HomePetRoamer({
   const setDragPhase = useCallback((phase: DragPhase) => {
     dragPhaseRef.current = phase;
     setDragPhaseState(phase);
-  }, []);
-
-  const clearPressTimer = useCallback(() => {
-    if (pressTimer.current) clearTimeout(pressTimer.current);
-    pressTimer.current = null;
   }, []);
 
   const currentRoamTop = useCallback(
@@ -381,66 +370,23 @@ export function HomePetRoamer({
     (dx = 0, dy = 0) => {
       if (dragCompleted.current) return;
       dragCompleted.current = true;
-      clearPressTimer();
       const position = clampDragPosition(
         { x: dragStart.current.x + dx, y: dragStart.current.y + dy },
         boundsRef.current,
       );
       x.value = position.x;
       dragTop.value = position.y;
-      dragReady.current = false;
-      dragging.current = false;
       const next = nextDragPhase(dragPhaseRef.current, 'release', {
         fallStyle,
         airborne: position.y < groundTop - 1,
         reducedMotion,
       });
       setDragPhase(next);
-    }, [clearPressTimer, dragTop, fallStyle, groundTop, reducedMotion, setDragPhase, x],
+    },
+    [dragTop, fallStyle, groundTop, reducedMotion, setDragPhase, x],
   );
 
-  const beginPress = useCallback(() => {
-    if (!active) return;
-    clearPressTimer();
-    dragReady.current = false;
-    pressConsumed.current = false;
-    dragCompleted.current = false;
-    pressTimer.current = setTimeout(() => {
-      pressTimer.current = null;
-      if (!active) return;
-      dragReady.current = true;
-      pressConsumed.current = true;
-      freezePetForLift();
-      if (sleeping) wakeStag();
-      setDragPhase('lifted');
-    }, DRAG_HOLD_MS);
-  }, [
-    active,
-    clearPressTimer,
-    freezePetForLift,
-    setDragPhase,
-    sleeping,
-    wakeStag,
-  ]);
-
-  const endPress = useCallback(() => {
-    clearPressTimer();
-    if (!active) return;
-    if (!dragReady.current || dragging.current || dragCompleted.current) return;
-    const top = clampDragPosition(
-      { x: x.value, y: dragMode.value ? dragTop.value : currentRoamTop() },
-      boundsRef.current,
-    );
-    dragStart.current = top;
-    dragTop.value = top.y;
-    dragMode.value = 1;
-    releaseDrag();
-  }, [active, clearPressTimer, currentRoamTop, dragMode, dragTop, releaseDrag, x]);
-
   const cancelDrag = useCallback(() => {
-    clearPressTimer();
-    dragReady.current = false;
-    dragging.current = false;
     dragCompleted.current = true;
     cancelAnimation(x);
     cancelAnimation(ground);
@@ -459,7 +405,6 @@ export function HomePetRoamer({
     else if (flier) setWalking(true);
   }, [
     airHeight,
-    clearPressTimer,
     dragMode,
     dragRotation,
     dragScale,
@@ -493,18 +438,33 @@ export function HomePetRoamer({
       const rightX = Math.max(0, Math.min(range, startX + radius));
       const leftX = Math.max(0, Math.min(range, startX - radius));
       x.value = withSequence(
-        withTiming(rightX, { duration: 500, easing: Easing.inOut(Easing.quad) }),
+        withTiming(rightX, {
+          duration: 500,
+          easing: Easing.inOut(Easing.quad),
+        }),
         withTiming(leftX, { duration: 500, easing: Easing.inOut(Easing.quad) }),
-        withTiming(startX, { duration: 500, easing: Easing.inOut(Easing.quad) }),
+        withTiming(startX, {
+          duration: 500,
+          easing: Easing.inOut(Easing.quad),
+        }),
       );
-      const remainingHeight = Math.max(0, groundTop - dragTop.value);
-      const circleTop = groundTop - Math.min(SIZE * 0.3, remainingHeight * 0.4);
-      dragTop.value = withTiming(circleTop, { duration });
+      // Circle around the release point before descending. Moving directly
+      // toward the floor here makes a high drop look like a failed drag.
+      const startTop = dragTop.value;
+      const riseTop = Math.max(boundsRef.current.minY, startTop - radius / 2);
+      const dipTop = Math.min(groundTop, startTop + radius / 2);
+      dragTop.value = withSequence(
+        withTiming(riseTop, { duration: 500 }),
+        withTiming(dipTop, { duration: 500 }),
+        withTiming(startTop, { duration: 500 }),
+      );
     } else if (dragPhase === 'fall' || dragPhase === 'descend') {
       dragTop.value = withTiming(groundTop, {
         duration,
         easing:
-          dragPhase === 'descend' || fallStyle === 'coil' || fallStyle === 'flop'
+          dragPhase === 'descend' ||
+          fallStyle === 'coil' ||
+          fallStyle === 'flop'
             ? Easing.out(Easing.quad)
             : Easing.in(Easing.quad),
       });
@@ -557,21 +517,16 @@ export function HomePetRoamer({
   ]);
 
   useEffect(() => {
-    if (!active) {
-      clearPressTimer();
-      dragReady.current = false;
-      if (dragPhaseRef.current !== 'roam') cancelDrag();
-    }
-  }, [active, cancelDrag, clearPressTimer]);
+    if (!active && dragPhaseRef.current !== 'roam') cancelDrag();
+  }, [active, cancelDrag]);
 
   useEffect(() => {
     return () => {
-      clearPressTimer();
       cancelAnimation(dragTop);
       cancelAnimation(dragRotation);
       cancelAnimation(dragScale);
     };
-  }, [clearPressTimer, dragRotation, dragScale, dragTop]);
+  }, [dragRotation, dragScale, dragTop]);
 
   const finishGarden = useCallback((id: number) => {
     setDepartingGarden((current) => (current?.id === id ? null : current));
@@ -826,53 +781,17 @@ export function HomePetRoamer({
     };
   });
 
-  const handlePress = () => {
-    if (pressConsumed.current) return;
-    if (sleeping) {
-      wakeStag();
-      return;
-    }
-    onPress();
-  };
   const responder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => false,
-        onMoveShouldSetPanResponderCapture: (_event, gesture) => {
-          if (!active) return false;
-          const distance = Math.hypot(gesture.dx, gesture.dy);
-          if (!dragReady.current && distance > DRAG_CANCEL_DISTANCE) {
-            clearPressTimer();
-            return false;
-          }
-          if (dragReady.current && distance > 0) {
-            // Pressable may emit pressOut while its child loses the responder.
-            // Mark the gesture before that callback so it cannot land early.
-            dragging.current = true;
-            return true;
-          }
-          return false;
-        },
+        // This view covers only the pet. Claim the touch immediately so moving
+        // outside its original frame cannot cancel a drag or press a card below.
+        onStartShouldSetPanResponder: () => active,
         onPanResponderGrant: () => {
-          clearPressTimer();
-          dragging.current = true;
           dragCompleted.current = false;
-          cancelAnimation(x);
-          cancelAnimation(ground);
-          cancelAnimation(airHeight);
-          cancelAnimation(dragTop);
-          const start = clampDragPosition(
-            {
-              x: x.value,
-              y: dragMode.value ? dragTop.value : currentRoamTop(),
-            },
-            boundsRef.current,
-          );
-          travelling.value = 0;
-          dragStart.current = start;
-          x.value = start.x;
-          dragTop.value = start.y;
-          dragMode.value = 1;
+          freezePetForLift();
+          if (sleepingRef.current) wakeStag();
+          setDragPhase('lifted');
         },
         onPanResponderMove: (_event, gesture) => {
           if (!active) return;
@@ -885,28 +804,25 @@ export function HomePetRoamer({
           );
           x.value = next.x;
           dragTop.value = next.y;
-          if (Math.abs(gesture.dx) > 1)
-            heading.value = gesture.dx > 0 ? 1 : -1;
+          if (Math.abs(gesture.dx) > 1) heading.value = gesture.dx > 0 ? 1 : -1;
         },
         onPanResponderRelease: (_event, gesture) => {
           if (!active) cancelDrag();
           else releaseDrag(gesture.dx, gesture.dy);
         },
         onPanResponderTerminate: cancelDrag,
-        onPanResponderTerminationRequest: () => !dragging.current,
+        onPanResponderTerminationRequest: () => false,
+        onShouldBlockNativeResponder: () => true,
       }),
     [
       active,
-      airHeight,
       cancelDrag,
-      clearPressTimer,
-      currentRoamTop,
-      dragMode,
       dragTop,
-      ground,
+      freezePetForLift,
       heading,
       releaseDrag,
-      travelling,
+      setDragPhase,
+      wakeStag,
       x,
     ],
   );
@@ -956,54 +872,47 @@ export function HomePetRoamer({
       )}
       <Animated.View
         {...responder.panHandlers}
+        pointerEvents={active ? 'box-only' : 'none'}
+        accessible
+        accessibilityRole={sleeping ? 'button' : 'image'}
+        accessibilityLabel={
+          sleeping
+            ? `Đánh thức linh thú ${species.name}`
+            : `Linh thú ${species.name}`
+        }
+        accessibilityHint="Chạm và kéo để di chuyển linh thú trên màn hình"
+        onAccessibilityTap={sleeping ? wakeStag : undefined}
         testID={`home-pet-drag-${dragPhase}`}
-        style={[
-          styles.pet,
-          flight,
-          dragPhase !== 'roam' && styles.petLifted,
-        ]}
+        style={[styles.pet, flight, dragPhase !== 'roam' && styles.petLifted]}
       >
         {stag && <HomeSleepGarden visible={sleeping} active={active} />}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={
-            sleeping
-              ? `Đánh thức linh thú ${species.name}`
-              : `Mở linh thú ${species.name}`
+        <PixelPetSprite
+          species={species}
+          stage={pet.stage}
+          size={SIZE}
+          clip={stag ? stagClip : (trick ?? 'move')}
+          dragPhase={dragPhase}
+          fallStyle={fallStyle}
+          flightPhase={stagFlightPhase}
+          loopMovement={stag ? true : !trick}
+          walking={
+            dragPhase !== 'roam'
+              ? false
+              : stag
+                ? STAG_GROUND_PHASES.has(stagPhase)
+                : (walking ?? !flier)
           }
-          onPress={handlePress}
-          onPressIn={beginPress}
-          onPressOut={endPress}
-          hitSlop={spacing.sm}
-        >
-          <PixelPetSprite
-            species={species}
-            stage={pet.stage}
-            size={SIZE}
-            clip={stag ? stagClip : (trick ?? 'move')}
-            dragPhase={dragPhase}
-            fallStyle={fallStyle}
-            flightPhase={stagFlightPhase}
-            loopMovement={stag ? true : !trick}
-            walking={
-              dragPhase !== 'roam'
-                ? false
-                : stag
-                  ? STAG_GROUND_PHASES.has(stagPhase)
-                  : (walking ?? !flier)
-            }
-            pace={
-              stag &&
-              ['walkToFlight', 'walkAfterLanding', 'settle'].includes(stagPhase)
-                ? 'walk'
-                : 'run'
-            }
-            gaitCycleDurationMs={stag ? stagGaitCycleMs : undefined}
-            motionCanvasScale={stag ? STAG_MOTION_CANVAS_SCALE : undefined}
-            active={active}
-            sleeping={sleeping}
-          />
-        </Pressable>
+          pace={
+            stag &&
+            ['walkToFlight', 'walkAfterLanding', 'settle'].includes(stagPhase)
+              ? 'walk'
+              : 'run'
+          }
+          gaitCycleDurationMs={stag ? stagGaitCycleMs : undefined}
+          motionCanvasScale={stag ? STAG_MOTION_CANVAS_SCALE : undefined}
+          active={active}
+          sleeping={sleeping}
+        />
       </Animated.View>
     </View>
   );

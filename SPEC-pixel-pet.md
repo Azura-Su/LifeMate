@@ -125,14 +125,18 @@ mỗi ô vẽ lại cả nhân vật ở một tư thế khác, không ghép cá
   lật theo hướng ảnh gốc ở hai đầu,
   loài đi bộ chỉ nhấp nhô nhẹ. Riêng Thiên Lộc, nhịp chân chạy/đi bộ được tính
   từ quãng đường và thời lượng từng pha; chuyển động ngang tuyến tính để vận
-  tốc thân và cadence chân cùng nhịp. Chạm mở màn Linh thú; không thêm API. Dừng khi
+  tốc thân và cadence chân cùng nhịp. Mở chi tiết từ lối tắt/menu Linh thú;
+  chạm vào nhân vật trên Home không điều hướng. Không thêm API. Dừng khi
   Home mất focus, mở lịch hoặc Reduced Motion.
-- Trên Home, giữ linh thú250ms rồi kéo để di chuyển tự do trong vùng từ dưới
-  header đến thanh tab. Di chuyển quá8pt trước ngưỡng giữ huỷ long-press để
-  thao tác cuộn tiếp tục hoạt động; chạm nhanh vẫn mở màn Linh thú. Thả pet có
-  cánh khi đang trên không thì lượn một vòng rồi đáp; pet khác rơi theo kiểu
+- Trên Home, chạm vào linh thú rồi kéo ngay để di chuyển tự do trong vùng từ
+  safe area phía trên (bao gồm header) đến thanh tab. Nhân vật giữ quyền nhận
+  cử chỉ khi ngón tay ra ngoài khung hình gốc; không có ngưỡng giữ hoặc thao tác
+  chạm mở chi tiết. Lớp phủ chỉ nhận chạm trong khung linh thú, các vùng khác
+  vẫn cuộn và chạm Home bình thường; tắt nhận chạm khi Home không hoạt động,
+  đang mở lịch hoặc menu. Thả pet có
+  cánh khi đang trên không thì lượn một vòng quanh vị trí thả rồi đáp; pet khác rơi theo kiểu
   loài. Khi Reduced Motion bật, pet được đặt thẳng xuống. Rời Home giữa lúc
-  kéo sẽ đưa pet xuống đất và huỷ timer/animation. Linh thú Thiên Lộc đang ngủ
+  kéo sẽ đưa pet xuống đất và huỷ animation. Linh thú Thiên Lộc đang ngủ
   được đánh thức khi nhấc, đáp xuống ở pha chạy rồi tiếp tục chu kỳ ngủ hiện có.
 - **4 rig** và các lưới/màu trong `pixelPetRig.ts`/`pixelPetCatalog.ts` được giữ làm
   fallback và nguồn của Bạch Hổ. Không thay sở hữu, loài, EXP, tài khoản hay API.

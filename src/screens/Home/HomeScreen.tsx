@@ -28,6 +28,7 @@ import { readPrepChecklists } from '../../services/checklists/checklistStorage';
 import type { PrepChecklist } from '../../types/prepChecklist';
 import { useScreenActive } from '../../hooks/useScreenActive';
 import { usePixelPetRefresh } from '../../hooks/usePixelPetRefresh';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function greeting() {
   const hour = new Date().getHours();
@@ -43,6 +44,7 @@ export function HomeScreen({
   const model = useHomeScreen();
   const uid = useAuthStore((state) => state.user?.uid);
   const active = useScreenActive();
+  const insets = useSafeAreaInsets();
   usePixelPetRefresh(uid, active);
   const [checklists, setChecklists] = useState<PrepChecklist[]>([]);
   const [checklistsLoading, setChecklistsLoading] = useState(true);
@@ -58,7 +60,6 @@ export function HomeScreen({
   const refreshInFlight = useRef(false);
   const [focused, setFocused] = useState(true);
   const [homeLayout, setHomeLayout] = useState({ width: 0, height: 0 });
-  const [headerBottom, setHeaderBottom] = useState(0);
   useEffect(() => {
     const offFocus = navigation.addListener?.('focus', () => setFocused(true));
     const offBlur = navigation.addListener?.('blur', () => setFocused(false));
@@ -151,12 +152,6 @@ export function HomeScreen({
       <Screen
         backgroundColor={colors.background}
         safeAreaBackgroundColor={colors.sunlightFaint}
-        fixedHeaderOnLayout={(event: LayoutChangeEvent) => {
-          const { y, height } = event.nativeEvent.layout;
-          setHeaderBottom((current) =>
-            current === y + height ? current : y + height,
-          );
-        }}
         fixedHeader={
           <View style={styles.header}>
             <View style={styles.greeting}>
@@ -348,11 +343,10 @@ export function HomeScreen({
       </Screen>
       <HomePetRoamer
         uid={uid ?? null}
-        active={focused && !calendarVisible}
+        active={focused && active && !calendarVisible && !drawerVisible}
         containerWidth={homeLayout.width}
         containerHeight={homeLayout.height}
-        headerBottom={headerBottom}
-        onPress={() => navigation.navigate('PixelPet')}
+        topInset={insets.top}
       />
     </View>
   );
