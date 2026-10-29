@@ -1,4 +1,26 @@
-# Quản lý linh thú cho admin, 28/10/2026
+# Chia khoản chi theo người/suất — 29/10/2026
+
+1. Trong Thêm/Sửa giao dịch → Có người cần trả lại, thêm lựa chọn Chia đều,
+   Theo suất, Tự nhập. Giữ Tự nhập làm mặc định và giữ nguyên tiền đã lưu khi
+   mở sửa giao dịch cũ. Chia đều có tính phần của tôi mặc định, cho phép bỏ;
+   theo suất cho nhập suất từng người và suất của tôi (có thể 0).
+2. Utility tính số tiền nguyên đồng bằng phân bổ tỷ lệ + phần dư lớn nhất,
+   tie theo thứ tự hiển thị (tôi rồi các người khác). Nhận suất thập phân tối đa
+   2 chữ số, dấu chấm/phẩy; không dùng số thực để nhân số tiền lớn. Tổng các
+   phần phải bằng hóa đơn; không lưu người nợ 0đ hoặc số tiền vượt khả năng lưu.
+3. Tách block chia khoản chi sang SharedExpenseSplitEditor theo UI token; tiền
+   tự tính hiển thị rõ, Tự nhập vẫn sửa trực tiếp. Đổi sang Tự nhập giữ số đang
+   xem; thêm/bớt người hoặc sửa hóa đơn tự tính lại ở chế độ tự động.
+4. Giữ data contract SharedExpense hiện tại (participants/receipts); lưu số tiền
+   kết quả như cũ, không thêm metadata/rules/migration. Giữ chặn giảm nợ thấp
+   hơn đã nhận, xóa người có lịch sử trả, receipts và công thức báo cáo hiện có.
+5. Reviewer duyệt plan/diff vì thay tính tiền. Test phân bổ/tổng/làm tròn/suất
+   sai/số lớn và luồng UI lưu/sửa/receipt. Typecheck, lint, Jest liên quan và
+   kiểm tra native khi có Simulator. Không deploy trong lượt này.
+
+---
+
+# Đã hoàn tất: Quản lý linh thú cho admin, 28/10/2026
 
 1. Trang riêng trong menu Quản trị: danh mục 15 linh thú, trạng thái trống/giữ
    chỗ/có chủ, tên/email/UID người giữ, cấp độ và EXP do backend tính. Tìm kiếm

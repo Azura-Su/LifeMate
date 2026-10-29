@@ -47,6 +47,25 @@ Theo cấu trúc screen/hook/styles và component hiện tại; validate dữ li
 
 ## Success Criteria
 
+### Chia khoản chi cho người cần trả lại
+
+- Trong Thêm/Sửa giao dịch chi → Có người cần trả lại có ba cách: **Tự nhập**
+  (mặc định), **Chia đều**, **Theo suất**. Chia đều mặc định gồm phần của tôi,
+  cho phép bỏ phần của tôi nếu chỉ trả hộ. Theo suất nhập số suất từng người;
+  suất của tôi có thể 0, suất người cần trả phải >0. Hỗ trợ tối đa hai chữ số
+  thập phân, dấu chấm/phẩy (ví dụ 1,5), giới hạn 9.999,99 suất.
+- Chia tự động tính lại ngay khi thay tổng tiền/thành viên/suất; số tiền tự
+  tính chỉ đọc. Đổi sang Tự nhập giữ số tiền đang xem để sửa tiếp. Chặn suất
+  sai hoặc hóa đơn quá nhỏ khiến có người cần trả 0đ.
+- Phân bổ theo tỷ lệ, làm tròn xuống đến đồng và chia các đồng còn lại cho
+  phần có số dư lớn nhất; bằng nhau theo thứ tự tôi rồi từng người trong form.
+  Tổng phần của tôi và tiền các người khác luôn khớp hóa đơn; dùng BigInt cho
+  phép nhân/chia để không sai số với tổng tiền lớn trong giới hạn safe integer.
+- Giữ cấu trúc lưu SharedExpense hiện tại (participants/receipts). Chỉ lưu số
+  tiền kết quả; mở giao dịch cũ ở Tự nhập, giữ nguyên ID người, nợ đã lưu và
+  các lần nhận lại. Không được chia lại thấp hơn tiền đã nhận hoặc xóa người
+  đã trả tiền. Cách tính báo cáo/nhận lại không đổi; không thêm rules/schema.
+
 - Người dùng có thể ghi giao dịch thu nhập/lương và chi tiêu với số tiền, danh mục, mô tả ngắn.
 - Khi nhập tiền trong Thu chi, Thu nhập, Chi tiêu, Cho vay hoặc Đóng hộ, ô nhập hiện số có dấu phân cách hàng nghìn và ký hiệu `đ`; dòng bên dưới đọc số tiền bằng chữ để đối chiếu trước khi lưu.
 - Thu chi mặc định là tháng hiện tại; người dùng tìm tháng bằng picker năm/tháng hoặc chuyển tháng trước/sau. Giao dịch mới cho chọn ngày phát sinh.

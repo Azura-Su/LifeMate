@@ -1,4 +1,12 @@
-# Quản lý linh thú admin
+# Chia khoản chi theo người/suất
+
+- [x] Reviewer duyệt plan tính tiền và tương thích receipts.
+- [x] Regression utility → phân bổ chính xác, kiểm tra suất và làm tròn.
+- [x] UI ba chế độ, giữ tiền khi đổi mode và sửa giao dịch.
+- [x] Regression lưu/sửa/các lần nhận lại; typecheck và lint.
+- [x] Reviewer diff không còn finding; kết quả trong shared-expense-split-result-2026-10-29.md.
+
+# Đã hoàn tất: Quản lý linh thú admin
 
 - [x] Reviewer rà kế hoạch; chốt khóa access trước pet account và chặn sync cũ.
 - [x] Migration và regression quyền/ownership/receipt/restore/EXP.

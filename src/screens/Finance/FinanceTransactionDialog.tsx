@@ -32,9 +32,13 @@ import {
   formatFinanceDate,
   parseFinanceAmount,
   parseFinanceDate,
-  formatFinanceAmount,
 } from '../../utils/finance';
 import { getSharedExpensePersonTotals } from '../../utils/sharedExpense';
+import {
+  createExpenseSplitDraft,
+  previewExpenseSplit,
+} from '../../utils/sharedExpenseSplit';
+import { SharedExpenseSplitEditor } from './SharedExpenseSplitEditor';
 import { FinanceDatePicker } from './FinanceDatePicker';
 import { styles } from './FinanceTransactionDialog.styles';
 
@@ -47,8 +51,6 @@ type Draft = {
   date: string;
   sharedExpense?: SharedExpense;
 };
-
-type PersonDraft = { id: string; name: string; amount: string };
 
 function makePersonId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
@@ -149,7 +151,9 @@ export function FinanceTransactionDialog({
   const [sharingEnabled, setSharingEnabled] = useState(
     !!initialTransaction?.sharedExpense,
   );
-  const [sharedPeople, setSharedPeople] = useState<PersonDraft[]>([]);
+  const [splitDraft, setSplitDraft] = useState(() =>
+    createExpenseSplitDraft(initialTransaction?.sharedExpense),
+  );
   const [error, setError] = useState<string | null>(null);
   const [templateName, setTemplateName] = useState('');
   const [newCategory, setNewCategory] = useState('');
@@ -182,12 +186,15 @@ export function FinanceTransactionDialog({
         (template.incomeSource ?? 'company') === incomeSource),
   );
   const parsedAmount = parseFinanceAmount(amount);
+  const splitPreview = previewExpenseSplit(parsedAmount, splitDraft);
+  const sharedPeople = splitPreview.people;
   const canSave =
     parsedAmount !== null &&
     parseFinanceDate(date) !== null &&
     !!category.trim() &&
     !busy &&
-    !preferenceBusy;
+    !preferenceBusy &&
+    !(type === 'expense' && sharingEnabled && splitPreview.error);
   const parsedDate = parseFinanceDate(date);
   const totalOwed = sharedPeople.reduce(
     (sum, person) => sum + (parseFinanceAmount(person.amount) ?? 0),
@@ -223,13 +230,7 @@ export function FinanceTransactionDialog({
       );
       setDatePickerVisible(false);
       setSharingEnabled(!!initialTransaction?.sharedExpense);
-      setSharedPeople(
-        initialTransaction?.sharedExpense?.participants.map((person) => ({
-          id: person.id,
-          name: person.name,
-          amount: String(person.owedAmount),
-        })) ?? [],
-      );
+      setSplitDraft(createExpenseSplitDraft(initialTransaction?.sharedExpense));
       setError(null);
       setTemplateName('');
       setNewCategory('');
@@ -287,6 +288,10 @@ export function FinanceTransactionDialog({
     let sharedExpense: SharedExpense | undefined;
     if (type === 'expense' && sharingEnabled) {
       const gross = parseFinanceAmount(amount)!;
+      if (splitPreview.error) {
+        setError(splitPreview.error);
+        return;
+      }
       if (sharedPeople.length === 0) {
         setError('Thêm ít nhất một người cần trả lại.');
         return;
@@ -300,7 +305,7 @@ export function FinanceTransactionDialog({
         setError('Nhập tên và số tiền cần trả của từng người.');
         return;
       }
-      if (totalOwed > gross) {
+      if (!Number.isSafeInteger(totalOwed) || totalOwed > gross) {
         setError('Tổng tiền cần trả lại không thể vượt số tiền đã chi.');
         return;
       }
@@ -831,12 +836,20 @@ export function FinanceTransactionDialog({
                 checked: sharingEnabled,
                 disabled: existingReceipts.length > 0,
               }}
-              disabled={busy || existingReceipts.length > 0}
+              disabled={busy || preferenceBusy || existingReceipts.length > 0}
               onPress={() => {
                 if (!sharingEnabled && sharedPeople.length === 0)
-                  setSharedPeople([
-                    { id: makePersonId(), name: '', amount: '' },
-                  ]);
+                  setSplitDraft((current) => ({
+                    ...current,
+                    people: [
+                      {
+                        id: makePersonId(),
+                        name: '',
+                        amount: '',
+                        portions: '1',
+                      },
+                    ],
+                  }));
                 setSharingEnabled(!sharingEnabled);
               }}
               style={styles.sharingToggle}
@@ -849,116 +862,31 @@ export function FinanceTransactionDialog({
               />
             </Pressable>
             {sharingEnabled && (
-              <View style={styles.sharingContent}>
-                {sharedPeople.map((person, index) => {
-                  const alreadyReceived = getSharedExpensePersonTotals(
-                    initialTransaction?.sharedExpense ?? {
-                      participants: [],
-                      receipts: [],
-                    },
-                    person.id,
-                  ).received;
-                  return (
-                    <View key={person.id} style={styles.personBlock}>
-                      <View style={styles.sectionHeading}>
-                        <Text style={styles.label}>Người {index + 1}</Text>
-                        {alreadyReceived === 0 && (
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={`Bỏ người ${index + 1}`}
-                            onPress={() =>
-                              setSharedPeople((current) =>
-                                current.filter(({ id }) => id !== person.id),
-                              )
-                            }
-                            hitSlop={5}
-                            style={actionIconStyles.deleteCompact}
-                          >
-                            <Feather name="x" size={16} color={colors.danger} />
-                          </Pressable>
-                        )}
-                      </View>
-                      <View style={styles.personRow}>
-                        <TextInput
-                          accessibilityLabel={`Tên người ${index + 1}`}
-                          placeholder="Tên người"
-                          placeholderTextColor={colors.muted}
-                          value={person.name}
-                          onChangeText={(name) =>
-                            setSharedPeople((current) =>
-                              current.map((item) =>
-                                item.id === person.id
-                                  ? { ...item, name }
-                                  : item,
-                              ),
-                            )
-                          }
-                          maxLength={100}
-                          editable={!busy}
-                          style={[styles.input, styles.personName]}
-                        />
-                        <View style={styles.personAmount}>
-                          <FinanceAmountInput
-                            accessibilityLabel={`Số tiền người ${index + 1} cần trả`}
-                            value={person.amount}
-                            onChangeText={(value) =>
-                              setSharedPeople((current) =>
-                                current.map((item) =>
-                                  item.id === person.id
-                                    ? { ...item, amount: value }
-                                    : item,
-                                ),
-                              )
-                            }
-                            editable={!busy}
-                            compact
-                          />
-                        </View>
-                      </View>
-                      <FinanceAmountWords value={person.amount} />
-                      {alreadyReceived > 0 && (
-                        <Text style={styles.sharingHint}>
-                          Đã nhận {formatFinanceAmount(alreadyReceived)}
-                        </Text>
-                      )}
-                    </View>
-                  );
-                })}
-                {sharedPeople.length < 20 && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Thêm người cần trả lại"
-                    accessibilityState={{ disabled: busy }}
-                    disabled={busy}
-                    onPress={() =>
-                      setSharedPeople((current) => [
-                        ...current,
-                        { id: makePersonId(), name: '', amount: '' },
-                      ])
-                    }
-                    style={({ pressed }) => [
-                      styles.addPerson,
-                      pressed && styles.addPersonPressed,
-                    ]}
-                  >
-                    <Feather name="user-plus" size={16} color={colors.earth} />
-                    <Text style={styles.addPersonText}>Thêm người</Text>
-                  </Pressable>
-                )}
-                {parsedAmount !== null && (
-                  <Text
-                    style={
-                      totalOwed > parsedAmount
-                        ? styles.error
-                        : styles.sharingHint
-                    }
-                  >
-                    {totalOwed > parsedAmount
-                      ? 'Tổng tiền cần trả lại vượt số đã chi.'
-                      : `Phần của tôi dự kiến: ${formatFinanceAmount(parsedAmount - totalOwed)}`}
-                  </Text>
-                )}
-              </View>
+              <SharedExpenseSplitEditor
+                draft={splitDraft}
+                onChange={setSplitDraft}
+                gross={parsedAmount}
+                existing={initialTransaction?.sharedExpense}
+                disabled={busy || preferenceBusy}
+                onAddPerson={() =>
+                  setSplitDraft((current) =>
+                    current.people.length >= 20
+                      ? current
+                      : {
+                          ...current,
+                          people: [
+                            ...current.people,
+                            {
+                              id: makePersonId(),
+                              name: '',
+                              amount: '',
+                              portions: '1',
+                            },
+                          ],
+                        },
+                  )
+                }
+              />
             )}
           </View>
         )}

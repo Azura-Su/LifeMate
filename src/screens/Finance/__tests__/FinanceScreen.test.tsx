@@ -327,6 +327,33 @@ it('formats the entered amount and can dismiss the form from its header', async 
   expect(screen.queryByLabelText('Số tiền')).toBeNull();
 });
 
+it('persists an equal split as ordinary shared debts without changing the bill total', async () => {
+  renderFinanceScreen();
+  await screen.findByText('Đã lưu trên tài khoản');
+  fireEvent.press(screen.getByRole('button', { name: 'Thêm giao dịch' }));
+  fireEvent.changeText(screen.getByLabelText('Số tiền'), '300001');
+  fireEvent.press(screen.getByRole('switch', { name: 'Có người cần trả lại' }));
+  fireEvent.press(screen.getByRole('radio', { name: 'Chia đều' }));
+  fireEvent.changeText(screen.getByLabelText('Tên người 1'), 'An');
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Thêm người cần trả lại' }),
+  );
+  fireEvent.changeText(screen.getByLabelText('Tên người 2'), 'Bình');
+  fireEvent.press(screen.getByRole('button', { name: 'Lưu giao dịch' }));
+  await waitFor(() =>
+    expect(useFinanceStore.getState().transactions).toHaveLength(1),
+  );
+  const saved = (await readFinanceTransactions('finance-user'))[0];
+  expect(saved.amount).toBe(300001);
+  expect(saved.sharedExpense).toEqual({
+    participants: [
+      { id: expect.any(String), name: 'An', owedAmount: 100000 },
+      { id: expect.any(String), name: 'Bình', owedAmount: 100000 },
+    ],
+    receipts: [],
+  });
+});
+
 it('adds a shared expense and records a partial repayment from its detail', async () => {
   renderFinanceScreen();
   await screen.findByText('Đã lưu trên tài khoản');
