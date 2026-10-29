@@ -90,6 +90,31 @@ export const PET_DRAG_ATLASES: Partial<
   garuda: require('../../../assets/pixelPet/animations/drag_garuda.png'),
   celestial_stag: require('../../../assets/pixelPet/animations/drag_celestial_stag.png'),
 };
+/** Full-body walk/run/jump/turn/landing poses used by the Home fox sequence. */
+export const NINE_TAIL_FOX_HOME_ATLAS = require('../../../assets/pixelPet/animations/home_nine_tail_fox.png');
+
+/** Full-body, species-authored motion atlases used by Home roaming pets. */
+export const PET_HOME_ATLASES: Record<
+  Exclude<PixelPetSpeciesId, 'celestial_stag'>,
+  ImageSourcePropType
+> = {
+  nine_tail_fox: NINE_TAIL_FOX_HOME_ATLAS,
+  qilin: require('../../../assets/pixelPet/animations/home_qilin.png'),
+  alicorn: require('../../../assets/pixelPet/animations/home_alicorn.png'),
+  rune_wolf: require('../../../assets/pixelPet/animations/home_rune_wolf.png'),
+  black_tortoise: require('../../../assets/pixelPet/animations/home_black_tortoise.png'),
+  sphinx: require('../../../assets/pixelPet/animations/home_sphinx.png'),
+  centaur: require('../../../assets/pixelPet/animations/home_centaur.png'),
+  white_tiger: require('../../../assets/pixelPet/animations/home_white_tiger.png'),
+  azure_dragon: require('../../../assets/pixelPet/animations/home_azure_dragon.png'),
+  koi_dragon: require('../../../assets/pixelPet/animations/home_koi_dragon.png'),
+  scylla: require('../../../assets/pixelPet/animations/home_scylla.png'),
+  lac_bird: require('../../../assets/pixelPet/animations/home_lac_bird.png'),
+  phoenix: require('../../../assets/pixelPet/animations/home_phoenix.png'),
+  anubis: require('../../../assets/pixelPet/animations/home_anubis.png'),
+  garuda: require('../../../assets/pixelPet/animations/home_garuda.png'),
+};
+
 export const PET_DRAG_ATLAS_READY: Record<PixelPetSpeciesId, boolean> = {
   nine_tail_fox: true,
   qilin: true,
@@ -123,3 +148,19 @@ export const CELESTIAL_STAG_SLEEP_ATLAS = require('../../../assets/pixelPet/anim
 export const CELESTIAL_STAG_SLEEP_GARDEN_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garden.png');
 /** One-shot leaf yellowing, withering and ash-dust scene after waking. */
 export const CELESTIAL_STAG_SLEEP_GARDEN_DECAY_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garden_decay.png');
+/** Background-only Japanese shrine and cherry blossom scene for the sleeping Fox. */
+export const NINE_TAIL_FOX_SLEEP_SCENE_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_nine_tail_fox.png');
+/** Blossom, torii and garden collapse into dust when the Fox wakes. */
+export const NINE_TAIL_FOX_SLEEP_SCENE_DECAY_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_nine_tail_fox_decay.png');
+/** Background-only mountain, cloud and shrine scene for sleeping Garuda. */
+/** Clouds converge and the shrine rises through 16 frames during Garuda's sleep scene. */
+export const GARUDA_HOME_SLEEP_REVEAL_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garuda_reveal_v2.png');
+/** Cloud banks that fly inward from the Home screen edges before the dais builds. */
+export const GARUDA_HOME_SLEEP_CLOUD_LEFT = require('../../../assets/pixelPet/animations/home_sleep_garuda_cloud_left.png');
+export const GARUDA_HOME_SLEEP_CLOUD_RIGHT = require('../../../assets/pixelPet/animations/home_sleep_garuda_cloud_right.png');
+/** Stone blocks assemble into the Garuda sleep platform over 16 frames. */
+export const GARUDA_SLEEP_PLATFORM_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garuda_platform.png');
+/** Composited 16-frame illustrated late-afternoon moss and rune background for Lang Linh. */
+export const RUNE_WOLF_SLEEP_SCENE_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_rune_wolf_v7.png');
+/** Night/day ageing, desertification and wind dispersal after the Wolf wakes. */
+export const RUNE_WOLF_WAKE_SCENE_ATLAS = require('../../../assets/pixelPet/animations/home_wake_rune_wolf.png');

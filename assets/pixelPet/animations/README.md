@@ -96,3 +96,62 @@ The script reuses the source palette and alpha channel and applies nearest-pixel
 pose transforms for lift, falling, impact, and recovery. It does not call image
 generation or add new artwork. Atlas frame blends and eased UI-thread poses run
 at display refresh; only the active pet atlas is mounted.
+
+All15 user pets now have a dedicated `home_<species>.png` full-body atlas for
+Home and motion previews on the Pet screen. Each 4×4 atlas has four authored
+rows: calm idle, anatomy-specific travel, playful movement, and a signature
+action. The fox's sheet provides its own
+walk, scamper, gentle hop/turn, soft landing, and a small tail-fire flourish.
+Its Home controller keeps the random edge-to-edge route, lowers the jump and
+uses a light playful turn; the existing fox rest atlas still supplies sleep,
+breathing, and wake-up poses. The other pets' movement cycles are paced by their
+shape in `homePetMotion.ts` (for example, the tortoise is slower than the tiger,
+and serpentine pets undulate instead of stepping). Home reuses its existing drag
+atlases while the pet is being dragged and mounts only the currently displayed
+Home atlas. The 15 Home sheets were generated with the built-in imagegen tool
+from each species' existing art, then packed to the runtime 1024×1024 indexed
+PNG format; prompt summaries and species actions are in `provenance.json` under
+`homeVariants`. The admin-only Celestial Stag keeps its separate Home atlases.
+
+Two Home sleep-scene atlases are available as separate 4×4 landscape sheets:
+`home_sleep_nine_tail_fox.png` and `home_sleep_garuda.png`. The Fox's 16 frames
+are loaded on Home behind its full-body sleep pose and grow over 2.4 seconds;
+the 240px scene is centered on the ground baseline, with the torii gate placed
+in the left fifth of each frame. The cherry tree has dense secondary branches
+and a fuller layered blossom canopy. The fox remains in its existing position
+as it sleeps and wakes. On wake, a separate 16-frame scene remains at the old sleep
+spot: blossoms wither, the torii collapses, and the garden dissolves into dust
+over 4.8 seconds while the Fox leaves. Growth/decay pauses with Home and resumes
+from the same frame on return. Garuda's separate cloud sprites fly inward from
+both Home screen edges for 1.5 seconds. The 4×4
+`home_sleep_garuda_platform.png` atlas then assembles a compact circular dais
+from stone blocks over 1.4 seconds. Finally, the 4×4
+`home_sleep_garuda_reveal_v2.png` atlas reveals the mountains and a smaller
+temple rising from the center over 4.5 seconds. The dais stays above the scene
+bottom beneath Garuda. Generated sources are under `sources/`, and
+`scripts/pack-home-sleep-scene-atlas.py` reproducibly removes the flat source
+matte and packs frames with a shared scale, ground baseline, and transparent
+gutters. Generation and packing details are in `provenance.json` under
+`homeSleepScenePilots`.
+
+Lang Linh uses the illustrated 4×4 `home_sleep_rune_wolf_v7.png` atlas.
+Its 16 raster frames reuse painted plant, bark and ground growth frames from
+`home_sleep_garden.png`, with a warm late-afternoon sky and low sun, spreading moss light and an emerging rune stone.
+`scripts/generate-rune-wolf-sleep-atlas.py` uses Pillow/numpy to compose the
+1280×1280 transparent PNG reproducibly. The script also writes a contact sheet
+and a sleeping-wolf composition under `tasks/previews/` for visual review.
+The app uses this atlas on Home and in sleep previews. No new AI generation or
+runtime SVG is used for this scene.
+
+The current Wolf composition uses a sheltered tree on the left, an open upper
+sky, a warm sun to the right, low painted rune stones and an organically
+feathered backdrop. Cropped foreground fronds blend into the clearing.
+
+Lang Linh wake sequence: `home_wake_rune_wolf.png` is a separate 8×4 atlas
+with 32 frames at 320px per cell, played once over eight seconds. It starts
+at the mature afternoon sleep frame, shifts through night and back to day,
+uses the existing illustrated Stag decay frames for leaves and bark ageing,
+then dries the clearing to dunes and scatters it as raster sand particles.
+`scripts/generate-rune-wolf-wake-atlas.py` builds it locally from bundled art.
+The old landscape stays at the sleep position while the pet leaves, pauses
+when Home is inactive and is removed when playback completes. No API call.

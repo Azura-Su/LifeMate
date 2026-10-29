@@ -53,6 +53,7 @@ export function HomeSleepGarden({
       loop: false,
     },
     onClipEnd: withering ? onFinished : undefined,
+    preserveProgressWhenInactive: true,
   });
   const sceneStyle = useAnimatedStyle(() => ({
     opacity: withering

@@ -37,6 +37,7 @@ import type {
 import { colors, spacing } from '../../theme';
 import { PixelPetSprite } from './PixelPetSprite';
 import { PetStageBackdrop } from './PetStageBackdrop';
+import { RuneWolfSleepBackdrop } from './RuneWolfSleepBackdrop';
 import { PetCareGuide } from './PetCareGuide';
 import { styles } from './PixelPetScreen.styles';
 
@@ -127,7 +128,9 @@ export function PixelPetScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [clip, setClip] = useState<PixelPetAnyClipId>('idle');
   const [loopMovement, setLoopMovement] = useState(false);
-  const [sleeping, setSleeping] = useState(false);
+  // The pet opens resting and returns to rest after each clip.
+  const [homeMotion, setHomeMotion] = useState(false);
+  const [sleeping, setSleeping] = useState(true);
   const [expression, setExpression] = useState<PixelPetExpression | null>(null);
   const [renameOpen, setRenameOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
@@ -169,25 +172,29 @@ export function PixelPetScreen({ navigation }: Props) {
     state?.now ?? null,
   );
   const onClipEnd = useCallback(() => {
-    setSleeping(false);
+    setSleeping(true);
     setLoopMovement(false);
     setExpression(null);
+    setHomeMotion(false);
     setClip('idle');
   }, []);
   const playClip = (next: PixelPetAnyClipId, loop = false) => {
     setSleeping(false);
     setExpression(null);
+    setHomeMotion(true);
     setLoopMovement(loop);
     setClip(next);
   };
   const rest = () => {
     setExpression(null);
+    setHomeMotion(false);
     setLoopMovement(false);
     setClip('idle');
     setSleeping(true);
   };
   const playExpression = (next: PixelPetExpression) => {
     setSleeping(false);
+    setHomeMotion(true);
     setExpression(next);
     setLoopMovement(false);
     setClip('happy');
@@ -266,6 +273,13 @@ export function PixelPetScreen({ navigation }: Props) {
               spriteSize={spriteSize}
               stageScale={STAGE_LOOK[pet?.stage ?? 'hatchling'].scale}
             />
+            {species.id === 'rune_wolf' && (
+              <RuneWolfSleepBackdrop
+                visible={sleeping}
+                active={focused && active}
+                size={spriteSize}
+              />
+            )}
             <PixelPetSprite
               species={species}
               stage={pet?.stage ?? 'hatchling'}
@@ -276,6 +290,7 @@ export function PixelPetScreen({ navigation }: Props) {
               sleeping={sleeping}
               active={focused && active}
               loopMovement={loopMovement}
+              homeMotion={homeMotion}
               onClipEnd={onClipEnd}
             />
           </View>

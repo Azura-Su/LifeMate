@@ -57,14 +57,21 @@ it('plays a finance movement effect once even after the movement preview was loo
   });
   render(<PixelPetScreen navigation={navigation} route={{} as never} />);
   fireEvent.press(await screen.findByRole('button', { name: 'Đi dạo' }));
-  expect(screen.UNSAFE_getByType(PixelPetSprite).props.loopMovement).toBe(true);
+  expect(screen.UNSAFE_getByType(PixelPetSprite).props).toMatchObject({
+    loopMovement: true,
+    homeMotion: true,
+  });
   fireEvent.press(screen.getByText('Vận động ×1'));
   expect(screen.UNSAFE_getByType(PixelPetSprite).props).toMatchObject({
     clip: 'move',
     loopMovement: false,
   });
   act(() => screen.UNSAFE_getByType(PixelPetSprite).props.onClipEnd());
-  expect(screen.UNSAFE_getByType(PixelPetSprite).props.clip).toBe('idle');
+  expect(screen.UNSAFE_getByType(PixelPetSprite).props).toMatchObject({
+    clip: 'idle',
+    homeMotion: false,
+    sleeping: true,
+  });
   expect(call).toHaveBeenCalledTimes(1);
 });
 
@@ -148,11 +155,8 @@ it('shows server progression and allows one care per day', async () => {
   expect(
     screen.getByLabelText('Lv 5, Kỹ năng Hồ Hỏa Mê Ảnh, chưa mở'),
   ).toBeTruthy();
-  fireEvent.press(screen.getByRole('button', { name: 'Phượng Hoàng' }));
-  expect(screen.getByText('Lộ trình của Phượng Hoàng')).toBeTruthy();
-  expect(
-    screen.getByLabelText('Lv 3, Trang phục Lông đuôi ngũ sắc, chưa mở'),
-  ).toBeTruthy();
+  expect(screen.queryByText(/Phượng Hoàng/)).toBeNull();
+  expect(screen.queryByLabelText(/Lông đuôi ngũ sắc/)).toBeNull();
 });
 
 it.each([

@@ -32,6 +32,11 @@ import {
   isExtraClip,
 } from '../../services/pixelPet/celestialStagPuppet';
 import type { CelestialStagFlightPhase } from '../../services/pixelPet/celestialStagAtlas';
+import {
+  NINE_TAIL_FOX_HOME_FRAME_TRACKS,
+  nineTailFoxHomePlayback,
+  type NineTailFoxHomePhase,
+} from '../../services/pixelPet/nineTailFoxHome';
 import type {
   DragFallStyle,
   DragPhase,
@@ -51,10 +56,16 @@ import {
   PET_ATLASES,
   PET_DRAG_ATLASES,
   PET_DRAG_ATLAS_READY,
+  PET_HOME_ATLASES,
+  NINE_TAIL_FOX_HOME_ATLAS,
   PET_REST_ATLASES,
 } from './petArt';
 import { PixelPetAtlas } from './PixelPetAtlas';
 import { usePetPlayback } from './usePetPlayback';
+import {
+  homePetFrameTrack,
+  homePetPlayback,
+} from '../../services/pixelPet/homePetMotion';
 import {
   petDragDurationMs,
   petDragFallbackFrameTrack,
@@ -88,6 +99,10 @@ type Props = {
   expression?: PixelPetExpression | null;
   /** Render the admin Stag's whole-body transition into its sleeping pose. */
   sleeping?: boolean;
+  /** Home-only authored whole-body sequence for the Nine-Tailed Fox. */
+  homeFoxPhase?: NineTailFoxHomePhase;
+  /** Home-only species-authored whole-body motion atlas. */
+  homeMotion?: boolean;
   /** Optional authored Home drag pose. Uses existing art until this species' atlas is ready. */
   dragPhase?: DragPhase;
   fallStyle?: DragFallStyle;
@@ -160,11 +175,42 @@ export function PixelPetSprite({
   ...props
 }: Props) {
   const sleeping = props.sleeping ?? false;
+  if (
+    props.species.id === 'nine_tail_fox' &&
+    props.homeFoxPhase !== undefined &&
+    props.homeFoxPhase !== 'sleep' &&
+    props.homeFoxPhase !== 'wake'
+  )
+    return (
+      <NineTailFoxHomeSprite
+        species={props.species}
+        stage={props.stage}
+        size={props.size}
+        active={props.active ?? true}
+        phase={props.homeFoxPhase}
+      />
+    );
   const dragClip = petDragFallbackClip(dragPhase);
   const effectiveClip =
     props.species.id === CELESTIAL_STAG_ID && dragPhase === 'land'
       ? 'move'
       : (dragClip ?? clip);
+  if (
+    props.homeMotion &&
+    props.species.id !== CELESTIAL_STAG_ID &&
+    !sleeping
+  )
+    return (
+      <HomePetMotionSprite
+        species={props.species}
+        stage={props.stage}
+        size={props.size}
+        active={props.active ?? true}
+        clip={effectiveClip as PixelPetClipId}
+        loopMovement={props.loopMovement ?? false}
+        onClipEnd={props.onClipEnd}
+      />
+    );
   if (props.species.id === CELESTIAL_STAG_ID)
     return (
       <View
@@ -191,10 +237,184 @@ export function PixelPetSprite({
     <RiggedPixelPetSprite
       {...props}
       clip={isExtraClip(effectiveClip) ? 'happy' : effectiveClip}
-      sleeping={sleeping}
+      sleeping={sleeping || props.homeFoxPhase === 'sleep'}
       dragPhase={dragPhase}
       fallStyle={fallStyle}
     />
+  );
+}
+
+function HomePetMotionSprite({
+  species,
+  stage,
+  size,
+  active,
+  clip,
+  loopMovement,
+  onClipEnd,
+}: {
+  species: PixelPetSpecies;
+  stage: PixelPetStage;
+  size: number;
+  active: boolean;
+  clip: PixelPetClipId;
+  loopMovement: boolean;
+  onClipEnd?: () => void;
+}) {
+  const playback = homePetPlayback(
+    species.id as Exclude<PixelPetSpecies['id'], 'celestial_stag'>,
+    clip,
+    loopMovement,
+  );
+  const { progress, reducedMotion } = usePetPlayback({
+    clip,
+    speciesId: species.id,
+    active,
+    loopMovement,
+    playback,
+    playbackKey: `home:${clip}`,
+    onClipEnd,
+  });
+  const look = STAGE_LOOK[stage];
+  const art = PET_ART[species.id];
+  const wolfGaitStyle = useAnimatedStyle(() => {
+    if (species.id !== 'rune_wolf' || clip !== 'move' || !loopMovement)
+      return {};
+    const phase = progress.value * Math.PI * 2;
+    return {
+      transform: [
+        { translateY: -Math.abs(Math.sin(phase)) * size * 0.018 },
+        { rotate: `${Math.sin(phase) * 1.2}deg` },
+      ],
+    };
+  });
+
+  return (
+    <View
+      accessibilityRole="image"
+      accessibilityLabel={`${species.name}, đang chuyển động`}
+      style={[local.canvas, { width: size, height: size }]}
+    >
+      <View style={[local.fill, { transform: [{ scale: look.scale }] }]}>
+        <Animated.View
+          style={[
+            { width: size, height: size },
+            species.id === 'rune_wolf' && clip === 'move' && loopMovement
+              ? wolfGaitStyle
+              : null,
+          ]}
+        >
+          <PixelPetAtlas
+            key={species.id}
+            source={
+              PET_HOME_ATLASES[
+                species.id as Exclude<PixelPetSpecies['id'], 'celestial_stag'>
+              ]
+            }
+            size={size}
+            clip={clip}
+            progress={progress}
+            loopMovement={loopMovement}
+            frameTrack={homePetFrameTrack(
+              clip,
+              species.id as Exclude<PixelPetSpecies['id'], 'celestial_stag'>,
+            )}
+            loop={playback.loop}
+            animating={active && !reducedMotion}
+            fallback={
+              art ? (
+                <Image source={art} style={local.art} resizeMode="contain" />
+              ) : null
+            }
+            blendFrames={species.id !== 'rune_wolf' || clip !== 'move'}
+          />
+        </Animated.View>
+      </View>
+    </View>
+  );
+}
+
+function NineTailFoxHomeSprite({
+  species,
+  stage,
+  size,
+  active,
+  phase,
+}: {
+  species: PixelPetSpecies;
+  stage: PixelPetStage;
+  size: number;
+  active: boolean;
+  phase: Exclude<NineTailFoxHomePhase, 'sleep' | 'wake'>;
+}) {
+  const playback = nineTailFoxHomePlayback(phase);
+  const { progress, reducedMotion } = usePetPlayback({
+    clip: 'move',
+    speciesId: species.id,
+    active,
+    loopMovement: true,
+    playback,
+    playbackKey: phase,
+  });
+  const frameTrack = NINE_TAIL_FOX_HOME_FRAME_TRACKS[phase];
+  const look = STAGE_LOOK[stage];
+  const art = PET_ART[species.id];
+  const gaitStyle = useAnimatedStyle(() => {
+    const stride = progress.value * Math.PI * 2;
+    if (phase === 'run') {
+      const lift = Math.max(0, Math.sin(stride * 2));
+      return {
+        transform: [
+          { translateY: -lift * (size * 0.035) },
+          { rotate: `${-2.5 + Math.sin(stride) * 1.2}deg` },
+          { scaleX: 1 + lift * 0.025 },
+          { scaleY: 1 - lift * 0.045 },
+        ],
+      };
+    }
+    const step = Math.sin(stride);
+    return {
+      transform: [
+        { translateY: -Math.max(0, step) * (size * 0.012) },
+        { rotate: `${step * 0.7}deg` },
+        { scaleY: 1 - Math.max(0, step) * 0.012 },
+      ],
+    };
+  });
+  const action =
+    phase === 'walk' || phase === 'walkAway'
+      ? 'đang đi bộ'
+      : phase === 'run'
+        ? 'đang chạy'
+        : phase === 'jump' || phase === 'turn'
+          ? 'đang nhảy'
+          : 'đang đáp đất';
+  return (
+    <View
+      accessibilityRole="image"
+      accessibilityLabel={`${species.name}, ${action}`}
+      style={[local.canvas, { width: size, height: size }]}
+    >
+      <View style={[local.fill, { transform: [{ scale: look.scale }] }]}>
+        <Animated.View style={[local.fill, gaitStyle]}>
+          <PixelPetAtlas
+            source={NINE_TAIL_FOX_HOME_ATLAS}
+            size={size}
+            clip="move"
+            progress={progress}
+            loopMovement
+            animating={active && !reducedMotion}
+            frameTrack={frameTrack}
+            loop={playback.loop}
+            fallback={
+              art ? (
+                <Image source={art} style={local.art} resizeMode="contain" />
+              ) : null
+            }
+          />
+        </Animated.View>
+      </View>
+    </View>
   );
 }
 

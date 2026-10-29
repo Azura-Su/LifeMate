@@ -43,7 +43,7 @@ export const LEVEL_THRESHOLDS = [0, 30, 80, 150, 240, 350, 480, 630, 800, 1000];
 
 export type PetUnlock = {
   level: number;
-  kind: 'stage' | 'skill' | 'skin';
+  kind: 'stage' | 'skill' | 'skin' | 'scene';
   name: string;
 };
 
@@ -122,10 +122,20 @@ const SPECIES_UNLOCKS: Record<PixelPetSpeciesId, SpeciesUnlocks> = {
   },
 };
 
+/** Home sleep backdrops, shown from level 2 (HomePetRoamer). */
+const SLEEP_SCENES: Partial<Record<PixelPetSpeciesId, string>> = {
+  nine_tail_fox: 'Đền hồ ly hoa đào',
+  garuda: 'Chùa núi mây',
+  rune_wolf: 'Cổ thụ đêm trăng',
+  celestial_stag: 'Vườn hoa thiên lộc',
+};
+
 /** Every unlock for a species, in level order. */
 export function petUnlocks(id: PixelPetSpeciesId, skill: string): PetUnlock[] {
   const { skill2, skins } = SPECIES_UNLOCKS[id];
+  const scene = SLEEP_SCENES[id];
   return [
+    ...(scene ? [{ level: 2, kind: 'scene' as const, name: scene }] : []),
     { level: 3, kind: 'skin', name: skins[0] },
     { level: 4, kind: 'stage', name: 'Trưởng thành' },
     { level: 5, kind: 'skill', name: skill },

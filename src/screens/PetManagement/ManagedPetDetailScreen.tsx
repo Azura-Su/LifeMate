@@ -14,7 +14,9 @@ import { PUPPET_PREVIEW_CLIPS } from '../../services/pixelPet/celestialStagPuppe
 import type { PixelPetExpression } from '../../services/pixelPet/pixelPetExpressions';
 import type { PixelPetAnyClipId } from '../../types/pixelPet';
 import { colors, fontSize, radius, spacing, typography } from '../../theme';
+import { PetStageBackdrop } from '../PixelPet/PetStageBackdrop';
 import { PixelPetSprite } from '../PixelPet/PixelPetSprite';
+import { HomeRoamPreview } from './HomeRoamPreview';
 
 type Props = {
   pet: ManagedPet;
@@ -38,8 +40,9 @@ export function ManagedPetDetailScreen({ pet, active, onBack }: Props) {
   const appActive = useScreenActive();
   const [clip, setClip] = useState<PixelPetAnyClipId>('idle');
   const [loopMovement, setLoopMovement] = useState(false);
-  const [sleeping, setSleeping] = useState(false);
+  const [sleeping, setSleeping] = useState(true);
   const [expression, setExpression] = useState<PixelPetExpression | null>(null);
+  const [homePreview, setHomePreview] = useState(false);
   const species = pixelPetSpecies(pet.speciesId)!;
   const stage = pet.adoption?.stage ?? 'hatchling';
 
@@ -55,7 +58,7 @@ export function ManagedPetDetailScreen({ pet, active, onBack }: Props) {
   }, [onBack]);
 
   const resetPreview = useCallback(() => {
-    setSleeping(false);
+    setSleeping(true);
     setExpression(null);
     setLoopMovement(false);
     setClip('idle');
@@ -93,6 +96,24 @@ export function ManagedPetDetailScreen({ pet, active, onBack }: Props) {
       })),
     );
 
+  const isSelected = (value: PixelPetAnyClipId, rest: boolean) =>
+    rest
+      ? sleeping
+      : !sleeping &&
+        clip === value &&
+        (value === 'happy' || expression === null);
+  const tint = species.palette[0];
+  const stats = pet.adoption
+    ? [
+        { label: 'Cấp', value: `Lv ${pet.adoption.level}` },
+        { label: 'Kinh nghiệm', value: `${pet.adoption.totalExp} EXP` },
+        { label: 'Giai đoạn', value: stageLabel[stage] },
+      ]
+    : [
+        { label: 'Trạng thái', value: statusLabel[pet.status] },
+        { label: 'Kỹ năng', value: species.skill },
+      ];
+
   return (
     <Screen
       contentStyle={styles.content}
@@ -105,16 +126,12 @@ export function ManagedPetDetailScreen({ pet, active, onBack }: Props) {
         />
       }
     >
-      <View
-        style={[
-          styles.preview,
-          { borderColor: species.palette[0], backgroundColor: colors.surface },
-        ]}
-      >
+      <View style={[styles.hero, { borderColor: tint }]}>
+        <PetStageBackdrop tint={tint} spriteSize={208} stageScale={1} />
         <PixelPetSprite
           species={species}
           stage={stage}
-          size={224}
+          size={208}
           clip={clip}
           flightPhase={clip === 'fly' ? 'glide' : undefined}
           expression={expression}
@@ -124,26 +141,38 @@ export function ManagedPetDetailScreen({ pet, active, onBack }: Props) {
           walking={petMovementKind(species) === 'walk'}
           onClipEnd={resetPreview}
         />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Xem ${species.name} chạy trên Home`}
+          onPress={() => setHomePreview(true)}
+          style={({ pressed }) => [
+            styles.homeButton,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Feather name="play" size={14} color={colors.surface} />
+          <Text style={styles.homeButtonText}>Xem trên Home</Text>
+        </Pressable>
       </View>
+      {homePreview && active && appActive && (
+        <HomeRoamPreview
+          speciesId={species.id}
+          stage={stage}
+          name={species.name}
+          onClose={() => setHomePreview(false)}
+        />
+      )}
 
-      <View style={styles.section}>
-        <Text accessibilityRole="header" style={styles.sectionTitle}>
-          Hoạt động
-        </Text>
-        <View style={styles.options}>
-          {activities.map(
-            ({ clip: value, label, loop = false, rest = false }) => (
+      <View style={styles.options}>
+        {activities.map(
+          ({ clip: value, label, loop = false, rest = false }) => {
+            const selected = isSelected(value, rest);
+            return (
               <Pressable
                 key={value}
                 accessibilityRole="button"
                 accessibilityLabel={`Xem thử ${label}`}
-                accessibilityState={{
-                  selected: rest
-                    ? sleeping
-                    : !sleeping &&
-                      clip === value &&
-                      (value === 'happy' || expression === null),
-                }}
+                accessibilityState={{ selected }}
                 onPress={() => {
                   if (rest) {
                     setExpression(null);
@@ -153,133 +182,110 @@ export function ManagedPetDetailScreen({ pet, active, onBack }: Props) {
                   } else if (value === 'happy') previewExpression('excited');
                   else previewClip(value, loop);
                 }}
-                style={[
-                  styles.option,
-                  (rest
-                    ? sleeping
-                    : !sleeping &&
-                      clip === value &&
-                      (value === 'happy' || expression === null)) &&
-                    styles.optionSelected,
-                ]}
+                style={[styles.option, selected && styles.optionSelected]}
               >
                 <Text
+                  numberOfLines={1}
                   style={[
                     styles.optionText,
-                    (rest
-                      ? sleeping
-                      : !sleeping &&
-                        clip === value &&
-                        (value === 'happy' || expression === null)) &&
-                      styles.optionTextSelected,
+                    selected && styles.optionTextSelected,
                   ]}
                 >
                   {label}
                 </Text>
               </Pressable>
-            ),
-          )}
-        </View>
-        <Text style={styles.helper}>
-          Chỉ xem thử tại máy; không thay đổi dữ liệu linh thú.
-        </Text>
-      </View>
-
-      <View style={styles.section}>
-        <Text accessibilityRole="header" style={styles.sectionTitle}>
-          Thông tin linh thú
-        </Text>
-        <View style={styles.facts}>
-          <Fact label="Trạng thái" value={statusLabel[pet.status]} />
-          {pet.adoption ? (
-            <>
-              <Fact
-                label="Cấp độ"
-                value={`Lv ${pet.adoption.level} · ${stageLabel[stage]}`}
-              />
-              <Fact
-                label="Kinh nghiệm"
-                value={`${pet.adoption.totalExp} EXP`}
-              />
-              <Fact
-                label="Nhận nuôi"
-                value={new Date(pet.adoption.adoptedAt).toLocaleDateString(
-                  'vi-VN',
-                )}
-              />
-            </>
-          ) : pet.reservedUntil ? (
-            <Fact
-              label="Giữ chỗ đến"
-              value={new Date(pet.reservedUntil).toLocaleString('vi-VN')}
-            />
-          ) : (
-            <Fact label="Kỹ năng" value={species.skill} />
-          )}
-        </View>
-        {holder && (
-          <View style={styles.owner}>
-            <Feather name="user" size={16} color={colors.earth} />
-            <View style={styles.ownerText}>
-              <Text style={styles.ownerName}>
-                {holder.name || 'Chưa đặt tên'}
-              </Text>
-              {!!holder.email && (
-                <Text selectable style={typography.small}>
-                  {holder.email}
-                </Text>
-              )}
-              <Text selectable style={styles.uid}>
-                UID: {holder.uid}
-              </Text>
-            </View>
-          </View>
+            );
+          },
         )}
       </View>
-    </Screen>
-  );
-}
+      <Text style={styles.helper}>
+        Chỉ xem thử tại máy; không thay đổi dữ liệu linh thú.
+      </Text>
 
-function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.fact}>
-      <Text style={styles.factLabel}>{label}</Text>
-      <Text style={styles.factValue}>{value}</Text>
-    </View>
+      <View style={styles.stats}>
+        {stats.map((stat) => (
+          <View key={stat.label} style={styles.stat}>
+            <Text numberOfLines={1} style={styles.statValue}>
+              {stat.value}
+            </Text>
+            <Text style={styles.statLabel}>{stat.label}</Text>
+          </View>
+        ))}
+      </View>
+
+      {holder && (
+        <View style={styles.owner}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {[
+                ...(holder.name || holder.email || '?').trim(),
+              ][0]?.toUpperCase()}
+            </Text>
+          </View>
+          <View style={styles.ownerText}>
+            <Text numberOfLines={1} style={styles.ownerName}>
+              {holder.name || 'Chưa đặt tên'}
+            </Text>
+            {!!holder.email && (
+              <Text selectable numberOfLines={1} style={styles.ownerMeta}>
+                {holder.email}
+              </Text>
+            )}
+            <Text selectable style={styles.uid}>
+              UID: {holder.uid}
+            </Text>
+            <Text style={styles.ownerMeta}>
+              {pet.adoption
+                ? `Nhận nuôi ${new Date(pet.adoption.adoptedAt).toLocaleDateString('vi-VN')}`
+                : pet.reservedUntil
+                  ? `Giữ chỗ đến ${new Date(pet.reservedUntil).toLocaleString('vi-VN')}`
+                  : ''}
+            </Text>
+          </View>
+        </View>
+      )}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   content: { gap: spacing.md, paddingBottom: spacing.xl },
-  preview: {
-    minHeight: 248,
+  hero: {
+    height: 260,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.lg,
     borderWidth: 1,
+    overflow: 'hidden',
     backgroundColor: colors.surface,
   },
-  section: {
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
+  homeButton: {
+    position: 'absolute',
+    right: spacing.sm,
+    bottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.earth,
   },
-  sectionTitle: {
-    ...typography.heading,
-    color: colors.ink,
+  homeButtonText: {
+    fontSize: fontSize.label,
+    fontWeight: '700',
+    color: colors.surface,
   },
+  pressed: { opacity: 0.8 },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   option: {
-    minHeight: 38,
+    minHeight: 36,
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.line,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   optionSelected: { borderColor: colors.earth, backgroundColor: colors.earth },
   optionText: {
@@ -289,34 +295,49 @@ const styles = StyleSheet.create({
   },
   optionTextSelected: { color: colors.surface },
   helper: {
-    ...typography.small,
     fontSize: fontSize.caption,
     color: colors.muted,
+    marginTop: -spacing.xs,
   },
-  facts: { gap: spacing.sm },
-  fact: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  stats: { flexDirection: 'row', gap: spacing.sm },
+  stat: {
+    flex: 1,
     alignItems: 'center',
-    gap: spacing.md,
+    gap: 2,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
   },
-  factLabel: { ...typography.small, color: colors.muted },
-  factValue: {
-    ...typography.small,
-    color: colors.ink,
-    fontWeight: '600',
-    flexShrink: 1,
-    textAlign: 'right',
-  },
+  statValue: { fontSize: fontSize.body, fontWeight: '700', color: colors.ink },
+  statLabel: { fontSize: fontSize.caption, color: colors.muted },
   owner: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
+    alignItems: 'center',
+    gap: spacing.md,
     padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.primarySoft,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
   },
-  ownerText: { flex: 1, gap: spacing.xs },
-  ownerName: { ...typography.body, color: colors.ink, fontWeight: '600' },
-  uid: { ...typography.small, fontSize: fontSize.caption, color: colors.muted },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.earth,
+  },
+  avatarText: {
+    fontSize: fontSize.body,
+    fontWeight: '700',
+    color: colors.surface,
+  },
+  ownerText: { flex: 1, minWidth: 0, gap: 2 },
+  ownerName: { ...typography.body, color: colors.ink, fontWeight: '700' },
+  ownerMeta: { fontSize: fontSize.label, color: colors.muted },
+  uid: { fontSize: fontSize.caption, color: colors.muted },
 });

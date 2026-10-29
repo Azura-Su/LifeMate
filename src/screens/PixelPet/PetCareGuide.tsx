@@ -1,13 +1,8 @@
 import Feather from '@expo/vector-icons/Feather';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { ModalHeader } from '../../components/ModalHeader';
 import { ModalScreen } from '../../components/ModalScreen';
-import {
-  PIXEL_PET_EXCLUSIVE,
-  PIXEL_PET_SPECIES,
-  type PixelPetSpecies,
-} from '../../services/pixelPet/pixelPetCatalog';
+import type { PixelPetSpecies } from '../../services/pixelPet/pixelPetCatalog';
 import {
   CARE_TASKS,
   LEVEL_THRESHOLDS,
@@ -23,6 +18,7 @@ const KIND: Record<
   stage: { label: 'Giai đoạn', icon: 'trending-up' },
   skill: { label: 'Kỹ năng', icon: 'zap' },
   skin: { label: 'Trang phục', icon: 'gift' },
+  scene: { label: 'Cảnh ngủ', icon: 'moon' },
 };
 
 /** How to earn EXP, and what this species unlocks at each level. */
@@ -36,10 +32,6 @@ export function PetCareGuide({
   level: number | null;
   onClose: () => void;
 }) {
-  // Browse every species' roadmap; the owner's own pet is shown first.
-  const all = [...PIXEL_PET_SPECIES, ...PIXEL_PET_EXCLUSIVE];
-  const [viewing, setViewing] = useState(species);
-  const own = viewing.id === species.id;
   return (
     <ModalScreen
       onRequestClose={onClose}
@@ -76,35 +68,10 @@ export function PetCareGuide({
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Lộ trình của {viewing.name}</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.picker}
-          contentContainerStyle={styles.pickerRow}
-        >
-          {all.map((item) => {
-            const selected = item.id === viewing.id;
-            return (
-              <Pressable
-                key={item.id}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                onPress={() => setViewing(item)}
-                style={[styles.pick, selected && styles.reached]}
-              >
-                <Text style={[styles.pickText, selected && styles.reachedText]}>
-                  {item.id === species.id
-                    ? `${item.name} (của bạn)`
-                    : item.name}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        <Text style={styles.sectionTitle}>Lộ trình của {species.name}</Text>
         <View style={styles.card}>
-          {petUnlocks(viewing.id, viewing.skill).map((unlock, index) => {
-            const reached = own && level !== null && level >= unlock.level;
+          {petUnlocks(species.id, species.skill).map((unlock, index) => {
+            const reached = level !== null && level >= unlock.level;
             const kind = KIND[unlock.kind];
             return (
               <View
@@ -192,20 +159,5 @@ const styles = StyleSheet.create({
   },
   reached: { backgroundColor: colors.sunlightAction },
   reachedText: { color: colors.sunlight },
-  picker: { flexGrow: 0 },
-  pickerRow: { gap: spacing.sm },
-  pick: {
-    borderRadius: radius.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  pickText: {
-    fontSize: fontSize.label,
-    fontWeight: '600',
-    color: colors.earth,
-  },
   note: { fontSize: fontSize.small, color: colors.muted },
 });

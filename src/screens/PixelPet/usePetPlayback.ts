@@ -23,6 +23,7 @@ export function usePetPlayback({
   onClipEnd,
   playback,
   playbackKey,
+  preserveProgressWhenInactive = false,
 }: {
   clip: PixelPetAnyClipId;
   speciesId: PixelPetSpeciesId;
@@ -33,14 +34,25 @@ export function usePetPlayback({
   playback?: { durationMs: number; loop: boolean };
   /** Restart the same-duration timing when a custom atlas track changes. */
   playbackKey?: string;
+  /** Pause one-shot playback at its current frame while its screen is inactive. */
+  preserveProgressWhenInactive?: boolean;
 }) {
   const progress = useSharedValue(0);
   const reducedMotion = useReducedMotion();
   const generation = useRef({ value: 0 });
-  const callback = useRef(onClipEnd);
-  callback.current = onClipEnd;
   const { durationMs, loop } =
     playback ?? petPlayback(clip as PixelPetClipId, loopMovement);
+  const playbackIdentity = JSON.stringify([
+    clip,
+    speciesId,
+    durationMs,
+    loop,
+    playbackKey,
+  ]);
+  const playbackIdentityRef = useRef(playbackIdentity);
+  const pausedIdentity = useRef<string | null>(null);
+  const callback = useRef(onClipEnd);
+  callback.current = onClipEnd;
 
   useEffect(() => {
     const guard = generation.current;
@@ -51,22 +63,46 @@ export function usePetPlayback({
       completed = true;
       callback.current?.();
     };
+    const cleanup = () => {
+      guard.value++;
+      cancelAnimation(progress);
+    };
     cancelAnimation(progress);
-    progress.value = 0;
+
+    if (playbackIdentityRef.current !== playbackIdentity) {
+      playbackIdentityRef.current = playbackIdentity;
+      pausedIdentity.current = null;
+      progress.value = 0;
+    }
+    if (!active) {
+      pausedIdentity.current = preserveProgressWhenInactive
+        ? playbackIdentity
+        : null;
+      if (!preserveProgressWhenInactive) progress.value = 0;
+      return cleanup;
+    }
+
+    const resume =
+      preserveProgressWhenInactive &&
+      pausedIdentity.current === playbackIdentity;
+    pausedIdentity.current = null;
+    if (!resume) progress.value = 0;
     if (active && !reducedMotion) {
+      const start = resume ? Math.max(0, Math.min(1, progress.value)) : 0;
+      if (start >= 1) {
+        complete();
+        return cleanup;
+      }
       const timing = withTiming(
         1,
-        { duration: durationMs, easing: Easing.linear },
+        { duration: durationMs * (1 - start), easing: Easing.linear },
         (finished) => {
           if (finished && !loop) scheduleOnRN(complete);
         },
       );
       progress.value = loop ? withRepeat(timing, -1, false) : timing;
     } else if (active && !loop) complete();
-    return () => {
-      guard.value++;
-      cancelAnimation(progress);
-    };
+    return cleanup;
   }, [
     active,
     reducedMotion,
@@ -74,7 +110,8 @@ export function usePetPlayback({
     speciesId,
     durationMs,
     loop,
-    playbackKey,
+    playbackIdentity,
+    preserveProgressWhenInactive,
     progress,
   ]);
 

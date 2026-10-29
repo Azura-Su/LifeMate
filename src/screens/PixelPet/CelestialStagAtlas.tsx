@@ -152,6 +152,7 @@ export function CelestialStagAtlas({
     onClipEnd: sleeping ? undefined : onClipEnd,
     playback: sleeping ? { durationMs: 2600, loop: false } : playback,
     playbackKey: dragPhase === 'roam' ? undefined : dragPhase,
+    preserveProgressWhenInactive: sleeping,
   });
   const sleepBreath = useSharedValue(0);
   useEffect(() => {

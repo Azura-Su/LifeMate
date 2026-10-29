@@ -76,6 +76,9 @@ mỗi ô vẽ lại cả nhân vật ở một tư thế khác, không ghép cá
   đến chỗ ngủ, linh thú chuyển dần từ đứng sang nằm bằng atlas16 khung toàn thân;
   đồng thời cỏ lan, hoa nở và cây cổ thụ lớn dần qua atlas nền16 khung. Sau chuyển
   cảnh, giữ pose ngủ toàn thân cánh cụp, mắt nhắm và thở nhẹ.
+  Khi Home mất focus trong lúc ngủ, giữ nguyên pose và tiến độ cây; hoạt ảnh ngủ
+  và cây tạm dừng rồi tiếp tục từ đúng khung khi quay lại, không phát lại cảnh
+  nằm xuống hoặc mọc cây.
   Khi chạm đánh thức, linh thú rời đi còn cảnh cây giữ nguyên tọa độ và hướng
   tại chỗ ngủ cũ: lá/hoa cỏ ngả vàng, héo khô rồi cây tan thành tro bụi qua atlas
   nền16 khung trong4,8 giây. Bụi mờ hết thì gỡ cảnh. Nếu đánh thức sớm khi cây
@@ -109,11 +112,24 @@ mỗi ô vẽ lại cả nhân vật ở một tư thế khác, không ghép cá
   `wind`, `light`, `earth`, `arcane`), vẫn theo level/skillTier server. Các hiệu
   ứng chăm sóc từ sổ thu chi tiếp tục ánh xạ qua EFFECT_CLIP như trước.
 - Màn Linh thú có xem thử **Đi dạo/Vỗ cánh/Lượn mình**, **Vui vẻ**, **Nghỉ ngơi**.
-  **Vui vẻ** dùng chung pose phấn khích; không hiện hành động **Nhảy múa** riêng.
+  Đi dạo, vui vẻ và kỹ năng dùng atlas Home theo loài với nhịp/pose đặc trưng;
+  nghỉ ngơi dùng atlas nghỉ. Không hiện hành động **Nhảy múa** riêng.
   Chủ linh thú có thể đặt hoặc đổi biệt danh; thẻ hiển thị `Tên (Giống loài)`,
   ví dụ `Mina (Thiên Dực Linh Lộc)`. Biệt danh thuộc về lần nhận nuôi hiện tại.
   Nghỉ ngơi chuyển qua atlas riêng từng loài trong1,6 giây; thức dậy chạy ngược
   trong1,45 giây. Pose cuối giữ với nhịp thở nhỏ, không có dấu hiệu `Zz`.
+  Riêng Lang Linh hiển thị cảnh nền atlas PNG 4×4 gồm16 khung raster vẽ bằng
+  script phối từ nét cây/cỏ của atlas Thiên Lộc khi xem nghỉ ngoài Home và trên Home. Cảnh giữ tông xế chiều ấm, mặt trời thấp bên phải; cây/cỏ mọc trong5,2 giây,
+  cây lớn hơn bản trước khoảng11%, rêu lan và phù văn
+  phát sáng nhẹ. Animation tạm dừng ngoài màn hình, không che dáng nằm cuộn hay
+  thay atlas ngủ riêng của loài. Viền ngoài cảnh tan dần vào giao diện, giữ trời
+  xế chiều phủ phần giữa. Home giữ nguyên vị trí linh thú khi bắt đầu ngủ; chỉ nền được căn trong
+  màn hình, kể cả ở hai mép và máy hẹp; mặt trời nằm trong khoảng trời trống phía trên bên phải.
+  Khi Lang Linh thức, cảnh cũ giữ đúng tọa độ chỗ ngủ và phát atlas riêng32 khung
+  trong8 giây: chiều → đêm → ban ngày, cây vàng lá rồi trơ cành khô chết,
+  cỏ hóa cát sa mạc và toàn cảnh tan thành bụi cát theo gió. Khung cuối trong
+  suốt; kết thúc mới gỡ nền. Cảnh không đi theo sói, không chặn kéo/chạm và
+  tạm dừng/tiếp tục đúng tiến độ khi Home mất/nhận focus.
   Thiên Lộc vẫn dùng atlas ngủ đã có. Không hiển thị lựa chọn **Buồn ngủ** hoặc
   **Tò mò**.
   Preview **Bay lượn** của Thiên Lộc dùng flight atlas với track lượn lặp, cánh
@@ -121,9 +137,25 @@ mỗi ô vẽ lại cả nhân vật ở một tư thế khác, không ghép cá
   và Linh hỏa đang dùng cùng atlas kỹ năng nên được gộp thành một nút **Linh hỏa**.
   Đây là điều khiển hiển thị tại máy, không gọi API, không trừ lượt random hoặc
   chăm sóc. Xem kỹ năng vẫn theo quyền/cấp hiện tại.
-- `HomePetRoamer` hiển thị linh thú trong khung120px, dùng pose di chuyển lặp,
-  lật theo hướng ảnh gốc ở hai đầu,
-  loài đi bộ chỉ nhấp nhô nhẹ. Riêng Thiên Lộc, nhịp chân chạy/đi bộ được tính
+- Tất cả16 linh thú trên Home dùng chung cửa sổ thức20 giây sau khi được
+  đánh thức bằng chạm hoặc kéo. Các chu kỳ riêng không được chuyển sang ngủ
+  sớm; khi kết thúc pha sớm thì đi/chơi tiếp tới hạn. Thời gian chỉ tính khi
+  Home hoạt động, tạm dừng khi rời màn hình; mỗi lần đánh thức cấp lại đủ20 giây.
+  Lang Linh tru (`skill`, pose12→13 giữ lâu→14→15) ngay sau khi thức và sau
+  chặng đi, rồi tiếp tục di chuyển. Không ngủ ngay khi vừa đi xong.
+- `HomePetRoamer` hiển thị linh thú trong khung120px. Mỗi loài trong kho có
+  atlas Home 4×4 toàn thân riêng tại `assets/pixelPet/animations/home_<id>.png`:
+  hàng 1 idle, hàng 2 di chuyển theo giải phẫu, hàng 3 vui chơi, hàng 4 động tác
+  dấu ấn riêng. Cấu hình frame và nhịp chạy ở `homePetMotion.ts`; atlas chỉ
+  được mount cho linh thú đang hiển thị. Sói, rồng, cá, chim, thú có cánh,
+  Nhân Mã và Scylla dùng tư thế được vẽ riêng, không ép thành cùng một gait.
+  Chuyển frame pha mượt trên UI thread, fallback về ảnh gốc khi atlas chưa tải
+  hoặc lỗi; Reduced Motion và Home inactive dừng frame animation.
+  Riêng Lang Linh lặp chu kỳ sáu nhịp từ bốn pose bước gốc (đảo ngược hai pose
+  cuối để chân sau đổi lượt), không hòa mờ hai dáng toàn thân; thân nhún nhẹ theo
+  nhịp trên UI thread. Sau một chặng đi, sói hạ người cuộn nằm, thở trong cảnh
+  rừng đêm vector phía sau rồi tự thức dậy đi tiếp; chạm vào sói để đánh thức.
+  Riêng Thiên Lộc, nhịp chân chạy/đi bộ được tính
   từ quãng đường và thời lượng từng pha; chuyển động ngang tuyến tính để vận
   tốc thân và cadence chân cùng nhịp. Mở chi tiết từ lối tắt/menu Linh thú;
   chạm vào nhân vật trên Home không điều hướng. Không thêm API. Dừng khi
@@ -141,6 +173,35 @@ mỗi ô vẽ lại cả nhân vật ở một tư thế khác, không ghép cá
   Khi Reduced Motion bật, pet được đặt thẳng xuống. Rời Home giữa lúc
   kéo sẽ đưa pet xuống đất và huỷ animation. Linh thú Thiên Lộc đang ngủ
   được đánh thức khi nhấc, đáp xuống ở pha chạy rồi tiếp tục chu kỳ ngủ hiện có.
+  Riêng Cửu Vĩ Hồ chạy chu kỳ Home tinh nghịch: đi nhún, chạy lúp xúp, bật nhảy
+  và ngoái nhìn khi đổi hướng, đáp nhẹ rồi đi về giữa màn hình trước khi cuộn
+  ngủ. Atlas Home 4×4 mới vẽ đủ các tư thế này, chín đuôi xòe/ve vẩy nhất quán;
+  cú nhảy thấp hơn và pha quay nhẹ, không lộn vòng lớn. Trạng thái ngủ dùng atlas
+  nghỉ hiện có, có nhịp thở; đồng thời cảnh sân đền và cây anh đào mọc dần từ
+  atlas nền riêng trong2,4 giây phía sau linh thú. Tiến độ cảnh tạm dừng khi Home
+  mất focus và tiếp tục từ khung cũ khi quay lại. Cảnh rộng240px, căn đáy theo
+  mặt đất; cổng đền được đặt ở 1/5 bên trái mỗi khung để không bị cáo che. Cáo
+  giữ nguyên vị trí giữa pha ngủ và thức dậy. Khi cáo thức, cảnh cũ ở lại đúng
+  chỗ ngủ: hoa tàn, cổng đền sập và cây tan thành bụi trong4,8 giây, rồi tự gỡ
+  cảnh; cáo rời đi song song. Tiến độ mọc/tàn tạm dừng khi Home mất focus và
+  tiếp tục từ đúng khung khi quay lại. Khi thức phát khung ngược trước khi đi
+  tiếp.
+  Chạm để đánh thức. Khi kéo linh thú, chu kỳ tạm
+  dừng và tiếp tục lại bằng pha đi bộ sau khi thả.
+- **Giới hạn hoạt động trên Home:** mọi loài (kể cả Thiên Lộc) hoạt động tối đa
+  20 giây mỗi lượt rồi ngủ; loài có pha ngủ sẵn có thể nghỉ sớm hơn. Thú ngủ
+  không tự thức theo timer. Chạm/kéo hoặc thao tác đánh thức bằng trợ năng mới
+  bắt đầu lại lượt tối đa 20 giây. Giới hạn này dùng chung với màn **Xem thử
+  trên Home**. Thời gian tạm dừng khi Home không active; quay lại không tự đánh
+  thức thú đang ngủ. Đây là trạng thái trình bày local, không thay dữ liệu pet.
+- **Garuda ở Home:** sau khi đáp xuống, Garuda vào pha nghỉ `idle`, dùng atlas
+  nghỉ riêng thay cho atlas chuyển động. Hai đám mây bay từ mép trái/phải màn
+  hình vào giữa trong 1,5 giây; chỉ sau khi mây khép lại, các khối đá mới ghép
+  thành vòng tròn nhỏ trong 1,4 giây. Cuối cùng, núi và tòa đền trồi lên từ tâm
+  qua atlas 16 khung trong 4,5 giây. Mỗi lần nghỉ, Garuda vỗ cánh bay về giữa
+  màn hình rồi hạ đúng độ cao để ngồi lên tâm bệ; cảnh bắt đầu sau khi đáp, và
+  Garuda chuyển sang pose nghỉ trong lúc núi chùa dựng. Chạm Garuda đang nghỉ
+  để đánh thức; cảnh biến mất cùng lúc.
 - **4 rig** và các lưới/màu trong `pixelPetRig.ts`/`pixelPetCatalog.ts` được giữ làm
   fallback và nguồn của Bạch Hổ. Không thay sở hữu, loài, EXP, tài khoản hay API.
 

@@ -29,7 +29,7 @@ import {
 } from '../../services/pixelPet/pixelPetApi';
 import { pixelPetSpecies } from '../../services/pixelPet/pixelPetCatalog';
 import { useAuthStore } from '../../store/authStore';
-import { colors, typography } from '../../theme';
+import { colors, spacing, typography } from '../../theme';
 import { PET_ART } from '../PixelPet/petArt';
 import { ManagedPetDetailScreen } from './ManagedPetDetailScreen';
 import { styles } from './PetManagementScreen.styles';
@@ -53,11 +53,15 @@ const STATUS = {
   reserved: { label: 'Đang giữ chỗ', tone: 'reserved', icon: 'clock' },
   available: { label: 'Có thể nhận nuôi', tone: 'available', icon: 'gift' },
 } as const;
-const FILTERS: readonly { value: StatusFilter; label: string }[] = [
-  { value: 'all', label: 'Tất cả' },
-  { value: 'owned', label: 'Có chủ' },
-  { value: 'reserved', label: 'Giữ chỗ' },
-  { value: 'available', label: 'Còn trống' },
+const FILTERS: readonly {
+  value: StatusFilter;
+  label: string;
+  short: string;
+}[] = [
+  { value: 'all', label: 'Tất cả', short: 'Tất cả' },
+  { value: 'owned', label: 'Có chủ', short: 'Có chủ' },
+  { value: 'reserved', label: 'Giữ chỗ', short: 'Giữ chỗ' },
+  { value: 'available', label: 'Còn trống', short: 'Trống' },
 ];
 const initial = (name: string) => [...name.trim()][0]?.toUpperCase() ?? '?';
 
@@ -211,7 +215,7 @@ export function PetManagementScreen({
       refreshControl={
         allowed ? (
           <RefreshControl
-            refreshing={busy && !selected}
+            refreshing={busy && !selected && pets.length > 0}
             onRefresh={() => void load()}
           />
         ) : undefined
@@ -254,7 +258,7 @@ export function PetManagementScreen({
               />
             </View>
             <View style={styles.filters}>
-              {FILTERS.map(({ value, label }) => (
+              {FILTERS.map(({ value, label, short }) => (
                 <Pressable
                   key={value}
                   accessibilityRole="button"
@@ -269,7 +273,7 @@ export function PetManagementScreen({
                       filter === value && styles.chipTextActive,
                     ]}
                   >
-                    {label} {counts[value]}
+                    {short} {counts[value]}
                   </Text>
                 </Pressable>
               ))}
@@ -300,191 +304,148 @@ export function PetManagementScreen({
               Không tìm thấy linh thú phù hợp.
             </Text>
           )}
-          {!!pets.length && (
-            <View style={styles.tiles}>
-              {(['owned', 'reserved', 'available'] as const).map((status) => (
-                <View
-                  key={status}
-                  style={[styles.tile, styles[`${STATUS[status].tone}Soft`]]}
-                >
-                  <Text style={[styles.tileCount, styles[STATUS[status].tone]]}>
-                    {counts[status]}
-                  </Text>
-                  <Text style={styles.tileLabel}>{STATUS[status].label}</Text>
-                </View>
-              ))}
-            </View>
-          )}
           {filtered.map((pet) => {
             const species = pixelPetSpecies(pet.speciesId)!;
             const art = PET_ART[pet.speciesId];
             const status = STATUS[pet.status];
+            const holder = pet.holder;
             return (
-              <View
+              <Pressable
                 key={pet.speciesId}
-                style={[
+                accessibilityRole="button"
+                accessibilityLabel={`Mở chi tiết ${species.name}`}
+                accessibilityHint="Xem hoạt động và biểu cảm của linh thú"
+                onPress={() => {
+                  setError(null);
+                  setSuccess(null);
+                  setDetailSpeciesId(pet.speciesId);
+                }}
+                style={({ pressed }) => [
                   styles.card,
-                  pet.status === 'available' && styles.cardFree,
+                  pressed && styles.detailPressed,
                 ]}
               >
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Mở chi tiết ${species.name}`}
-                  accessibilityHint="Xem hoạt động và biểu cảm của linh thú"
-                  onPress={() => {
-                    setError(null);
-                    setSuccess(null);
-                    setDetailSpeciesId(pet.speciesId);
-                  }}
-                  style={({ pressed }) => [
-                    styles.detailPressable,
-                    pressed && styles.detailPressed,
-                  ]}
-                >
+                <View style={styles.row}>
                   <View
                     style={[
-                      styles.accent,
-                      { backgroundColor: species.palette[0] },
+                      styles.thumbnail,
+                      { borderColor: species.palette[0] },
                     ]}
-                  />
-                  <View style={styles.row}>
-                    <View
-                      style={[
-                        styles.thumbnail,
-                        { borderColor: species.palette[0] },
-                      ]}
-                    >
-                      {art ? (
-                        <Image
-                          source={art}
-                          style={styles.art}
-                          resizeMode="contain"
-                          accessibilityIgnoresInvertColors
-                        />
-                      ) : (
-                        <Text style={styles.fallback}>🐯</Text>
-                      )}
-                    </View>
-                    <View style={styles.flex}>
-                      <Text accessibilityRole="header" style={styles.name}>
-                        {species.name}
-                      </Text>
-                      <Text style={styles.trait}>
-                        {species.personality} · {species.skill}
-                      </Text>
-                      <View
-                        style={[styles.badge, styles[`${status.tone}Soft`]]}
-                      >
-                        <Feather
-                          name={status.icon}
-                          size={12}
-                          color={
-                            pet.status === 'owned'
-                              ? colors.success
-                              : pet.status === 'reserved'
-                                ? colors.sunlight
-                                : colors.sky
-                          }
-                        />
-                        <Text style={[styles.badgeText, styles[status.tone]]}>
-                          {status.label}
-                        </Text>
-                      </View>
-                    </View>
-                    {pet.adoption && (
-                      <View style={styles.levelBox}>
-                        <Text style={styles.levelNumber}>
-                          {pet.adoption.level}
-                        </Text>
-                        <Text style={styles.levelLabel}>CẤP</Text>
-                      </View>
+                  >
+                    {art ? (
+                      <Image
+                        source={art}
+                        style={styles.art}
+                        resizeMode="contain"
+                        accessibilityIgnoresInvertColors
+                      />
+                    ) : (
+                      <Text style={styles.fallback}>🐯</Text>
                     )}
+                  </View>
+                  <View style={styles.flex}>
+                    <Text
+                      accessibilityRole="header"
+                      numberOfLines={1}
+                      style={styles.name}
+                    >
+                      {species.name}
+                    </Text>
+                    <Text numberOfLines={1} style={styles.trait}>
+                      {species.personality} · {species.skill}
+                    </Text>
+                    <View style={styles.badge}>
+                      <View
+                        style={[styles.dot, styles[`${status.tone}Dot`]]}
+                      />
+                      <Text style={[styles.badgeText, styles[status.tone]]}>
+                        {status.label}
+                      </Text>
+                    </View>
+                  </View>
+                  {pet.adoption ? (
+                    <View style={styles.levelBox}>
+                      <Text style={styles.levelLabel}>LV</Text>
+                      <Text style={styles.levelNumber}>
+                        {pet.adoption.level}
+                      </Text>
+                    </View>
+                  ) : (
                     <Feather
                       name="chevron-right"
                       size={18}
                       color={colors.muted}
                     />
-                  </View>
-                  {pet.holder && (
-                    <View style={styles.owner}>
-                      <View style={styles.ownerRow}>
-                        <View style={styles.avatar}>
-                          <Text style={styles.avatarText}>
-                            {initial(
-                              pet.holder.name || pet.holder.email || '?',
-                            )}
-                          </Text>
-                        </View>
-                        <View style={styles.flex}>
-                          <Text style={styles.ownerName}>
-                            {pet.holder.name || 'Chưa đặt tên'}
-                          </Text>
-                          {!!pet.holder.email && (
-                            <Text selectable style={typography.small}>
-                              {pet.holder.email}
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-                      <Text selectable style={styles.uid}>
-                        UID: {pet.holder.uid}
+                  )}
+                </View>
+                {holder && (
+                  <View style={styles.owner}>
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarText}>
+                        {initial(holder.name || holder.email || '?')}
                       </Text>
-                      {pet.adoption ? (
-                        <View style={styles.facts}>
-                          <Text style={styles.fact}>
-                            {stageLabel[pet.adoption.stage]}
-                          </Text>
-                          <Text style={styles.fact}>
-                            Cấp {pet.adoption.level} · {pet.adoption.totalExp}{' '}
-                            EXP
-                          </Text>
-                          <Text style={styles.fact}>
-                            Nhận nuôi{' '}
-                            {new Date(
-                              pet.adoption.adoptedAt,
-                            ).toLocaleDateString('vi-VN')}
-                          </Text>
-                        </View>
-                      ) : (
-                        <Text style={typography.small}>
-                          Giữ đến{' '}
-                          {new Date(pet.reservedUntil!).toLocaleTimeString(
-                            'vi-VN',
-                          )}
+                    </View>
+                    <View style={styles.flex}>
+                      <Text numberOfLines={1} style={styles.ownerName}>
+                        {holder.name || 'Chưa đặt tên'}
+                      </Text>
+                      {!!holder.email && (
+                        <Text numberOfLines={1} style={styles.ownerEmail}>
+                          {holder.email}
                         </Text>
                       )}
+                      <View style={styles.facts}>
+                        {(pet.adoption
+                          ? [
+                              stageLabel[pet.adoption.stage],
+                              `Cấp ${pet.adoption.level} · ${pet.adoption.totalExp} EXP`,
+                              new Date(
+                                pet.adoption.adoptedAt,
+                              ).toLocaleDateString('vi-VN'),
+                            ]
+                          : [
+                              `Giữ đến ${new Date(
+                                pet.reservedUntil!,
+                              ).toLocaleTimeString('vi-VN')}`,
+                            ]
+                        ).map((fact) => (
+                          <Text key={fact} style={styles.fact}>
+                            {fact}
+                          </Text>
+                        ))}
+                      </View>
                     </View>
-                  )}
-                </Pressable>
-                {pet.status === 'owned' && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Thu hồi ${species.name}`}
-                    accessibilityState={{ disabled: busy }}
-                    disabled={busy}
-                    onPress={() => {
-                      setError(null);
-                      setSuccess(null);
-                      setSelected({
-                        pet,
-                        actionId: newPixelPetAction(),
-                        epoch,
-                      });
-                    }}
-                    style={({ pressed }) => [
-                      styles.revoke,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Feather
-                      name="corner-up-left"
-                      size={16}
-                      color={colors.danger}
-                    />
-                    <Text style={styles.revokeText}>Thu hồi linh thú</Text>
-                  </Pressable>
+                    {pet.status === 'owned' && (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Thu hồi ${species.name}`}
+                        accessibilityState={{ disabled: busy }}
+                        disabled={busy}
+                        hitSlop={spacing.xs}
+                        onPress={() => {
+                          setError(null);
+                          setSuccess(null);
+                          setSelected({
+                            pet,
+                            actionId: newPixelPetAction(),
+                            epoch,
+                          });
+                        }}
+                        style={({ pressed }) => [
+                          styles.revoke,
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <Feather
+                          name="corner-up-left"
+                          size={16}
+                          color={colors.danger}
+                        />
+                      </Pressable>
+                    )}
+                  </View>
                 )}
-              </View>
+              </Pressable>
             );
           })}
           {selected && active && (

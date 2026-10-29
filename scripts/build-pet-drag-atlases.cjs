@@ -1,3 +1,4 @@
+/* global __dirname, Buffer */
 /*
  * Builds dedicated falling sprite sheets from the pixel animation atlas already
  * shipped for each species. This is deterministic image processing; it does not

@@ -57,3 +57,7 @@ firestore-debug.log
 storage-debug.log
 ui-debug.log
 /supabase/.temp/
+
+# Python asset tooling caches
+__pycache__/
+*.pyc

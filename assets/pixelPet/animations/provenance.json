@@ -471,5 +471,227 @@
     "generator": "scripts/build-pet-drag-atlases.cjs",
     "layout": "4 columns × 4 rows; 16 whole-character poses; 1024×1024 indexed PNG with source palette and alpha.",
     "poses": "Lift (frames 0–3), anatomy-specific fall (4–7), impact/landing (8–11), settle/recovery (12–15). Nearest-neighbor inverse-affine transforms preserve pixel edges."
-  }
+  },
+  "homeVariants": [
+    {
+      "id": "nine_tail_fox",
+      "file": "home_nine_tail_fox.png",
+      "reference": "../nine_tail_fox.png",
+      "generator": "Built-in image_gen; packed with scripts/pack-pet-rest-atlas.py",
+      "sourceSheet": "exec-471ea57c-b012-4d88-ae95-92e4801c4d32.png",
+      "layout": "4 columns × 4 rows; 16 full-body 256px frames; transparent indexed PNG; common scale and foot/head anchor.",
+      "poseOrder": "Frames 0–3 jaunty walk; 4–7 scamper; 8–11 playful hop/twist; 12–13 turn/look back; 14–15 soft landing and foxfire wink. Sleep/wake reuse rest_nine_tail_fox.png.",
+      "motion": "Playful walk, scamper, gentle hop, look-back turn, soft landing and tail-fire wink; nine tails fan and sway together.",
+      "promptSummary": "Playful chibi fox, exact existing character; 4×4 transparent full-body atlas. Rows: jaunty walk, scamper, springing hop/twist, look-back and soft landing with a tail-fire wink."
+    },
+    {
+      "id": "qilin",
+      "file": "home_qilin.png",
+      "reference": "../qilin.png",
+      "generator": "Built-in image_gen; packed with scripts/pack-pet-rest-atlas.py",
+      "sourceSheet": "exec-15f91a78-f20e-4bbe-9425-9d582962ae04.png",
+      "layout": "4 columns × 4 rows; 16 full-body 256px frames; transparent indexed PNG; common scale and foot/head anchor.",
+      "poseOrder": "Rows 1–4: idle, anatomy-specific travel, playful movement, species signature action.",
+      "motion": "Jaunty trot, playful prance and contained hoof-stomp with ember ring.",
+      "promptSummary": "Same Kỳ Lân Hỏa; four rows of idle, trot, playful prance, contained hoof-stomp."
+    },
+    {
+      "id": "alicorn",
+      "file": "home_alicorn.png",
+      "reference": "../alicorn.png",
+      "generator": "Built-in image_gen; packed with scripts/pack-pet-rest-atlas.py",
+      "sourceSheet": "exec-9011ee6c-76d2-4d11-9a61-9f94f17a2c7c.png",
+      "layout": "4 columns × 4 rows; 16 full-body 256px frames; transparent indexed PNG; common scale and foot/head anchor.",
+      "poseOrder": "Rows 1–4: idle, anatomy-specific travel, playful movement, species signature action.",
+      "motion": "Canter with feathered wing beats, joyful hop and elegant short hover.",
+      "promptSummary": "Same Alicorn; idle, canter with feathered wing beats, joyful hop, elegant wing flare and hover."
+    },
+    {
+      "id": "rune_wolf",
+      "file": "home_rune_wolf.png",
+      "reference": "../rune_wolf.png",
+      "generator": "Built-in image_gen; packed with scripts/pack-pet-rest-atlas.py",
+      "sourceSheet": "exec-05531b8b-2ae9-42e3-b143-6b22c83cf77a.png",
+      "layout": "4 columns × 4 rows; 16 full-body 256px frames; transparent indexed PNG; common scale and foot/head anchor.",
+      "poseOrder": "Rows 1–4: idle, anatomy-specific travel, playful movement, species signature action.",
+      "motion": "Confident wolf walk, affectionate paw-play and short rune-lit howl.",
+      "promptSummary": "Same Rune Wolf; idle, confident walk, affectionate paw-play, short rune-lit howl."
+    },
+    {
+      "id": "black_tortoise",
+      "file": "home_black_tortoise.png",
+      "reference": "../black_tortoise.png",
+      "generator": "Built-in image_gen; packed with scripts/pack-pet-rest-atlas.py",
+      "sourceSheet": "exec-01605d0c-4a18-457e-9bda-54ec6ffc89a6.png",
+      "layout": "4 columns × 4 rows; 16 full-body 256px frames; transparent indexed PNG; common scale and foot/head anchor.",
+      "poseOrder": "Rows 1–4: idle, anatomy-specific travel, playful movement, species signature action.",
+      "motion": "Slow weighted walk, curious head peek and gentle shell-defense pose.",
+      "promptSummary": "Same Huyền Vũ; calm heavy idle, deliberate short steps, curious head/foreleg peek, shell defense."
+    },
+    {
+      "id": "sphinx",
+      "file": "home_sphinx.png",
+      "reference": "../sphinx.png",
+      "generator": "Built-in image_gen; packed with scripts/pack-pet-rest-atlas.py",
+      "sourceSheet": "exec-3cabade9-8a44-4342-b3ad-0ca6c9ec024b.png",
+      "layout": "4 columns × 4 rows; 16 full-body 256px frames; transparent indexed PNG; common scale and foot/head anchor.",
+      "poseOrder": "Rows 1–4: idle, anatomy-specific travel, playful movement, species signature action.",
+      "motion": "Feline walk and pounce with layered wing unfurl and fold.",
+      "promptSummary": "Same Sphinx; idle, feline gait, playful pounce, majestic layered wing unfurl."
+    },
+    {
+      "id": "centaur",
+      "file": "home_centaur.png",
+      "reference": "../centaur.png",
+      "generator": "Built-in image_gen; packed with scripts/pack-pet-rest-atlas.py",
+      "sourceSheet": "exec-a5681cdd-6442-4101-af34-b73b91fc0656.png",
+      "layout": "4 columns × 4 rows; 16 full-body 256px frames; transparent indexed PNG; common scale and foot/head anchor.",
+      "poseOrder": "Rows 1–4: idle, anatomy-specific travel, playful movement, species signature action.",
+      "motion": "Balanced horse trot, friendly wave and compact archer gesture.",
+      "promptSummary": "Same Centaur; idle, balanced horse trot, friendly wave, bow-raising gesture."
+    },
+    {
+      "id": "white_tiger",
+      "file": "home_white_tiger.png",
+      "reference": "../white_tiger.png",
+      "generator": "Built-in image_gen; packed with scripts/pack-pet-rest-atlas.py",
+      "sourceSheet": "exec-fab5f1e5-3406-43d6-9d29-1fa38e156a81.png",
+      "layout": "4 columns × 4 rows; 16 full-body 256px frames; transparent indexed PNG; common scale and foot/head anchor.",
+      "poseOrder": "Rows 1–4: idle, anatomy-specific travel, playful movement, species signature action.",
+      "motion": "Stalking walk, playful kitten pounce and controlled winged leap.",
+      "promptSummary": "Same White Tiger; idle, stalking gait, kitten pounce, controlled leaping signature pose."
+    },
+    {
+      "id": "azure_dragon",
+      "file": "home_azure_dragon.png",
+      "reference": "../azure_dragon.png",
+      "generator": "Built-in image_gen; packed with scripts/pack-pet-rest-atlas.py",
+      "sourceSheet": "exec-4dbb0f2f-caa4-44a1-8cfc-3d2e65a25c12.png",
+      "layout": "4 columns × 4 rows; 16 full-body 256px frames; transparent indexed PNG; common scale and foot/head anchor.",
+      "poseOrder": "Rows 1–4: idle, anatomy-specific travel, playful movement, species signature action.",
+      "motion": "Serpentine S-wave glide, playful pearl nudge and raised dragon coil.",
+      "promptSummary": "Same Azure Dragon; idle coil, serpentine S-wave, pearl play, raised glowing coil."
+    },
+    {
+      "id": "koi_dragon",
+      "file": "home_koi_dragon.png",
+      "reference": "../koi_dragon.png",
+      "generator": "Built-in image_gen; packed with scripts/pack-pet-rest-atlas.py",
+      "sourceSheet": "exec-3e90f013-0196-4004-9955-5e66373360f6.png",
+      "layout": "4 columns × 4 rows; 16 full-body 256px frames; transparent indexed PNG; common scale and foot/head anchor.",
+      "poseOrder": "Rows 1–4: idle, anatomy-specific travel, playful movement, species signature action.",
+      "motion": "Rising fishlike swim, playful leap and Vũ Môn ascent with flowing fins.",
+      "promptSummary": "Same Koi Dragon; floating idle, rising swim, playful leap, Vũ Môn ascent."
+    },
+    {
+      "id": "scylla",
+      "file": "home_scylla.png",
+      "reference": "../scylla.png",
+      "generator": "Built-in image_gen; packed with scripts/pack-pet-rest-atlas.py",
+      "sourceSheet": "exec-09341d10-5e6e-49ca-933b-8e179ed26743.png",
+      "layout": "4 columns × 4 rows; 16 full-body 256px frames; transparent indexed PNG; common scale and foot/head anchor.",
+      "poseOrder": "Rows 1–4: idle, anatomy-specific travel, playful movement, species signature action.",
+      "motion": "Gliding body with sequential head/tentacle ripple and coordinated fan flourish.",
+      "promptSummary": "Same Scylla design; calm idle, body glide with sequential tentacle ripple, playful wave, coordinated tentacle fan."
+    },
+    {
+      "id": "lac_bird",
+      "file": "home_lac_bird.png",
+      "reference": "../lac_bird.png",
+      "generator": "Built-in image_gen; packed with scripts/pack-pet-rest-atlas.py",
+      "sourceSheet": "exec-ddf4f81c-ffbe-4892-9c02-aacee9fc265b.png",
+      "layout": "4 columns × 4 rows; 16 full-body 256px frames; transparent indexed PNG; common scale and foot/head anchor.",
+      "poseOrder": "Rows 1–4: idle, anatomy-specific travel, playful movement, species signature action.",
+      "motion": "Elegant bird steps, layered feather flutter and graceful wing fan.",
+      "promptSummary": "Same Lac Bird; poised idle, elegant steps and wing flutter, playful wing beat, layered feather fan."
+    },
+    {
+      "id": "phoenix",
+      "file": "home_phoenix.png",
+      "reference": "../phoenix.png",
+      "generator": "Built-in image_gen; packed with scripts/pack-pet-rest-atlas.py",
+      "sourceSheet": "exec-cdad7fb9-24df-47d4-8b4c-55e80207bb06.png",
+      "layout": "4 columns × 4 rows; 16 full-body 256px frames; transparent indexed PNG; common scale and foot/head anchor.",
+      "poseOrder": "Rows 1–4: idle, anatomy-specific travel, playful movement, species signature action.",
+      "motion": "Full wingbeat, playful hop, radiant flare and short close ember ribbon.",
+      "promptSummary": "Same Phoenix; hovering idle, full wingbeat, playful hop, radiant flare and close ember trail."
+    },
+    {
+      "id": "anubis",
+      "file": "home_anubis.png",
+      "reference": "../anubis.png",
+      "generator": "Built-in image_gen; packed with scripts/pack-pet-rest-atlas.py",
+      "sourceSheet": "exec-58917c93-2f4c-475e-b069-d98514553e6f.png",
+      "layout": "4 columns × 4 rows; 16 full-body 256px frames; transparent indexed PNG; common scale and foot/head anchor.",
+      "poseOrder": "Rows 1–4: idle, anatomy-specific travel, playful movement, species signature action.",
+      "motion": "Measured biped walk, friendly wave and respectful staff salute.",
+      "promptSummary": "Same Anubis; dignified idle, measured biped walk, friendly wave, staff salute and bow."
+    },
+    {
+      "id": "garuda",
+      "file": "home_garuda.png",
+      "reference": "../garuda.png",
+      "generator": "Built-in image_gen; packed with scripts/pack-pet-rest-atlas.py",
+      "sourceSheet": "exec-7c87daaa-75e2-4d88-9386-c5428d906df6.png",
+      "layout": "4 columns × 4 rows; 16 full-body 256px frames; transparent indexed PNG; common scale and foot/head anchor.",
+      "poseOrder": "Rows 1–4: idle, anatomy-specific travel, playful movement, species signature action.",
+      "motion": "Winged hover cycle, playful flutter and dignified full wing flare.",
+      "promptSummary": "Same Garuda; poised idle, complete wingbeat/hover, playful flutter, majestic wing flare."
+    }
+  ],
+  "homeSleepScenePilots": [
+    {
+      "id": "nine_tail_fox",
+      "file": "home_sleep_nine_tail_fox.png",
+      "sourceSheet": "sources/home_sleep_nine_tail_fox_source.png",
+      "generator": "Built-in image_gen; packed with scripts/pack-home-sleep-scene-atlas.py",
+      "layout": "4 columns × 4 rows; 16 staged landscape frames; 1280×1280 RGBA atlas; 320px cells.",
+      "promptSummary": "A Japanese shrine garden with abundant fine branches and dense layered cherry blossoms grows above the left-positioned torii, then the flowers wilt, the tree crumbles, the gate collapses and the scene dissolves to dust.",
+      "status": "Loaded on Home behind the full-body sleep atlas; grows over 2.4s and pauses while Home is inactive.",
+      "runtimeLayout": "240px square scene centered on a ground-aligned 120px Home pet anchor; the Fox remains stationary while entering and leaving sleep.",
+      "sourceRevision": "Redrawn 2026-10-29 with denser secondary branches and about 35% fuller blossom clusters; matching mature decay frames updated to keep the wake transition coherent.",
+      "decayFile": "home_sleep_nine_tail_fox_decay.png",
+      "decaySourceSheet": "sources/home_sleep_nine_tail_fox_decay_source.png",
+      "decayDurationMs": 4800,
+      "decaySummary": "Starts with the fuller mature blossom canopy, then flowers wither and fall, branches crumble, the gate collapses, and the old scene disperses into ground-level dust."
+    },
+    {
+      "id": "garuda",
+      "file": "home_sleep_garuda_reveal_v2.png",
+      "sourceSheet": "sources/home_sleep_garuda_reveal_v2_source.png",
+      "previousReveal": "home_sleep_garuda_reveal.png",
+      "cloudPairFile": "sources/home_sleep_garuda_cloud_pair.png",
+      "cloudLeftFile": "home_sleep_garuda_cloud_left.png",
+      "cloudRightFile": "home_sleep_garuda_cloud_right.png",
+      "platformFile": "home_sleep_garuda_platform.png",
+      "platformSourceSheet": "sources/home_sleep_garuda_platform_source.png",
+      "referenceArtwork": "home_sleep_garuda_backdrop.png",
+      "legacyAtlas": "home_sleep_garuda.png",
+      "generator": "Built-in image_gen; 4×4 staged reveal and construction atlases",
+      "layout": "1267×1241 RGBA 4×4 cloud-and-shrine reveal; 1254×1254 RGBA 4×4 stone platform assembly.",
+      "cloudMotion": "Transparent left/right cloud sprites begin beyond the Home screen edges, ease toward the center, and hold there for the platform build.",
+      "promptSummary": "Cloud banks fly inward from both screen edges; once gathered, separate sandstone blocks assemble a compact circular dais; the mountains and smaller gold-and-teal shrine then rise from the center through 16 frames.",
+      "status": "Sequential Home stages: clouds converge in 1.5s, the compact 86px stone dais assembles in 1.4s, then the reduced shrine and mountains reveal through 16 frames in 4.5s. The dais stays lifted and visible beneath Garuda.",
+      "runtimeLayout": "280px maximum scene, scaled to fit the Home viewport; edge-entering cloud sprites span the viewport and converge around the centered scene; 86px platform sits 48px above the scene bottom."
+    }
+  ],
+  "homeSleepProceduralScenes": [
+    {
+      "id": "rune_wolf",
+      "file": "home_sleep_rune_wolf_v7.png",
+      "generator": "scripts/generate-rune-wolf-sleep-atlas.py; Pillow/numpy raster composition using existing home_sleep_garden.png painted growth frames; no new AI generation",
+      "layout": "4 columns × 4 rows; 16 raster frames; 1280×1280 PNG atlas; 320px cells.",
+      "sequence": "The warm late-afternoon sky remains bright as a larger sheltering tree and moss grow; a low sun stays visible, and subdued ancient runes emerge.",
+      "durationMs": 5200,
+      "status": "Shown behind Lang Linh in Home and sleep previews; transition pauses when the screen is inactive."
+    },
+    {
+      "id": "rune_wolf_wake",
+      "file": "home_wake_rune_wolf.png",
+      "generator": "scripts/generate-rune-wolf-wake-atlas.py; local raster composition from home_sleep_garden.png and home_sleep_garden_decay.png",
+      "layout": "8 columns x 4 rows; 32 frames; 2560x1280 RGBA; 320px cells",
+      "durationMs": 8000,
+      "sequence": "Afternoon to night to dawn/day; leaves age and fall, tree dries and dies, grass becomes desert sand, wind disperses the entire scene; transparent final frame."
+    }
+  ]
 }

@@ -6,6 +6,7 @@ import {
   petFrameBlendAt,
   petDragFallbackFrameTrack,
   petDragPoseAt,
+  petFacesLeft,
   petMovementLabel,
   petPlayback,
 } from '../pixelPetFrames';
@@ -108,6 +109,11 @@ it('offers wing movement only to the five species whose art has wings', () => {
   expect(
     petMovementLabel(PIXEL_PET_SPECIES.find((p) => p.id === 'azure_dragon')!),
   ).toBe('Lượn mình');
+});
+
+it('flips Garuda art so its beak points in its Home travel direction', () => {
+  const garuda = PIXEL_PET_SPECIES.find((pet) => pet.id === 'garuda')!;
+  expect(petFacesLeft(garuda)).toBe(true);
 });
 
 it('blends through most of each pose interval, preserving boundaries and one-shot completion', () => {

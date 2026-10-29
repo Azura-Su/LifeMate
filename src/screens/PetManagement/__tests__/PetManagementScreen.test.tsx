@@ -5,6 +5,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react-native';
+import { ActivityIndicator } from 'react-native';
 import { PetManagementScreen } from '../PetManagementScreen';
 import {
   listManagedPets,
@@ -24,6 +25,10 @@ jest.mock('react-native-reanimated', () => ({
 jest.mock('react-native-worklets', () =>
   jest.requireActual('react-native-worklets/src/mock'),
 );
+jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
 jest.mock('../../../hooks/useScreenActive', () => ({
   useScreenActive: () => mockActive,
 }));
@@ -34,6 +39,8 @@ jest.mock('../../../services/admin/petManagement', () => ({
 jest.mock('../../../services/pixelPet/pixelPetApi', () => ({
   newPixelPetAction: () => 'action',
   invalidateOwnedPixelPet: jest.fn(),
+  readOwnedPixelPet: () => null,
+  subscribeOwnedPixelPet: () => () => {},
 }));
 jest.mock('../../../components/DialogModal', () => ({
   DialogModal: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -78,6 +85,20 @@ beforeEach(() => {
     .setUser({ uid: ADMIN_UID, email: ADMIN_EMAIL, displayName: 'Admin' });
   jest.mocked(listManagedPets).mockResolvedValue(inventory as never);
 });
+
+it('shows only one loading indicator during the initial pet list fetch', () => {
+  jest.mocked(listManagedPets).mockImplementation(
+    () => new Promise(() => {}),
+  );
+  render(<PetManagementScreen {...props} />);
+
+  expect(screen.UNSAFE_getAllByType(ActivityIndicator)).toHaveLength(1);
+  expect(
+    screen.getByTestId('screen-scroll-area').props.refreshControl.props
+      .refreshing,
+  ).toBe(false);
+});
+
 it('guards non-admin and shows owner, level, local search and available pets', async () => {
   const view = render(<PetManagementScreen {...props} />);
   expect(await screen.findByText('alice@example.com')).toBeTruthy();
@@ -165,4 +186,20 @@ it('filters the full list by status chip and shows per-status counts', async () 
   fireEvent.press(screen.getByLabelText('Lọc Có chủ'));
   expect(screen.getByText('alice@example.com')).toBeTruthy();
   expect(screen.queryByText('Kỳ Lân Hỏa')).toBeNull();
+});
+
+it('opens a Home preview of the pet from its detail page', async () => {
+  render(<PetManagementScreen {...props} />);
+  fireEvent.press(
+    await screen.findByRole('button', { name: 'Mở chi tiết Phượng Hoàng' }),
+  );
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Xem Phượng Hoàng chạy trên Home' }),
+  );
+  expect(screen.getByText('XEM THỬ TRÊN HOME')).toBeTruthy();
+  expect(screen.getByText('Tài chính')).toBeTruthy();
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Đóng xem thử trên Home' }),
+  );
+  expect(screen.queryByText('XEM THỬ TRÊN HOME')).toBeNull();
 });

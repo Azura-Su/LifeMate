@@ -248,6 +248,7 @@ export function petFacesLeft(species: PixelPetSpecies) {
     'sphinx',
     'azure_dragon',
     'white_tiger',
+    'garuda',
     'celestial_stag',
   ].includes(species.id);
 }

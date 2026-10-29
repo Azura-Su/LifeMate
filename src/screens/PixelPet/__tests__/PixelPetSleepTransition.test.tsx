@@ -1,14 +1,24 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { useState } from 'react';
-import { Pressable, type ImageProps, type ViewProps } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  View,
+  type ImageProps,
+  type ViewProps,
+} from 'react-native';
 import { PIXEL_PET_BY_ID } from '../../../services/pixelPet/pixelPetCatalog';
 import type { PixelPetSpeciesId } from '../../../types/pixelPet';
 import { PixelPetSprite } from '../PixelPetSprite';
 import { PixelPetAtlas } from '../PixelPetAtlas';
+import { RuneWolfSleepBackdrop } from '../RuneWolfSleepBackdrop';
 import { HomeSleepGarden } from '../../Home/HomeSleepGarden';
+import { HomeSleepScene } from '../../Home/HomeSleepScene';
 import {
   PET_REST_ATLASES,
   CELESTIAL_STAG_SLEEP_GARDEN_DECAY_ATLAS,
+  GARUDA_HOME_SLEEP_REVEAL_ATLAS,
+  GARUDA_SLEEP_PLATFORM_ATLAS,
 } from '../petArt';
 
 // Native React 19 enables props profiling. Keep that path active in this test:
@@ -145,6 +155,54 @@ it.each([15, 4])(
   },
 );
 
+it('renders Garuda asleep in a staged mountain, cloud and temple scene', () => {
+  render(<HomeSleepScene scene="garuda" visible active />);
+
+  const atlases = screen.UNSAFE_getAllByType(PixelPetAtlas);
+  expect(atlases[0].props).toMatchObject({
+    source: GARUDA_HOME_SLEEP_REVEAL_ATLAS,
+    size: 340,
+    columns: 4,
+    rows: 4,
+    frameTrack: Array.from({ length: 16 }, (_, frame) => frame),
+    blendFrames: true,
+  });
+  expect(atlases[1].props).toMatchObject({
+    source: GARUDA_SLEEP_PLATFORM_ATLAS,
+    size: 86,
+    columns: 4,
+    rows: 4,
+    frameTrack: [0, 1, 2, 3, 4, 5, 6, 7, 9, 9, 9, 9, 9, 9, 9, 9],
+    blendFrames: false,
+  });
+  const platform = screen
+    .UNSAFE_getAllByType(View)
+    .find((view) => view.props.testID === 'home-pet-sleep-scene-build');
+  expect(StyleSheet.flatten(platform?.props.style)).toMatchObject({
+    left: 127,
+    top: 195,
+    width: 86,
+    height: 86,
+  });
+});
+
+it('scales the smaller Garuda dais with the scene on narrow screens', () => {
+  render(<HomeSleepScene scene="garuda" visible active size={230} />);
+
+  const atlases = screen.UNSAFE_getAllByType(PixelPetAtlas);
+  expect(atlases[0].props.size).toBe(230);
+  expect(atlases[1].props.size).toBe(58);
+  const platform = screen
+    .UNSAFE_getAllByType(View)
+    .find((view) => view.props.testID === 'home-pet-sleep-scene-build');
+  expect(StyleSheet.flatten(platform?.props.style)).toMatchObject({
+    left: 86,
+    top: 113,
+    width: 58,
+    height: 58,
+  });
+});
+
 it.each(
   RESTING_SPECIES.flatMap((speciesId) => [
     { speciesId, loaded: false },
@@ -181,3 +239,21 @@ it.each(
     expect(screen.getByRole('button', { name: 'Cho ngủ' })).toBeTruthy();
   },
 );
+
+
+it('keeps the current day/night frame when a wolf sleep preview pauses and restarts daylight on a new sleep', () => {
+  const view = render(<RuneWolfSleepBackdrop visible active size={240} />);
+  const atlas = () => screen.UNSAFE_getByType(PixelPetAtlas).props;
+  expect(atlas().frameTrack).toEqual(Array.from({ length: 16 }, (_, i) => i));
+  expect(atlas().loop).not.toBe(true);
+  act(() => { atlas().progress.value = 0.65; });
+  view.rerender(<RuneWolfSleepBackdrop visible active={false} size={240} />);
+  expect(atlas().progress.value).toBe(0.65);
+  // The paused clock must still render its frozen frame, rather than static frame 0.
+  expect(atlas().animating).toBe(true);
+  const progress = atlas().progress;
+  view.rerender(<RuneWolfSleepBackdrop visible={false} active size={240} />);
+  expect(progress.value).toBe(0);
+  view.rerender(<RuneWolfSleepBackdrop visible active size={240} />);
+  expect(atlas().progress).toBe(progress);
+});
