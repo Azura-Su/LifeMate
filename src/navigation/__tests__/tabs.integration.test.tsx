@@ -269,7 +269,7 @@ it('shows the configured name, opens all tabs, and returns to Login on logout', 
   expect(await screen.findByText('Khóa Tài chính')).toBeTruthy();
   expect(screen.queryByText('Face ID · chưa bật')).toBeNull();
   expect(screen.getByText('Thông báo')).toBeTruthy();
-  expect(screen.getByText('LifeMate · 1.0.0')).toBeTruthy();
+  expect(screen.queryByText('LifeMate · 1.0.0')).toBeNull();
   expect(
     StyleSheet.flatten(
       screen.getByTestId('drawer-safe-area-content').props.style,

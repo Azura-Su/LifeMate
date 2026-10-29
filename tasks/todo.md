@@ -16,3 +16,11 @@
 - [x] Renderer và Home/màn xem thử dùng đúng clip; Phượng Hoàng xem trên Simulator.
 - [x] Review cuối, sửa finding finance move và chạy32 test pet/Home.
 - [x] Ghi kết quả full-suite và giới hạn kiểm chứng vào pet-animation-result-2026-10-28.md.
+
+# Đã hoàn tất: tư thế nghỉ 15 linh thú, 29/10/2026
+
+- [x] Người dùng duyệt plan và hướng mỹ thuật trong pet-rest-animation-plan-2026-10-29.md.
+- [x] Tạo và rà pilot Garuda/Thanh Long; chốt chất lượng và pack 4×4.
+- [x] Tạo/kiểm tra atlas nghỉ riêng cho15 linh thú (16 khung mỗi atlas).
+- [x] Tích hợp chuỗi ngủ/thức đảo chiều và nhịp thở; giữ ổn định style handle Reanimated.
+- [x] Regression rest/playback, typecheck, ESLint, export iOS/Android và báo cáo tại pet-rest-animation-result-2026-10-29.md.

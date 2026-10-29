@@ -158,12 +158,7 @@ export const styles = StyleSheet.create({
   settingText: { flex: 1, gap: 2 },
   settingDescription: { fontSize: 12, lineHeight: 17, color: colors.muted },
   error: { fontSize: 13, lineHeight: 19, color: colors.danger },
-  bottomDock: {
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    backgroundColor: colors.background,
-  },
+  bottomDock: { gap: spacing.sm },
   logout: {
     minHeight: 48,
     flexDirection: 'row',
@@ -177,10 +172,4 @@ export const styles = StyleSheet.create({
   },
   logoutText: { fontSize: 15, fontWeight: '600', color: colors.danger },
   pressed: { opacity: 0.7 },
-  footer: {
-    paddingVertical: 10,
-    textAlign: 'center',
-    fontSize: 11,
-    color: colors.muted,
-  },
 });

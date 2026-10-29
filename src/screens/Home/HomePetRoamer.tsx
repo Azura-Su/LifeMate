@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -10,9 +16,17 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { PixelPetAnyClipId } from '../../types/pixelPet';
 import { CELESTIAL_STAG_ID } from '../../services/pixelPet/celestialStagPuppet';
+import {
+  CELESTIAL_STAG_HOME_PHASE_DURATION as STAG_PHASE_DURATION,
+  CELESTIAL_STAG_GARDEN_GROWTH_MS,
+  celestialStagGardenFrameAt,
+  type CelestialStagHomePhase,
+} from '../../services/pixelPet/celestialStagAtlas';
 import { scheduleOnRN } from 'react-native-worklets';
 import { PixelPetSprite } from '../PixelPet/PixelPetSprite';
+import { HomeSleepGarden } from './HomeSleepGarden';
 import { pixelPetSpecies } from '../../services/pixelPet/pixelPetCatalog';
+import { STAGE_LOOK } from '../../services/pixelPet/pixelPetRig';
 import {
   petFacesLeft,
   petMovementKind,
@@ -23,7 +37,11 @@ import {
 } from '../../services/pixelPet/pixelPetApi';
 import { spacing } from '../../theme';
 
-const SIZE = 56;
+const SIZE = 120;
+/** Approximate ground travel represented by one authored 16-frame gait loop. */
+const STAG_STRIDE_DISTANCE = SIZE * 0.32;
+const STAG_MOTION_CANVAS_SCALE = 7 / 6;
+const STAG_FLIGHT_HEIGHT = SIZE * 0.5;
 /** Travel speeds in points per second. */
 const FLY_SPEED = 60;
 const WALK_SPEED = 32;
@@ -32,6 +50,37 @@ const GROUND_Y = SIZE * 0.24 + spacing.xs;
 const LAND_MS = 900;
 const TRICK_MS = 2600;
 const REST_MS = 4000;
+
+export type StagHomePhase = CelestialStagHomePhase;
+
+const STAG_NEXT_PHASE: Record<StagHomePhase, StagHomePhase> = {
+  runA: 'walkToFlight',
+  walkToFlight: 'takeoff',
+  takeoff: 'flap',
+  flap: 'glide',
+  glide: 'landing',
+  landing: 'walkAfterLanding',
+  walkAfterLanding: 'runB',
+  runB: 'settle',
+  settle: 'sleep',
+  sleep: 'sleep',
+};
+
+const STAG_GROUND_PHASES = new Set<StagHomePhase>([
+  'runA',
+  'walkToFlight',
+  'runB',
+  'walkAfterLanding',
+  'settle',
+  'sleep',
+]);
+const STAG_GROUND_TRAVEL_PHASES = new Set<StagHomePhase>([
+  'runA',
+  'walkToFlight',
+  'walkAfterLanding',
+  'runB',
+  'settle',
+]);
 
 /** Tricks per pose; the stag puppet has its own extra clips. */
 const TRICKS = {
@@ -99,6 +148,13 @@ type Props = {
   onPress: () => void;
 };
 
+type DepartingGarden = {
+  id: number;
+  x: number;
+  scaleX: number;
+  growthFrame: number;
+};
+
 /** The owned pet roams above the tab bar: flies, lands, walks and plays. */
 export function HomePetRoamer({ uid, active, onPress }: Props) {
   const read = useCallback(() => (uid ? readOwnedPixelPet(uid) : null), [uid]);
@@ -111,32 +167,248 @@ export function HomePetRoamer({ uid, active, onPress }: Props) {
   const facing = species && petFacesLeft(species) ? -1 : 1;
   const flier = !!species && petMovementKind(species) === 'wings';
   const stag = species?.id === CELESTIAL_STAG_ID;
-  const [walking, setWalking] = useState(!flier);
+  const stagStrideDistance =
+    STAG_STRIDE_DISTANCE *
+    STAG_MOTION_CANVAS_SCALE *
+    (pet ? STAGE_LOOK[pet.stage].scale : 1);
+  const [walking, setWalking] = useState<boolean | null>(null);
   const [beat, setBeat] = useState<RoamBeat | null>(null);
+  const [stagPhase, setStagPhase] = useState<StagHomePhase>('runA');
+  const [stagGaitCycleMs, setStagGaitCycleMs] = useState<number>();
+  const [departingGarden, setDepartingGarden] =
+    useState<DepartingGarden | null>(null);
+  const stagStarted = useRef(false);
+  const gardenDepartureId = useRef(0);
+  const gardenStartedAt = useRef<number | null>(null);
+  const lastSleepSpot = useRef<number | null>(null);
   const x = useSharedValue(0);
   const heading = useSharedValue(1);
   const ground = useSharedValue(walking ? 1 : 0);
   const travelling = useSharedValue(0);
-  const roaming = active && !reducedMotion && range > 0;
+  const sleepTarget = useSharedValue(0);
+  const airHeight = useSharedValue(0);
+  const stagActive = stag && !!pet && active && !reducedMotion && range > 0;
+  const roaming =
+    !!species &&
+    !!pet &&
+    !stag &&
+    walking !== null &&
+    active &&
+    !reducedMotion &&
+    range > 0;
+
+  const chooseNextSleepSpot = useCallback(() => {
+    if (range <= 1) {
+      sleepTarget.value = 0;
+      lastSleepSpot.current = 0;
+      return;
+    }
+    let target = Math.random() * range;
+    if (
+      lastSleepSpot.current !== null &&
+      range > SIZE * 0.6 &&
+      Math.abs(target - lastSleepSpot.current) < range * 0.2
+    ) {
+      target = (target + range * 0.5) % range;
+    }
+    lastSleepSpot.current = target;
+    sleepTarget.value = target;
+  }, [range, sleepTarget]);
+
+  const wakeStag = useCallback(() => {
+    const growthFrame = celestialStagGardenFrameAt(
+      gardenStartedAt.current === null
+        ? CELESTIAL_STAG_GARDEN_GROWTH_MS
+        : Date.now() - gardenStartedAt.current,
+    );
+    setDepartingGarden(
+      growthFrame > 0
+        ? {
+            id: ++gardenDepartureId.current,
+            x: x.value,
+            scaleX: heading.value * facing,
+            growthFrame,
+          }
+        : null,
+    );
+    chooseNextSleepSpot();
+    setStagPhase('runA');
+  }, [chooseNextSleepSpot, facing, heading, x]);
+
+  const finishGarden = useCallback((id: number) => {
+    setDepartingGarden((current) => (current?.id === id ? null : current));
+  }, []);
+
+  useEffect(() => {
+    if (!active) setDepartingGarden(null);
+  }, [active]);
 
   const advance = useCallback(() => {
     setBeat((previous) =>
       nextRoamBeat(previous?.kind ?? null, {
         x: x.value,
         range,
-        walking,
+        walking: walking ?? !flier,
         flier,
         stag,
       }),
     );
   }, [x, range, walking, flier, stag]);
 
-  // Pets without wings never get a shift beat, so put them on the ground.
+  // Wait for the owned pet to load before choosing ground or flight. Without
+  // this, an initially empty cache leaves flying pets stuck in the ground pose.
   useEffect(() => {
-    if (flier) return;
-    setWalking(true);
-    ground.value = 1;
-  }, [flier, ground]);
+    if (!species) return;
+    const startsWalking = !flier;
+    setWalking(startsWalking);
+    ground.value = startsWalking || stag ? 1 : 0;
+  }, [species, flier, stag, ground]);
+
+  useEffect(() => {
+    if (!stag || !pet) {
+      stagStarted.current = false;
+      gardenStartedAt.current = null;
+      setDepartingGarden(null);
+      return;
+    }
+    if (stagStarted.current) return;
+    stagStarted.current = true;
+    chooseNextSleepSpot();
+    setStagPhase('runA');
+  }, [stag, pet, chooseNextSleepSpot]);
+
+  useEffect(() => {
+    if (stag && stagPhase === 'sleep' && active) {
+      gardenStartedAt.current = Date.now();
+    } else if (stagPhase !== 'sleep') {
+      gardenStartedAt.current = null;
+    }
+  }, [active, stag, stagPhase]);
+
+  useEffect(() => {
+    if (!stagActive || stagPhase === 'sleep') return;
+    const timer = setTimeout(
+      () => setStagPhase(STAG_NEXT_PHASE[stagPhase]),
+      STAG_PHASE_DURATION[stagPhase],
+    );
+    return () => clearTimeout(timer);
+  }, [stagActive, stagPhase]);
+
+  useEffect(() => {
+    if (!stag) return;
+    cancelAnimation(airHeight);
+    if (stagPhase === 'takeoff') {
+      ground.value = withTiming(0, {
+        duration: STAG_PHASE_DURATION.takeoff,
+        easing: Easing.inOut(Easing.quad),
+      });
+      airHeight.value = withTiming(1, {
+        duration: STAG_PHASE_DURATION.takeoff,
+        easing: Easing.inOut(Easing.quad),
+      });
+    } else if (stagPhase === 'flap') {
+      ground.value = 0;
+      airHeight.value = 1;
+    } else if (stagPhase === 'glide') {
+      ground.value = 0;
+      airHeight.value = withTiming(0.28, {
+        duration: STAG_PHASE_DURATION.glide,
+        easing: Easing.linear,
+      });
+    } else if (stagPhase === 'landing') {
+      ground.value = withTiming(1, {
+        duration: STAG_PHASE_DURATION.landing,
+        easing: Easing.inOut(Easing.quad),
+      });
+      airHeight.value = withTiming(0, {
+        duration: STAG_PHASE_DURATION.landing,
+        easing: Easing.inOut(Easing.quad),
+      });
+    } else if (STAG_GROUND_PHASES.has(stagPhase)) {
+      ground.value = 1;
+      airHeight.value = 0;
+    }
+  }, [stag, stagPhase, ground, airHeight]);
+
+  useEffect(() => {
+    if (!stagActive) return;
+    let to: number | null = null;
+    switch (stagPhase) {
+      case 'runA':
+        to = range * 0.72;
+        break;
+      case 'walkToFlight':
+        to = Math.max(
+          0,
+          x.value - (WALK_SPEED * STAG_PHASE_DURATION.walkToFlight) / 1000,
+        );
+        break;
+      case 'takeoff':
+        to = Math.min(range * 0.9, x.value + range * 0.18);
+        break;
+      case 'flap':
+        to = range * 0.9;
+        break;
+      case 'glide':
+        to = range * 0.35;
+        break;
+      case 'runB': {
+        const walkInDistance = (WALK_SPEED * STAG_PHASE_DURATION.settle) / 1000;
+        const left = Math.max(0, sleepTarget.value - walkInDistance);
+        const right = Math.min(range, sleepTarget.value + walkInDistance);
+        to =
+          Math.abs(left - x.value) > Math.abs(right - x.value) ? left : right;
+        break;
+      }
+      case 'walkAfterLanding':
+        to = Math.min(
+          range,
+          x.value + (WALK_SPEED * STAG_PHASE_DURATION.walkAfterLanding) / 1000,
+        );
+        break;
+      case 'settle':
+        to = sleepTarget.value;
+        break;
+      default:
+        break;
+    }
+    if (to === null) {
+      setStagGaitCycleMs(undefined);
+      travelling.value = 0;
+      return;
+    }
+    const duration = STAG_PHASE_DURATION[stagPhase];
+    const distance = Math.abs(to - x.value);
+    setStagGaitCycleMs(
+      STAG_GROUND_TRAVEL_PHASES.has(stagPhase)
+        ? distance > 1
+          ? (duration * stagStrideDistance) / distance
+          : 0
+        : undefined,
+    );
+    if (distance > 1) heading.value = to > x.value ? 1 : -1;
+    travelling.value = 1;
+    x.value = withTiming(to, {
+      duration,
+      easing:
+        STAG_GROUND_TRAVEL_PHASES.has(stagPhase) || stagPhase === 'glide'
+          ? Easing.linear
+          : Easing.inOut(Easing.quad),
+    });
+    return () => {
+      travelling.value = 0;
+      cancelAnimation(x);
+    };
+  }, [
+    stagActive,
+    stagPhase,
+    stagStrideDistance,
+    range,
+    heading,
+    travelling,
+    x,
+    sleepTarget,
+  ]);
 
   // Start (or restart after a pause) with a fresh beat.
   useEffect(() => {
@@ -151,7 +423,7 @@ export function HomePetRoamer({ uid, active, onPress }: Props) {
   }, [roaming]);
 
   useEffect(() => {
-    if (!beat || !roaming) return;
+    if (stag || !beat || !roaming) return;
     if (beat.kind === 'travel') {
       heading.value = beat.to >= x.value ? 1 : -1;
       travelling.value = 1;
@@ -191,9 +463,9 @@ export function HomePetRoamer({ uid, active, onPress }: Props) {
 
   // A finished shift continues once `walking` (and so `advance`) is updated.
   useEffect(() => {
-    if (beat?.kind === 'shift') advance();
+    if (!stag && beat?.kind === 'shift') advance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [walking]);
+  }, [walking, stag]);
 
   const flight = useAnimatedStyle(() => {
     const g = ground.value;
@@ -201,31 +473,95 @@ export function HomePetRoamer({ uid, active, onPress }: Props) {
     return {
       transform: [
         { translateX: x.value },
-        { translateY: g * GROUND_Y + bob * travelling.value },
+        {
+          translateY:
+            g * GROUND_Y -
+            airHeight.value * STAG_FLIGHT_HEIGHT +
+            bob * travelling.value,
+        },
         { scaleX: heading.value * facing },
       ],
     };
   });
 
-  if (!species || !pet) return null;
+  if (!species || !pet || (!stag && walking === null)) return null;
+  const sleeping = stag && stagPhase === 'sleep';
+  const handlePress = () => {
+    if (sleeping) {
+      wakeStag();
+      return;
+    }
+    onPress();
+  };
   const trick = beat?.kind === 'trick' ? beat.clip : null;
+  const stagClip: PixelPetAnyClipId = stagPhase === 'glide' ? 'fly' : 'move';
+  const stagFlightPhase =
+    stag &&
+    (stagPhase === 'takeoff' ||
+      stagPhase === 'flap' ||
+      stagPhase === 'glide' ||
+      stagPhase === 'landing')
+      ? stagPhase
+      : undefined;
   return (
     <View pointerEvents="box-none" style={styles.lane}>
+      {stag && departingGarden && (
+        <View
+          key={departingGarden.id}
+          pointerEvents="none"
+          testID="home-pet-departing-garden"
+          style={[
+            styles.pet,
+            {
+              transform: [
+                { translateX: departingGarden.x },
+                { translateY: GROUND_Y },
+                { scaleX: departingGarden.scaleX },
+              ],
+            },
+          ]}
+        >
+          <HomeSleepGarden
+            visible
+            active={active}
+            mode="withering"
+            growthFrame={departingGarden.growthFrame}
+            onFinished={() => finishGarden(departingGarden.id)}
+          />
+        </View>
+      )}
       <Animated.View style={[styles.pet, flight]}>
+        {stag && <HomeSleepGarden visible={sleeping} active={active} />}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Mở linh thú ${species.name}`}
-          onPress={onPress}
+          accessibilityLabel={
+            sleeping
+              ? `Đánh thức linh thú ${species.name}`
+              : `Mở linh thú ${species.name}`
+          }
+          onPress={handlePress}
           hitSlop={spacing.sm}
         >
           <PixelPetSprite
             species={species}
             stage={pet.stage}
             size={SIZE}
-            clip={trick ?? 'move'}
-            loopMovement={!trick}
-            walking={walking}
+            clip={stag ? stagClip : (trick ?? 'move')}
+            flightPhase={stagFlightPhase}
+            loopMovement={stag ? true : !trick}
+            walking={
+              stag ? STAG_GROUND_PHASES.has(stagPhase) : (walking ?? !flier)
+            }
+            pace={
+              stag &&
+              ['walkToFlight', 'walkAfterLanding', 'settle'].includes(stagPhase)
+                ? 'walk'
+                : 'run'
+            }
+            gaitCycleDurationMs={stag ? stagGaitCycleMs : undefined}
+            motionCanvasScale={stag ? STAG_MOTION_CANVAS_SCALE : undefined}
             active={active}
+            sleeping={sleeping}
           />
         </Pressable>
       </Animated.View>

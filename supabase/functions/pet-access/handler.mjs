@@ -26,6 +26,7 @@ const errors = {
   'stale-snapshot': 409,
   'pet-busy': 409,
   'no-pet': 409,
+  'pet-name-invalid': 400,
 };
 const json = (status, value) =>
   Response.json(value, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -39,6 +40,7 @@ function validate(input) {
     roll: ['type', 'actionId'],
     restore: ['type', 'actionId'],
     care: ['type', 'actionId'],
+    rename: ['type', 'adoptionId', 'nickname'],
     confirm: ['type', 'actionId', 'reservationId'],
   }[input.type];
   if (
@@ -51,6 +53,18 @@ function validate(input) {
     throw Error('invalid-input');
   if (input.type === 'confirm' && !UUID.test(input.reservationId))
     throw Error('invalid-input');
+  if (input.type === 'rename') {
+    if (!UUID.test(input.adoptionId) || typeof input.nickname !== 'string')
+      throw Error('invalid-input');
+    const nickname = input.nickname.normalize('NFC').trim();
+    if (
+      !nickname ||
+      Array.from(nickname).length > 24 ||
+      /[\u0000-\u001f\u007f-\u009f]/u.test(nickname)
+    )
+      throw Error('pet-name-invalid');
+    return { ...input, nickname };
+  }
   return input;
 }
 
@@ -121,7 +135,9 @@ export function createPetHandler({
       const text = await request.text();
       if (text.length > 1024) throw Error('size');
       input = validate(JSON.parse(text));
-    } catch {
+    } catch (error) {
+      const code = error?.message === 'pet-name-invalid' ? error.message : 'invalid-input';
+      if (code === 'pet-name-invalid') return json(400, { error: code });
       return json(400, { error: 'invalid-input' });
     }
     try {
@@ -144,6 +160,18 @@ export function createPetHandler({
             : presentState(result),
         );
       }
+      if (input.type === 'rename')
+        return json(
+          200,
+          presentState(
+            await rpc('lifemate_pet_rename', {
+              p_uid: identity.uid,
+              p_auth_time: identity.authTime,
+              p_adoption_id: input.adoptionId,
+              p_nickname: input.nickname,
+            }),
+          ),
+        );
       const args = input.type === 'confirm'
         ? { reservationId: input.reservationId }
         : {};

@@ -24,7 +24,7 @@ export type PixelPetClipId =
   | 'heal'
   | 'happy'
   | 'skill';
-/** Extra clips only the hand-rigged Celestial Stag puppet can play. */
+/** Extra clips only the admin Celestial Stag atlas can play. */
 export type PixelPetExtraClipId =
   | 'fly'
   | 'flap'
@@ -47,6 +47,7 @@ export type PixelPetState = {
   pet: {
     speciesId: PixelPetSpeciesId;
     adoptionId: string;
+    nickname?: string | null;
     adoptedAt: number;
     totalExp: number;
     caredToday: boolean;

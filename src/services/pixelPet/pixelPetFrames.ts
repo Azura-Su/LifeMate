@@ -43,13 +43,12 @@ export function petFrameAt(
   ];
 }
 
-/** Share of each pose spent cross-fading into the next one. */
-const BLEND_SHARE = 0.4;
+/** Most of each pose interval blends continuously on the UI thread. */
+const BLEND_SHARE = 0.82;
 
 /**
- * Like petFrameAt, plus the next pose and how far to fade into it. The fade
- * only covers the tail of each pose, so distinct poses never look ghosted
- * for long while 10fps steps still read as continuous motion.
+ * Like petFrameAt, plus the next pose and how far to fade into it. Reanimated
+ * samples this blend on each display refresh instead of holding a static pose.
  */
 export function petFrameBlendAt(
   clip: PixelPetClipId,

@@ -158,7 +158,7 @@ const BASE_CLIPS: Record<Exclude<PuppetTrackKey, 'trot'>, PuppetClip> = {
     fx: fx(16, (t) => [
       0.55 + 0.25 * sin(t, 2),
       0.35 + 0.25 * breath(t),
-      0.2 + 0.1 * breath(t),
+      0, // No resting aura: the halo read as fog over the art.
       0.25,
     ]),
     blink: blink((t) => bump(t, 0.6, 0.67)),
@@ -435,6 +435,14 @@ export const PUPPET_EXTRA_CLIPS: readonly {
   { clip: 'blaze', label: 'Hỏa linh' },
   { clip: 'spin', label: 'Xoay vòng' },
 ];
+
+/** Preview actions shown in pet details; wing spreading is part of flight. */
+export const PUPPET_PREVIEW_CLIPS = PUPPET_EXTRA_CLIPS.filter(
+  ({ clip }) =>
+    !(['flap', 'prance', 'bow', 'glow'] as PixelPetExtraClipId[]).includes(clip),
+).map((action) =>
+  action.clip === 'blaze' ? { ...action, label: 'Linh hỏa' } : action,
+);
 
 export function isExtraClip(
   clip: PixelPetAnyClipId,

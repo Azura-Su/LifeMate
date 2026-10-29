@@ -22,6 +22,7 @@ export function usePetPlayback({
   loopMovement,
   onClipEnd,
   playback,
+  playbackKey,
 }: {
   clip: PixelPetAnyClipId;
   speciesId: PixelPetSpeciesId;
@@ -30,6 +31,8 @@ export function usePetPlayback({
   onClipEnd?: () => void;
   /** Puppet pets own their timings; atlas pets use the shared clip table. */
   playback?: { durationMs: number; loop: boolean };
+  /** Restart the same-duration timing when a custom atlas track changes. */
+  playbackKey?: string;
 }) {
   const progress = useSharedValue(0);
   const reducedMotion = useReducedMotion();
@@ -64,7 +67,16 @@ export function usePetPlayback({
       guard.value++;
       cancelAnimation(progress);
     };
-  }, [active, reducedMotion, clip, speciesId, durationMs, loop, progress]);
+  }, [
+    active,
+    reducedMotion,
+    clip,
+    speciesId,
+    durationMs,
+    loop,
+    playbackKey,
+    progress,
+  ]);
 
   return { progress, reducedMotion };
 }

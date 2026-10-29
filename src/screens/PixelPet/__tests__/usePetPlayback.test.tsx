@@ -98,6 +98,23 @@ it('does not restart playback just because the callback identity changed', () =>
   expect(second).toHaveBeenCalledTimes(1);
 });
 
+it('restarts a same-duration custom atlas track when its playback key changes', () => {
+  const view = renderHook(
+    ({ track }: { track: 'sleeping' | 'waking' }) =>
+      usePetPlayback({
+        clip: 'move',
+        speciesId: 'phoenix',
+        active: true,
+        loopMovement: false,
+        playback: { durationMs: 1600, loop: false },
+        playbackKey: track,
+      }),
+    { initialProps: { track: 'sleeping' as 'sleeping' | 'waking' } },
+  );
+  view.rerender({ track: 'waking' });
+  expect(mockTimings).toHaveLength(2);
+});
+
 it('settles an active reduced-motion one-shot once without scheduling animation', () => {
   mockReducedMotion = true;
   const end = jest.fn();

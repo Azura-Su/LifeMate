@@ -13,7 +13,6 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import appConfig from '../../app.json';
 import { UserAvatar } from './UserAvatar';
 import { Button } from './Button';
 import type { useFinancePrivacy } from '../hooks/useFinancePrivacy';
@@ -299,41 +298,37 @@ export function AppDrawer({
                   </View>
                 </View>
               )}
-            </ScrollView>
-
-            <View testID="drawer-bottom-actions" style={styles.bottomDock}>
-              {model.error && (
-                <Text accessibilityRole="alert" style={styles.error}>
-                  {model.error}
-                </Text>
-              )}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Đăng xuất"
-                accessibilityState={{ busy: model.busy === 'logout' }}
-                disabled={
-                  model.busy !== null ||
-                  privacy.authenticating ||
-                  privacy.changing
-                }
-                onPress={model.signOut}
-                style={({ pressed }) => [
-                  styles.logout,
-                  pressed && styles.pressed,
-                ]}
-              >
-                {model.busy === 'logout' ? (
-                  <ActivityIndicator color={colors.danger} />
-                ) : (
-                  <Feather name="log-out" size={18} color={colors.danger} />
+              {/* Inside the scroll so it never covers the admin section. */}
+              <View testID="drawer-bottom-actions" style={styles.bottomDock}>
+                {model.error && (
+                  <Text accessibilityRole="alert" style={styles.error}>
+                    {model.error}
+                  </Text>
                 )}
-                <Text style={styles.logoutText}>Đăng xuất</Text>
-              </Pressable>
-
-              <Text style={styles.footer}>
-                LifeMate · {appConfig.expo.version}
-              </Text>
-            </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Đăng xuất"
+                  accessibilityState={{ busy: model.busy === 'logout' }}
+                  disabled={
+                    model.busy !== null ||
+                    privacy.authenticating ||
+                    privacy.changing
+                  }
+                  onPress={model.signOut}
+                  style={({ pressed }) => [
+                    styles.logout,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  {model.busy === 'logout' ? (
+                    <ActivityIndicator color={colors.danger} />
+                  ) : (
+                    <Feather name="log-out" size={18} color={colors.danger} />
+                  )}
+                  <Text style={styles.logoutText}>Đăng xuất</Text>
+                </Pressable>
+              </View>
+            </ScrollView>
           </View>
         </Animated.View>
       </View>

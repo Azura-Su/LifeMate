@@ -66,6 +66,8 @@ export const styles = StyleSheet.create({
     borderColor: colors.line,
     overflow: 'hidden',
   },
+  detailPressable: { backgroundColor: 'transparent' },
+  detailPressed: { opacity: 0.72 },
   cardFree: { backgroundColor: colors.sunlightFaint },
   accent: { height: 4 },
   row: {

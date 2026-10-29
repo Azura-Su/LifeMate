@@ -20,7 +20,32 @@ const messages: Record<string, string> = {
   'rate-limited': 'Bạn thao tác hơi nhanh. Hãy đợi một lát.',
   'pet-busy': 'Máy chủ đang bận. Hãy thử lại.',
   'stale-snapshot': 'Dữ liệu vừa được cập nhật ở thiết bị khác.',
+  'pet-name-invalid': 'Tên linh thú cần từ 1 đến 24 ký tự.',
 };
+
+export const PIXEL_PET_NICKNAME_MAX_LENGTH = 24;
+
+export function capitalizePixelPetNickname(value: string): string {
+  return value
+    .normalize('NFC')
+    .replace(/\p{L}/u, (letter) => letter.toLocaleUpperCase('vi-VN'));
+}
+
+export function normalizePixelPetNickname(value: string): string | null {
+  const nickname = capitalizePixelPetNickname(value).trim();
+  const length = Array.from(nickname).length;
+  return nickname && length <= PIXEL_PET_NICKNAME_MAX_LENGTH &&
+    !/[\u0000-\u001f\u007f-\u009f]/u.test(nickname)
+    ? nickname
+    : null;
+}
+
+const isValidPixelPetNickname = (value: unknown): value is string =>
+  typeof value === 'string' &&
+  value.trim() === value &&
+  Array.from(value).length > 0 &&
+  Array.from(value).length <= PIXEL_PET_NICKNAME_MAX_LENGTH &&
+  !/[\u0000-\u001f\u007f-\u009f]/u.test(value);
 
 export class PixelPetApiError extends Error {
   constructor(public code: string) {
@@ -30,6 +55,7 @@ export class PixelPetApiError extends Error {
 
 export type PixelPetRequest =
   | { type: 'state' | 'sync' }
+  | { type: 'rename'; adoptionId: string; nickname: string }
   | { type: 'roll' | 'restore' | 'care'; actionId: string }
   | { type: 'confirm'; actionId: string; reservationId: string };
 
@@ -56,6 +82,9 @@ export function parsePixelPetState(value: unknown): PixelPetState {
         !pixelPetSpecies(state.pet.speciesId) ||
         !isCount(state.pet.totalExp) ||
         !isCount(state.pet.level) ||
+        (state.pet.nickname !== undefined &&
+          state.pet.nickname !== null &&
+          !isValidPixelPetNickname(state.pet.nickname)) ||
         !['hatchling', 'juvenile', 'ascended'].includes(state.pet.stage)))
   )
     throw new PixelPetApiError('pet-unavailable');

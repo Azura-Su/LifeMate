@@ -31,24 +31,68 @@ khi đổi tên hiển thị); thứ tự và ID được seed ở migration và
 Thay đổi so với bộ ảnh tham khảo: chú chim hồng thường (trùng vai trò với
 Phượng Hoàng/Chim Lạc, không phải linh thú) được thay bằng **Bạch Hổ**. Ảnh do
 người dùng gửi được tách nền, cắt vuông 384px và đóng gói tại `assets/pixelPet/`
-(15 loài, map trong `src/screens/PixelPet/petArt.ts`). Ảnh gốc được giữ làm fallback trong khi atlas tải hoặc bị lỗi. Atlas Bạch Hổ
-dựng từ một ảnh duy nhất, tách lớp cánh/đầu/đuôi rồi xoay quanh khớp để ra 16 tư thế (vỗ cánh, nghiêng đầu, vẫy đuôi, nhảy, hào quang); cả 15 loài có atlas animation riêng từ28/10/2026.
+(15 loài, map trong `src/screens/PixelPet/petArt.ts`). Ảnh gốc được giữ làm
+fallback trong khi atlas tải hoặc bị lỗi. Cả 15 loài có atlas animation riêng
+từ 28/10/2026. Thiên Lộc là ngoại lệ admin, dùng atlas 32 khung toàn thân riêng;
+mỗi ô vẽ lại cả nhân vật ở một tư thế khác, không ghép các lớp cánh/đầu/đuôi.
 
 ## 2. Hình thái và animation — khung hình, cập nhật28/10/2026
 
-- **15 atlas ×16 pose =240 khung** trong `assets/pixelPet/animations/`. Mỗi PNG
-  1024×1024,4×4 ô256px, nền trong suốt. Bốn hàng lần lượt là nghỉ/chớp mắt,
-  di chuyển, vui vẻ và kỹ năng. Pose nghỉ/hồi phục có thể tương tự nhau để nối
-  vòng.14 atlas minh họa sinh từ ảnh gốc bằng imagegen; Bạch Hổ bake từ rig pixel
-  hiện có với chân/đầu/đuôi đổi pose, không đổi sang loài hoặc phong cách khác.
-- Các bộ phận thay tư thế trong từng khung:5 loài có cánh (Thiên Mã, Nhân Sư,
+- **15 atlas hoạt động và15 atlas nghỉ** trong `assets/pixelPet/animations/`.
+  Mỗi atlas1024×1024, 4×4 ô256px, nền trong suốt. Atlas hoạt động giữ bốn nhóm
+  pose cũ; atlas nghỉ riêng từng loài chuyển từ dáng hiện tại sang dáng nằm/ngồi,
+  giữ pose cuối và phát ngược khi thức dậy. Atlas nghỉ chỉ tải cho linh thú đang
+  hiển thị.14 atlas minh họa sinh từ ảnh gốc bằng imagegen; Bạch Hổ giữ rig pixel
+  cho các clip cũ.
+- Với 15 loài trong kho, các bộ phận thay tư thế trong từng khung:5 loài có cánh (Thiên Mã, Nhân Sư,
   Chim Lạc, Phượng Hoàng, Garuda) vỗ cánh;3 loài serpentine uốn thân/bơi lượn;
   các loài còn lại bước chân. Đóng gói tách toàn bộ silhouette trước khi xếp ô,
   giữ một tỷ lệ/hệ tọa độ chung cho từng loài và lề trong suốt chống bleed.
+- **Thiên Lộc admin: 1 atlas 8×8 =64 khung toàn thân**, PNG 2048×2048 với ô
+  256×256 tại `assets/pixelPet/animations/celestial_stag.png`: 16 tư thế cho
+  mỗi nhóm nghỉ, chạy, vui và kỹ năng. Các clip phụ dùng lại nhóm phù hợp. Pose
+  được blend liên tục trên UI thread theo nhịp màn hình (60Hz trên màn 60Hz),
+  thay vì chỉ đổi ảnh theo từng nấc. Mỗi silhouette có lề trong suốt để hình từ
+  ô kế bên không lọt vào. Màn hình không xoay khớp hoặc ghép cánh/đầu/đuôi.
+- Home dùng các atlas toàn thân riêng cho Thiên Lộc: chạy dưới đất cụp cánh,
+  bay đập cánh, cất cánh và hạ cánh. Cả bốn atlas chuyển động là 4×4, mỗi bộ16
+  khung toàn thân cùng vóc dáng đầy đặn. Khung đầu/cuối các pha nối dùng cùng
+  một pose; đầu/thân được căn chung vị trí, không căn theo độ cao cánh. Mỗi
+  nguồn được phân đoạn toàn cục trước khi đóng gói để cánh/đuôi không bị cắt ở
+  ranh giới ô. Cất cánh đi chéo lên trong lúc x tiến về điểm bay; sau nhịp vỗ,
+  lượn đi chéo xuống theo đường bay riêng. Hạ cánh nối từ dáng lượn, hạ chân rồi
+  cụp cánh trước khi chạy tiếp. Mỗi
+  atlas dùng cùng tỷ lệ trong các khung và lề trong suốt để giữ kích thước,
+  tránh ảnh khung kế bên lọt vào. Các pose toàn thân chuyển trực tiếp, không
+  cross-fade để tránh chân/cánh chồng bóng.
+- Home chạy một chu kỳ 20 giây: chạy, đi bộ đến điểm cất cánh, cất cánh/đập
+  cánh, lượn, hạ cánh, đi bộ một nhịp rồi chạy đến vị trí ngủ; không chen động
+  tác vui vẻ/xòe cánh trước khi nằm.
+  Nhịp chân được tính từ quãng đường thực, thời lượng pha và kích thước hình
+  theo giai đoạn; khi không di
+  chuyển sẽ giữ pose đứng thay vì chạy tại chỗ. Chạm khi đang ngủ sẽ đánh thức
+  và phát lại chu kỳ; vị trí ngủ được chọn ngẫu nhiên ở bất kỳ điểm nào dọc
+  thanh dưới. Sau khi
+  đến chỗ ngủ, linh thú chuyển dần từ đứng sang nằm bằng atlas16 khung toàn thân;
+  đồng thời cỏ lan, hoa nở và cây cổ thụ lớn dần qua atlas nền16 khung. Sau chuyển
+  cảnh, giữ pose ngủ toàn thân cánh cụp, mắt nhắm và thở nhẹ.
+  Khi chạm đánh thức, linh thú rời đi còn cảnh cây giữ nguyên tọa độ và hướng
+  tại chỗ ngủ cũ: lá/hoa cỏ ngả vàng, héo khô rồi cây tan thành tro bụi qua atlas
+  nền16 khung trong4,8 giây. Bụi mờ hết thì gỡ cảnh. Nếu đánh thức sớm khi cây
+  chưa mọc đủ, giữ đúng khung đang hiện rồi tan thành một làn bụi nhỏ, không
+  nhảy sang cây trưởng thành. Cảnh cũ không đi theo thú và không chặn thao tác.
+  Các pha đường bay và phát pose dùng cùng bảng thời lượng; nhịp vỗ kết thúc
+  ở vòng cánh hoàn chỉnh trước khi lượn. Chặng chạy cuối đưa thú đến trong tầm
+  đi bộ của điểm ngủ, để đoạn tìm chỗ ngủ không vượt tốc độ32pt/s.
 - **6 clip cũ giữ nguyên ID và thời lượng**: `idle`, `eat`, `move`, `heal`,
   `happy`, `skill`. Mapping pose ở `pixelPetFrames.ts`. `move` từ hiệu ứng sổ
-  thu chi vẫn chạy một lần1s. Chỉ Home và nút xem thử di chuyển chọn lặp4 pose
-  trong400ms (10fps); trạng thái lặp riêng, không suy ra chỉ từ tên clip.
+  thu chi vẫn chạy một lần1s. Home dùng4 pose chuyển động gốc; Reanimated
+  cross-fade phần lớn mỗi khoảng pose và nội suy nhịp thân trên UI thread theo
+  tần số màn hình (mục tiêu60Hz).
+  Bộ điều khiển biểu cảm dùng các pose mặt có sẵn trong atlas và thêm track riêng
+  cho Lang Linh/Cửu Vĩ Hồ: phấn khích. Đây là tốc độ render,
+  không có nghĩa atlas chứa60 pose vẽ tay khác nhau mỗi giây.
+  Trạng thái lặp riêng, không suy ra chỉ từ tên clip.
 - `usePetPlayback` chạy đồng hồ tuyến tính trên UI thread bằng Reanimated;
   `PixelPetAtlas` cắt/đổi tọa độ atlas theo chỉ số khung. Không có JS timer hoặc
   React setState theo từng frame. Callback kết thúc one-shot chỉ dùng một lần,
@@ -65,10 +109,23 @@ dựng từ một ảnh duy nhất, tách lớp cánh/đầu/đuôi rồi xoay q
   `wind`, `light`, `earth`, `arcane`), vẫn theo level/skillTier server. Các hiệu
   ứng chăm sóc từ sổ thu chi tiếp tục ánh xạ qua EFFECT_CLIP như trước.
 - Màn Linh thú có xem thử **Đi dạo/Vỗ cánh/Lượn mình**, **Vui vẻ**, **Nghỉ ngơi**.
+  **Vui vẻ** dùng chung pose phấn khích; không hiện hành động **Nhảy múa** riêng.
+  Chủ linh thú có thể đặt hoặc đổi biệt danh; thẻ hiển thị `Tên (Giống loài)`,
+  ví dụ `Mina (Thiên Dực Linh Lộc)`. Biệt danh thuộc về lần nhận nuôi hiện tại.
+  Nghỉ ngơi chuyển qua atlas riêng từng loài trong1,6 giây; thức dậy chạy ngược
+  trong1,45 giây. Pose cuối giữ với nhịp thở nhỏ, không có dấu hiệu `Zz`.
+  Thiên Lộc vẫn dùng atlas ngủ đã có. Không hiển thị lựa chọn **Buồn ngủ** hoặc
+  **Tò mò**.
+  Preview **Bay lượn** của Thiên Lộc dùng flight atlas với track lượn lặp, cánh
+  giữ dang ổn định; không có nút **Xòe cánh** riêng. Các pose Cúi chào, Tỏa sáng
+  và Linh hỏa đang dùng cùng atlas kỹ năng nên được gộp thành một nút **Linh hỏa**.
   Đây là điều khiển hiển thị tại máy, không gọi API, không trừ lượt random hoặc
   chăm sóc. Xem kỹ năng vẫn theo quyền/cấp hiện tại.
-- `HomePetRoamer` dùng pose di chuyển lặp, lật theo hướng ảnh gốc ở hai đầu,
-  loài đi bộ chỉ nhấp nhô nhẹ. Chạm mở màn Linh thú; không thêm API. Dừng khi
+- `HomePetRoamer` hiển thị linh thú trong khung120px, dùng pose di chuyển lặp,
+  lật theo hướng ảnh gốc ở hai đầu,
+  loài đi bộ chỉ nhấp nhô nhẹ. Riêng Thiên Lộc, nhịp chân chạy/đi bộ được tính
+  từ quãng đường và thời lượng từng pha; chuyển động ngang tuyến tính để vận
+  tốc thân và cadence chân cùng nhịp. Chạm mở màn Linh thú; không thêm API. Dừng khi
   Home mất focus, mở lịch hoặc Reduced Motion.
 - **4 rig** và các lưới/màu trong `pixelPetRig.ts`/`pixelPetCatalog.ts` được giữ làm
   fallback và nguồn của Bạch Hổ. Không thay sở hữu, loài, EXP, tài khoản hay API.
@@ -111,6 +168,10 @@ is null`; nếu tài khoản khác thắng thì chọn lại (tối đa 6 lần,
 - Home → Menu → Quản trị → **Quản lý linh thú**, chỉ tài khoản admin hiện hành
   thấy trang. Danh sách đủ 15 loài, trạng thái trống/giữ chỗ/có chủ, tên/email/UID,
   cấp độ, EXP và ngày nhận nuôi. Tìm kiếm trên danh sách đã tải; thumbnail tĩnh.
+- Chạm thẻ linh thú mở chi tiết tại chỗ: ảnh động, trạng thái/chủ/cấp/EXP/ngày
+  nhận nuôi và các hoạt động để xem thử; pose phấn khích nằm trong nút Vui vẻ.
+  Preview chỉ chạy trên máy,
+  không thay đổi dữ liệu; không bổ sung API lịch sử hoạt động.
 - `user-admin` thêm `pet-list`, `pet-revoke`; dùng nguyên kiểm tra JWT và Firebase
   admin trực tiếp. Profile holder lấy theo một batch tối đa 15 UID; level/stage
   tính bằng `progressFor` phía Edge. Client không gửi EXP hoặc actor UID.
@@ -221,6 +282,10 @@ Firestore. Triển khai migration theo lịch sử đã kiểm chứng, rồi de
 Production LifeMate đã áp dụng riêng migration `20261027181510_pixel_pet.sql`.
 Migration `20261027181952_pixel_pet_fix_search_path.sql` cố định `search_path`
 cho hai hàm Pet còn thiếu và cũng đã được áp dụng.
+Migration `20261028173007_pixel_pet_nickname.sql` đã được áp dụng trên
+production: thêm biệt danh riêng cho lần nhận nuôi hiện tại, trả biệt danh
+trong state và chỉ cho Edge Function đã xác thực gọi RPC đổi tên qua
+`service_role`.
 Migration game `20261027220000_south_instant_win_penalty.sql` vẫn đang chờ; kiểm tra
 lịch sử và danh sách dry-run trước khi dùng `supabase db push` lần tiếp theo.
 `pet-access` và bản `user-admin` có dọn Pet đã được triển khai trên Supabase.
