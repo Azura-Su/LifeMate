@@ -111,5 +111,185 @@
     "source": "src/services/pixelPet/pixelPetRig.ts and pixelPetCatalog.ts",
     "note": "Original palette/head/body/feature retained. Four leg-offset poses, blink, head anticipation and hop poses baked into atlas; no invented illustrated replacement."
   },
+  "celestial_stag": {
+    "generator": "Built-in image_gen",
+    "reference": "../celestial_stag.png",
+    "layout": "8 columns ×8 rows; 64 full-character poses; 256px cells; 2048×2048 PNG",
+    "motionSource": "exec-1ca96471-a9ee-46a3-9188-edbf305d9ac0.png",
+    "idleSource": "exec-d49517ab-c804-4f0a-8718-90b546eda109.png",
+    "happySource": "exec-5cb9c3e8-9812-4472-a135-9b9b4b808e8f.png",
+    "skillSource": "exec-a0521af8-fcfc-4945-a5f2-a5965c6d723b.png",
+    "note": "Admin-only stag. Each of the idle, gallop, happy, and skill groups has 16 complete character poses. Silhouettes are isolated and repacked with transparent margins. Runtime interpolates pose blending on the UI thread at display refresh; it never composes separate wing/head/tail cut-outs.",
+    "homeGroundAtlas": {
+      "file": "celestial_stag_ground_v2.png",
+      "layout": "4 columns ×4 rows;16 complete character poses;1280×1280 transparent PNG",
+      "generatedSource": "exec-de3da658-bec3-4599-a991-43a992706118.png",
+      "prompt": "Corrected ground poses with the same rounded chest, deep belly, sturdy legs, head size and haunches as the corrected Stag reference. Whole-character redraws, fixed camera and full-body containment; folded wings for ground motion, clear full wing articulation for flight.",
+      "packing": "Global silhouette segmentation; register the head with normalized source template 50,125,110,170; shared pixel scale0.85 and anchor(80,135). scripts/assemble-celestial-stag-motion.py closes loops and copies exact endpoint poses between atlases. Home uses an isolated motion viewport at7/6 lane size to preserve body size and full wing extents."
+    },
+    "homeFlightAtlas": {
+      "file": "celestial_stag_flight_v2.png",
+      "layout": "4 columns ×4 rows;16 complete character poses;1280×1280 transparent PNG",
+      "generatedSource": "exec-8599c3ff-fe1d-4f32-9050-baea5a282a46.png",
+      "prompt": "Corrected flight poses with the same rounded chest, deep belly, sturdy legs, head size and haunches as the corrected Stag reference. Whole-character redraws, fixed camera and full-body containment; folded wings for ground motion, clear full wing articulation for flight.",
+      "packing": "Global silhouette segmentation; register the head with normalized source template 58,147,118,192; shared pixel scale0.85 and anchor(80,135). scripts/assemble-celestial-stag-motion.py closes loops and copies exact endpoint poses between atlases. Home uses an isolated motion viewport at7/6 lane size to preserve body size and full wing extents."
+    },
+    "homeTakeoffAtlas": {
+      "file": "celestial_stag_takeoff_v2.png",
+      "layout": "4 columns ×4 rows;16 complete character poses;1280×1280 transparent PNG",
+      "generatedSource": "exec-d0774e31-aff9-4ebe-bb86-448c91154de6.png",
+      "poseOrder": "Exact ground frame0, crouch, wing opening and push-off, then exact flight frame3",
+      "packing": "Global silhouette segmentation; register the head with normalized source template 54,106,114,151; shared pixel scale0.85 and anchor(80,135). scripts/assemble-celestial-stag-motion.py closes loops and copies exact endpoint poses between atlases. Home uses an isolated motion viewport at7/6 lane size to preserve body size and full wing extents.",
+      "prompt": "Corrected takeoff poses with the same rounded chest, deep belly, sturdy legs, head size and haunches as the corrected Stag reference. Whole-character redraws, fixed camera and full-body containment; folded wings for ground motion, clear full wing articulation for flight."
+    },
+    "homeLandingAtlas": {
+      "file": "celestial_stag_landing_v2.png",
+      "layout": "4 columns ×4 rows;16 complete character poses;1280×1280 transparent PNG",
+      "generatedSource": "exec-078e3b97-2d6f-489a-86ae-d8bb1a9edacf.png",
+      "poseOrder": "Exact flight frame7, hoof extension and ground contact, wing folding, then exact ground frame0",
+      "packing": "Global silhouette segmentation; register the head with normalized source template 33,133,93,178; shared pixel scale0.85 and anchor(80,135). scripts/assemble-celestial-stag-motion.py closes loops and copies exact endpoint poses between atlases. Home uses an isolated motion viewport at7/6 lane size to preserve body size and full wing extents.",
+      "prompt": "Corrected landing poses with the same rounded chest, deep belly, sturdy legs, head size and haunches as the corrected Stag reference. Whole-character redraws, fixed camera and full-body containment; folded wings for ground motion, clear full wing articulation for flight."
+    }
+  },
+  "celestial_stag_sleep": {
+    "file": "../celestial_stag_sleep.png",
+    "generator": "Built-in image_gen",
+    "reference": "../celestial_stag.png",
+    "generatedSource": "exec-951e9b4e-69c6-4ffb-9af2-3d9cba0b840c.png",
+    "prompt": "Same Celestial Stag identity; one complete whole-body pose lying on its belly, legs folded and visible, wings folded, head resting on front hooves, eyes closed, tail curled around; left-facing, transparent background, no props or detached parts."
+  },
+  "celestial_stag_sleep_transition": {
+    "file": "celestial_stag_sleep_transition.png",
+    "generator": "Built-in image_gen",
+    "reference": "../celestial_stag_sleep.png",
+    "layout": "4 columns ×4 rows; 16 whole-body transition and settled poses; 1280×1280 transparent PNG",
+    "generatedSource": "exec-57a963d1-9496-4dbf-b002-ffb5cf15335c.png",
+    "prompt": "Preserve the Celestial Stag reference identity. Create 16 centered full-body poses in a regular 4×4 transparent sprite sheet, moving continuously from folded-wing standing to head lowering, foreleg kneeling, body settling, and a curled sleeping pose; last 8 frames hold the sleep pose with subtle variations. No props, scenery, clipping, or detached parts.",
+    "packing": "Segment all 16 connected whole-character silhouettes, apply one shared scale, and repack into padded square cells with transparent gutters using scripts/pack-celestial-stag-atlas.py. Align every pose to a shared 296px cell baseline so the hooves do not jump vertically during the lie-down transition."
+  },
+  "home_sleep_garden": {
+    "file": "home_sleep_garden.png",
+    "generator": "Built-in image_gen",
+    "layout": "4 columns ×4 rows; 16 scene frames; 1280×1280 transparent PNG",
+    "generatedSource": "exec-e4c633a5-dfc5-48e8-9b1c-96e05dd97a4c.png",
+    "prompt": "A small enchanted ancient tree growth sequence with a meadow, flowers, and stable camera. Frames progress from grass spreading, shoots and flower buds, to a growing twisted trunk and a mature rounded canopy; no pet or character. Generated on a flat warm off-white matte, then keyed and packed into a transparent atlas.",
+    "packing": "Segment the 15 connected growth scenes, order them into cells 1–15 after an empty first frame, use a shared scale and 296px ground baseline, and remove the flat matte with scripts/pack-home-sleep-garden-atlas.py."
+  },
+  "home_sleep_garden_decay": {
+    "file": "home_sleep_garden_decay.png",
+    "generator": "Built-in image_gen",
+    "reference": "Last frame of home_sleep_garden.png",
+    "layout": "4 columns ×4 rows;16 full-scene withering/ash frames;1280×1280 transparent PNG",
+    "generatedSource": "exec-396a11eb-e028-48c9-92fa-26524ea24bd0.png",
+    "prompt": "Preserve the exact S-curved ancient tree, grass patch, flowers and stones. Sixteen fixed-camera scenes progress from green to drooping yellow leaves, golden/dry brown foliage, bare branches, gray crumbling trunk, then ash and drifting dust. No pet, fire or scenery movement. Clean off-white matte used for alpha extraction.",
+    "packing": "Find clean grid separators, retain detached falling leaves and dust in each scene, key the flat matte, and use one scale plus a296px ground anchor. The first cell is replaced with an exact copy of growth frame15. See scripts/pack-home-sleep-garden-decay-atlas.py."
+  },
+  "restVariants": [
+    {
+      "id": "nine_tail_fox",
+      "file": "rest_nine_tail_fox.png",
+      "reference": "../nine_tail_fox.png",
+      "generatedSource": "exec-3db19680-7816-4ea6-b26b-fe9d4dd11b78.png",
+      "restPose": "Crescent curl, front paws tucked, nine separate fluffy tails fanned around the body and tips near the muzzle."
+    },
+    {
+      "id": "qilin",
+      "file": "rest_qilin.png",
+      "reference": "../qilin.png",
+      "generatedSource": "exec-6e3855b6-4f11-4b87-8693-439dbfa365cd.png",
+      "restPose": "Graceful quadruped rest with visible horn, settled mane, cloud scales and tail curled along the flank."
+    },
+    {
+      "id": "alicorn",
+      "file": "rest_alicorn.png",
+      "reference": "../alicorn.png",
+      "generatedSource": "exec-69c2641c-ae5c-4655-8e8e-706d80773434.png",
+      "restPose": "Side rest with folded feathered wings, visible horn and relaxed lavender mane and tail."
+    },
+    {
+      "id": "rune_wolf",
+      "file": "rest_rune_wolf.png",
+      "reference": "../rune_wolf.png",
+      "generatedSource": "exec-7856315f-c7ef-4379-afcc-abc86ed5661a.png",
+      "restPose": "Crescent curl with head on paws, tail near muzzle, relaxed ears and rune markings."
+    },
+    {
+      "id": "black_tortoise",
+      "file": "rest_black_tortoise.png",
+      "reference": "../black_tortoise.png",
+      "generatedSource": "exec-1195d13d-3304-48e3-a8b5-75cd8e640211.png",
+      "restPose": "Stable low rest with head and limbs partly tucked beneath the patterned shell."
+    },
+    {
+      "id": "sphinx",
+      "file": "rest_sphinx.png",
+      "reference": "../sphinx.png",
+      "generatedSource": "exec-d53a47bc-500a-4af4-a336-4b3145b9efe7.png",
+      "restPose": "Lion loaf with paws tucked, layered wings folded along the back and tail curled beside it."
+    },
+    {
+      "id": "centaur",
+      "file": "rest_centaur.png",
+      "reference": "../centaur.png",
+      "generatedSource": "exec-8a48a54b-0362-422b-b050-29f327555b0c.png",
+      "restPose": "Horse body lies with legs folded while the human torso leans onto forearms; tail relaxed."
+    },
+    {
+      "id": "white_tiger",
+      "file": "rest_white_tiger.png",
+      "reference": "../white_tiger.png",
+      "generatedSource": "exec-83ed717b-0c40-4273-b56a-66e56116919b.png",
+      "restPose": "White tiger side rest with paws tucked and striped tail curved beside the muzzle."
+    },
+    {
+      "id": "azure_dragon",
+      "file": "rest_azure_dragon.png",
+      "reference": "../azure_dragon.png",
+      "generatedSource": "exec-b58229a7-0d34-4204-8b32-61b7878b53c6.png",
+      "restPose": "Long dragon curls into an S-shaped coil, head rests against the body, fins and whiskers relax."
+    },
+    {
+      "id": "koi_dragon",
+      "file": "rest_koi_dragon.png",
+      "reference": "../koi_dragon.png",
+      "generatedSource": "exec-50ece51b-9d86-45b1-8f40-c4b6aa76739d.png",
+      "restPose": "Koi-dragon curls into a floating water-like loop with draped fins and relaxed whiskers."
+    },
+    {
+      "id": "scylla",
+      "file": "rest_scylla.png",
+      "reference": "../scylla.png",
+      "generatedSource": "exec-244f82de-887d-4c6f-9c8e-b197f4e2ae92.png",
+      "restPose": "Central body lowers while distinct tentacles form loose asymmetric coils without hiding the face."
+    },
+    {
+      "id": "lac_bird",
+      "file": "rest_lac_bird.png",
+      "reference": "../lac_bird.png",
+      "generatedSource": "exec-d6b9ae62-d981-4b0c-9633-a3e168f16fa7.png",
+      "restPose": "Bird perches low, folds wings in layers and gently tucks its head while retaining crest and tail."
+    },
+    {
+      "id": "phoenix",
+      "file": "rest_phoenix.png",
+      "reference": "../phoenix.png",
+      "generatedSource": "exec-38b336ae-e25d-4711-9fd0-8174e86ceaaa.png",
+      "restPose": "Phoenix crouches with wings folded and ember tail curled around its feet, flames softly dimmed."
+    },
+    {
+      "id": "anubis",
+      "file": "rest_anubis.png",
+      "reference": "../anubis.png",
+      "generatedSource": "exec-2e2621bb-d4d7-41f0-8120-278ffa915245.png",
+      "restPose": "Jackal guardian kneels and rests its head on folded arms, ears relaxed and tail curled by the hip."
+    },
+    {
+      "id": "garuda",
+      "file": "rest_garuda.png",
+      "reference": "../garuda.png",
+      "generatedSource": "exec-410e354a-5810-4e26-a96e-c6c46527ee53.png",
+      "restPose": "Winged deity lowers into a dignified kneel as layered feathers fold close and talons settle."
+    }
+  ],
   "conditioning": "Segment the16 character alpha components from whole sheet before packing (not a rigid crop through wings). Remove isolated matte noise, retain2px antialiased edge, scale every pose of a species by the SAME factor with original cell coordinates as registration. Add>=6px transparent edge. Quantize256 colours; palette PNG uses tRNS alpha."
 }
