@@ -90,8 +90,20 @@ export async function saveRoomSnapshot(uid: string, snapshot: GameSnapshot) {
 }
 
 export async function clearCachedRoomSnapshot(uid: string, code?: string) {
-  const current = cache.get(uid);
-  if (code && !matchesRoom(current ?? null, code)) return;
+  let current = cache.get(uid) ?? null;
+  if (code && !current) {
+    try {
+      const saved = await getEncryptedItem(uid, storageKey(uid));
+      // A newer room may have been cached while the encrypted read was pending.
+      // Prefer it so clearing an old code cannot remove another room's cache.
+      current =
+        cache.get(uid) ??
+        (saved ? parseGameSnapshot(JSON.parse(saved), uid) : null);
+    } catch {
+      return;
+    }
+  }
+  if (code && !matchesRoom(current, code)) return;
   cache.delete(uid);
   await removeEncryptedItem(storageKey(uid));
 }

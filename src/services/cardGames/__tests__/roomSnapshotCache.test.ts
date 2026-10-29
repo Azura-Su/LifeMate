@@ -110,6 +110,67 @@ it('loads and validates an encrypted finished snapshot for the same account and 
   expect(await loadCachedRoomSnapshot(uid, 'ZZZZZZZZ')).toBeNull();
 });
 
+it('clears a matching persisted room code after a cold start with no memory cache', async () => {
+  jest.mocked(getEncryptedItem).mockResolvedValue(JSON.stringify(snapshot));
+  jest.mocked(removeEncryptedItem).mockClear();
+
+  await clearCachedRoomSnapshot(uid, 'abcdefgh');
+
+  expect(getEncryptedItem).toHaveBeenCalledWith(
+    uid,
+    `lifemate:card-game-room-snapshot:v1:${uid}`,
+  );
+  expect(removeEncryptedItem).toHaveBeenCalledWith(
+    `lifemate:card-game-room-snapshot:v1:${uid}`,
+  );
+  expect(getCachedRoomSnapshot(uid, finishedRoom.code)).toBeNull();
+});
+
+it('keeps another persisted room when clearing a different code after a cold start', async () => {
+  jest.mocked(getEncryptedItem).mockResolvedValue(JSON.stringify(snapshot));
+  jest.mocked(removeEncryptedItem).mockClear();
+
+  await clearCachedRoomSnapshot(uid, 'ZZZZZZZZ');
+
+  expect(removeEncryptedItem).not.toHaveBeenCalled();
+  expect((await loadCachedRoomSnapshot(uid, finishedRoom.code))?.room?.id).toBe(
+    finishedRoom.id,
+  );
+});
+
+it('does not clear a persisted snapshot that belongs to another account', async () => {
+  jest.mocked(getEncryptedItem).mockResolvedValue(JSON.stringify(snapshot));
+  jest.mocked(removeEncryptedItem).mockClear();
+
+  await clearCachedRoomSnapshot('other-user', finishedRoom.code);
+
+  expect(getEncryptedItem).toHaveBeenCalledWith(
+    'other-user',
+    'lifemate:card-game-room-snapshot:v1:other-user',
+  );
+  expect(removeEncryptedItem).not.toHaveBeenCalled();
+});
+
+it('keeps a newer in-memory room that arrives during a cold-start clear', async () => {
+  let finishRead!: (value: string) => void;
+  jest.mocked(getEncryptedItem).mockReturnValueOnce(
+    new Promise((resolve) => {
+      finishRead = resolve;
+    }),
+  );
+  const clearing = clearCachedRoomSnapshot(uid, finishedRoom.code);
+  await saveRoomSnapshot(uid, {
+    ...snapshot,
+    room: { ...finishedRoom, code: 'ZZZZZZZZ', version: 5 },
+  });
+  jest.mocked(removeEncryptedItem).mockClear();
+  finishRead(JSON.stringify(snapshot));
+  await clearing;
+
+  expect(removeEncryptedItem).not.toHaveBeenCalled();
+  expect(getCachedRoomSnapshot(uid, 'ZZZZZZZZ')?.room?.version).toBe(5);
+});
+
 it.each(['north', 'sam', 'tan'] as const)(
   'reloads a redacted losing-player %s snapshot after memory is cleared',
   async (gameKind) => {
