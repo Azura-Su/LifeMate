@@ -17,6 +17,13 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { MainTabParams } from '../../../navigation/types';
 
 let mockActive = true;
+jest.mock('react-native-reanimated', () => ({
+  ...jest.requireActual('react-native-reanimated/mock'),
+  useReducedMotion: () => true,
+}));
+jest.mock('react-native-worklets', () =>
+  jest.requireActual('react-native-worklets/src/mock'),
+);
 jest.mock('../../../hooks/useScreenActive', () => ({
   useScreenActive: () => mockActive,
 }));

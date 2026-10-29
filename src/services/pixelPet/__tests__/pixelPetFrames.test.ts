@@ -51,9 +51,13 @@ it('offers wing movement only to the five species whose art has wings', () => {
   ).toBe('Lượn mình');
 });
 
-it('fades into the next pose only at the tail of each pose', () => {
+it('blends through most of each pose interval, preserving boundaries and one-shot completion', () => {
   // Looping move: 4 poses in 400ms, so each pose spans 0.25 of progress.
-  expect(petFrameBlendAt('move', 0.05, true)).toEqual({ from: 4, to: 5, mix: 0 });
+  expect(petFrameBlendAt('move', 0.04, true)).toEqual({ from: 4, to: 5, mix: 0 });
+  const early = petFrameBlendAt('move', 0.05, true);
+  const middle = petFrameBlendAt('move', 0.125, true);
+  expect(early.mix).toBeGreaterThan(0);
+  expect(middle.mix).toBeGreaterThan(early.mix);
   const tail = petFrameBlendAt('move', 0.24, true);
   expect(tail.from).toBe(4);
   expect(tail.to).toBe(5);

@@ -46,6 +46,90 @@ beforeEach(() => {
 });
 afterEach(() => {
   global.fetch = originalFetch;
+  jest.useRealTimers();
+});
+
+it.each(['token', 'fetch', 'json'] as const)(
+  'settles a stalled %s request and ignores its late response',
+  async (stage) => {
+    jest.useFakeTimers();
+    let release!: () => void;
+    if (stage === 'token')
+      jest.mocked(getIdToken).mockReturnValueOnce(
+        new Promise((resolve) => {
+          release = () => resolve('late-token');
+        }),
+      );
+    global.fetch = jest.fn().mockImplementation(() =>
+      stage === 'fetch'
+        ? new Promise((resolve) => {
+            release = () => resolve({ ok: true, json: async () => owned });
+          })
+        : Promise.resolve({
+            ok: true,
+            json: () =>
+              stage === 'json'
+                ? new Promise((resolve) => {
+                    release = () => resolve(owned);
+                  })
+                : Promise.resolve(owned),
+          }),
+    );
+    const result = callPixelPet('u', {
+      type: 'care',
+      actionId: 'stable-action',
+    }).catch((error: Error) => error.message);
+    await jest.advanceTimersByTimeAsync(25001);
+    expect(await Promise.race([result, Promise.resolve('still pending')])).toBe(
+      'Yêu cầu linh thú quá lâu. Hãy tải lại để kiểm tra trạng thái.',
+    );
+    expect(readOwnedPixelPet('u')).toBeNull();
+    const request = jest.mocked(global.fetch).mock.calls[0]?.[1];
+    if (request) expect(request.signal?.aborted).toBe(true);
+    release();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(readOwnedPixelPet('u')).toBeNull();
+  },
+);
+
+it('retries a transient network failure with the same action ID', async () => {
+  global.fetch = jest
+    .fn()
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValueOnce({ ok: true, json: async () => empty });
+  await callPixelPet('u', { type: 'care', actionId: 'stable-action' });
+  expect(
+    jest
+      .mocked(global.fetch)
+      .mock.calls.map(([, input]) => JSON.parse(String(input?.body)).actionId),
+  ).toEqual(['stable-action', 'stable-action']);
+});
+it('cancels a stalled request immediately on same-UID relogin', async () => {
+  jest.useFakeTimers();
+  let release!: (value: unknown) => void;
+  global.fetch = jest.fn().mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+  );
+  const result = callPixelPet('u', { type: 'state' }).catch(
+    (error: Error) => error.message,
+  );
+  await jest.advanceTimersByTimeAsync(0);
+  useAuthStore.getState().setUser(null);
+  useAuthStore.getState().setUser({ uid: 'u', email: null, displayName: null });
+  await jest.advanceTimersByTimeAsync(0);
+  expect(await Promise.race([result, Promise.resolve('still pending')])).toBe(
+    'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.',
+  );
+  expect(jest.mocked(global.fetch).mock.calls[0][1]?.signal?.aborted).toBe(
+    true,
+  );
+  release({ ok: true, json: async () => owned });
+  await jest.advanceTimersByTimeAsync(0);
+  expect(readOwnedPixelPet('u')).toBeNull();
+  expect(jest.getTimerCount()).toBe(0);
 });
 it('a delayed owned response cannot overwrite a newer revoked state in shared cache', async () => {
   let release!: (value: unknown) => void;

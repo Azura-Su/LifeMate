@@ -28,11 +28,21 @@ import { useNotesLockStore } from '../../store/notesLockStore';
 
 // Native font loading is outside this navigation integration test.
 jest.mock('@expo/vector-icons/Feather', () => 'Feather');
+jest.mock('react-native-reanimated', () => ({
+  ...jest.requireActual('react-native-reanimated/mock'),
+  useReducedMotion: () => true,
+}));
+jest.mock('react-native-worklets', () =>
+  jest.requireActual('react-native-worklets/src/mock'),
+);
 jest.mock('../../screens/PixelPet/PixelPetScreen', () => ({
   PixelPetScreen: () => null,
 }));
 jest.mock('../../services/pixelPet/pixelPetApi', () => ({
   syncPixelPetInBackground: jest.fn(),
+  readOwnedPixelPet: () => null,
+  subscribeOwnedPixelPet: () => () => {},
+  callPixelPet: jest.fn().mockResolvedValue({ pet: null }),
 }));
 jest.mock('../../config/cardGames', () => ({ cardGamesEnabled: () => true }));
 jest.mock('@react-native-async-storage/async-storage', () =>

@@ -230,6 +230,9 @@ Số tiền **không** ảnh hưởng EXP. Không chi tiêu vẫn nhận `care_d
   (throttle 10 phút) để ngày ghi chép được ghi nhận kịp thời.
 - Mỗi `sync` ghi `last_read_ms`; ảnh chụp Firestore cũ hơn bị từ chối
   (`stale-snapshot`). `sync` bị giới hạn 20 lần/phút.
+- Request phía app có thời hạn tổng 25 giây cho lấy token, mạng và đọc JSON;
+  hủy khi đổi phiên. Retry lỗi mạng giữ actionId; timeout báo tải lại để kiểm tra
+  trạng thái, tránh kẹt nút thao tác hoặc vòng làm mới.
 - **Đồng bộ** (`sync`): Edge Function đọc
   `financeAccounts/{uid}/transactions` bằng service account (client không gửi
   EXP), tính _mục tiêu_ cho các nguồn tài chính, RPC

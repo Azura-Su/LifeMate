@@ -371,9 +371,9 @@ export function roomSnapshot(
         ownerUid:
           state.ownerUid === ''
             ? null
-            : (state.ownerUid ??
-              state.scoreMembers?.[0]?.uid ??
-              state.members[0]?.uid),
+            : state.ownerUid === undefined
+              ? (state.scoreMembers?.[0]?.uid ?? state.members[0]?.uid ?? null)
+              : state.ownerUid,
       }),
       controller,
       topic: `card-room:${record.id}:${record.epoch}`,

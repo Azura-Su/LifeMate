@@ -8,6 +8,9 @@ Mỗi UID có thư viện riêng, lưu bản audio trong Documents/app files và
 
 Nghe/dừng/tua; cắt một khoảng start–end thành file mới; ghép 2–10 file/đoạn theo thứ tự người dùng chọn, cho đổi thứ tự. Các bản gốc giữ nguyên. Mỗi đoạn có thể chọn điểm đầu/cuối trước khi nối. Kết quả cắt/ghép được lưu lại như một audio mới.
 
+Nếu audio tải chậm và xuất hiện lỗi chờ tải, khi file tải xong thì dọn thông báo
+đó và hiển thị lại các nút nghe/dừng/tua.
+
 Input tối đa 500 MiB, audio lưu tối đa 200 MiB, thời lượng mỗi file/tổng bản ghép tối đa 60 phút. Tối thiểu đoạn 0.1 giây. Codec theo AVFoundation/Media3; báo lỗi rõ nếu không có tiếng, DRM hoặc codec không hỗ trợ. Xuất M4A, không hứa mọi định dạng video đều hỗ trợ.
 
 ## Kiến trúc

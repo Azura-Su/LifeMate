@@ -21,6 +21,8 @@ const messages: Record<string, string> = {
   'pet-busy': 'Máy chủ đang bận. Hãy thử lại.',
   'stale-snapshot': 'Dữ liệu vừa được cập nhật ở thiết bị khác.',
   'pet-name-invalid': 'Tên linh thú cần từ 1 đến 24 ký tự.',
+  'request-timeout':
+    'Yêu cầu linh thú quá lâu. Hãy tải lại để kiểm tra trạng thái.',
 };
 
 export const PIXEL_PET_NICKNAME_MAX_LENGTH = 24;
@@ -34,7 +36,8 @@ export function capitalizePixelPetNickname(value: string): string {
 export function normalizePixelPetNickname(value: string): string | null {
   const nickname = capitalizePixelPetNickname(value).trim();
   const length = Array.from(nickname).length;
-  return nickname && length <= PIXEL_PET_NICKNAME_MAX_LENGTH &&
+  return nickname &&
+    length <= PIXEL_PET_NICKNAME_MAX_LENGTH &&
     !/[\u0000-\u001f\u007f-\u009f]/u.test(nickname)
     ? nickname
     : null;
@@ -140,50 +143,81 @@ export async function callPixelPet(
   const epoch = useAuthStore.getState().sessionEpoch;
   const generation = (responseGeneration.get(uid) ?? 0) + 1;
   responseGeneration.set(uid, generation);
+  const controller = new AbortController();
+  let interrupt!: (error: PixelPetApiError) => void;
+  const interrupted = new Promise<never>((_, reject) => {
+    interrupt = reject;
+  });
+  const cancel = (code: string) => {
+    interrupt(new PixelPetApiError(code));
+    controller.abort();
+  };
+  // Bound token acquisition and body decoding too: aborting fetch alone cannot
+  // settle either of those waits. Both attempts share this deadline/action ID.
+  const timer = setTimeout(() => cancel('request-timeout'), 25000);
+  const unsubscribe = useAuthStore.subscribe((state) => {
+    if (state.user?.uid !== uid || state.sessionEpoch !== epoch)
+      cancel('invalid-session');
+  });
   let lastError: unknown;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      const token = await getIdToken(user, attempt === 1);
-      if (
-        getAuth().currentUser?.uid !== uid ||
-        useAuthStore.getState().sessionEpoch !== epoch
-      )
-        throw new PixelPetApiError('invalid-session');
-      const response = await fetch(`${origin}/functions/v1/pet-access`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          apikey: apiKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(input),
-      });
-      const result: unknown = await response.json().catch(() => null);
-      if (
-        getAuth().currentUser?.uid !== uid ||
-        useAuthStore.getState().sessionEpoch !== epoch
-      )
-        throw new PixelPetApiError('invalid-session');
-      if (response.ok) {
-        const state = parsePixelPetState(result);
-        if (responseGeneration.get(uid) === generation)
-          rememberOwnedPet(uid, state.pet);
-        return state;
+  try {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const token = await Promise.race([
+          interrupted,
+          getIdToken(user, attempt === 1),
+        ]);
+        if (
+          getAuth().currentUser?.uid !== uid ||
+          useAuthStore.getState().sessionEpoch !== epoch
+        )
+          throw new PixelPetApiError('invalid-session');
+        const response = await Promise.race([
+          interrupted,
+          fetch(`${origin}/functions/v1/pet-access`, {
+            method: 'POST',
+            signal: controller.signal,
+            headers: {
+              Authorization: `Bearer ${token}`,
+              apikey: apiKey,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(input),
+          }),
+        ]);
+        const result: unknown = await Promise.race([
+          interrupted,
+          response.json().catch(() => null),
+        ]);
+        if (
+          getAuth().currentUser?.uid !== uid ||
+          useAuthStore.getState().sessionEpoch !== epoch
+        )
+          throw new PixelPetApiError('invalid-session');
+        if (response.ok) {
+          const state = parsePixelPetState(result);
+          if (responseGeneration.get(uid) === generation)
+            rememberOwnedPet(uid, state.pet);
+          return state;
+        }
+        const code =
+          result && typeof result === 'object' && 'error' in result
+            ? String(result.error)
+            : 'pet-unavailable';
+        if (code === 'invalid-session' && attempt === 0) continue;
+        throw new PixelPetApiError(code);
+      } catch (error) {
+        if (error instanceof PixelPetApiError) throw error;
+        lastError = error; // Network failure: retry once with the same actionId.
       }
-      const code =
-        result && typeof result === 'object' && 'error' in result
-          ? String(result.error)
-          : 'pet-unavailable';
-      if (code === 'invalid-session' && attempt === 0) continue;
-      throw new PixelPetApiError(code);
-    } catch (error) {
-      if (error instanceof PixelPetApiError) throw error;
-      lastError = error; // Network failure: retry once with the same actionId.
     }
+    throw lastError instanceof Error
+      ? new PixelPetApiError('pet-unavailable')
+      : lastError;
+  } finally {
+    clearTimeout(timer);
+    unsubscribe();
   }
-  throw lastError instanceof Error
-    ? new PixelPetApiError('pet-unavailable')
-    : lastError;
 }
 
 const lastBackgroundSync = new Map<string, number>();

@@ -43,7 +43,10 @@ export function useAudioPlayback(source: Playback) {
   }, [end, player, status.currentTime, status.playing]);
 
   useEffect(() => {
-    if (status.isLoaded) return;
+    if (status.isLoaded) {
+      setError(null);
+      return;
+    }
     const timer = setTimeout(
       () =>
         setError(

@@ -258,6 +258,7 @@ async function setup(beforePhomRules = false) {
   await db.exec(variantRoomConfigurationSql);
   await db.exec(variantV2ScoringSql);
   await db.exec(southInstantWinSql);
+  await db.exec(await readFile(new URL('../../migrations/20261029022648_preserve_explicit_ownerless_rooms.sql', import.meta.url), 'utf8'));
   return db;
 }
 
@@ -2834,6 +2835,49 @@ async function addScoreMember(db) {
     ],
   );
 }
+for (const owner of [null, '']) {
+  test(`ownerless ${JSON.stringify(owner)} survives score sync and worker commits`, async () => {
+    const db = await setup();
+    try {
+      await create(db);
+      await addScoreMember(db);
+      const before = await sharedBoard(db);
+      await db.query("update public.lifemate_game_rooms set state=jsonb_set(state,'{ownerUid}',$2::jsonb),next_due=now()-interval '1 second' where id=$1",
+        [room, JSON.stringify(owner)]);
+      const board = await sharedBoard(db);
+      assert.equal(board.canEdit, false);
+      assert.ok(board.match.sharedVersion > before.match.sharedVersion);
+      await assert.rejects(scoreWrite(db, board, 'delete'), /not-owner/);
+      const claimed = await rpc(db, 'lifemate_game_claim_due', [epoch]);
+      const record = claimed.rooms.find(r => r.id === room);
+      const candidate = advanceExpiredRoom(record, Number(claimed.now));
+      assert.equal(candidate.state.ownerUid, owner);
+      assert.throws(() => updateRoom(candidate.state, uid, { type: 'kick', targetUid: other }, Date.now()), /not-owner/);
+      await rpc(db, 'lifemate_game_commit_worker', [room, epoch, record.version, candidate.state, candidate.removed]);
+      assert.equal((await sharedBoard(db)).canEdit, false);
+      await assert.rejects(scoreWrite(db, await sharedBoard(db), 'delete'), /not-owner/);
+    } finally { await db.close(); }
+  });
+}
+test('ownerless migration repairs stale score ownership, retaining document and legacy fallback', async () => {
+  const db = await setup();
+  try {
+    await create(db);
+    await addScoreMember(db);
+    await db.query("update public.lifemate_game_rooms set state=state-'ownerUid' where id=$1", [room]);
+    assert.equal((await sharedBoard(db)).canEdit, true);
+    await db.query("update public.lifemate_game_rooms set state=jsonb_set(state,'{ownerUid}','null'::jsonb) where id=$1", [room]);
+    await db.query('update public.lifemate_game_score_tables set owner_uid=$1 where room_id=$2', [uid, room]);
+    const stale = await sharedBoard(db);
+    // Even a stale table must not authorize writes against an ownerless room.
+    await assert.rejects(scoreWrite(db, stale, 'delete'), /not-owner/);
+    await db.exec(await readFile(new URL('../../migrations/20261029022648_preserve_explicit_ownerless_rooms.sql', import.meta.url), 'utf8'));
+    const fixed = await sharedBoard(db);
+    assert.equal(fixed.canEdit, false);
+    assert.ok(fixed.match.sharedVersion > stale.match.sharedVersion);
+    assert.deepEqual(scoreDocument(fixed.match), scoreDocument(stale.match));
+  } finally { await db.close(); }
+});
 test('shared score endpoints authenticate before reads and reject non-owner mutation', async () => {
   const db = await setup();
   try {

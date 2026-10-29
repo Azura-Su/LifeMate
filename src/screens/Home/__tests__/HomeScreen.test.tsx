@@ -43,10 +43,10 @@ function findRenderedCardIds(node: RenderedNode): string[] {
 
 jest.mock('@expo/vector-icons/Feather', () => 'Feather');
 jest.mock('react-native-reanimated', () => ({
-  ...require('react-native-reanimated/mock'),
+  ...jest.requireActual('react-native-reanimated/mock'),
   useReducedMotion: () => false,
 }));
-jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
+jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/src/mock'));
 jest.mock('../../../services/pixelPet/pixelPetApi', () => ({
   syncPixelPetInBackground: jest.fn(),
   readOwnedPixelPet: () => null,

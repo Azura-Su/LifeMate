@@ -127,6 +127,9 @@ Kiểm chứng và giới hạn native được ghi tại `tasks/card-table-moti
   khác. Xác nhận lại trước khi gửi; server kiểm tra quyền, phiên, version và match.
   `ownerUid: null` nghĩa là không có chủ phòng; chỉ dữ liệu cũ thiếu thuộc tính này
   mới fallback host.
+  Worker và bảng điểm cũng giữ trạng thái này; không tự gán lại chủ khi dọn ghế
+  hoặc đồng bộ điểm. Migration `20261029022648_preserve_explicit_ownerless_rooms.sql`
+  sửa quyền bảng điểm bị lưu sai ở các phòng còn tồn tại; giữ dữ liệu điểm/lịch sử.
 - Kích giữa ván áp dụng luật bỏ cuộc hiện có, giữ người tham gia trong dữ liệu
   tính điểm. Ghế/thành viên bị xóa, readiness còn lại reset và epoch đổi để các máy
   đọc lại danh sách. Người bị kích nhận “Bạn đã bị chủ phòng mời ra khỏi phòng.”

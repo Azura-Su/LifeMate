@@ -3,8 +3,8 @@ import { finishRoom } from './rooms.mjs';
 
 export function advanceExpiredRoom(record, now) {
   const state = structuredClone(record.state);
-  state.ownerUid ??=
-    state.scoreMembers?.[0]?.uid ?? state.members[0]?.uid ?? null;
+  if (state.ownerUid === undefined)
+    state.ownerUid = state.scoreMembers?.[0]?.uid ?? state.members[0]?.uid ?? null;
   const expired = new Set(record.expired);
   const roomExpired = record.expires_at && Date.parse(record.expires_at) <= now;
   if (roomExpired) state.members.forEach((p) => expired.add(p.uid));

@@ -60,3 +60,25 @@ it('starts playback automatically as soon as the preview source is loaded', asyn
     expect.objectContaining({ playsInSilentMode: true }),
   );
 });
+
+it('restores playback controls if a slow source loads after the loading deadline', async () => {
+  jest.useFakeTimers();
+  try {
+    const { result, rerender } = renderHook(() => useAudioPlayback(source));
+    await act(async () => {
+      jest.advanceTimersByTime(12000);
+    });
+    expect(result.current.error).not.toBeNull();
+    act(() => {
+      mockStatus = { ...mockStatus, isLoaded: true };
+      rerender({});
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockPlayer.play).toHaveBeenCalledTimes(1);
+    expect(result.current.error).toBeNull();
+  } finally {
+    jest.useRealTimers();
+  }
+});

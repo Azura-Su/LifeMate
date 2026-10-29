@@ -22,6 +22,23 @@ const lobby = () => ({
   members: structuredClone(members),
   game: null,
 });
+
+for (const [label, ownership, expected] of [
+  ['legacy missing owner', {}, 'a'],
+  ['explicit null owner', { ownerUid: null }, null],
+  ['erased owner sentinel', { ownerUid: '' }, null],
+  ['assigned owner', { ownerUid: 'b' }, 'b'],
+]) {
+  test(`worker and snapshot preserve ${label}`, () => {
+    const record = {
+      id: 'room', code: 'ROOM', version: 1, epoch: 1, match_id: 'match',
+      state: { ...lobby(), ...ownership }, expired: [],
+    };
+    assert.equal(roomSnapshot(record, 'a', true, 100, true).room.ownerUid, expected);
+    const advanced = advanceExpiredRoom(record, 100);
+    assert.equal(advanced.state.ownerUid === '' ? null : advanced.state.ownerUid, expected);
+  });
+}
 const dragon = Array.from({ length: 13 }, (_, i) => i * 4);
 const others = Array.from({ length: 52 }, (_, i) => i).filter(
   (c) => !dragon.includes(c),

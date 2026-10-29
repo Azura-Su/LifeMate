@@ -3,10 +3,10 @@ import { PIXEL_PET_BY_ID } from '../../../services/pixelPet/pixelPetCatalog';
 import { PixelPetSprite } from '../PixelPetSprite';
 
 jest.mock('react-native-reanimated', () => ({
-  ...require('react-native-reanimated/mock'),
+  ...jest.requireActual('react-native-reanimated/mock'),
   useReducedMotion: () => false,
 }));
-jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
+jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/src/mock'));
 
 it('renders a stage of a species from the shared rig', () => {
   render(
