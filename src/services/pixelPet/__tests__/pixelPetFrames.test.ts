@@ -4,6 +4,8 @@ import {
   PET_ATLAS,
   petFrameAt,
   petFrameBlendAt,
+  petDragFallbackFrameTrack,
+  petDragPoseAt,
   petMovementLabel,
   petPlayback,
 } from '../pixelPetFrames';
@@ -37,6 +39,63 @@ it('keeps the duration and completion behavior of all existing one-shot clips', 
   expect(petFrameAt('skill', 0, false)).toBe(12);
 });
 
+it('gives every fall archetype a distinct, deterministic pixel pose', () => {
+  const styles = [
+    'fall',
+    'coil',
+    'flop',
+    'tentacle',
+    'shell',
+    'wings',
+  ] as const;
+  const poses = styles.map((style) => petDragPoseAt(style, 0.25));
+  expect(new Set(poses.map((pose) => JSON.stringify(pose))).size).toBe(
+    styles.length,
+  );
+  expect(styles.map((style) => petDragPoseAt(style, 0.25))).toEqual(poses);
+  for (const pose of poses) {
+    expect(pose.scaleX).toBeGreaterThan(0.8);
+    expect(pose.scaleX).toBeLessThan(1.2);
+    expect(pose.scaleY).toBeGreaterThan(0.8);
+    expect(pose.scaleY).toBeLessThan(1.2);
+  }
+});
+
+it('eases through explicit fall keyframes and settles back to neutral', () => {
+  expect(petDragPoseAt('fall', 0.2).rotateDeg).toBe(-15);
+  expect(petDragPoseAt('fall', 0.4).rotateDeg).toBe(9);
+  expect(petDragPoseAt('fall', 0.1).rotateDeg).toBe(-9.5);
+  expect(petDragPoseAt('fall', 1)).toEqual({
+    translateY: 0,
+    rotateDeg: 0,
+    scaleX: 1,
+    scaleY: 1,
+  });
+});
+
+it('selects fall frames by body archetype and uses only cells from the pet atlas', () => {
+  const styles = [
+    'fall',
+    'coil',
+    'flop',
+    'tentacle',
+    'shell',
+    'wings',
+  ] as const;
+  const tracks = styles.map((style) =>
+    petDragFallbackFrameTrack('fall', style),
+  );
+  expect(new Set(tracks.map((track) => JSON.stringify(track))).size).toBe(
+    styles.length,
+  );
+  for (const track of tracks) {
+    expect(track!.length).toBeGreaterThan(3);
+    expect(track!.every((frame) => frame >= 0 && frame < 16)).toBe(true);
+  }
+  expect(petDragFallbackFrameTrack('lifted', 'fall')).toEqual([8, 9, 10, 11]);
+  expect(petDragFallbackFrameTrack('roam', 'fall')).toBeUndefined();
+});
+
 it('offers wing movement only to the five species whose art has wings', () => {
   expect(
     PIXEL_PET_SPECIES.filter((p) => petMovementLabel(p) === 'Vỗ cánh')
@@ -53,7 +112,11 @@ it('offers wing movement only to the five species whose art has wings', () => {
 
 it('blends through most of each pose interval, preserving boundaries and one-shot completion', () => {
   // Looping move: 4 poses in 400ms, so each pose spans 0.25 of progress.
-  expect(petFrameBlendAt('move', 0.04, true)).toEqual({ from: 4, to: 5, mix: 0 });
+  expect(petFrameBlendAt('move', 0.04, true)).toEqual({
+    from: 4,
+    to: 5,
+    mix: 0,
+  });
   const early = petFrameBlendAt('move', 0.05, true);
   const middle = petFrameBlendAt('move', 0.125, true);
   expect(early.mix).toBeGreaterThan(0);
@@ -64,8 +127,13 @@ it('blends through most of each pose interval, preserving boundaries and one-sho
   expect(tail.mix).toBeGreaterThan(0.8);
   expect(petFrameBlendAt('move', 0.99, true).to).toBe(4);
   // One-shot clips hold their last pose instead of wrapping.
-  expect(petFrameBlendAt('happy', 0.99, false)).toMatchObject({ from: 11, to: 11 });
+  expect(petFrameBlendAt('happy', 0.99, false)).toMatchObject({
+    from: 11,
+    to: 11,
+  });
   for (const clip of Object.keys(PIXEL_CLIPS) as (keyof typeof PIXEL_CLIPS)[])
     for (const t of [0, 0.3, 0.7, 1])
-      expect(petFrameBlendAt(clip, t, false).from).toBe(petFrameAt(clip, t, false));
+      expect(petFrameBlendAt(clip, t, false).from).toBe(
+        petFrameAt(clip, t, false),
+      );
 });

@@ -293,6 +293,168 @@
   ],
   "dragVariants": [
     {
+      "id": "nine_tail_fox",
+      "file": "drag_nine_tail_fox.png",
+      "reference": "../nine_tail_fox.png",
+      "sourceAtlas": "nine_tail_fox.png",
+      "generator": "scripts/build-pet-drag-atlases.cjs",
+      "fallStyle": "flop",
+      "layout": "4 columns × 4 rows; 16 whole-character poses; 1024×1024 indexed PNG with original palette and alpha.",
+      "poseOrder": "Frames 0–3 lift; 4–7 fall with species anatomy motion; 8–11 impact and landing; 12–15 settle and recover.",
+      "transform": "Nearest-neighbor inverse-affine translation, scale and rotation; generated deterministically from the source atlas without AI image generation."
+    },
+    {
+      "id": "qilin",
+      "file": "drag_qilin.png",
+      "reference": "../qilin.png",
+      "sourceAtlas": "qilin.png",
+      "generator": "scripts/build-pet-drag-atlases.cjs",
+      "fallStyle": "fall",
+      "layout": "4 columns × 4 rows; 16 whole-character poses; 1024×1024 indexed PNG with original palette and alpha.",
+      "poseOrder": "Frames 0–3 lift; 4–7 fall with species anatomy motion; 8–11 impact and landing; 12–15 settle and recover.",
+      "transform": "Nearest-neighbor inverse-affine translation, scale and rotation; generated deterministically from the source atlas without AI image generation."
+    },
+    {
+      "id": "alicorn",
+      "file": "drag_alicorn.png",
+      "reference": "../alicorn.png",
+      "layout": "4 columns ×4 rows;16 whole-character poses;1024×1024 transparent PNG",
+      "poseOrder": "Frames0–3 show the lift,4–7 hold the airborne wingbeat for circling and descent,8–11 settle into landing. The last row provides alternate airborne poses and is reserved for later transitions.",
+      "packing": "Reviewed full-body poses aligned at a shared scale in padded256px cells with transparent gutters; mounted only for the Alicorn drag sequence."
+    },
+    {
+      "id": "rune_wolf",
+      "file": "drag_rune_wolf.png",
+      "reference": "../rune_wolf.png",
+      "sourceAtlas": "rune_wolf.png",
+      "generator": "scripts/build-pet-drag-atlases.cjs",
+      "fallStyle": "fall",
+      "layout": "4 columns × 4 rows; 16 whole-character poses; 1024×1024 indexed PNG with original palette and alpha.",
+      "poseOrder": "Frames 0–3 lift; 4–7 fall with species anatomy motion; 8–11 impact and landing; 12–15 settle and recover.",
+      "transform": "Nearest-neighbor inverse-affine translation, scale and rotation; generated deterministically from the source atlas without AI image generation."
+    },
+    {
+      "id": "black_tortoise",
+      "file": "drag_black_tortoise.png",
+      "reference": "../black_tortoise.png",
+      "sourceAtlas": "black_tortoise.png",
+      "generator": "scripts/build-pet-drag-atlases.cjs",
+      "fallStyle": "shell",
+      "layout": "4 columns × 4 rows; 16 whole-character poses; 1024×1024 indexed PNG with original palette and alpha.",
+      "poseOrder": "Frames 0–3 lift; 4–7 fall with species anatomy motion; 8–11 impact and landing; 12–15 settle and recover.",
+      "transform": "Nearest-neighbor inverse-affine translation, scale and rotation; generated deterministically from the source atlas without AI image generation."
+    },
+    {
+      "id": "sphinx",
+      "file": "drag_sphinx.png",
+      "reference": "../sphinx.png",
+      "sourceAtlas": "sphinx.png",
+      "generator": "scripts/build-pet-drag-atlases.cjs",
+      "fallStyle": "wings",
+      "layout": "4 columns × 4 rows; 16 whole-character poses; 1024×1024 indexed PNG with original palette and alpha.",
+      "poseOrder": "Frames 0–3 lift; 4–7 fall with species anatomy motion; 8–11 impact and landing; 12–15 settle and recover.",
+      "transform": "Nearest-neighbor inverse-affine translation, scale and rotation; generated deterministically from the source atlas without AI image generation."
+    },
+    {
+      "id": "centaur",
+      "file": "drag_centaur.png",
+      "reference": "../centaur.png",
+      "sourceAtlas": "centaur.png",
+      "generator": "scripts/build-pet-drag-atlases.cjs",
+      "fallStyle": "fall",
+      "layout": "4 columns × 4 rows; 16 whole-character poses; 1024×1024 indexed PNG with original palette and alpha.",
+      "poseOrder": "Frames 0–3 lift; 4–7 fall with species anatomy motion; 8–11 impact and landing; 12–15 settle and recover.",
+      "transform": "Nearest-neighbor inverse-affine translation, scale and rotation; generated deterministically from the source atlas without AI image generation."
+    },
+    {
+      "id": "white_tiger",
+      "file": "drag_white_tiger.png",
+      "reference": "../white_tiger.png",
+      "sourceAtlas": "white_tiger.png",
+      "generator": "scripts/build-pet-drag-atlases.cjs",
+      "fallStyle": "fall",
+      "layout": "4 columns × 4 rows; 16 whole-character poses; 1024×1024 indexed PNG with original palette and alpha.",
+      "poseOrder": "Frames 0–3 lift; 4–7 fall with species anatomy motion; 8–11 impact and landing; 12–15 settle and recover.",
+      "transform": "Nearest-neighbor inverse-affine translation, scale and rotation; generated deterministically from the source atlas without AI image generation."
+    },
+    {
+      "id": "azure_dragon",
+      "file": "drag_azure_dragon.png",
+      "reference": "../azure_dragon.png",
+      "sourceAtlas": "azure_dragon.png",
+      "generator": "scripts/build-pet-drag-atlases.cjs",
+      "fallStyle": "coil",
+      "layout": "4 columns × 4 rows; 16 whole-character poses; 1024×1024 indexed PNG with original palette and alpha.",
+      "poseOrder": "Frames 0–3 lift; 4–7 fall with species anatomy motion; 8–11 impact and landing; 12–15 settle and recover.",
+      "transform": "Nearest-neighbor inverse-affine translation, scale and rotation; generated deterministically from the source atlas without AI image generation."
+    },
+    {
+      "id": "koi_dragon",
+      "file": "drag_koi_dragon.png",
+      "reference": "../koi_dragon.png",
+      "sourceAtlas": "koi_dragon.png",
+      "generator": "scripts/build-pet-drag-atlases.cjs",
+      "fallStyle": "flop",
+      "layout": "4 columns × 4 rows; 16 whole-character poses; 1024×1024 indexed PNG with original palette and alpha.",
+      "poseOrder": "Frames 0–3 lift; 4–7 fall with species anatomy motion; 8–11 impact and landing; 12–15 settle and recover.",
+      "transform": "Nearest-neighbor inverse-affine translation, scale and rotation; generated deterministically from the source atlas without AI image generation."
+    },
+    {
+      "id": "scylla",
+      "file": "drag_scylla.png",
+      "reference": "../scylla.png",
+      "sourceAtlas": "scylla.png",
+      "generator": "scripts/build-pet-drag-atlases.cjs",
+      "fallStyle": "tentacle",
+      "layout": "4 columns × 4 rows; 16 whole-character poses; 1024×1024 indexed PNG with original palette and alpha.",
+      "poseOrder": "Frames 0–3 lift; 4–7 fall with species anatomy motion; 8–11 impact and landing; 12–15 settle and recover.",
+      "transform": "Nearest-neighbor inverse-affine translation, scale and rotation; generated deterministically from the source atlas without AI image generation."
+    },
+    {
+      "id": "lac_bird",
+      "file": "drag_lac_bird.png",
+      "reference": "../lac_bird.png",
+      "sourceAtlas": "lac_bird.png",
+      "generator": "scripts/build-pet-drag-atlases.cjs",
+      "fallStyle": "wings",
+      "layout": "4 columns × 4 rows; 16 whole-character poses; 1024×1024 indexed PNG with original palette and alpha.",
+      "poseOrder": "Frames 0–3 lift; 4–7 fall with species anatomy motion; 8–11 impact and landing; 12–15 settle and recover.",
+      "transform": "Nearest-neighbor inverse-affine translation, scale and rotation; generated deterministically from the source atlas without AI image generation."
+    },
+    {
+      "id": "phoenix",
+      "file": "drag_phoenix.png",
+      "reference": "../phoenix.png",
+      "sourceAtlas": "phoenix.png",
+      "generator": "scripts/build-pet-drag-atlases.cjs",
+      "fallStyle": "wings",
+      "layout": "4 columns × 4 rows; 16 whole-character poses; 1024×1024 indexed PNG with original palette and alpha.",
+      "poseOrder": "Frames 0–3 lift; 4–7 fall with species anatomy motion; 8–11 impact and landing; 12–15 settle and recover.",
+      "transform": "Nearest-neighbor inverse-affine translation, scale and rotation; generated deterministically from the source atlas without AI image generation."
+    },
+    {
+      "id": "anubis",
+      "file": "drag_anubis.png",
+      "reference": "../anubis.png",
+      "sourceAtlas": "anubis.png",
+      "generator": "scripts/build-pet-drag-atlases.cjs",
+      "fallStyle": "fall",
+      "layout": "4 columns × 4 rows; 16 whole-character poses; 1024×1024 indexed PNG with original palette and alpha.",
+      "poseOrder": "Frames 0–3 lift; 4–7 fall with species anatomy motion; 8–11 impact and landing; 12–15 settle and recover.",
+      "transform": "Nearest-neighbor inverse-affine translation, scale and rotation; generated deterministically from the source atlas without AI image generation."
+    },
+    {
+      "id": "garuda",
+      "file": "drag_garuda.png",
+      "reference": "../garuda.png",
+      "sourceAtlas": "garuda.png",
+      "generator": "scripts/build-pet-drag-atlases.cjs",
+      "fallStyle": "wings",
+      "layout": "4 columns × 4 rows; 16 whole-character poses; 1024×1024 indexed PNG with original palette and alpha.",
+      "poseOrder": "Frames 0–3 lift; 4–7 fall with species anatomy motion; 8–11 impact and landing; 12–15 settle and recover.",
+      "transform": "Nearest-neighbor inverse-affine translation, scale and rotation; generated deterministically from the source atlas without AI image generation."
+    },
+    {
       "id": "celestial_stag",
       "file": "drag_celestial_stag.png",
       "reference": "../celestial_stag.png",
@@ -303,5 +465,11 @@
       "packing": "Segment complete character silhouettes and repack into padded 256px cells with transparent gutters using scripts/pack-pet-rest-atlas.py; quantize to indexed PNG with tRNS alpha. Enabled only for lifted and descend; circle and land reuse the existing Stag flight and landing atlases."
     }
   ],
-  "conditioning": "Segment the16 character alpha components from whole sheet before packing (not a rigid crop through wings). Remove isolated matte noise, retain2px antialiased edge, scale every pose of a species by the SAME factor with original cell coordinates as registration. Add>=6px transparent edge. Quantize256 colours; palette PNG uses tRNS alpha."
+  "conditioning": "Segment the16 character alpha components from whole sheet before packing (not a rigid crop through wings). Remove isolated matte noise, retain2px antialiased edge, scale every pose of a species by the SAME factor with original cell coordinates as registration. Add>=6px transparent edge. Quantize256 colours; palette PNG uses tRNS alpha.",
+  "dragAtlasGeneration": {
+    "method": "Deterministic code transforms of existing pixel animation atlases; no AI image generation.",
+    "generator": "scripts/build-pet-drag-atlases.cjs",
+    "layout": "4 columns × 4 rows; 16 whole-character poses; 1024×1024 indexed PNG with source palette and alpha.",
+    "poses": "Lift (frames 0–3), anatomy-specific fall (4–7), impact/landing (8–11), settle/recovery (12–15). Nearest-neighbor inverse-affine transforms preserve pixel edges."
+  }
 }

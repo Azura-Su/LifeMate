@@ -88,10 +88,11 @@ The15 rest atlases total about3.9MB bundled; one decoded sheet is roughly4MiB
 RGBA. Only the active atlas is mounted by the component, though the platform
 image cache may briefly retain both activity and rest sheets during a swap.
 
-Home drag poses are opt-in per species through `PET_DRAG_ATLAS_READY`. The
-Celestial Stag has a reviewed 4×4 `drag_celestial_stag.png` atlas for the lift
-and descent phases; its existing flight and landing atlases handle the circle
-and ground contact. Other species continue to use their existing clips and
-fall transforms until their own drag sheets are ready. Drag sheets are mounted
-only during the matching phase. Source prompt and packing details are recorded
-under `dragVariants` in provenance.json.
+Every available pet, plus the admin-only Celestial Stag, has a dedicated 4×4
+Home drag atlas. The Alicorn and Stag keep their reviewed transition atlases.
+The remaining atlases are built deterministically by
+`scripts/build-pet-drag-atlases.cjs` from each species' own 4×4 activity atlas.
+The script reuses the source palette and alpha channel and applies nearest-pixel
+pose transforms for lift, falling, impact, and recovery. It does not call image
+generation or add new artwork. Atlas frame blends and eased UI-thread poses run
+at display refresh; only the active pet atlas is mounted.

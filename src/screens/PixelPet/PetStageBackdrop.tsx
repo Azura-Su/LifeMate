@@ -16,12 +16,15 @@ import { colors } from '../../theme';
 export function PetStageBackdrop({
   tint,
   spriteSize,
+  stageScale,
 }: {
   tint: string;
   spriteSize: number;
+  /** Growth-stage scale the sprite is drawn at (it shrinks around its centre). */
+  stageScale: number;
 }) {
-  const shadowWidth = spriteSize * 0.46;
-  const shadowHeight = spriteSize * 0.07;
+  const shadowWidth = spriteSize * 0.46 * stageScale;
+  const shadowHeight = spriteSize * 0.07 * stageScale;
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <Svg width="100%" height="100%">
@@ -42,8 +45,8 @@ export function PetStageBackdrop({
         <Svg
           width={shadowWidth}
           height={shadowHeight}
-          // Feet sit about a third of the canvas below its centre.
-          style={{ transform: [{ translateY: spriteSize * 0.3 }] }}
+          // Feet sit about a third of the canvas below its centre at full size.
+          style={{ transform: [{ translateY: spriteSize * 0.3 * stageScale }] }}
         >
           <Defs>
             <RadialGradient id="shadow" cx="50%" cy="50%" r="50%">

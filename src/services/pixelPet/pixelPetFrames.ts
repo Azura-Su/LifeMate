@@ -16,6 +16,26 @@ const PET_DRAG_FRAME_TRACKS: Partial<Record<DragPhase, readonly number[]>> = {
   land: [8, 9, 10, 11],
 };
 
+const FALL_FRAME_TRACKS: Record<DragFallStyle, readonly number[]> = {
+  fall: [4, 5, 6, 7, 6, 5],
+  coil: [4, 5, 6, 7, 7, 6],
+  flop: [4, 5, 6, 5, 4, 5],
+  tentacle: [4, 6, 5, 7, 6, 5],
+  shell: [4, 5, 6, 7, 4, 5],
+  wings: [4, 5, 6, 7],
+};
+
+/** Reuses each species' own locomotion cells as the code-driven fall poses. */
+export function petDragFallbackFrameTrack(
+  phase: DragPhase,
+  fallStyle: DragFallStyle,
+): readonly number[] | undefined {
+  if (phase === 'lifted' || phase === 'land') return [8, 9, 10, 11];
+  if (phase === 'circle' || phase === 'descend' || phase === 'fall')
+    return FALL_FRAME_TRACKS[fallStyle];
+  return undefined;
+}
+
 export function petDragFrameTrack(phase: DragPhase) {
   return PET_DRAG_FRAME_TRACKS[phase];
 }
@@ -40,6 +60,94 @@ export function petDragDurationMs(
   if (fallStyle === 'shell') return 620;
   if (fallStyle === 'coil' || fallStyle === 'flop') return 950;
   return 820;
+}
+
+export type PixelPetDragPose = {
+  translateY: number;
+  rotateDeg: number;
+  scaleX: number;
+  scaleY: number;
+};
+
+type DragPoseFrame = readonly [
+  translateY: number,
+  rotateDeg: number,
+  scaleX: number,
+  scaleY: number,
+];
+
+/** Six anatomy-specific keyframes, sampled and eased on the UI thread. */
+const FALL_POSE_FRAMES: Record<DragFallStyle, readonly DragPoseFrame[]> = {
+  fall: [
+    [0, -4, 1, 1],
+    [-1, -15, 1.03, 0.96],
+    [1, 9, 0.96, 1.05],
+    [2, -8, 1.04, 0.95],
+    [0, 5, 0.98, 1.03],
+    [0, 0, 1, 1],
+  ],
+  coil: [
+    [0, -5, 0.98, 1],
+    [1, -18, 0.88, 1.08],
+    [2, 12, 0.94, 1.05],
+    [0, -10, 0.9, 1.07],
+    [-1, 8, 0.97, 1.02],
+    [0, 0, 1, 1],
+  ],
+  flop: [
+    [0, 0, 1, 1],
+    [-1, -24, 1.05, 0.93],
+    [2, 20, 0.96, 1.08],
+    [1, -16, 1.06, 0.94],
+    [0, 10, 0.98, 1.02],
+    [0, 0, 1, 1],
+  ],
+  tentacle: [
+    [0, 0, 1, 1],
+    [-2, -10, 0.96, 1.12],
+    [2, 12, 1.05, 0.9],
+    [0, -8, 0.95, 1.1],
+    [2, 8, 1.04, 0.94],
+    [0, 0, 1, 1],
+  ],
+  shell: [
+    [0, 0, 1, 1],
+    [-1, 4, 1.04, 0.96],
+    [1, -3, 0.97, 1.05],
+    [0, 5, 1.03, 0.97],
+    [-1, -2, 0.98, 1.03],
+    [0, 0, 1, 1],
+  ],
+  wings: [
+    [0, -2, 1, 1],
+    [-2, -7, 0.99, 1.05],
+    [1, 2, 1.02, 0.93],
+    [-2, -6, 1, 1.05],
+    [1, 1, 0.99, 0.95],
+    [0, 0, 1, 1],
+  ],
+};
+
+/** Samples eased whole-body poses so falling feels continuous at display FPS. */
+export function petDragPoseAt(
+  fallStyle: DragFallStyle,
+  progress: number,
+): PixelPetDragPose {
+  'worklet';
+  const t = Math.max(0, Math.min(1, progress));
+  const frames = FALL_POSE_FRAMES[fallStyle];
+  const framePosition = t * (frames.length - 1);
+  const fromIndex = Math.floor(framePosition);
+  const from = frames[fromIndex];
+  const to = frames[Math.min(fromIndex + 1, frames.length - 1)];
+  const localProgress = framePosition - fromIndex;
+  const eased = localProgress * localProgress * (3 - 2 * localProgress);
+  return {
+    translateY: from[0] + (to[0] - from[0]) * eased,
+    rotateDeg: from[1] + (to[1] - from[1]) * eased,
+    scaleX: from[2] + (to[2] - from[2]) * eased,
+    scaleY: from[3] + (to[3] - from[3]) * eased,
+  };
 }
 
 const FRAME_TRACKS: Record<PixelPetClipId, readonly number[]> = {

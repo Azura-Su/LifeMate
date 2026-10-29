@@ -92,6 +92,7 @@ export const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   profileName: {
+    flexShrink: 1,
     fontSize: fontSize.subheading,
     fontWeight: '700',
     color: colors.ink,

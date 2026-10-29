@@ -134,8 +134,11 @@ mỗi ô vẽ lại cả nhân vật ở một tư thế khác, không ghép cá
   chạm mở chi tiết. Lớp phủ chỉ nhận chạm trong khung linh thú, các vùng khác
   vẫn cuộn và chạm Home bình thường; tắt nhận chạm khi Home không hoạt động,
   đang mở lịch hoặc menu. Thả pet có
-  cánh khi đang trên không thì lượn một vòng quanh vị trí thả rồi đáp; pet khác rơi theo kiểu
-  loài. Khi Reduced Motion bật, pet được đặt thẳng xuống. Rời Home giữa lúc
+  cánh khi đang trên không thì lượn một vòng quanh vị trí thả rồi đáp. Mỗi loài
+  có atlas rơi riêng dựng từ sprite atlas của chính loài đó; Thiên Mã Kỳ Lân và
+  Thiên Lộc giữ atlas chuyển động riêng, các atlas còn lại được tạo xác định
+  bằng script xử lý ảnh và có pose theo rig. Khung được blend mượt trên UI thread.
+  Khi Reduced Motion bật, pet được đặt thẳng xuống. Rời Home giữa lúc
   kéo sẽ đưa pet xuống đất và huỷ animation. Linh thú Thiên Lộc đang ngủ
   được đánh thức khi nhấc, đáp xuống ở pha chạy rồi tiếp tục chu kỳ ngủ hiện có.
 - **4 rig** và các lưới/màu trong `pixelPetRig.ts`/`pixelPetCatalog.ts` được giữ làm

@@ -57,8 +57,10 @@ import { PixelPetAtlas } from './PixelPetAtlas';
 import { usePetPlayback } from './usePetPlayback';
 import {
   petDragDurationMs,
+  petDragFallbackFrameTrack,
   petDragFallbackClip,
   petDragFrameTrack,
+  petDragPoseAt,
 } from '../../services/pixelPet/pixelPetFrames';
 
 type Props = {
@@ -227,12 +229,14 @@ function RiggedPixelPetSprite({
     !!dragAtlas &&
     !!petDragFrameTrack(dragPhase);
   const dragTrack = useDragAtlas ? petDragFrameTrack(dragPhase) : undefined;
-  const dragPlayback = useDragAtlas
-    ? {
-        durationMs: petDragDurationMs(dragPhase, fallStyle, false),
-        loop: false,
-      }
-    : undefined;
+  const fallbackDragTrack = petDragFallbackFrameTrack(dragPhase, fallStyle);
+  const dragPlayback =
+    dragPhase !== 'roam'
+      ? {
+          durationMs: petDragDurationMs(dragPhase, fallStyle, false),
+          loop: false,
+        }
+      : undefined;
   const { progress, reducedMotion } = usePetPlayback({
     clip,
     speciesId: species.id,
@@ -244,14 +248,14 @@ function RiggedPixelPetSprite({
         : restPhase === 'waking'
           ? () => setRestPhase('awake')
           : onClipEnd,
-    playback: dragPlayback ?? (restPlayback
-      ? restPlayback
-      : expressionPlayback
-        ? { durationMs: expressionPlayback.durationMs, loop: false }
-        : undefined),
-    playbackKey: useDragAtlas
-      ? `${dragPhase}:${fallStyle}`
-      : restPhase,
+    playback:
+      dragPlayback ??
+      (restPlayback
+        ? restPlayback
+        : expressionPlayback
+          ? { durationMs: expressionPlayback.durationMs, loop: false }
+          : undefined),
+    playbackKey: dragPhase !== 'roam' ? `${dragPhase}:${fallStyle}` : restPhase,
   });
   useEffect(() => {
     setRestPhase((current) => {
@@ -300,6 +304,17 @@ function RiggedPixelPetSprite({
       };
     }
     const [, dy, , scale] = sampleTrack(PIXEL_CLIPS[clip].body, progress.value);
+    if ((dragPhase === 'fall' || dragPhase === 'descend') && !useDragAtlas) {
+      const pose = petDragPoseAt(fallStyle, progress.value);
+      return {
+        transform: [
+          { translateY: (dy + pose.translateY) * px },
+          { rotate: `${pose.rotateDeg}deg` },
+          { scaleX: pose.scaleX },
+          { scaleY: scale * pose.scaleY },
+        ],
+      };
+    }
     return { transform: [{ translateY: dy * px }, { scale }] };
   });
   const art = PET_ART[species.id];
@@ -352,8 +367,8 @@ function RiggedPixelPetSprite({
               useDragAtlas && dragAtlas
                 ? dragAtlas
                 : resting
-                ? restAtlas
-                : PET_ATLASES[species.id as keyof typeof PET_ATLASES]
+                  ? restAtlas
+                  : PET_ATLASES[species.id as keyof typeof PET_ATLASES]
             }
             size={size}
             clip={clip}
@@ -362,11 +377,13 @@ function RiggedPixelPetSprite({
             frameTrack={
               useDragAtlas
                 ? dragTrack
-                : restPhase === 'sleeping'
-                ? PET_REST_FRAMES
-                : restPhase === 'waking'
-                  ? PET_WAKE_FRAMES
-                  : expressionPlayback?.frameTrack
+                : dragPhase !== 'roam'
+                  ? fallbackDragTrack
+                  : restPhase === 'sleeping'
+                    ? PET_REST_FRAMES
+                    : restPhase === 'waking'
+                      ? PET_WAKE_FRAMES
+                      : expressionPlayback?.frameTrack
             }
             staticFrame={
               useDragAtlas && dragTrack && (!active || reducedMotion)

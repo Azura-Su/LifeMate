@@ -23,7 +23,7 @@ import {
   pixelPetSpecies,
 } from '../../services/pixelPet/pixelPetCatalog';
 import { PUPPET_PREVIEW_CLIPS } from '../../services/pixelPet/celestialStagPuppet';
-import { EFFECT_CLIP } from '../../services/pixelPet/pixelPetRig';
+import { EFFECT_CLIP, STAGE_LOOK } from '../../services/pixelPet/pixelPetRig';
 import { petMovementLabel } from '../../services/pixelPet/pixelPetFrames';
 import type { PixelPetExpression } from '../../services/pixelPet/pixelPetExpressions';
 import { useScreenActive } from '../../hooks/useScreenActive';
@@ -253,6 +253,7 @@ export function PixelPetScreen({ navigation }: Props) {
             <PetStageBackdrop
               tint={species.palette[2]}
               spriteSize={spriteSize}
+              stageScale={STAGE_LOOK[pet?.stage ?? 'hatchling'].scale}
             />
             <PixelPetSprite
               species={species}
@@ -274,7 +275,9 @@ export function PixelPetScreen({ navigation }: Props) {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={
-                    pet.nickname ? 'Đổi tên linh thú' : 'Đặt tên linh thú'
+                    pet.nickname
+                      ? `${pet.nickname} (${species.name}), đổi tên`
+                      : `${species.name}, đặt tên`
                   }
                   onPress={openRename}
                   hitSlop={spacing.sm}
