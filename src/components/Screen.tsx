@@ -7,6 +7,7 @@ import type {
 import {
   ScrollView,
   StyleSheet,
+  type LayoutChangeEvent,
   type RefreshControlProps,
   type ColorValue,
   type StyleProp,
@@ -23,6 +24,7 @@ type Props = PropsWithChildren<{
   contentStyle?: StyleProp<ViewStyle>;
   fixedHeader?: ReactNode;
   fixedHeaderStyle?: StyleProp<ViewStyle>;
+  fixedHeaderOnLayout?: (event: LayoutChangeEvent) => void;
   fixedContent?: ReactNode;
   fixedContentStyle?: StyleProp<ViewStyle>;
   overlay?: ReactNode;
@@ -38,6 +40,7 @@ export function Screen({
   contentStyle,
   fixedHeader,
   fixedHeaderStyle,
+  fixedHeaderOnLayout,
   fixedContent,
   fixedContentStyle,
   overlay,
@@ -60,6 +63,7 @@ export function Screen({
       {fixedHeader != null && (
         <View
           testID="screen-fixed-header"
+          onLayout={fixedHeaderOnLayout}
           style={[screenColorStyle, styles.fixedHeader, fixedHeaderStyle]}
         >
           {fixedHeader}

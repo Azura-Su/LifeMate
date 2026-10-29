@@ -49,6 +49,22 @@ Quy tắc:
 - Khi `active=false` (rời màn/mở lịch): huỷ gesture, đưa pet về đất ngay.
 
 ## Công việc
+### 0. Spike — kiểm chứng cử chỉ kéo (làm TRƯỚC, 1 người, 2–3 giờ, không merge)
+Mục đích: xác nhận cách kéo khả thi trước khi đầu tư A/B/C.
+1. Prototype trên nhánh riêng: `PanResponder` quanh `Pressable` trong `HomePetRoamer`;
+   `setTimeout` 250ms từ lúc chạm; chỉ chiếm responder sau khi hết thời gian; kéo cập nhật
+   shared value `x`/`y` trực tiếp (không `setState`).
+2. Phải trả lời được bằng thử nghiệm trên simulator:
+   - Nhấn nhanh (< 250ms) vẫn gọi `onPress` mở màn Linh thú?
+   - Kéo pet có làm Home cuộn ngang/dọc không (xung đột responder với `Screen`)?
+   - Ngưỡng di chuyển tối đa (vd. 8–10pt) trước khi huỷ long-press để không nhầm với vuốt cuộn?
+   - Kéo mượt (không giật) khi roaming/`stagPhase` đang chạy? Đang ghi đè `x` thế nào?
+   - Vùng chạm 120×120 của sprite có chặn thao tác bên dưới khi pet đứng giữa màn không?
+3. Đầu ra: ghi kết quả vào `tasks/pet-drag-spike-result-<ngày>.md` (ảnh/video, ngưỡng chọn,
+   rủi ro mới) + đề xuất quyết định: giữ `PanResponder` hay thêm `react-native-gesture-handler`
+   (nếu thêm: là phụ thuộc native, cần build lại dev client → hỏi Asher trước).
+4. Cổng: chỉ khi spike đạt thì mở Bước 1 (A), B và C. Code prototype bỏ đi, không merge.
+
 ### A. Logic & gesture (1 dev RN, ~1–1.5 ngày)
 1. Tách máy trạng thái ra hook/thuần hàm `homePetDrag.ts`
    (`DragPhase`, `clampDragPosition`, `nextPhase`) để test không cần render.
@@ -102,7 +118,8 @@ mỗi pose cách nhau gutter, cập nhật `provenance.json` + `README.md`.
   kéo sát header/bottom bar, thả khi đang bay/đi/ngủ (linh lộc), mở lịch đang kéo, xoay màn hình.
 
 ## Thứ tự & phụ thuộc
-1. Chốt các câu hỏi dưới đây.
+0. Spike (mục 0) phải đạt trước khi làm bất cứ phần nào bên dưới.
+1. Chốt các quyết định (xem "Quyết định đã chốt").
 2. A và C bắt đầu cùng lúc (C không phụ thuộc code). B bắt đầu khi A có `dragPhase` API.
 3. D chạy cuối; review (đọc-chỉ) trước khi commit.
 
@@ -159,3 +176,47 @@ mỗi pose cách nhau gutter, cập nhật `provenance.json` + `README.md`.
 - Gesture long-press với `Pressable` hiện tại dễ xung đột với `onPress` → phải bọc bằng `GestureDetector` đúng thứ tự.
 - Lane phủ toàn màn và `pointerEvents="box-none"`: khi pet ở giữa màn, vùng chạm không được chặn cuộn của Home.
 - Tọa độ header khác nhau theo thiết bị (notch); cần đo, không hardcode.
+
+## Cách giao việc (làm đúng thứ tự, mỗi bước có cổng nghiệm thu)
+
+Nguyên tắc chung cho mọi người nhận việc: đọc `AGENTS.md`, plan này và các file được nêu;
+dùng token `src/theme`; không sửa lockfile/`.env`; không thêm native dependency;
+báo rõ check nào không chạy được; chỉ đụng file thuộc phần mình.
+
+### Bước 0 — Spike (1 người, 2–3 giờ, ĐỌC + prototype, chưa merge)
+Việc: chứng minh `PanResponder` + long-press 250ms kéo được pet trong `HomePetRoamer`
+mà không phá cuộn Home, nhấn nhanh vẫn gọi `onPress`.
+Nghiệm thu: video/ảnh simulator; ghi lại ngưỡng di chuyển cho phép trước khi huỷ long-press.
+Nếu không khả thi → quay lại bàn (có thể phải thêm gesture-handler).
+
+### Bước 1 — Việc A: logic (1 người RN, file: `homePetDrag.ts`, `HomePetRoamer.tsx`, `HomeScreen.tsx`)
+Brief: "Cài máy trạng thái roam→lifted→(circle→descend | fall)→land→roam theo mục Thiết kế hành vi
+và Quyết định đã chốt. Tách hàm thuần `clampDragPosition`, `nextDragPhase`, `petFallStyle`.
+Chưa cần art: dùng fallback B.4. Mọi timer/animation phải huỷ được; `active=false` hoặc
+reduced motion đưa pet về đất ngay."
+Nghiệm thu: test thuần hàm xanh; test component (nhấn nhanh vs long-press); không còn
+`withTiming` roaming ghi đè `x` khi đang kéo; typecheck/ESLint sạch; clamp không vào header/bottom bar
+trên 2 kích thước máy (iPhone SE-cỡ nhỏ và Pro Max) — kèm ảnh.
+Review: reviewer chỉ-đọc xem diff trước khi sang bước 2.
+
+### Bước 2 — Việc B: sprite (cùng người A hoặc người khác, sau khi A merge API `dragPhase`)
+Brief: "Thêm prop `dragPhase`/`fallStyle` cho `PixelPetSprite`, track khung trong
+`pixelPetFrames.ts`, `PET_DRAG_ATLASES` + cờ `PET_DRAG_ATLAS_READY` trong `petArt.ts`.
+Loài chưa READY dùng fallback. Chỉ mount atlas khi đang trong phase kéo/rơi."
+Nghiệm thu: test phủ mọi species (+ stag) có fallback hoặc atlas; atlas READY phải đúng 1024×1024, 16 ô không rỗng.
+
+### Bước 3 — Việc C: art (chạy song song từ Bước 1; mỗi người 1 nhóm, không đụng code)
+Brief mẫu (đổi tên loài/kiểu rơi): "Dùng image_gen tạo sheet 4×4 (16 pose) cho `<loài>` từ
+`assets/pixelPet/<loài>.png`. Hàng 1 = bị nhấc ×4; hàng 2 = `<kiểu>` ×4 (xem bảng quyết định);
+hàng 3 = chạm đất/đứng dậy ×4; hàng 4 = dự phòng. Giữ hướng nhìn, tỉ lệ, bảng màu của atlas
+hiện có (`petFacesLeft`), nền trong suốt. KHÔNG pack ngay: gửi sheet thô cho Asher duyệt.
+Sau khi duyệt mới chạy `scripts/pack-pet-rest-atlas.py` → `assets/pixelPet/animations/drag_<loài>.png`;
+cập nhật `provenance.json` + `README.md`."
+Nghiệm thu mỗi loài: Asher duyệt thẩm mỹ; xem lại trên Home (bật cờ READY chỉ khi đã duyệt).
+Thứ tự: celestial_stag → có cánh (alicorn, sphinx, lac_bird, phoenix, garuda) → thú →
+rồng/cá/rùa. Mỗi loài là một commit riêng để lùi được.
+
+### Bước 4 — Kiểm thử cuối + commit
+Chạy `npm run typecheck`, ESLint file đổi, `npm test` các suite liên quan; kiểm tra thủ công
+(kéo sát header/bottom bar, thả khi đang bay/đi, linh lộc đang ngủ, mở lịch lúc đang kéo).
+Reviewer chỉ-đọc xem diff cuối (đụng dữ liệu hiển thị, không đụng DB/auth nên không phải nhóm rủi ro cao).

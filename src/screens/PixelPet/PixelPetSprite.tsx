@@ -33,6 +33,8 @@ import {
 } from '../../services/pixelPet/celestialStagPuppet';
 import type { CelestialStagFlightPhase } from '../../services/pixelPet/celestialStagAtlas';
 import type {
+  DragFallStyle,
+  DragPhase,
   PixelPetAnyClipId,
   PixelPetClipId,
   PixelPetStage,
@@ -44,9 +46,20 @@ import {
   type PetRestPhase,
 } from '../../services/pixelPet/petRestAnimation';
 import { CelestialStagAtlas } from './CelestialStagAtlas';
-import { PET_ART, PET_ATLASES, PET_REST_ATLASES } from './petArt';
+import {
+  PET_ART,
+  PET_ATLASES,
+  PET_DRAG_ATLASES,
+  PET_DRAG_ATLAS_READY,
+  PET_REST_ATLASES,
+} from './petArt';
 import { PixelPetAtlas } from './PixelPetAtlas';
 import { usePetPlayback } from './usePetPlayback';
+import {
+  petDragDurationMs,
+  petDragFallbackClip,
+  petDragFrameTrack,
+} from '../../services/pixelPet/pixelPetFrames';
 
 type Props = {
   species: PixelPetSpecies;
@@ -73,6 +86,9 @@ type Props = {
   expression?: PixelPetExpression | null;
   /** Render the admin Stag's whole-body transition into its sleeping pose. */
   sleeping?: boolean;
+  /** Optional authored Home drag pose. Uses existing art until this species' atlas is ready. */
+  dragPhase?: DragPhase;
+  fallStyle?: DragFallStyle;
 };
 
 const PixelGrid = memo(function PixelGrid({
@@ -137,9 +153,16 @@ export function PixelPetSprite({
   gaitCycleDurationMs,
   motionCanvasScale,
   flightPhase,
+  dragPhase = 'roam',
+  fallStyle = 'fall',
   ...props
 }: Props) {
   const sleeping = props.sleeping ?? false;
+  const dragClip = petDragFallbackClip(dragPhase);
+  const effectiveClip =
+    props.species.id === CELESTIAL_STAG_ID && dragPhase === 'land'
+      ? 'move'
+      : (dragClip ?? clip);
   if (props.species.id === CELESTIAL_STAG_ID)
     return (
       <View
@@ -147,7 +170,7 @@ export function PixelPetSprite({
       >
         <CelestialStagAtlas
           {...props}
-          clip={clip}
+          clip={effectiveClip}
           active={props.active ?? true}
           loopMovement={props.loopMovement ?? false}
           walking={walking}
@@ -157,14 +180,18 @@ export function PixelPetSprite({
           flightPhase={flightPhase}
           expression={props.expression}
           sleeping={sleeping}
+          dragPhase={dragPhase}
+          fallStyle={fallStyle}
         />
       </View>
     );
   return (
     <RiggedPixelPetSprite
       {...props}
-      clip={isExtraClip(clip) ? 'happy' : clip}
+      clip={isExtraClip(effectiveClip) ? 'happy' : effectiveClip}
       sleeping={sleeping}
+      dragPhase={dragPhase}
+      fallStyle={fallStyle}
     />
   );
 }
@@ -182,6 +209,8 @@ function RiggedPixelPetSprite({
   onClipEnd,
   expression,
   sleeping = false,
+  dragPhase = 'roam',
+  fallStyle = 'fall',
 }: RiggedProps) {
   const [restPhase, setRestPhase] = useState<PetRestPhase>(
     sleeping ? 'sleeping' : 'awake',
@@ -191,6 +220,19 @@ function RiggedPixelPetSprite({
     ? pixelPetExpressionPlayback(species.id, expression)
     : undefined;
   const restPlayback = petRestPlayback(restPhase);
+  const dragAtlas = PET_DRAG_ATLASES[species.id];
+  const useDragAtlas =
+    dragPhase !== 'roam' &&
+    PET_DRAG_ATLAS_READY[species.id] &&
+    !!dragAtlas &&
+    !!petDragFrameTrack(dragPhase);
+  const dragTrack = useDragAtlas ? petDragFrameTrack(dragPhase) : undefined;
+  const dragPlayback = useDragAtlas
+    ? {
+        durationMs: petDragDurationMs(dragPhase, fallStyle, false),
+        loop: false,
+      }
+    : undefined;
   const { progress, reducedMotion } = usePetPlayback({
     clip,
     speciesId: species.id,
@@ -202,12 +244,14 @@ function RiggedPixelPetSprite({
         : restPhase === 'waking'
           ? () => setRestPhase('awake')
           : onClipEnd,
-    playback: restPlayback
+    playback: dragPlayback ?? (restPlayback
       ? restPlayback
       : expressionPlayback
         ? { durationMs: expressionPlayback.durationMs, loop: false }
-        : undefined,
-    playbackKey: restPhase,
+        : undefined),
+    playbackKey: useDragAtlas
+      ? `${dragPhase}:${fallStyle}`
+      : restPhase,
   });
   useEffect(() => {
     setRestPhase((current) => {
@@ -297,9 +341,17 @@ function RiggedPixelPetSprite({
         )}
         <Animated.View style={[local.fill, bodyStyle]}>
           <PixelPetAtlas
-            key={resting ? `${species.id}-rest` : species.id}
+            key={
+              useDragAtlas
+                ? `${species.id}-drag`
+                : resting
+                  ? `${species.id}-rest`
+                  : species.id
+            }
             source={
-              resting
+              useDragAtlas && dragAtlas
+                ? dragAtlas
+                : resting
                 ? restAtlas
                 : PET_ATLASES[species.id as keyof typeof PET_ATLASES]
             }
@@ -308,13 +360,21 @@ function RiggedPixelPetSprite({
             progress={progress}
             loopMovement={loopMovement}
             frameTrack={
-              restPhase === 'sleeping'
+              useDragAtlas
+                ? dragTrack
+                : restPhase === 'sleeping'
                 ? PET_REST_FRAMES
                 : restPhase === 'waking'
                   ? PET_WAKE_FRAMES
                   : expressionPlayback?.frameTrack
             }
-            staticFrame={resting && (!active || reducedMotion) ? 15 : undefined}
+            staticFrame={
+              useDragAtlas && dragTrack && (!active || reducedMotion)
+                ? dragTrack[dragTrack.length - 1]
+                : resting && (!active || reducedMotion)
+                  ? 15
+                  : undefined
+            }
             animating={active && !reducedMotion}
             loop={false}
             blendFrames={!resting}

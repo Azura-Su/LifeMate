@@ -1,4 +1,10 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import {
+  PanResponder,
+  StyleSheet,
+  type GestureResponderEvent,
+  type PanResponderGestureState,
+} from 'react-native';
 import { HomePetRoamer, nextRoamBeat } from '../HomePetRoamer';
 import { PixelPetSprite } from '../../PixelPet/PixelPetSprite';
 import { HomeSleepGarden } from '../HomeSleepGarden';
@@ -34,9 +40,23 @@ jest.mock('../../../services/pixelPet/pixelPetApi', () => ({
   subscribeOwnedPixelPet: () => () => {},
 }));
 
+const renderRoamer = (props: {
+  uid: string | null;
+  active: boolean;
+  onPress: () => void;
+}) =>
+  render(
+    <HomePetRoamer
+      {...props}
+      containerWidth={390}
+      containerHeight={844}
+      headerBottom={104}
+    />,
+  );
+
 it('flies the owned pet above the tab bar and opens it on tap', async () => {
   const onPress = jest.fn();
-  render(<HomePetRoamer uid="owner" active onPress={onPress} />);
+  renderRoamer({ uid: 'owner', active: true, onPress });
   expect(screen.UNSAFE_getByType(PixelPetSprite).props).toMatchObject({
     clip: 'move',
     loopMovement: true,
@@ -49,13 +69,170 @@ it('flies the owned pet above the tab bar and opens it on tap', async () => {
 });
 
 it('shows nothing without an owned pet', () => {
-  render(<HomePetRoamer uid="nobody" active onPress={jest.fn()} />);
+  renderRoamer({ uid: 'nobody', active: true, onPress: jest.fn() });
   expect(screen.queryByRole('button')).toBeNull();
+});
+
+it('opens on a quick tap and takes over only after a 250ms hold', () => {
+  jest.useFakeTimers();
+  const responderSpy = jest.spyOn(PanResponder, 'create');
+  const onPress = jest.fn();
+  const view = renderRoamer({ uid: 'owner', active: true, onPress });
+  const pressable = screen.getByLabelText('Mở linh thú Phượng Hoàng');
+  const responder = () =>
+    responderSpy.mock.calls[responderSpy.mock.calls.length - 1][0];
+  const event = {} as GestureResponderEvent;
+  const gesture = (dx: number, dy: number) =>
+    ({ dx, dy }) as PanResponderGestureState;
+
+  try {
+    fireEvent.press(pressable);
+    expect(onPress).toHaveBeenCalledTimes(1);
+
+    fireEvent(pressable, 'pressIn');
+    act(() => jest.advanceTimersByTime(249));
+    expect(screen.getByTestId('home-pet-drag-roam')).toBeTruthy();
+    expect(responder().onMoveShouldSetPanResponderCapture!(event, gesture(0, 12))).toBe(
+      false,
+    );
+    fireEvent(pressable, 'pressOut');
+    act(() => jest.advanceTimersByTime(1));
+    expect(screen.getByTestId('home-pet-drag-roam')).toBeTruthy();
+
+    fireEvent(pressable, 'pressIn');
+    act(() => jest.advanceTimersByTime(250));
+    const liftedPet = screen.getByTestId('home-pet-drag-lifted');
+    expect(liftedPet).toBeTruthy();
+    expect(StyleSheet.flatten(liftedPet.props.style)).toMatchObject({
+      zIndex: 10,
+      elevation: 10,
+      shadowOpacity: 0.24,
+      shadowRadius: 12,
+    });
+    expect(
+      responder().onMoveShouldSetPanResponderCapture!(event, gesture(1, 0)),
+    ).toBe(true);
+    fireEvent(pressable, 'pressOut');
+    expect(screen.getByTestId('home-pet-drag-lifted')).toBeTruthy();
+    act(() => {
+      responder().onPanResponderGrant!(event, gesture(0, 0));
+      responder().onPanResponderMove!(event, gesture(40, -50));
+      responder().onPanResponderRelease!(event, gesture(40, -50));
+    });
+    expect(screen.getByTestId('home-pet-drag-circle')).toBeTruthy();
+    expect(
+      StyleSheet.flatten(screen.getByTestId('home-pet-drag-circle').props.style),
+    ).toMatchObject({ zIndex: 10, elevation: 10 });
+    expect(onPress).toHaveBeenCalledTimes(1);
+    act(() => jest.advanceTimersByTime(1500));
+    expect(screen.getByTestId('home-pet-drag-descend')).toBeTruthy();
+    act(() => jest.advanceTimersByTime(750));
+    expect(screen.getByTestId('home-pet-drag-land')).toBeTruthy();
+    act(() => jest.advanceTimersByTime(180));
+    expect(screen.getByTestId('home-pet-drag-roam')).toBeTruthy();
+  } finally {
+    view.unmount();
+    responderSpy.mockRestore();
+    jest.useRealTimers();
+  }
+});
+
+it('does not steal Home scrolling before the hold threshold', () => {
+  const responderSpy = jest.spyOn(PanResponder, 'create');
+  const view = renderRoamer({ uid: 'owner', active: true, onPress: jest.fn() });
+  const responder = responderSpy.mock.calls[responderSpy.mock.calls.length - 1][0];
+  try {
+    expect(
+      responder.onMoveShouldSetPanResponderCapture!(
+        {} as GestureResponderEvent,
+        { dx: 0, dy: 20 } as PanResponderGestureState,
+      ),
+    ).toBe(false);
+  } finally {
+    view.unmount();
+    responderSpy.mockRestore();
+  }
+});
+
+it('clears an unfinished hold when Home becomes inactive', () => {
+  jest.useFakeTimers();
+  const view = renderRoamer({ uid: 'owner', active: true, onPress: jest.fn() });
+  try {
+    fireEvent(screen.getByLabelText('Mở linh thú Phượng Hoàng'), 'pressIn');
+    act(() => jest.advanceTimersByTime(200));
+    view.rerender(
+      <HomePetRoamer
+        uid="owner"
+        active={false}
+        containerWidth={390}
+        containerHeight={844}
+        headerBottom={104}
+        onPress={jest.fn()}
+      />,
+    );
+    act(() => jest.advanceTimersByTime(100));
+    expect(screen.getByTestId('home-pet-drag-roam')).toBeTruthy();
+  } finally {
+    view.unmount();
+    jest.useRealTimers();
+  }
+});
+
+it('lands a sleeping Stag into runB and lets its existing cycle reach sleep', () => {
+  jest.useFakeTimers();
+  const responderSpy = jest.spyOn(PanResponder, 'create');
+  const view = renderRoamer({ uid: 'stag', active: true, onPress: jest.fn() });
+  const responder = () =>
+    responderSpy.mock.calls[responderSpy.mock.calls.length - 1][0];
+  const event = {} as GestureResponderEvent;
+  const gesture = { dx: 0, dy: 0 } as PanResponderGestureState;
+  const sprite = () => screen.UNSAFE_getByType(PixelPetSprite).props;
+  const advance = (phase: keyof typeof CELESTIAL_STAG_HOME_PHASE_DURATION) =>
+    act(() =>
+      jest.advanceTimersByTime(CELESTIAL_STAG_HOME_PHASE_DURATION[phase]),
+    );
+
+  try {
+    for (const phase of [
+      'runA',
+      'walkToFlight',
+      'takeoff',
+      'flap',
+      'glide',
+      'landing',
+      'walkAfterLanding',
+      'runB',
+      'settle',
+    ] as const)
+      advance(phase);
+    expect(sprite().sleeping).toBe(true);
+    fireEvent(screen.getByLabelText(/Đánh thức linh thú/), 'pressIn');
+    act(() => jest.advanceTimersByTime(250));
+    expect(sprite().sleeping).toBe(false);
+    act(() => {
+      responder().onPanResponderGrant!(event, gesture);
+      responder().onPanResponderRelease!(event, gesture);
+    });
+    expect(sprite()).toMatchObject({
+      dragPhase: 'land',
+      clip: 'move',
+      flightPhase: 'landing',
+    });
+    act(() => jest.advanceTimersByTime(180));
+    expect(sprite()).toMatchObject({ walking: true, sleeping: false });
+    advance('runB');
+    advance('settle');
+    expect(sprite().sleeping).toBe(true);
+  } finally {
+    view.unmount();
+    responderSpy.mockRestore();
+    jest.useRealTimers();
+  }
 });
 
 it('completes the Stag flight and grounded approach before sleeping at 20 seconds', () => {
   jest.useFakeTimers();
-  const view = render(<HomePetRoamer uid="stag" active onPress={jest.fn()} />);
+  const view = renderRoamer({ uid: 'stag', active: true, onPress: jest.fn() });
   const sprite = () => screen.UNSAFE_getByType(PixelPetSprite).props;
   const advance = (phase: keyof typeof CELESTIAL_STAG_HOME_PHASE_DURATION) => {
     act(() =>
@@ -95,7 +272,7 @@ it('completes the Stag flight and grounded approach before sleeping at 20 second
 it('leaves a withering garden at the old sleep spot while the Stag moves away', () => {
   jest.useFakeTimers();
   const random = jest.spyOn(Math, 'random').mockReturnValue(0.2);
-  const view = render(<HomePetRoamer uid="stag" active onPress={jest.fn()} />);
+  const view = renderRoamer({ uid: 'stag', active: true, onPress: jest.fn() });
   const phases = Object.entries(CELESTIAL_STAG_HOME_PHASE_DURATION).filter(
     ([, duration]) => Number.isFinite(duration),
   );

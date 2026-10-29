@@ -69,6 +69,31 @@ export const PET_REST_ATLASES: Record<
   garuda: require('../../../assets/pixelPet/animations/rest_garuda.png'),
 };
 
+/** Drag sheets are enabled only after their raw art has been reviewed and packed. */
+export const PET_DRAG_ATLASES: Partial<
+  Record<PixelPetSpeciesId, ImageSourcePropType>
+> = {
+  celestial_stag: require('../../../assets/pixelPet/animations/drag_celestial_stag.png'),
+};
+export const PET_DRAG_ATLAS_READY: Record<PixelPetSpeciesId, boolean> = {
+  nine_tail_fox: false,
+  qilin: false,
+  alicorn: false,
+  rune_wolf: false,
+  black_tortoise: false,
+  sphinx: false,
+  centaur: false,
+  white_tiger: false,
+  azure_dragon: false,
+  koi_dragon: false,
+  scylla: false,
+  lac_bird: false,
+  phoenix: false,
+  anubis: false,
+  garuda: false,
+  celestial_stag: true,
+};
+
 /** Whole-body 64-frame atlas for the admin-only Celestial Stag. */
 export const CELESTIAL_STAG_ATLAS = require('../../../assets/pixelPet/animations/celestial_stag.png');
 /** Separate whole-body gait loops used while the admin's Stag roams Home. */

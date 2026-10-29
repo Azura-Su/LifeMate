@@ -291,5 +291,17 @@
       "restPose": "Winged deity lowers into a dignified kneel as layered feathers fold close and talons settle."
     }
   ],
+  "dragVariants": [
+    {
+      "id": "celestial_stag",
+      "file": "drag_celestial_stag.png",
+      "reference": "../celestial_stag.png",
+      "generatedSource": "exec-260b8ed4-21cd-4f74-831d-992e9066b6ae.png",
+      "layout": "4 columns ×4 rows;16 whole-character poses;1024×1024 transparent PNG",
+      "poseOrder": "Row1 lift/surprise; row2 winged descent; row3 landing; row4 alternate fall/settle. Runtime uses frames0–3 for lifted and4–7 for descend; existing flight and landing atlases handle circle and land.",
+      "prompt": "Preserve the Celestial Stag identity, warm gold-brown body, multicolor feathered wings, branching antlers, and blue magical hooves. Create a 4×4 transparent sheet with consistent scale and direction: lift/surprise poses; graceful winged descent; soft hoof contact and rebound; alternate fall/settle poses. Polished hand-drawn chibi game art, no labels, scenery, or extra characters.",
+      "packing": "Segment complete character silhouettes and repack into padded 256px cells with transparent gutters using scripts/pack-pet-rest-atlas.py; quantize to indexed PNG with tRNS alpha. Enabled only for lifted and descend; circle and land reuse the existing Stag flight and landing atlases."
+    }
+  ],
   "conditioning": "Segment the16 character alpha components from whole sheet before packing (not a rigid crop through wings). Remove isolated matte noise, retain2px antialiased edge, scale every pose of a species by the SAME factor with original cell coordinates as registration. Add>=6px transparent edge. Quantize256 colours; palette PNG uses tRNS alpha."
 }

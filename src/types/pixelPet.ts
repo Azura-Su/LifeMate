@@ -35,6 +35,20 @@ export type PixelPetExtraClipId =
   | 'spin';
 export type PixelPetAnyClipId = PixelPetClipId | PixelPetExtraClipId;
 export type PixelPetMotif = 'flame' | 'water' | 'wind' | 'light' | 'earth' | 'arcane';
+export type DragPhase =
+  | 'roam'
+  | 'lifted'
+  | 'circle'
+  | 'descend'
+  | 'fall'
+  | 'land';
+export type DragFallStyle =
+  | 'fall'
+  | 'coil'
+  | 'flop'
+  | 'tentacle'
+  | 'shell'
+  | 'wings';
 /** Care effects derived server-side from finance records (capped per day). */
 export type PixelPetEffect = 'eat' | 'wardrobe' | 'move' | 'heal' | 'mood' | 'neutral';
 

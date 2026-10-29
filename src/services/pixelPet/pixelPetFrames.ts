@@ -1,8 +1,46 @@
 import type { PixelPetSpecies } from './pixelPetCatalog';
-import type { PixelPetClipId } from '../../types/pixelPet';
+import type {
+  DragFallStyle,
+  DragPhase,
+  PixelPetClipId,
+} from '../../types/pixelPet';
 import { PIXEL_CLIPS } from './pixelPetRig';
 
 export const PET_ATLAS = { columns: 4, rows: 4, cellSize: 256 } as const;
+
+const PET_DRAG_FRAME_TRACKS: Partial<Record<DragPhase, readonly number[]>> = {
+  lifted: [0, 1, 2, 3],
+  circle: [4, 5, 6, 7],
+  descend: [4, 5, 6, 7],
+  fall: [4, 5, 6, 7],
+  land: [8, 9, 10, 11],
+};
+
+export function petDragFrameTrack(phase: DragPhase) {
+  return PET_DRAG_FRAME_TRACKS[phase];
+}
+
+export function petDragFallbackClip(phase: DragPhase): PixelPetClipId | null {
+  if (phase === 'lifted') return 'happy';
+  if (phase === 'land') return 'idle';
+  if (phase === 'roam') return null;
+  return 'move';
+}
+
+export function petDragDurationMs(
+  phase: DragPhase,
+  fallStyle: DragFallStyle,
+  reducedMotion: boolean,
+) {
+  if (reducedMotion || phase === 'roam') return 0;
+  if (phase === 'lifted') return 120;
+  if (phase === 'circle') return 1500;
+  if (phase === 'descend') return 750;
+  if (phase === 'land') return 180;
+  if (fallStyle === 'shell') return 620;
+  if (fallStyle === 'coil' || fallStyle === 'flop') return 950;
+  return 820;
+}
 
 const FRAME_TRACKS: Record<PixelPetClipId, readonly number[]> = {
   idle: [0, 0, 0, 1, 0, 0, 0, 2, 3, 0, 0, 0],

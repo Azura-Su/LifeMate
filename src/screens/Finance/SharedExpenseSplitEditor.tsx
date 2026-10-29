@@ -116,7 +116,10 @@ export function SharedExpenseSplitEditor({
       )}
       {draft.mode === 'portions' && (
         <View style={styles.row}>
-          <Text style={typography.small}>Suất của tôi (0 nếu chỉ trả hộ)</Text>
+          <View style={styles.selfText}>
+            <Text style={styles.selfLabel}>Suất của tôi</Text>
+            <Text style={styles.hint}>Nhập 0 nếu bạn chỉ trả hộ</Text>
+          </View>
           <AppTextInput
             accessibilityLabel="Số suất của tôi"
             value={draft.myPortions}
@@ -126,7 +129,7 @@ export function SharedExpenseSplitEditor({
             onChangeText={(myPortions) =>
               onChange((current) => ({ ...current, myPortions }))
             }
-            style={[styles.input, styles.portions]}
+            style={[styles.input, styles.selfInput]}
           />
         </View>
       )}
@@ -279,7 +282,9 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontSize: fontSize.small,
   },
-  portions: { width: 64, textAlign: 'center' },
+  selfText: { flex: 1, minWidth: 0 },
+  selfLabel: { fontSize: fontSize.small, fontWeight: '600', color: colors.ink },
+  selfInput: { width: 72, minHeight: 42, textAlign: 'center' },
   portionsSmall: { width: 52, textAlign: 'center' },
   footer: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   add: {

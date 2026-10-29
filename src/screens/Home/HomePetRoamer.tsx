@@ -1,17 +1,25 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
 } from 'react';
-import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import {
+  PanResponder,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import type { PixelPetAnyClipId } from '../../types/pixelPet';
@@ -21,6 +29,7 @@ import {
   CELESTIAL_STAG_GARDEN_GROWTH_MS,
   celestialStagGardenFrameAt,
   type CelestialStagHomePhase,
+  type CelestialStagFlightPhase,
 } from '../../services/pixelPet/celestialStagAtlas';
 import { scheduleOnRN } from 'react-native-worklets';
 import { PixelPetSprite } from '../PixelPet/PixelPetSprite';
@@ -29,13 +38,21 @@ import { pixelPetSpecies } from '../../services/pixelPet/pixelPetCatalog';
 import { STAGE_LOOK } from '../../services/pixelPet/pixelPetRig';
 import {
   petFacesLeft,
+  petDragDurationMs,
   petMovementKind,
 } from '../../services/pixelPet/pixelPetFrames';
 import {
   readOwnedPixelPet,
   subscribeOwnedPixelPet,
 } from '../../services/pixelPet/pixelPetApi';
-import { spacing } from '../../theme';
+import { colors, spacing } from '../../theme';
+import {
+  clampDragPosition,
+  nextDragPhase,
+  petFallStyle,
+  type DragBounds,
+  type DragPhase,
+} from './homePetDrag';
 
 const SIZE = 120;
 /** Approximate ground travel represented by one authored 16-frame gait loop. */
@@ -50,6 +67,8 @@ const GROUND_Y = SIZE * 0.24 + spacing.xs;
 const LAND_MS = 900;
 const TRICK_MS = 2600;
 const REST_MS = 4000;
+const DRAG_HOLD_MS = 250;
+const DRAG_CANCEL_DISTANCE = 8;
 
 export type StagHomePhase = CelestialStagHomePhase;
 
@@ -145,6 +164,9 @@ export function nextRoamBeat(
 type Props = {
   uid: string | null;
   active: boolean;
+  containerWidth: number;
+  containerHeight: number;
+  headerBottom: number;
   onPress: () => void;
 };
 
@@ -156,14 +178,24 @@ type DepartingGarden = {
 };
 
 /** The owned pet roams above the tab bar: flies, lands, walks and plays. */
-export function HomePetRoamer({ uid, active, onPress }: Props) {
+export function HomePetRoamer({
+  uid,
+  active,
+  containerWidth,
+  containerHeight,
+  headerBottom,
+  onPress,
+}: Props) {
   const read = useCallback(() => (uid ? readOwnedPixelPet(uid) : null), [uid]);
   const pet = useSyncExternalStore(subscribeOwnedPixelPet, read, read);
   const species = pixelPetSpecies(pet?.speciesId ?? '');
   const reducedMotion = useReducedMotion();
   // The lane spans the screen; onLayout on a box-none overlay never fired.
-  const { width } = useWindowDimensions();
+  const window = useWindowDimensions();
+  const width = containerWidth || window.width;
+  const height = containerHeight || window.height;
   const range = Math.max(0, width - SIZE - spacing.md * 2);
+  const laneTop = Math.max(0, height - SIZE - spacing.xs);
   const facing = species && petFacesLeft(species) ? -1 : 1;
   const flier = !!species && petMovementKind(species) === 'wings';
   const stag = species?.id === CELESTIAL_STAG_ID;
@@ -177,6 +209,8 @@ export function HomePetRoamer({ uid, active, onPress }: Props) {
   const [stagGaitCycleMs, setStagGaitCycleMs] = useState<number>();
   const [departingGarden, setDepartingGarden] =
     useState<DepartingGarden | null>(null);
+  const [dragPhase, setDragPhaseState] = useState<DragPhase>('roam');
+  const dragPhaseRef = useRef<DragPhase>('roam');
   const stagStarted = useRef(false);
   const gardenDepartureId = useRef(0);
   const gardenStartedAt = useRef<number | null>(null);
@@ -187,7 +221,34 @@ export function HomePetRoamer({ uid, active, onPress }: Props) {
   const travelling = useSharedValue(0);
   const sleepTarget = useSharedValue(0);
   const airHeight = useSharedValue(0);
-  const stagActive = stag && !!pet && active && !reducedMotion && range > 0;
+  const dragTop = useSharedValue(0);
+  const dragMode = useSharedValue(0);
+  const dragScale = useSharedValue(1);
+  const dragRotation = useSharedValue(0);
+  const dragReady = useRef(false);
+  const pressConsumed = useRef(false);
+  const dragging = useRef(false);
+  const dragCompleted = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fallStyle = petFallStyle(species?.id ?? '');
+  const bounds: DragBounds = {
+    minX: 0,
+    maxX: range,
+    minY: headerBottom,
+    maxY: Math.max(headerBottom, laneTop + GROUND_Y),
+  };
+  const boundsRef = useRef(bounds);
+  boundsRef.current = bounds;
+  const groundTop = bounds.maxY;
+  const stagActive =
+    stag &&
+    !!pet &&
+    active &&
+    !reducedMotion &&
+    range > 0 &&
+    dragPhase === 'roam';
+  const sleeping = stag && stagPhase === 'sleep';
   const roaming =
     !!species &&
     !!pet &&
@@ -195,7 +256,8 @@ export function HomePetRoamer({ uid, active, onPress }: Props) {
     walking !== null &&
     active &&
     !reducedMotion &&
-    range > 0;
+    range > 0 &&
+    dragPhase === 'roam';
 
   const chooseNextSleepSpot = useCallback(() => {
     if (range <= 1) {
@@ -234,6 +296,282 @@ export function HomePetRoamer({ uid, active, onPress }: Props) {
     chooseNextSleepSpot();
     setStagPhase('runA');
   }, [chooseNextSleepSpot, facing, heading, x]);
+
+  const setDragPhase = useCallback((phase: DragPhase) => {
+    dragPhaseRef.current = phase;
+    setDragPhaseState(phase);
+  }, []);
+
+  const clearPressTimer = useCallback(() => {
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    pressTimer.current = null;
+  }, []);
+
+  const currentRoamTop = useCallback(
+    () =>
+      laneTop +
+      ground.value * GROUND_Y -
+      airHeight.value * STAG_FLIGHT_HEIGHT +
+      Math.sin((x.value / 40) * Math.PI) *
+        5 *
+        (1 - ground.value) *
+        travelling.value,
+    [airHeight, ground, laneTop, travelling, x],
+  );
+
+  const freezePetForLift = useCallback(() => {
+    const current = clampDragPosition(
+      {
+        x: x.value,
+        y: dragMode.value ? dragTop.value : currentRoamTop(),
+      },
+      boundsRef.current,
+    );
+    cancelAnimation(x);
+    cancelAnimation(ground);
+    cancelAnimation(airHeight);
+    cancelAnimation(dragTop);
+    cancelAnimation(dragRotation);
+    travelling.value = 0;
+    x.value = current.x;
+    dragTop.value = current.y;
+    dragMode.value = 1;
+    dragStart.current = current;
+  }, [
+    airHeight,
+    currentRoamTop,
+    dragMode,
+    dragRotation,
+    dragTop,
+    ground,
+    travelling,
+    x,
+  ]);
+
+  const advanceDragPhase = useCallback(() => {
+    const next = nextDragPhase(dragPhaseRef.current, 'advance', {
+      fallStyle,
+      airborne: false,
+      reducedMotion,
+    });
+    setDragPhase(next);
+    if (next === 'roam') {
+      dragMode.value = 0;
+      dragScale.value = withTiming(1, { duration: 150 });
+      dragRotation.value = withTiming(0, { duration: 150 });
+      ground.value = 1;
+      airHeight.value = 0;
+      if (stag) setStagPhase('runB');
+      else if (flier) setWalking(true);
+    }
+  }, [
+    airHeight,
+    dragMode,
+    dragRotation,
+    dragScale,
+    fallStyle,
+    flier,
+    ground,
+    reducedMotion,
+    setDragPhase,
+    stag,
+  ]);
+
+  const releaseDrag = useCallback(
+    (dx = 0, dy = 0) => {
+      if (dragCompleted.current) return;
+      dragCompleted.current = true;
+      clearPressTimer();
+      const position = clampDragPosition(
+        { x: dragStart.current.x + dx, y: dragStart.current.y + dy },
+        boundsRef.current,
+      );
+      x.value = position.x;
+      dragTop.value = position.y;
+      dragReady.current = false;
+      dragging.current = false;
+      const next = nextDragPhase(dragPhaseRef.current, 'release', {
+        fallStyle,
+        airborne: position.y < groundTop - 1,
+        reducedMotion,
+      });
+      setDragPhase(next);
+    }, [clearPressTimer, dragTop, fallStyle, groundTop, reducedMotion, setDragPhase, x],
+  );
+
+  const beginPress = useCallback(() => {
+    if (!active) return;
+    clearPressTimer();
+    dragReady.current = false;
+    pressConsumed.current = false;
+    dragCompleted.current = false;
+    pressTimer.current = setTimeout(() => {
+      pressTimer.current = null;
+      if (!active) return;
+      dragReady.current = true;
+      pressConsumed.current = true;
+      freezePetForLift();
+      if (sleeping) wakeStag();
+      setDragPhase('lifted');
+    }, DRAG_HOLD_MS);
+  }, [
+    active,
+    clearPressTimer,
+    freezePetForLift,
+    setDragPhase,
+    sleeping,
+    wakeStag,
+  ]);
+
+  const endPress = useCallback(() => {
+    clearPressTimer();
+    if (!active) return;
+    if (!dragReady.current || dragging.current || dragCompleted.current) return;
+    const top = clampDragPosition(
+      { x: x.value, y: dragMode.value ? dragTop.value : currentRoamTop() },
+      boundsRef.current,
+    );
+    dragStart.current = top;
+    dragTop.value = top.y;
+    dragMode.value = 1;
+    releaseDrag();
+  }, [active, clearPressTimer, currentRoamTop, dragMode, dragTop, releaseDrag, x]);
+
+  const cancelDrag = useCallback(() => {
+    clearPressTimer();
+    dragReady.current = false;
+    dragging.current = false;
+    dragCompleted.current = true;
+    cancelAnimation(x);
+    cancelAnimation(ground);
+    cancelAnimation(airHeight);
+    cancelAnimation(dragScale);
+    cancelAnimation(dragRotation);
+    travelling.value = 0;
+    dragMode.value = 0;
+    dragTop.value = groundTop;
+    dragScale.value = 1;
+    dragRotation.value = 0;
+    ground.value = 1;
+    airHeight.value = 0;
+    setDragPhase('roam');
+    if (stag) setStagPhase('runB');
+    else if (flier) setWalking(true);
+  }, [
+    airHeight,
+    clearPressTimer,
+    dragMode,
+    dragRotation,
+    dragScale,
+    dragTop,
+    flier,
+    ground,
+    travelling,
+    groundTop,
+    setDragPhase,
+    stag,
+    x,
+  ]);
+
+  useEffect(() => {
+    if (dragPhase === 'roam') return;
+    if (dragPhase === 'lifted') {
+      dragScale.value = reducedMotion
+        ? 1
+        : withSequence(
+            withTiming(1.12, { duration: 90 }),
+            withTiming(1.08, { duration: 100 }),
+          );
+      return () => cancelAnimation(dragScale);
+    }
+
+    const duration = petDragDurationMs(dragPhase, fallStyle, reducedMotion);
+
+    if (dragPhase === 'circle') {
+      const startX = x.value;
+      const radius = Math.min(range * 0.3, SIZE * 0.3);
+      const rightX = Math.max(0, Math.min(range, startX + radius));
+      const leftX = Math.max(0, Math.min(range, startX - radius));
+      x.value = withSequence(
+        withTiming(rightX, { duration: 500, easing: Easing.inOut(Easing.quad) }),
+        withTiming(leftX, { duration: 500, easing: Easing.inOut(Easing.quad) }),
+        withTiming(startX, { duration: 500, easing: Easing.inOut(Easing.quad) }),
+      );
+      const remainingHeight = Math.max(0, groundTop - dragTop.value);
+      const circleTop = groundTop - Math.min(SIZE * 0.3, remainingHeight * 0.4);
+      dragTop.value = withTiming(circleTop, { duration });
+    } else if (dragPhase === 'fall' || dragPhase === 'descend') {
+      dragTop.value = withTiming(groundTop, {
+        duration,
+        easing:
+          dragPhase === 'descend' || fallStyle === 'coil' || fallStyle === 'flop'
+            ? Easing.out(Easing.quad)
+            : Easing.in(Easing.quad),
+      });
+      const rotation =
+        fallStyle === 'shell'
+          ? 360
+          : fallStyle === 'tentacle'
+            ? 28
+            : fallStyle === 'coil'
+              ? -18
+              : 0;
+      dragRotation.value = withTiming(rotation, { duration });
+    } else if (dragPhase === 'land') {
+      if (reducedMotion) {
+        dragTop.value = groundTop;
+        dragScale.value = 1;
+        dragRotation.value = 0;
+      } else {
+        dragTop.value = withSequence(
+          withTiming(groundTop + 3, { duration: 80 }),
+          withTiming(groundTop, { duration: 100 }),
+        );
+        dragScale.value = withSequence(
+          withTiming(0.94, { duration: 80 }),
+          withTiming(1, { duration: 100 }),
+        );
+        dragRotation.value = withTiming(0, { duration: 180 });
+      }
+    }
+
+    const timer = setTimeout(advanceDragPhase, duration);
+    return () => {
+      clearTimeout(timer);
+      cancelAnimation(dragTop);
+      cancelAnimation(dragRotation);
+      if (dragPhase === 'land') cancelAnimation(dragScale);
+      if (dragPhase === 'circle') cancelAnimation(x);
+    };
+  }, [
+    advanceDragPhase,
+    dragPhase,
+    dragRotation,
+    dragScale,
+    dragTop,
+    fallStyle,
+    groundTop,
+    range,
+    reducedMotion,
+    x,
+  ]);
+
+  useEffect(() => {
+    if (!active) {
+      clearPressTimer();
+      dragReady.current = false;
+      if (dragPhaseRef.current !== 'roam') cancelDrag();
+    }
+  }, [active, cancelDrag, clearPressTimer]);
+
+  useEffect(() => {
+    return () => {
+      clearPressTimer();
+      cancelAnimation(dragTop);
+      cancelAnimation(dragRotation);
+      cancelAnimation(dragScale);
+    };
+  }, [clearPressTimer, dragRotation, dragScale, dragTop]);
 
   const finishGarden = useCallback((id: number) => {
     setDepartingGarden((current) => (current?.id === id ? null : current));
@@ -474,37 +812,123 @@ export function HomePetRoamer({ uid, active, onPress }: Props) {
       transform: [
         { translateX: x.value },
         {
-          translateY:
-            g * GROUND_Y -
-            airHeight.value * STAG_FLIGHT_HEIGHT +
-            bob * travelling.value,
+          translateY: dragMode.value
+            ? dragTop.value
+            : laneTop +
+              g * GROUND_Y -
+              airHeight.value * STAG_FLIGHT_HEIGHT +
+              bob * travelling.value,
         },
+        { rotate: `${dragRotation.value}deg` },
         { scaleX: heading.value * facing },
+        { scale: dragScale.value },
       ],
     };
   });
 
-  if (!species || !pet || (!stag && walking === null)) return null;
-  const sleeping = stag && stagPhase === 'sleep';
   const handlePress = () => {
+    if (pressConsumed.current) return;
     if (sleeping) {
       wakeStag();
       return;
     }
     onPress();
   };
+  const responder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponderCapture: (_event, gesture) => {
+          if (!active) return false;
+          const distance = Math.hypot(gesture.dx, gesture.dy);
+          if (!dragReady.current && distance > DRAG_CANCEL_DISTANCE) {
+            clearPressTimer();
+            return false;
+          }
+          if (dragReady.current && distance > 0) {
+            // Pressable may emit pressOut while its child loses the responder.
+            // Mark the gesture before that callback so it cannot land early.
+            dragging.current = true;
+            return true;
+          }
+          return false;
+        },
+        onPanResponderGrant: () => {
+          clearPressTimer();
+          dragging.current = true;
+          dragCompleted.current = false;
+          cancelAnimation(x);
+          cancelAnimation(ground);
+          cancelAnimation(airHeight);
+          cancelAnimation(dragTop);
+          const start = clampDragPosition(
+            {
+              x: x.value,
+              y: dragMode.value ? dragTop.value : currentRoamTop(),
+            },
+            boundsRef.current,
+          );
+          travelling.value = 0;
+          dragStart.current = start;
+          x.value = start.x;
+          dragTop.value = start.y;
+          dragMode.value = 1;
+        },
+        onPanResponderMove: (_event, gesture) => {
+          if (!active) return;
+          const next = clampDragPosition(
+            {
+              x: dragStart.current.x + gesture.dx,
+              y: dragStart.current.y + gesture.dy,
+            },
+            boundsRef.current,
+          );
+          x.value = next.x;
+          dragTop.value = next.y;
+          if (Math.abs(gesture.dx) > 1)
+            heading.value = gesture.dx > 0 ? 1 : -1;
+        },
+        onPanResponderRelease: (_event, gesture) => {
+          if (!active) cancelDrag();
+          else releaseDrag(gesture.dx, gesture.dy);
+        },
+        onPanResponderTerminate: cancelDrag,
+        onPanResponderTerminationRequest: () => !dragging.current,
+      }),
+    [
+      active,
+      airHeight,
+      cancelDrag,
+      clearPressTimer,
+      currentRoamTop,
+      dragMode,
+      dragTop,
+      ground,
+      heading,
+      releaseDrag,
+      travelling,
+      x,
+    ],
+  );
+  if (!species || !pet || (!stag && walking === null)) return null;
   const trick = beat?.kind === 'trick' ? beat.clip : null;
-  const stagClip: PixelPetAnyClipId = stagPhase === 'glide' ? 'fly' : 'move';
-  const stagFlightPhase =
-    stag &&
-    (stagPhase === 'takeoff' ||
-      stagPhase === 'flap' ||
-      stagPhase === 'glide' ||
-      stagPhase === 'landing')
-      ? stagPhase
-      : undefined;
+  const stagClip: PixelPetAnyClipId =
+    dragPhase === 'roam' && stagPhase === 'glide' ? 'fly' : 'move';
+  const stagFlightPhase: CelestialStagFlightPhase | undefined = !stag
+    ? undefined
+    : dragPhase === 'circle'
+      ? 'glide'
+      : dragPhase === 'descend' || dragPhase === 'land'
+        ? 'landing'
+        : dragPhase === 'roam' &&
+            (stagPhase === 'takeoff' ||
+              stagPhase === 'flap' ||
+              stagPhase === 'glide' ||
+              stagPhase === 'landing')
+          ? stagPhase
+          : undefined;
   return (
-    <View pointerEvents="box-none" style={styles.lane}>
+    <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
       {stag && departingGarden && (
         <View
           key={departingGarden.id}
@@ -515,7 +939,7 @@ export function HomePetRoamer({ uid, active, onPress }: Props) {
             {
               transform: [
                 { translateX: departingGarden.x },
-                { translateY: GROUND_Y },
+                { translateY: laneTop + GROUND_Y },
                 { scaleX: departingGarden.scaleX },
               ],
             },
@@ -530,7 +954,15 @@ export function HomePetRoamer({ uid, active, onPress }: Props) {
           />
         </View>
       )}
-      <Animated.View style={[styles.pet, flight]}>
+      <Animated.View
+        {...responder.panHandlers}
+        testID={`home-pet-drag-${dragPhase}`}
+        style={[
+          styles.pet,
+          flight,
+          dragPhase !== 'roam' && styles.petLifted,
+        ]}
+      >
         {stag && <HomeSleepGarden visible={sleeping} active={active} />}
         <Pressable
           accessibilityRole="button"
@@ -540,6 +972,8 @@ export function HomePetRoamer({ uid, active, onPress }: Props) {
               : `Mở linh thú ${species.name}`
           }
           onPress={handlePress}
+          onPressIn={beginPress}
+          onPressOut={endPress}
           hitSlop={spacing.sm}
         >
           <PixelPetSprite
@@ -547,10 +981,16 @@ export function HomePetRoamer({ uid, active, onPress }: Props) {
             stage={pet.stage}
             size={SIZE}
             clip={stag ? stagClip : (trick ?? 'move')}
+            dragPhase={dragPhase}
+            fallStyle={fallStyle}
             flightPhase={stagFlightPhase}
             loopMovement={stag ? true : !trick}
             walking={
-              stag ? STAG_GROUND_PHASES.has(stagPhase) : (walking ?? !flier)
+              dragPhase !== 'roam'
+                ? false
+                : stag
+                  ? STAG_GROUND_PHASES.has(stagPhase)
+                  : (walking ?? !flier)
             }
             pace={
               stag &&
@@ -570,12 +1010,19 @@ export function HomePetRoamer({ uid, active, onPress }: Props) {
 }
 
 const styles = StyleSheet.create({
-  lane: {
+  pet: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: spacing.xs,
+    top: 0,
+    left: spacing.md,
+    width: SIZE,
     height: SIZE,
   },
-  pet: { position: 'absolute', left: spacing.md, width: SIZE, height: SIZE },
+  petLifted: {
+    zIndex: 10,
+    elevation: 10,
+    shadowColor: colors.earth,
+    shadowOpacity: 0.24,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+  },
 });

@@ -26,7 +26,16 @@ import {
 } from '../../services/pixelPet/celestialStagAtlas';
 import { puppetPlayback } from '../../services/pixelPet/celestialStagPuppet';
 import { STAGE_LOOK } from '../../services/pixelPet/pixelPetRig';
-import type { PixelPetAnyClipId, PixelPetStage } from '../../types/pixelPet';
+import {
+  petDragDurationMs,
+  petDragFrameTrack,
+} from '../../services/pixelPet/pixelPetFrames';
+import type {
+  DragFallStyle,
+  DragPhase,
+  PixelPetAnyClipId,
+  PixelPetStage,
+} from '../../types/pixelPet';
 import {
   pixelPetExpressionPlayback,
   type PixelPetExpression,
@@ -38,6 +47,8 @@ import {
   CELESTIAL_STAG_LANDING_ATLAS,
   CELESTIAL_STAG_TAKEOFF_ATLAS,
   CELESTIAL_STAG_SLEEP_ATLAS,
+  PET_DRAG_ATLASES,
+  PET_DRAG_ATLAS_READY,
   PET_ART,
 } from './petArt';
 import { PixelPetAtlas } from './PixelPetAtlas';
@@ -58,6 +69,8 @@ type Props = {
   sleeping?: boolean;
   onClipEnd?: () => void;
   expression?: PixelPetExpression | null;
+  dragPhase?: DragPhase;
+  fallStyle?: DragFallStyle;
 };
 
 const STAGE_LABEL = {
@@ -81,11 +94,25 @@ export function CelestialStagAtlas({
   sleeping = false,
   onClipEnd,
   expression,
+  dragPhase = 'roam',
+  fallStyle = 'wings',
 }: Props) {
   const expressionPlayback = expression
     ? pixelPetExpressionPlayback(species.id, expression)
     : undefined;
+  const dragAtlasTrack = petDragFrameTrack(dragPhase);
+  const dragAtlasReady =
+    !sleeping &&
+    (dragPhase === 'lifted' || dragPhase === 'descend') &&
+    PET_DRAG_ATLAS_READY.celestial_stag &&
+    !!PET_DRAG_ATLASES.celestial_stag &&
+    !!dragAtlasTrack;
   const homeMovement = loopMovement && (clip === 'move' || clip === 'fly');
+  const dragLanding =
+    !sleeping &&
+    dragPhase === 'land' &&
+    flightPhase === 'landing' &&
+    homeMovement;
   const flightTrack =
     flightPhase === 'takeoff'
       ? CELESTIAL_STAG_TAKEOFF_FRAMES
@@ -95,6 +122,15 @@ export function CelestialStagAtlas({
           ? CELESTIAL_STAG_GLIDE_FRAMES
           : CELESTIAL_STAG_FLAP_FRAMES;
   const playback =
+    (dragAtlasReady
+      ? {
+          durationMs: petDragDurationMs(dragPhase, fallStyle, false),
+          loop: false,
+        }
+      : null) ??
+    (dragLanding
+      ? { durationMs: petDragDurationMs('land', fallStyle, false), loop: false }
+      : null) ??
     (expressionPlayback
       ? { durationMs: expressionPlayback.durationMs, loop: false }
       : null) ??
@@ -115,6 +151,7 @@ export function CelestialStagAtlas({
     loopMovement,
     onClipEnd: sleeping ? undefined : onClipEnd,
     playback: sleeping ? { durationMs: 2600, loop: false } : playback,
+    playbackKey: dragPhase === 'roam' ? undefined : dragPhase,
   });
   const sleepBreath = useSharedValue(0);
   useEffect(() => {
@@ -137,6 +174,8 @@ export function CelestialStagAtlas({
   const atlasSize = homeMovement && !sleeping ? size * motionCanvasScale : size;
   const frameTrack = sleeping
     ? CELESTIAL_STAG_SLEEP_FRAMES
+    : dragAtlasReady
+      ? dragAtlasTrack
     : expressionPlayback
       ? CELESTIAL_STAG_FRAME_TRACKS.happy
       : homeMovement
@@ -146,6 +185,8 @@ export function CelestialStagAtlas({
         : CELESTIAL_STAG_FRAME_TRACKS[clip];
   const atlasSource = sleeping
     ? CELESTIAL_STAG_SLEEP_ATLAS
+    : dragAtlasReady
+      ? PET_DRAG_ATLASES.celestial_stag!
     : homeMovement
       ? walking && clip !== 'fly'
         ? CELESTIAL_STAG_GROUND_ATLAS
@@ -157,6 +198,8 @@ export function CelestialStagAtlas({
       : CELESTIAL_STAG_ATLAS;
   const atlasLayout = sleeping
     ? { columns: 4, rows: 4 }
+    : dragAtlasReady
+      ? { columns: 4, rows: 4 }
     : homeMovement
       ? flightPhase === 'takeoff'
         ? CELESTIAL_STAG_TAKEOFF_LAYOUT
@@ -214,7 +257,9 @@ export function CelestialStagAtlas({
         <Animated.View style={[styles.sprite, bodyStyle]}>
           <PixelPetAtlas
             key={
-              sleeping
+              dragAtlasReady
+                ? 'drag-atlas'
+                : sleeping
                 ? 'sleep-transition'
                 : homeMovement
                   ? walking
@@ -230,13 +275,23 @@ export function CelestialStagAtlas({
             animating={
               sleeping
                 ? active && !reducedMotion
-                : playbackActive && !reducedMotion
+                : !dragLanding && playbackActive && !reducedMotion
             }
             columns={atlasLayout.columns}
             rows={atlasLayout.rows}
             frameTrack={frameTrack}
             staticFrame={
-              sleeping && reducedMotion ? 15 : groundStopped ? 0 : undefined
+              dragAtlasReady && (!active || reducedMotion) && dragAtlasTrack
+                ? dragAtlasTrack[dragAtlasTrack.length - 1]
+                : dragLanding
+                  ? CELESTIAL_STAG_LANDING_FRAMES[
+                      CELESTIAL_STAG_LANDING_FRAMES.length - 1
+                    ]
+                : sleeping && reducedMotion
+                  ? 15
+                  : groundStopped
+                    ? 0
+                    : undefined
             }
             loop={sleeping ? false : playback.loop}
             blendFrames={false}

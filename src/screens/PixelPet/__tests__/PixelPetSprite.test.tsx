@@ -1,6 +1,20 @@
 import { render, screen } from '@testing-library/react-native';
-import { PIXEL_PET_BY_ID } from '../../../services/pixelPet/pixelPetCatalog';
+import {
+  PIXEL_PET_BY_ID,
+  PIXEL_PET_SPECIES,
+} from '../../../services/pixelPet/pixelPetCatalog';
 import { PixelPetSprite } from '../PixelPetSprite';
+import { PixelPetAtlas } from '../PixelPetAtlas';
+import {
+  petDragFallbackClip,
+  petDragFrameTrack,
+} from '../../../services/pixelPet/pixelPetFrames';
+import {
+  CELESTIAL_STAG_LANDING_ATLAS,
+  PET_DRAG_ATLAS_READY,
+  PET_DRAG_ATLASES,
+} from '../petArt';
+import { CELESTIAL_STAG_LANDING_FRAMES } from '../../../services/pixelPet/celestialStagAtlas';
 
 jest.mock('react-native-reanimated', () => ({
   ...jest.requireActual('react-native-reanimated/mock'),
@@ -51,4 +65,71 @@ it('renders the Celestial Stag puppet for every clip, including its extras', () 
 it('keeps atlas pets on the shared rig when handed a puppet-only clip', () => {
   render(<PixelPetSprite species={PIXEL_PET_BY_ID.phoenix} stage="juvenile" size={96} clip="fly" />);
   expect(screen.getByLabelText('Phượng Hoàng, trưởng thành')).toBeTruthy();
+});
+
+it('has a drag animation fallback for every species until reviewed art is ready', () => {
+  for (const species of PIXEL_PET_SPECIES) {
+    for (const phase of ['lifted', 'circle', 'descend', 'fall', 'land'] as const) {
+      const hasReadyAtlas =
+        PET_DRAG_ATLAS_READY[species.id] &&
+        (species.id === 'celestial_stag' || !!PET_DRAG_ATLASES[species.id]) &&
+        !!petDragFrameTrack(phase);
+      const hasFallback = !!petDragFallbackClip(phase);
+      expect(hasReadyAtlas || hasFallback).toBe(true);
+    }
+  }
+});
+
+it('renders the existing rig for a drag phase before its atlas is ready', () => {
+  render(
+    <PixelPetSprite
+      species={PIXEL_PET_BY_ID.phoenix}
+      stage="juvenile"
+      size={96}
+      clip="move"
+      dragPhase="lifted"
+      fallStyle="wings"
+    />,
+  );
+  expect(screen.getByLabelText('Phượng Hoàng, trưởng thành')).toBeTruthy();
+});
+
+it('holds the Stag landing contact pose through the short land phase', () => {
+  render(
+    <PixelPetSprite
+      species={PIXEL_PET_BY_ID.celestial_stag}
+      stage="juvenile"
+      size={120}
+      clip="move"
+      loopMovement
+      dragPhase="land"
+      fallStyle="wings"
+      flightPhase="landing"
+    />,
+  );
+  expect(screen.UNSAFE_getByType(PixelPetAtlas).props).toMatchObject({
+    source: CELESTIAL_STAG_LANDING_ATLAS,
+    staticFrame: CELESTIAL_STAG_LANDING_FRAMES.at(-1),
+    animating: false,
+  });
+});
+
+it('mounts the reviewed Stag drag atlas only for its authored descent phase', () => {
+  render(
+    <PixelPetSprite
+      species={PIXEL_PET_BY_ID.celestial_stag}
+      stage="juvenile"
+      size={120}
+      clip="move"
+      loopMovement
+      dragPhase="descend"
+      fallStyle="wings"
+      flightPhase="landing"
+    />,
+  );
+  expect(screen.UNSAFE_getByType(PixelPetAtlas).props).toMatchObject({
+    source: PET_DRAG_ATLASES.celestial_stag,
+    frameTrack: [4, 5, 6, 7],
+    loop: false,
+  });
 });

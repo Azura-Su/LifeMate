@@ -3,7 +3,13 @@ import Feather from '@expo/vector-icons/Feather';
 import { styles } from './HomeScreen.styles';
 
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import { Pressable, RefreshControl, Text, View } from 'react-native';
+import {
+  Pressable,
+  RefreshControl,
+  Text,
+  View,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { UserAvatar } from '../../components/UserAvatar';
 import { AppDrawer } from '../../components/AppDrawer';
@@ -51,6 +57,8 @@ export function HomeScreen({
   const [refreshing, setRefreshing] = useState(false);
   const refreshInFlight = useRef(false);
   const [focused, setFocused] = useState(true);
+  const [homeLayout, setHomeLayout] = useState({ width: 0, height: 0 });
+  const [headerBottom, setHeaderBottom] = useState(0);
   useEffect(() => {
     const offFocus = navigation.addListener?.('focus', () => setFocused(true));
     const offBlur = navigation.addListener?.('blur', () => setFocused(false));
@@ -129,10 +137,26 @@ export function HomeScreen({
     }
   }
   return (
-    <View style={styles.root}>
+    <View
+      style={styles.root}
+      onLayout={(event: LayoutChangeEvent) => {
+        const { width, height } = event.nativeEvent.layout;
+        setHomeLayout((current) =>
+          current.width === width && current.height === height
+            ? current
+            : { width, height },
+        );
+      }}
+    >
       <Screen
         backgroundColor={colors.background}
         safeAreaBackgroundColor={colors.sunlightFaint}
+        fixedHeaderOnLayout={(event: LayoutChangeEvent) => {
+          const { y, height } = event.nativeEvent.layout;
+          setHeaderBottom((current) =>
+            current === y + height ? current : y + height,
+          );
+        }}
         fixedHeader={
           <View style={styles.header}>
             <View style={styles.greeting}>
@@ -325,6 +349,9 @@ export function HomeScreen({
       <HomePetRoamer
         uid={uid ?? null}
         active={focused && !calendarVisible}
+        containerWidth={homeLayout.width}
+        containerHeight={homeLayout.height}
+        headerBottom={headerBottom}
         onPress={() => navigation.navigate('PixelPet')}
       />
     </View>
