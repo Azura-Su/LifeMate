@@ -120,7 +120,7 @@ const variantV2ScoringSql = await readFile(
 );
 const southInstantWinSql = await readFile(
   new URL(
-    '../../migrations/20261027220000_south_instant_win_penalty.sql',
+    '../../migrations/20261029191125_south_instant_win_penalty.sql',
     import.meta.url,
   ),
   'utf8',
@@ -258,7 +258,7 @@ async function setup(beforePhomRules = false) {
   await db.exec(variantRoomConfigurationSql);
   await db.exec(variantV2ScoringSql);
   await db.exec(southInstantWinSql);
-  await db.exec(await readFile(new URL('../../migrations/20261029022648_preserve_explicit_ownerless_rooms.sql', import.meta.url), 'utf8'));
+  await db.exec(await readFile(new URL('../../migrations/20261029191148_preserve_explicit_ownerless_rooms.sql', import.meta.url), 'utf8'));
   return db;
 }
 
@@ -2871,7 +2871,7 @@ test('ownerless migration repairs stale score ownership, retaining document and 
     const stale = await sharedBoard(db);
     // Even a stale table must not authorize writes against an ownerless room.
     await assert.rejects(scoreWrite(db, stale, 'delete'), /not-owner/);
-    await db.exec(await readFile(new URL('../../migrations/20261029022648_preserve_explicit_ownerless_rooms.sql', import.meta.url), 'utf8'));
+    await db.exec(await readFile(new URL('../../migrations/20261029191148_preserve_explicit_ownerless_rooms.sql', import.meta.url), 'utf8'));
     const fixed = await sharedBoard(db);
     assert.equal(fixed.canEdit, false);
     assert.ok(fixed.match.sharedVersion > stale.match.sharedVersion);

@@ -94,3 +94,24 @@ it over the newer Phỏm-aware status function. See
 - Migration applied before `game-access` v15 (16:33:30UTC). All18 deployed files read back equal to payload; only handler changed from v14. JWT mode preserved because Firebase verification remains in the function body.
 - PostgreSQL rollback probe passed current/pending/incoming denial without mutation, both signatures, legacy/v7 edits, receipt recovery and ACL. No probe rooms, seats or receipts remain; mode open and deadline cron active.
 - CLI draft `20261023162857` renamed to the actual connector timestamp; SQL unchanged. Backup and verification fixture: `/private/tmp/lifemate-phom-capability-fix-20261023`.
+
+## Game/pet release audit — 30/10/2026 (UTC+7)
+
+- Production `game-access` v19 lacked the local capability-12 implementation.
+  Deployed v20 and read back all22 source files; they match the deployment payload.
+  Existing Firebase verification and JWT mode are unchanged. `pet-access` v3 and
+  `user-admin` v14 already match local source and were not redeployed.
+- Waited more than459 seconds for the old game worker execution window before
+  applying the two reviewed migrations separately, with function fingerprint and
+  service-only ACL guards. No full-repository `db push` was used.
+- Connector-recorded versions are `20261029191125_south_instant_win_penalty.sql`
+  and `20261029191148_preserve_explicit_ownerless_rooms.sql`. Local draft versions
+  `20261027220000` and `20261029022648` were renamed to those actual versions;
+  their SQL bodies are unchanged and test paths were updated. Draft versions were
+  not marked as applied.
+- Rechecked function definitions, existing security-definer settings, empty
+  search paths, service-only grants and active deadline cron. The four-argument
+  takeover compatibility wrapper remains unchanged. Backups and private deploy
+  logs are under `/tmp/lifemate-release-20261030` on the deployment machine.
+- See [release verification](../tasks/review-pets-games-2026-10-30.md) for checks,
+  review findings and the native-app distribution limitation.
