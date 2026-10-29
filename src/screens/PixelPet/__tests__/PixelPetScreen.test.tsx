@@ -135,6 +135,24 @@ it('shows server progression and allows one care per day', async () => {
   expect(screen.getByText('95 EXP / 150')).toBeTruthy();
   expect(screen.getByText('Được cho ăn ×2')).toBeTruthy();
   expect(screen.getByText('Đã chăm sóc hôm nay')).toBeTruthy();
+
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Hướng dẫn chăm linh thú' }),
+  );
+  expect(await screen.findByText('Ghi sổ thu chi trong ngày')).toBeTruthy();
+  expect(screen.getAllByText('+10 EXP').length).toBeGreaterThan(0);
+  expect(screen.getByText('Lộ trình của Cửu Vĩ Hồ')).toBeTruthy();
+  expect(
+    screen.getByLabelText('Lv 3, Trang phục Khăn lụa đỏ, đã mở'),
+  ).toBeTruthy();
+  expect(
+    screen.getByLabelText('Lv 5, Kỹ năng Hồ Hỏa Mê Ảnh, chưa mở'),
+  ).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Phượng Hoàng' }));
+  expect(screen.getByText('Lộ trình của Phượng Hoàng')).toBeTruthy();
+  expect(
+    screen.getByLabelText('Lv 3, Trang phục Lông đuôi ngũ sắc, chưa mở'),
+  ).toBeTruthy();
 });
 
 it.each([

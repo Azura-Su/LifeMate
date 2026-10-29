@@ -7,7 +7,7 @@ import { Button } from '../../components/Button';
 import { AppTextInput } from '../../components/AppTextInput';
 import { DialogModal } from '../../components/DialogModal';
 import { ModalHeader } from '../../components/ModalHeader';
-import { ScreenHeader } from '../../components/ScreenHeader';
+import { HeaderIconButton, ScreenHeader } from '../../components/ScreenHeader';
 import { Screen } from '../../components/Screen';
 import type { MainTabParams } from '../../navigation/types';
 import {
@@ -37,6 +37,7 @@ import type {
 import { colors, spacing } from '../../theme';
 import { PixelPetSprite } from './PixelPetSprite';
 import { PetStageBackdrop } from './PetStageBackdrop';
+import { PetCareGuide } from './PetCareGuide';
 import { styles } from './PixelPetScreen.styles';
 
 type Props = BottomTabScreenProps<MainTabParams, 'PixelPet'>;
@@ -129,6 +130,7 @@ export function PixelPetScreen({ navigation }: Props) {
   const [sleeping, setSleeping] = useState(false);
   const [expression, setExpression] = useState<PixelPetExpression | null>(null);
   const [renameOpen, setRenameOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [nicknameDraft, setNicknameDraft] = useState('');
   const latest = useRef(0);
   const [stageSize, setStageSize] = useState(0);
@@ -234,6 +236,15 @@ export function PixelPetScreen({ navigation }: Props) {
               : undefined
           }
           onBack={() => navigation.navigate('Home')}
+          right={
+            species ? (
+              <HeaderIconButton
+                icon="book-open"
+                label="Hướng dẫn chăm linh thú"
+                onPress={() => setGuideOpen(true)}
+              />
+            ) : undefined
+          }
         />
       }
     >
@@ -499,6 +510,14 @@ export function PixelPetScreen({ navigation }: Props) {
             )}
           </View>
         </>
+      )}
+
+      {guideOpen && species && (
+        <PetCareGuide
+          species={species}
+          level={pet?.level ?? null}
+          onClose={() => setGuideOpen(false)}
+        />
       )}
 
       <DialogModal
