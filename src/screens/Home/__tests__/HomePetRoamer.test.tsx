@@ -198,11 +198,12 @@ it('keeps the full Garuda sleep scene inside the screen edges', () => {
   const width = 390;
   const inset = 16;
   const x = garudaSleepTargetX(width, inset);
-  const sceneLeft = inset + x - (280 - 120) / 2;
+  const sceneSize = 250;
+  const sceneLeft = inset + x - (sceneSize - 120) / 2;
 
   expect(x).toBe(119);
   expect(sceneLeft).toBeGreaterThanOrEqual(0);
-  expect(sceneLeft + 280).toBeLessThanOrEqual(width);
+  expect(sceneLeft + sceneSize).toBeLessThanOrEqual(width);
 });
 
 it('shrinks and centers Garuda scene on a narrow Home viewport', () => {
@@ -225,6 +226,7 @@ it('mounts the Garuda sleep-scene anchor behind its Home sprite', () => {
     visible: false,
     active: false,
     viewportWidth: 390,
+    size: 250,
   });
   expect(screen.getByTestId('home-pet-sleep-scene-anchor')).toBeTruthy();
 });

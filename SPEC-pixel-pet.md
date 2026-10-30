@@ -200,8 +200,9 @@ mỗi ô vẽ lại cả nhân vật ở một tư thế khác, không ghép cá
   thành vòng tròn nhỏ trong 1,4 giây. Cuối cùng, núi và tòa đền trồi lên từ tâm
   qua atlas 16 khung trong 4,5 giây. Mỗi lần nghỉ, Garuda vỗ cánh bay về giữa
   màn hình rồi hạ đúng độ cao để ngồi lên tâm bệ; cảnh bắt đầu sau khi đáp, và
-  Garuda chuyển sang pose nghỉ trong lúc núi chùa dựng. Chạm Garuda đang nghỉ
-  để đánh thức; cảnh biến mất cùng lúc.
+  Garuda chuyển sang pose nghỉ trong lúc núi chùa dựng. Cảnh tối đa 250px, thu
+  theo bề rộng màn hình và thu bệ theo cùng tỷ lệ để không che thẻ Home. Chạm
+  Garuda đang nghỉ để đánh thức; cảnh biến mất cùng lúc.
 - **4 rig** và các lưới/màu trong `pixelPetRig.ts`/`pixelPetCatalog.ts` được giữ làm
   fallback và nguồn của Bạch Hổ. Không thay sở hữu, loài, EXP, tài khoản hay API.
 

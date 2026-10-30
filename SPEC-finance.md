@@ -57,6 +57,9 @@ Theo cấu trúc screen/hook/styles và component hiện tại; validate dữ li
 - Chia tự động tính lại ngay khi thay tổng tiền/thành viên/suất; số tiền tự
   tính chỉ đọc. Đổi sang Tự nhập giữ số tiền đang xem để sửa tiếp. Chặn suất
   sai hoặc hóa đơn quá nhỏ khiến có người cần trả 0đ.
+- Phần “Có người cần trả lại” giữ trạng thái mở và dữ liệu đang nhập khi ô nhập
+  mất focus hoặc hộp thoại nhận cập nhật dữ liệu nền; chỉ đóng khi người dùng
+  chủ động tắt phần này hoặc đóng hộp thoại.
 - Phân bổ theo tỷ lệ, làm tròn xuống đến đồng và chia các đồng còn lại cho
   phần có số dư lớn nhất; bằng nhau theo thứ tự tôi rồi từng người trong form.
   Tổng phần của tôi và tiền các người khác luôn khớp hóa đơn; dùng BigInt cho

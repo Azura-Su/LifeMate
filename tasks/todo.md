@@ -64,3 +64,33 @@
 - [x] Final read-only review:9SQL bodies khớp local, ACL/cron/capability12 đạt; không ghi fixture production.
 - [x] TypeScript, ESLint,166Jest suites/1536tests,405functions tests, Firestore emulator và iOS/Android export đạt.
 - [x] Ghi kết quả/giới hạn native rollout tại review-pets-games-2026-10-30.md.
+
+# Đề xuất: khung hình và cảnh riêng từng linh thú, 30/10/2026
+
+Plan/storyboard và tiêu chí A/B/C tại `plan.md`. Mỗi A được chia thành cụm
+đi/đáp và ngủ/thức; từng lần tối đa5file. B là cảnh xuất hiện/yên/tan, C là tích
+hợp Home/preview + regression. Chưa bắt đầu tạo art hoặc triển khai code.
+
+- [ ] Người dùng xem/chốt storyboard và pilot Kỳ Lân Hỏa.
+- [ ] F1: inventory/manifest/anchor/capability và budget page cho16ID.
+- [ ] F2: renderer/adapter pilot dùng cấu hình, giữ fallback cho loài khác.
+- [ ] Kỳ Lân Hỏa — A: bốn vó/giậm lửa/ngủ; B: vườn đá trúc; C: Home+preview+tests.
+- [ ] Huyền Vũ — A: bò/rụt cổ/thu chân; B: hồ sen rêu; C: Home+preview+tests.
+- [ ] Checkpoint: contact sheet, preview thật120pt, kiểm tra chân sau, alpha/anchor và số đo bộ nhớ hai pilot.
+- [ ] Thiên Mã Kỳ Lân — A: đi/cất cánh/lượn/đáp/nằm; B: mây/tinh thể; C: Home+preview+tests.
+- [ ] Checkpoint: đường bay, đủ vó tiếp đất, cánh không cắt, tương tác kéo và awake20s.
+- [ ] Bạch Hổ — A: rình/chạy/chồm/nằm; B: trúc xanh bạc; C: Home+preview+tests.
+- [ ] Nhân Sư — A: bước mèo/cánh/vươn vai/nằm; B: đền sa thạch; C: Home+preview+tests.
+- [ ] Nhân Mã — A: bốn vó/cung/ngồi nghỉ; B: trảng rừng; C: Home+preview+tests.
+- [ ] Checkpoint: ba loài trên + Cửu Vĩ/Lang Linh/Thiên Lộc không regression.
+- [ ] Thanh Long — A: uốn thân/cuộn/ngủ/tháo vòng; B: mây núi; C: Home+preview+tests.
+- [ ] Lý Ngư Hóa Long — A: bơi/vượt cung/thu vây; B: hồ/Vũ Môn; C: Home+preview+tests.
+- [ ] Scylla — A: thân/cuộn/sáu đầu lệch nhịp; B: vịnh biển/san hô; C: Home+preview+tests.
+- [ ] Checkpoint: anatomy rồng/cá/Scylla, pose không giống gait bốn chân; no ghost/teleport.
+- [ ] Chim Lạc — A: bước/vỗ/lượn/đậu/ngủ; B: bãi lau/trống đồng; C: Home+preview+tests.
+- [ ] Phượng Hoàng — A: bay/đáp/tổ/thức; B: đá núi lửa/than ấm; C: Home+preview+tests.
+- [ ] Anubis — A: bước/trượng/ngồi/thức; B: đền Ai Cập; C: Home+preview+tests.
+- [ ] Garuda — chỉ bổ sung pose nối đáp–ngồi–thức và cảnh tan, giữ source/đường bay hiện có.
+- [ ] Checkpoint cuối:16ID,3scale, Lv1/Lv2/Lv8, pause/resume, Reduced Motion, wake sớm, kéo và ảnh lỗi.
+- [ ] Profiler release iOS/Android: target60FPS, frame pacing/RAM theo ngưỡng plan; ghi rõ những máy chưa đo được.
+- [ ] Jest pet/Home và full suite cuối; TypeScript, ESLint, export; cập nhật SPEC/README/provenance và kết quả.

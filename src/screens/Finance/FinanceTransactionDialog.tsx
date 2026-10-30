@@ -202,13 +202,17 @@ export function FinanceTransactionDialog({
   );
   const existingReceipts = initialTransaction?.sharedExpense?.receipts ?? [];
   const pickerValue = parsedDate === null ? new Date() : new Date(parsedDate);
+  const initialTransactionRef = useRef(initialTransaction);
+  initialTransactionRef.current = initialTransaction;
+  const initialTransactionId = initialTransaction?.id;
 
   useEffect(() => {
     if (visible) {
-      setType(initialTransaction?.type ?? initialType);
-      setAmount(initialTransaction ? String(initialTransaction.amount) : '');
+      const transaction = initialTransactionRef.current;
+      setType(transaction?.type ?? initialType);
+      setAmount(transaction ? String(transaction.amount) : '');
       setCategory(
-        initialTransaction?.category ??
+        transaction?.category ??
           (initialType === 'income'
             ? initialIncomeSource === 'other'
               ? INCOME_CATEGORIES[2]
@@ -216,21 +220,21 @@ export function FinanceTransactionDialog({
             : EXPENSE_CATEGORIES[0]),
       );
       setIncomeSource(
-        initialTransaction?.incomeSource === 'other'
+        transaction?.incomeSource === 'other'
           ? 'other'
           : initialIncomeSource,
       );
       setSourceMenuOpen(false);
       setCategoryMenuOpen(false);
-      setNote(capitalizeInitialLetter(initialTransaction?.note ?? ''));
+      setNote(capitalizeInitialLetter(transaction?.note ?? ''));
       setDate(
-        initialTransaction
-          ? formatFinanceDate(new Date(initialTransaction.createdAt))
+        transaction
+          ? formatFinanceDate(new Date(transaction.createdAt))
           : initialDate,
       );
       setDatePickerVisible(false);
-      setSharingEnabled(!!initialTransaction?.sharedExpense);
-      setSplitDraft(createExpenseSplitDraft(initialTransaction?.sharedExpense));
+      setSharingEnabled(!!transaction?.sharedExpense);
+      setSplitDraft(createExpenseSplitDraft(transaction?.sharedExpense));
       setError(null);
       setTemplateName('');
       setNewCategory('');
@@ -240,7 +244,7 @@ export function FinanceTransactionDialog({
   }, [
     initialDate,
     initialIncomeSource,
-    initialTransaction,
+    initialTransactionId,
     initialType,
     visible,
   ]);

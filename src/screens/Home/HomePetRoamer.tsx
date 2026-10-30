@@ -72,12 +72,11 @@ import {
 
 import { useHomePetWakeWindow } from './useHomePetWakeWindow';
 import {
-  GARUDA_SCENE_DESIGN_SIZE,
   garudaSleepLandingLift,
 } from './garudaSleepSceneTimeline';
 
 const SIZE = 120;
-const GARUDA_SLEEP_SCENE_SIZE = GARUDA_SCENE_DESIGN_SIZE;
+const GARUDA_SLEEP_SCENE_SIZE = 250;
 const GARUDA_SLEEP_APPROACH_MS = 950;
 const GARUDA_SLEEP_LANDING_SETTLE_MS = 100;
 /** Approximate ground travel represented by one authored 16-frame gait loop. */
@@ -1436,7 +1435,13 @@ export function HomePetRoamer({
             }
             active={active}
             viewportWidth={width}
-            size={runeWolf ? runeWolfSleepSceneSize(width) : undefined}
+            size={
+              garuda
+                ? garudaSceneSize
+                : runeWolf
+                  ? runeWolfSleepSceneSize(width)
+                  : undefined
+            }
           />
         </Animated.View>
       )}
@@ -1492,6 +1497,7 @@ export function HomePetRoamer({
             active={active}
             mode="withering"
             viewportWidth={width}
+            size={garudaSceneSize}
             onFinished={() =>
               setDepartingGarudaScene((current) =>
                 current?.id === departingGarudaScene.id ? null : current,
