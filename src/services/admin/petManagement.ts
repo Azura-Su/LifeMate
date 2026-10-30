@@ -14,6 +14,8 @@ export type ManagedPet = {
     level: number;
     stage: PixelPetStage;
   } | null;
+  /** Admin-only species shown locally; the server never lists or revokes it. */
+  exclusive?: true;
 };
 export type PetInventory = { pets: ManagedPet[]; serverTime: number };
 export type PetRevocation = {

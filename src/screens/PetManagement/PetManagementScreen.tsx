@@ -1,6 +1,13 @@
 import Feather from '@expo/vector-icons/Feather';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -26,7 +33,10 @@ import {
 import {
   invalidateOwnedPixelPet,
   newPixelPetAction,
+  readOwnedPixelPet,
+  subscribeOwnedPixelPet,
 } from '../../services/pixelPet/pixelPetApi';
+import { CELESTIAL_STAG_ID } from '../../services/pixelPet/celestialStagPuppet';
 import { pixelPetSpecies } from '../../services/pixelPet/pixelPetCatalog';
 import { useAuthStore } from '../../store/authStore';
 import { colors, spacing, typography } from '../../theme';
@@ -72,7 +82,36 @@ export function PetManagementScreen({
   const epoch = useAuthStore((state) => state.sessionEpoch);
   const allowed = isUserAdmin(user);
   const active = useScreenActive();
-  const [pets, setPets] = useState<ManagedPet[]>([]);
+  const [serverPets, setPets] = useState<ManagedPet[]>([]);
+  const readOwn = useCallback(
+    () => (user ? readOwnedPixelPet(user.uid) : null),
+    [user],
+  );
+  const ownPet = useSyncExternalStore(subscribeOwnedPixelPet, readOwn, readOwn);
+  // The admin's Linh Lộc never appears in the server inventory; list it here.
+  const pets = useMemo<ManagedPet[]>(() => {
+    if (!allowed || !user || !serverPets.length) return serverPets;
+    const own = ownPet?.speciesId === CELESTIAL_STAG_ID ? ownPet : null;
+    const stag: ManagedPet = {
+      speciesId: CELESTIAL_STAG_ID,
+      status: 'owned',
+      holder: {
+        uid: user.uid,
+        name: user.displayName ?? '',
+        email: user.email ?? '',
+      },
+      reservedUntil: null,
+      adoption: own && {
+        id: own.adoptionId,
+        adoptedAt: own.adoptedAt,
+        totalExp: own.totalExp,
+        level: own.level,
+        stage: own.stage,
+      },
+      exclusive: true,
+    };
+    return [stag, ...serverPets.filter((p) => p.speciesId !== stag.speciesId)];
+  }, [allowed, user, ownPet, serverPets]);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [busy, setBusy] = useState(false);
@@ -355,9 +394,7 @@ export function PetManagementScreen({
                       {species.personality} · {species.skill}
                     </Text>
                     <View style={styles.badge}>
-                      <View
-                        style={[styles.dot, styles[`${status.tone}Dot`]]}
-                      />
+                      <View style={[styles.dot, styles[`${status.tone}Dot`]]} />
                       <Text style={[styles.badgeText, styles[status.tone]]}>
                         {status.label}
                       </Text>
@@ -403,11 +440,13 @@ export function PetManagementScreen({
                                 pet.adoption.adoptedAt,
                               ).toLocaleDateString('vi-VN'),
                             ]
-                          : [
-                              `Giữ đến ${new Date(
-                                pet.reservedUntil!,
-                              ).toLocaleTimeString('vi-VN')}`,
-                            ]
+                          : pet.exclusive
+                            ? ['Độc quyền admin']
+                            : [
+                                `Giữ đến ${new Date(
+                                  pet.reservedUntil!,
+                                ).toLocaleTimeString('vi-VN')}`,
+                              ]
                         ).map((fact) => (
                           <Text key={fact} style={styles.fact}>
                             {fact}
@@ -415,7 +454,7 @@ export function PetManagementScreen({
                         ))}
                       </View>
                     </View>
-                    {pet.status === 'owned' && (
+                    {pet.status === 'owned' && !pet.exclusive && (
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={`Thu hồi ${species.name}`}

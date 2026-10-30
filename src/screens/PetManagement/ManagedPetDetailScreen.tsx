@@ -10,6 +10,11 @@ import {
   petMovementKind,
   petMovementLabel,
 } from '../../services/pixelPet/pixelPetFrames';
+import {
+  LEVEL_THRESHOLDS,
+  petUnlocks,
+  stageForLevel,
+} from '../../services/pixelPet/pixelPetGuide';
 import { PUPPET_PREVIEW_CLIPS } from '../../services/pixelPet/celestialStagPuppet';
 import type { PixelPetExpression } from '../../services/pixelPet/pixelPetExpressions';
 import type { PixelPetAnyClipId } from '../../types/pixelPet';
@@ -30,6 +35,14 @@ const stageLabel = {
   ascended: 'Thăng hoa',
 } as const;
 
+const unlockIcon = {
+  stage: 'trending-up',
+  skill: 'zap',
+  skin: 'gift',
+  scene: 'moon',
+} as const;
+const LEVELS = LEVEL_THRESHOLDS.map((_, index) => index + 1);
+
 const statusLabel: Record<ManagedPet['status'], string> = {
   owned: 'Đã có chủ',
   reserved: 'Đang giữ chỗ',
@@ -44,7 +57,10 @@ export function ManagedPetDetailScreen({ pet, active, onBack }: Props) {
   const [expression, setExpression] = useState<PixelPetExpression | null>(null);
   const [homePreview, setHomePreview] = useState(false);
   const species = pixelPetSpecies(pet.speciesId)!;
-  const stage = pet.adoption?.stage ?? 'hatchling';
+  const [level, setLevel] = useState(pet.adoption?.level ?? 1);
+  const stage = stageForLevel(level);
+  const unlocks = petUnlocks(species.id, species.skill);
+  const levelUnlocks = unlocks.filter((unlock) => unlock.level === level);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
@@ -157,7 +173,8 @@ export function ManagedPetDetailScreen({ pet, active, onBack }: Props) {
       {homePreview && active && appActive && (
         <HomeRoamPreview
           speciesId={species.id}
-          stage={stage}
+          level={level}
+          onLevelChange={setLevel}
           name={species.name}
           onClose={() => setHomePreview(false)}
         />
@@ -201,6 +218,55 @@ export function ManagedPetDetailScreen({ pet, active, onBack }: Props) {
       <Text style={styles.helper}>
         Chỉ xem thử tại máy; không thay đổi dữ liệu linh thú.
       </Text>
+
+      <View style={styles.levels}>
+        <Text accessibilityRole="header" style={styles.sectionTitle}>
+          Các cấp độ
+        </Text>
+        <View style={styles.options}>
+          {LEVELS.map((value) => {
+            const selected = value === level;
+            return (
+              <Pressable
+                key={value}
+                accessibilityRole="button"
+                accessibilityLabel={`Xem cấp ${value}`}
+                accessibilityState={{ selected }}
+                onPress={() => setLevel(value)}
+                style={[styles.levelChip, selected && styles.optionSelected]}
+              >
+                <Text
+                  style={[
+                    styles.optionText,
+                    selected && styles.optionTextSelected,
+                  ]}
+                >
+                  {value}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={styles.levelSummary}>
+          Lv {level} · {stageLabel[stage]} · từ {LEVEL_THRESHOLDS[level - 1]}{' '}
+          EXP
+          {pet.adoption?.level === level ? ' · cấp hiện tại' : ''}
+        </Text>
+        {levelUnlocks.length ? (
+          levelUnlocks.map((unlock) => (
+            <View key={unlock.kind} style={styles.unlock}>
+              <Feather
+                name={unlockIcon[unlock.kind]}
+                size={16}
+                color={colors.earth}
+              />
+              <Text style={styles.unlockText}>{unlock.name}</Text>
+            </View>
+          ))
+        ) : (
+          <Text style={styles.helper}>Không mở khóa mới ở cấp này.</Text>
+        )}
+      </View>
 
       <View style={styles.stats}>
         {stats.map((stat) => (
@@ -299,6 +365,28 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: -spacing.xs,
   },
+  levels: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
+  },
+  sectionTitle: { ...typography.body, color: colors.ink, fontWeight: '700' },
+  levelChip: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
+  },
+  levelSummary: { fontSize: fontSize.small, color: colors.muted },
+  unlock: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  unlockText: { fontSize: fontSize.small, color: colors.ink },
   stats: { flexDirection: 'row', gap: spacing.sm },
   stat: {
     flex: 1,

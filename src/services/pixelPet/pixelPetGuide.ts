@@ -1,4 +1,4 @@
-import type { PixelPetSpeciesId } from '../../types/pixelPet';
+import type { PixelPetSpeciesId, PixelPetStage } from '../../types/pixelPet';
 
 /**
  * Display copy of the backend EXP policy
@@ -129,6 +129,11 @@ const SLEEP_SCENES: Partial<Record<PixelPetSpeciesId, string>> = {
   rune_wolf: 'Cổ thụ đêm trăng',
   celestial_stag: 'Vườn hoa thiên lộc',
 };
+
+/** Body stage shown at a level (mirrors the Lv 4 / Lv 8 stage unlocks). */
+export function stageForLevel(level: number): PixelPetStage {
+  return level >= 8 ? 'ascended' : level >= 4 ? 'juvenile' : 'hatchling';
+}
 
 /** Every unlock for a species, in level order. */
 export function petUnlocks(id: PixelPetSpeciesId, skill: string): PetUnlock[] {

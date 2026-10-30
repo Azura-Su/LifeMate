@@ -72,9 +72,10 @@ mỗi ô vẽ lại cả nhân vật ở một tư thế khác, không ghép cá
   theo giai đoạn; khi không di
   chuyển sẽ giữ pose đứng thay vì chạy tại chỗ. Chạm khi đang ngủ sẽ đánh thức
   và phát lại chu kỳ; vị trí ngủ được chọn ngẫu nhiên ở bất kỳ điểm nào dọc
-  thanh dưới. Sau khi
-  đến chỗ ngủ, linh thú chuyển dần từ đứng sang nằm bằng atlas16 khung toàn thân;
-  đồng thời cỏ lan, hoa nở và cây cổ thụ lớn dần qua atlas nền16 khung. Sau chuyển
+  thanh dưới. Trong pha đi vào điểm ngủ cuối cùng, cỏ và hoa bắt đầu lan tại đúng vị trí
+  nghỉ; cảnh đứng yên ở đó trong khi linh thú tiến vào. Khi thú tới nơi, nó
+  chuyển dần từ đứng sang nằm bằng atlas16 khung toàn thân; cây cổ thụ tiếp tục
+  lớn qua atlas nền16 khung thay vì bật lên cùng lúc với pose ngủ. Sau chuyển
   cảnh, giữ pose ngủ toàn thân cánh cụp, mắt nhắm và thở nhẹ.
   Khi Home mất focus trong lúc ngủ, giữ nguyên pose và tiến độ cây; hoạt ảnh ngủ
   và cây tạm dừng rồi tiếp tục từ đúng khung khi quay lại, không phát lại cảnh
@@ -87,10 +88,16 @@ mỗi ô vẽ lại cả nhân vật ở một tư thế khác, không ghép cá
   Các pha đường bay và phát pose dùng cùng bảng thời lượng; nhịp vỗ kết thúc
   ở vòng cánh hoàn chỉnh trước khi lượn. Chặng chạy cuối đưa thú đến trong tầm
   đi bộ của điểm ngủ, để đoạn tìm chỗ ngủ không vượt tốc độ32pt/s.
+  Thiên Lộc chỉ nằm ngủ trên đúng vườn của mình: hết cửa sổ thức giữa vòng thì
+  bay/hạ cánh nốt rồi chạy và đi bộ vào vườn; còn thời gian sau khi hạ cánh thì
+  chạy thêm một vòng, chỉ cất cánh khi cả chặng bay kịp về vườn. Tới vườn là nằm
+  ngủ ngay, không đứng chờ hết cửa sổ thức. Thả sau khi kéo cũng đi bộ về vườn. Cây héo khi thức giữ nguyên hướng như lúc mọc.
 - **6 clip cũ giữ nguyên ID và thời lượng**: `idle`, `eat`, `move`, `heal`,
   `happy`, `skill`. Mapping pose ở `pixelPetFrames.ts`. `move` từ hiệu ứng sổ
-  thu chi vẫn chạy một lần1s. Home dùng4 pose chuyển động gốc; Reanimated
-  cross-fade phần lớn mỗi khoảng pose và nội suy nhịp thân trên UI thread theo
+  thu chi vẫn chạy một lần1s. Home dùng4 pose chuyển động gốc; riêng Kỳ Lân
+  dùng atlas bước 8 pose, trộn4 khung gốc với4 khung mới dựa trên ảnh gốc và
+  đổi toàn thân không cross-fade để chân không bị bóng đôi. Reanimated
+  nội suy nhịp thân trên UI thread theo
   tần số màn hình (mục tiêu60Hz).
   Bộ điều khiển biểu cảm dùng các pose mặt có sẵn trong atlas và thêm track riêng
   cho Lang Linh/Cửu Vĩ Hồ: phấn khích. Đây là tốc độ render,
@@ -156,8 +163,10 @@ mỗi ô vẽ lại cả nhân vật ở một tư thế khác, không ghép cá
   nhịp trên UI thread. Sau một chặng đi, sói hạ người cuộn nằm, thở trong cảnh
   rừng đêm vector phía sau rồi tự thức dậy đi tiếp; chạm vào sói để đánh thức.
   Riêng Thiên Lộc, nhịp chân chạy/đi bộ được tính
-  từ quãng đường và thời lượng từng pha; chuyển động ngang tuyến tính để vận
-  tốc thân và cadence chân cùng nhịp. Mở chi tiết từ lối tắt/menu Linh thú;
+  từ quãng đường và thời lượng từng pha; atlas đất v3 có tám nhịp với sáu tư
+  thế bước riêng, giữ hai nhịp tiếp đất và không trộn dáng cánh cụp. Chuyển
+  động ngang tuyến tính để vận tốc thân và cadence chân cùng nhịp. Mở chi tiết
+  từ lối tắt/menu Linh thú;
   chạm vào nhân vật trên Home không điều hướng. Không thêm API. Dừng khi
   Home mất focus, mở lịch hoặc Reduced Motion.
 - Trên Home, chạm vào linh thú rồi kéo ngay để di chuyển tự do trong vùng từ

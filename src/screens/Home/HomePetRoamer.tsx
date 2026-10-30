@@ -71,9 +71,7 @@ import {
 } from './homePetDrag';
 
 import { useHomePetWakeWindow } from './useHomePetWakeWindow';
-import {
-  garudaSleepLandingLift,
-} from './garudaSleepSceneTimeline';
+import { garudaSleepLandingLift } from './garudaSleepSceneTimeline';
 
 const SIZE = 120;
 const GARUDA_SLEEP_SCENE_SIZE = 250;
@@ -124,6 +122,19 @@ const STAG_NEXT_PHASE: Record<StagHomePhase, StagHomePhase> = {
   settle: 'sleep',
   sleep: 'sleep',
 };
+/** Run in and settle onto the garden. */
+const STAG_TO_BED_MS = STAG_PHASE_DURATION.runB + STAG_PHASE_DURATION.settle;
+const STAG_RUN_THEN_BED_MS = STAG_PHASE_DURATION.runA + STAG_TO_BED_MS;
+const STAG_FLIGHT_THEN_BED_MS =
+  STAG_PHASE_DURATION.walkToFlight +
+  STAG_PHASE_DURATION.takeoff +
+  STAG_PHASE_DURATION.flap +
+  STAG_PHASE_DURATION.glide +
+  STAG_PHASE_DURATION.landing +
+  STAG_PHASE_DURATION.walkAfterLanding +
+  STAG_TO_BED_MS;
+/** Timer drift allowance so a full wake window still fits the flight. */
+const STAG_BEDTIME_SLACK_MS = 1000;
 
 const STAG_GROUND_PHASES = new Set<StagHomePhase>([
   'runA',
@@ -253,13 +264,17 @@ type Props = {
   containerHeight: number;
   topInset: number;
   /** Shows this species instead of the owned pet (admin preview). */
-  preview?: { speciesId: PixelPetSpeciesId; stage: PixelPetStage };
+  preview?: {
+    speciesId: PixelPetSpeciesId;
+    stage: PixelPetStage;
+    /** Previewed level; scenes stay locked below Lv 2 like a real pet. */
+    level?: number;
+  };
 };
 
 type DepartingGarden = {
   id: number;
   x: number;
-  scaleX: number;
   growthFrame: number;
 };
 
@@ -280,8 +295,10 @@ export function HomePetRoamer({
   const read = useCallback(() => (uid ? readOwnedPixelPet(uid) : null), [uid]);
   const owned = useSyncExternalStore(subscribeOwnedPixelPet, read, read);
   const pet = preview ?? owned;
-  // Sleep backdrops unlock at level 2; the admin preview always shows them.
-  const sceneUnlocked = !!preview || (owned?.level ?? 0) >= SLEEP_SCENE_LEVEL;
+  // Sleep backdrops unlock at level 2; the admin preview follows its level.
+  const sceneUnlocked =
+    (preview ? (preview.level ?? SLEEP_SCENE_LEVEL) : (owned?.level ?? 0)) >=
+    SLEEP_SCENE_LEVEL;
   const species = pixelPetSpecies(pet?.speciesId ?? '');
   const {
     asleep: timedAsleep,
@@ -325,6 +342,8 @@ export function HomePetRoamer({
   const [beat, setBeat] = useState<RoamBeat | null>(null);
   const [garudaLanded, setGarudaLanded] = useState(false);
   const [stagPhase, setStagPhase] = useState<StagHomePhase>('runA');
+  const stagPhaseRef = useRef(stagPhase);
+  stagPhaseRef.current = stagPhase;
   const [stagGaitCycleMs, setStagGaitCycleMs] = useState<number>();
   const [foxPhase, setFoxPhase] = useState<NineTailFoxHomePhase>('walk');
   const [sleepSceneCycle, setSleepSceneCycle] = useState(0);
@@ -385,8 +404,7 @@ export function HomePetRoamer({
     active &&
     !reducedMotion &&
     range > 0 &&
-    dragPhase === 'roam' &&
-    !timedAsleep;
+    dragPhase === 'roam';
   const foxActive =
     fox &&
     !!pet &&
@@ -401,7 +419,9 @@ export function HomePetRoamer({
   const garudaSleepPose = garudaSleeping && garudaLanded;
   const runeWolfSleeping = isRuneWolfHomeSleeping(runeWolf, beat);
   const stagSleeping = stag && stagPhase === 'sleep';
-  const timedSleepPose = timedAsleep && !(garudaSleeping && !garudaLanded);
+  // The stag finishes its walk to the garden before lying down.
+  const timedSleepPose =
+    timedAsleep && !stag && !(garudaSleeping && !garudaLanded);
   const sleeping =
     timedSleepPose || stagSleeping || garudaSleepPose || runeWolfSleeping;
   // Keep the same responder while waking the pet during an active touch.
@@ -449,15 +469,19 @@ export function HomePetRoamer({
       growthFrame > 0
         ? {
             id: ++gardenDepartureId.current,
-            x: x.value,
-            scaleX: heading.value * facing,
+            x: sleepTarget.value,
             growthFrame,
           }
         : null,
     );
-    chooseNextSleepSpot();
     setStagPhase('runA');
-  }, [chooseNextSleepSpot, facing, heading, x]);
+  }, [sleepTarget]);
+
+  // Pick the next bed only once the old garden has handed over to its
+  // withering copy; moving it earlier makes the live garden jump for a frame.
+  useEffect(() => {
+    if (stag && stagPhase === 'runA') chooseNextSleepSpot();
+  }, [stag, stagPhase, chooseNextSleepSpot]);
 
   const wakeFox = useCallback(() => {
     if (foxSleeping) {
@@ -642,8 +666,10 @@ export function HomePetRoamer({
     foxRotation.value = 0;
     foxRunStride.value = 0;
     setDragPhase('roam');
-    if (stag) setStagPhase(timedAsleepRef.current ? 'sleep' : 'runB');
-    else if (fox) setFoxPhase(timedAsleepRef.current ? 'sleep' : 'walk');
+    // A dropped stag walks back to its garden; bedtime then continues to sleep.
+    if (stag) {
+      if (dragPhaseRef.current !== 'roam') setStagPhase('runB');
+    } else if (fox) setFoxPhase(timedAsleepRef.current ? 'sleep' : 'walk');
     else if (flier) setWalking(true);
   }, [
     airHeight,
@@ -829,7 +855,7 @@ export function HomePetRoamer({
   }, [stag, pet, chooseNextSleepSpot]);
 
   useEffect(() => {
-    if (!stag || stagPhase !== 'sleep') {
+    if (!stag || !['settle', 'sleep'].includes(stagPhase)) {
       gardenElapsedMs.current = 0;
       gardenStartedAt.current = null;
       return;
@@ -847,11 +873,36 @@ export function HomePetRoamer({
   useEffect(() => {
     if (!stagActive || stagPhase === 'sleep') return;
     const timer = setTimeout(() => {
-      const next = STAG_NEXT_PHASE[stagPhase];
-      setStagPhase(next === 'sleep' && !timedAsleepRef.current ? 'runA' : next);
+      let next = STAG_NEXT_PHASE[stagPhase];
+      const left = awakeTimeLeft() + STAG_BEDTIME_SLACK_MS;
+      // Only take off when the whole flight still ends on the garden in time;
+      // after landing, run another lap while there is time to spare.
+      if (next === 'walkToFlight' && left < STAG_FLIGHT_THEN_BED_MS)
+        next = 'runB';
+      else if (stagPhase === 'walkAfterLanding' && left >= STAG_RUN_THEN_BED_MS)
+        next = 'runA';
+      if (next === 'sleep') {
+        // Lie down exactly on the garden even if the walk-in timer ran early.
+        x.value = sleepTarget.value;
+      }
+      setStagPhase(next);
     }, STAG_PHASE_DURATION[stagPhase]);
     return () => clearTimeout(timer);
-  }, [stagActive, stagPhase]);
+  }, [awakeTimeLeft, stagActive, stagPhase, sleepTarget, x]);
+
+  // Bedtime: head for the garden instead of dozing off mid-lap. Without
+  // motion, lie down where it stands and grow the garden there.
+  useEffect(() => {
+    if (!stag || !timedAsleep) return;
+    const phase = stagPhaseRef.current;
+    if (!stagActive) {
+      if (phase === 'sleep') return;
+      sleepTarget.value = x.value;
+      setStagPhase('sleep');
+    } else if (phase === 'runA' || phase === 'walkToFlight') {
+      setStagPhase('runB');
+    }
+  }, [stag, timedAsleep, stagActive, sleepTarget, x]);
 
   useEffect(() => {
     if (!fox || !pet) {
@@ -1318,7 +1369,9 @@ export function HomePetRoamer({
       {
         translateX: runeWolf
           ? runeWolfSleepAnchorX(x.value, width, horizontalInset)
-          : x.value,
+          : stag
+            ? sleepTarget.value
+            : x.value,
       },
       { translateY: laneTop + groundY },
     ],
@@ -1348,10 +1401,11 @@ export function HomePetRoamer({
 
   useEffect(() => {
     if (!timedAsleep) return;
-    cancelDrag();
+    // The stag's bedtime effect keeps its flight going; only end a drag.
+    if (!stag || dragPhaseRef.current !== 'roam') cancelDrag();
     setWalking(true);
-    if (stag) setStagPhase('sleep');
-    else if (fox) setFoxPhase('sleep');
+    if (stag) return;
+    if (fox) setFoxPhase('sleep');
     else setBeat({ kind: 'trick', clip: 'idle', ms: Infinity });
   }, [timedAsleep, cancelDrag, stag, fox]);
 
@@ -1443,6 +1497,15 @@ export function HomePetRoamer({
                   : undefined
             }
           />
+        </Animated.View>
+      )}
+      {sceneUnlocked && stag && ['settle', 'sleep'].includes(stagPhase) && (
+        <Animated.View
+          pointerEvents="none"
+          testID="home-pet-stag-sleep-garden"
+          style={[styles.pet, sleepSceneAnchor]}
+        >
+          <HomeSleepGarden visible active={active} />
         </Animated.View>
       )}
       {sceneUnlocked && runeWolf && departingWolfScene && (
@@ -1542,7 +1605,6 @@ export function HomePetRoamer({
               transform: [
                 { translateX: departingGarden.x },
                 { translateY: laneTop + groundY },
-                { scaleX: departingGarden.scaleX },
               ],
             },
           ]}
@@ -1581,9 +1643,6 @@ export function HomePetRoamer({
             (stag ? styles.stagPetLifted : styles.petLifted),
         ]}
       >
-        {sceneUnlocked && stag && (
-          <HomeSleepGarden visible={sleeping} active={active} />
-        )}
         <PixelPetSprite
           species={species}
           stage={pet.stage}

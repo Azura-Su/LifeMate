@@ -57,6 +57,7 @@ import {
   PET_DRAG_ATLASES,
   PET_DRAG_ATLAS_READY,
   PET_HOME_ATLASES,
+  PET_HOME_MOVE_ATLASES,
   NINE_TAIL_FOX_HOME_ATLAS,
   PET_REST_ATLASES,
 } from './petArt';
@@ -277,6 +278,7 @@ function HomePetMotionSprite({
   });
   const look = STAGE_LOOK[stage];
   const art = PET_ART[species.id];
+  const moveAtlas = clip === 'move' ? PET_HOME_MOVE_ATLASES[species.id] : null;
   const wolfGaitStyle = useAnimatedStyle(() => {
     if (species.id !== 'rune_wolf' || clip !== 'move' || !loopMovement)
       return {};
@@ -305,11 +307,13 @@ function HomePetMotionSprite({
           ]}
         >
           <PixelPetAtlas
-            key={species.id}
+            key={`${species.id}:${moveAtlas ? 'move' : 'home'}`}
             source={
-              PET_HOME_ATLASES[
-                species.id as Exclude<PixelPetSpecies['id'], 'celestial_stag'>
-              ]
+              moveAtlas
+                ? moveAtlas
+                : PET_HOME_ATLASES[
+                    species.id as Exclude<PixelPetSpecies['id'], 'celestial_stag'>
+                  ]
             }
             size={size}
             clip={clip}
@@ -326,7 +330,10 @@ function HomePetMotionSprite({
                 <Image source={art} style={local.art} resizeMode="contain" />
               ) : null
             }
-            blendFrames={species.id !== 'rune_wolf' || clip !== 'move'}
+            blendFrames={
+              (species.id !== 'rune_wolf' && species.id !== 'qilin') ||
+              clip !== 'move'
+            }
           />
         </Animated.View>
       </View>

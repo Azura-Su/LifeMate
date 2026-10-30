@@ -127,6 +127,21 @@
       "prompt": "Corrected ground poses with the same rounded chest, deep belly, sturdy legs, head size and haunches as the corrected Stag reference. Whole-character redraws, fixed camera and full-body containment; folded wings for ground motion, clear full wing articulation for flight.",
       "packing": "Global silhouette segmentation; register the head with normalized source template 50,125,110,170; shared pixel scale0.85 and anchor(80,135). scripts/assemble-celestial-stag-motion.py closes loops and copies exact endpoint poses between atlases. Home uses an isolated motion viewport at7/6 lane size to preserve body size and full wing extents."
     },
+    "homeGroundAtlasV3": {
+      "file": "celestial_stag_ground_v3.png",
+      "layout": "4 columns ×4 rows; 8-beat cycle packed into 16 slots;1280×1280 transparent PNG",
+      "reference": "../celestial_stag.png",
+      "generatedSources": [
+        "Gemini_Generated_Image_if3grqif3grqif3g.png",
+        "Gemini_Generated_Image_ljtih6ljtih6ljti.png",
+        "Gemini_Generated_Image_ynk8xoynk8xoynk8.png",
+        "Gemini_Generated_Image_otyn9ootyn9ootyn.png",
+        "Gemini_Generated_Image_jlcuefjlcuefjlcu.png",
+        "Gemini_Generated_Image_vg3sqovg3sqovg3s.png"
+      ],
+      "note": "Six individual Gemini pose edits used the original stag artwork as visual identity reference. Six distinct leg poses keep the same extended-wing silhouette; two beats hold contact poses instead of mixing in folded-wing designs. Alpha matte removal keys the checker tones and edge-connected background; the source frames are retained under assets/pixelPet/sourceFrames/celestial_stag_ground_v3/.",
+      "packing": "scripts/key-celestial-stag-ground-frames.py removes the generated checker matte and crops each whole-body frame. scripts/pack-celestial-stag-ground-v3.py scales to224px character height, aligns the hoof baseline at281px, and uses nearest-neighbor resizing to preserve crisp pixels."
+    },
     "homeFlightAtlas": {
       "file": "celestial_stag_flight_v2.png",
       "layout": "4 columns ×4 rows;16 complete character poses;1280×1280 transparent PNG",
@@ -692,6 +707,24 @@
       "layout": "8 columns x 4 rows; 32 frames; 2560x1280 RGBA; 320px cells",
       "durationMs": 8000,
       "sequence": "Afternoon to night to dawn/day; leaves age and fall, tree dries and dies, grass becomes desert sand, wind disperses the entire scene; transparent final frame."
+    }
+  ],
+  "homeMoveVariants": [
+    {
+      "id": "qilin",
+      "file": "home_qilin_move.png",
+      "reference": "../qilin.png",
+      "sourceAtlas": "home_qilin.png",
+      "generatedFrames": [
+        "../sourceFrames/qilin/move-contact.png",
+        "../sourceFrames/qilin/move-extension.png",
+        "../sourceFrames/qilin/move-landing.png",
+        "../sourceFrames/qilin/move-tuck.png"
+      ],
+      "generator": "Built-in image_gen with the original Qilin sprite attached as the identity reference; packed by scripts/build-home-pet-move-atlas.py",
+      "layout": "4×4 1024px atlas; first 8 row-major cells are the movement loop, remaining cells transparent; 256px per cell.",
+      "poseOrder": "Alternates four existing hoof-step poses with contact, extension, landing and tucked-gallop full-body poses. Shared 256px cell, centered x anchor and aligned hoof baseline.",
+      "qualityNotes": "The attempted Black Tortoise generated pose was rejected because the shell motifs and rendering style changed. No generated tortoise frame was shipped."
     }
   ]
 }

@@ -532,16 +532,9 @@ it('lands a woken Stag into runB and keeps it awake for the full 20 seconds', ()
     act(() => jest.advanceTimersByTime(180));
     expect(sprite()).toMatchObject({ walking: true, sleeping: false });
     advance('runB');
+    expect(sprite().sleeping).toBe(false);
+    // Lies down as soon as it reaches the garden, without standing around.
     advance('settle');
-    expect(sprite().sleeping).toBe(false);
-    const remaining =
-      20_000 -
-      180 -
-      CELESTIAL_STAG_HOME_PHASE_DURATION.runB -
-      CELESTIAL_STAG_HOME_PHASE_DURATION.settle;
-    act(() => jest.advanceTimersByTime(remaining - 1));
-    expect(sprite().sleeping).toBe(false);
-    act(() => jest.advanceTimersByTime(1));
     expect(sprite().sleeping).toBe(true);
   } finally {
     view.unmount();
@@ -579,8 +572,18 @@ it('completes the Stag flight and grounded approach before sleeping at 20 second
     expect(sprite()).toMatchObject({ walking: true, sleeping: false });
     if (sprite().gaitCycleDurationMs > 0)
       expect(sprite().gaitCycleDurationMs).toBeGreaterThanOrEqual(1232 - 0.01);
-    advance('settle');
+    // The fixed sleep spot begins growing its scene as the pet enters settle.
+    expect(screen.getByTestId('home-pet-stag-sleep-garden')).toBeTruthy();
+    act(() =>
+      jest.advanceTimersByTime(CELESTIAL_STAG_HOME_PHASE_DURATION.settle / 2),
+    );
+    expect(sprite().sleeping).toBe(false);
+    expect(screen.getByTestId('home-pet-stag-sleep-garden')).toBeTruthy();
+    act(() =>
+      jest.advanceTimersByTime(CELESTIAL_STAG_HOME_PHASE_DURATION.settle / 2),
+    );
     expect(sprite().sleeping).toBe(true);
+    expect(screen.getByTestId('home-pet-stag-sleep-garden')).toBeTruthy();
     fireEvent(screen.getByLabelText(/Đánh thức linh thú/), 'accessibilityTap');
     expect(sprite().sleeping).toBe(false);
   } finally {
@@ -600,8 +603,8 @@ it('keeps the sleeping pose and garden growth progress when Home loses focus', (
   const sprite = () => screen.UNSAFE_getByType(PixelPetSprite).props;
 
   try {
+    // The garden starts growing as the stag walks in during settle.
     for (const [, duration] of phases) advance(duration);
-    advance(CELESTIAL_STAG_GARDEN_GROWTH_MS / 2);
     expect(sprite().sleeping).toBe(true);
 
     view.rerender(
@@ -637,10 +640,37 @@ it('keeps the sleeping pose and garden growth progress when Home loses focus', (
       .UNSAFE_getAllByType(HomeSleepGarden)
       .find((garden) => garden.props.mode === 'withering');
     expect(witheringGarden?.props.growthFrame).toBe(
-      celestialStagGardenFrameAt(CELESTIAL_STAG_GARDEN_GROWTH_MS / 2),
+      celestialStagGardenFrameAt(CELESTIAL_STAG_HOME_PHASE_DURATION.settle),
     );
   } finally {
     view.unmount();
+    jest.useRealTimers();
+  }
+});
+
+it('lays the Stag down on its garden when the wake window ends mid-lap', () => {
+  jest.useFakeTimers();
+  const random = jest.spyOn(Math, 'random').mockReturnValue(0.2);
+  const view = renderRoamer({ uid: 'stag', active: true });
+  const translateX = (testID: string) =>
+    (
+      StyleSheet.flatten(screen.getByTestId(testID).props.style)
+        .transform as { translateX?: number }[]
+    ).find((item) => 'translateX' in item)?.translateX;
+  try {
+    // Stretch the lap so the window closes mid-flight rather than on the garden.
+    act(() => jest.advanceTimersByTime(4_000));
+    act(() => jest.advanceTimersByTime(4_000));
+    act(() => jest.advanceTimersByTime(12_000));
+    expect(screen.UNSAFE_getByType(PixelPetSprite).props.sleeping).toBe(false);
+    for (let i = 0; i < 40; i++) act(() => jest.advanceTimersByTime(500));
+    expect(screen.UNSAFE_getByType(PixelPetSprite).props.sleeping).toBe(true);
+    expect(translateX('home-pet-drag-roam')).toBe(
+      translateX('home-pet-stag-sleep-garden'),
+    );
+  } finally {
+    view.unmount();
+    random.mockRestore();
     jest.useRealTimers();
   }
 });
@@ -745,6 +775,17 @@ describe('Home wake window', () => {
           topInset={59}
         />,
       );
+      // Half-second steps delay each Stag phase, and a lap cut short by the
+      // window still lands and walks onto the garden before lying down.
+      const finishStagWalkToGarden = () => {
+        if (speciesId !== 'celestial_stag') return;
+        for (
+          let i = 0;
+          i < 30 && !screen.UNSAFE_getByType(PixelPetSprite).props.sleeping;
+          i++
+        )
+          act(() => jest.advanceTimersByTime(500));
+      };
       try {
         for (let i = 0; i < 39; i++) {
           act(() => jest.advanceTimersByTime(500));
@@ -780,6 +821,7 @@ describe('Home wake window', () => {
             true,
           );
         }
+        finishStagWalkToGarden();
         expect(screen.UNSAFE_getByType(PixelPetSprite).props.sleeping).toBe(
           true,
         );
@@ -811,6 +853,7 @@ describe('Home wake window', () => {
           );
           act(() => jest.advanceTimersByTime(1050));
         }
+        finishStagWalkToGarden();
         expect(screen.UNSAFE_getByType(PixelPetSprite).props.sleeping).toBe(
           true,
         );

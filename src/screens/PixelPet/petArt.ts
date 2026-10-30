@@ -115,6 +115,13 @@ export const PET_HOME_ATLASES: Record<
   garuda: require('../../../assets/pixelPet/animations/home_garuda.png'),
 };
 
+/** Expanded full-body gait sheets; other clips keep the species Home atlas. */
+export const PET_HOME_MOVE_ATLASES: Partial<
+  Record<PixelPetSpeciesId, ImageSourcePropType>
+> = {
+  qilin: require('../../../assets/pixelPet/animations/home_qilin_move.png'),
+};
+
 export const PET_DRAG_ATLAS_READY: Record<PixelPetSpeciesId, boolean> = {
   nine_tail_fox: true,
   qilin: true,
@@ -137,7 +144,7 @@ export const PET_DRAG_ATLAS_READY: Record<PixelPetSpeciesId, boolean> = {
 /** Whole-body 64-frame atlas for the admin-only Celestial Stag. */
 export const CELESTIAL_STAG_ATLAS = require('../../../assets/pixelPet/animations/celestial_stag.png');
 /** Separate whole-body gait loops used while the admin's Stag roams Home. */
-export const CELESTIAL_STAG_GROUND_ATLAS = require('../../../assets/pixelPet/animations/celestial_stag_ground_v2.png');
+export const CELESTIAL_STAG_GROUND_ATLAS = require('../../../assets/pixelPet/animations/celestial_stag_ground_v3.png');
 export const CELESTIAL_STAG_FLIGHT_ATLAS = require('../../../assets/pixelPet/animations/celestial_stag_flight_v2.png');
 /** Full-body pose tracks that bridge the ground and flight atlases. */
 export const CELESTIAL_STAG_TAKEOFF_ATLAS = require('../../../assets/pixelPet/animations/celestial_stag_takeoff_v2.png');

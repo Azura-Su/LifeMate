@@ -14,6 +14,7 @@ const FRAME_TRACKS: Record<PixelPetClipId, readonly number[]> = {
 // The wolf uses a mirrored six-pose stride. Reversing the middle poses keeps
 // the gait continuous instead of snapping from the last paw position to frame 0.
 const RUNE_WOLF_MOVE_TRACK = [4, 5, 6, 7, 6, 5] as const;
+const QILIN_MOVE_TRACK = [0, 1, 2, 3, 4, 5, 6, 7] as const;
 // Sit, lift muzzle and hold the open-mouth howl, then settle back down.
 const RUNE_WOLF_HOWL_TRACK = [12, 13, 13, 13, 14, 15] as const;
 
@@ -39,6 +40,7 @@ export function homePetFrameTrack(
   clip: PixelPetClipId,
   speciesId?: HomeSpeciesId,
 ) {
+  if (clip === 'move' && speciesId === 'qilin') return QILIN_MOVE_TRACK;
   if (clip === 'skill' && speciesId === 'rune_wolf')
     return RUNE_WOLF_HOWL_TRACK;
   if (clip === 'move' && speciesId === 'rune_wolf') return RUNE_WOLF_MOVE_TRACK;

@@ -26,13 +26,9 @@ export const CELESTIAL_STAG_HOME_PHASE_DURATION = {
 } as const;
 export type CelestialStagHomePhase =
   keyof typeof CELESTIAL_STAG_HOME_PHASE_DURATION;
-/**
- * Walk cycle through the 15 unique ground poses (cell 15 repeats cell 0),
- * ordered so each leg pose flows into the nearest next one. Cells are
- * registered to a shared torso and hoof line, so the loop does not slide.
- */
+/** Eight walk beats use six Gemini-authored leg poses, with held contacts. */
 export const CELESTIAL_STAG_MOVEMENT_FRAMES = [
-  0, 12, 13, 2, 1, 7, 14, 3, 11, 9, 8, 4, 10, 6, 5,
+  0, 1, 2, 3, 4, 5, 4, 1,
 ] as const;
 export type CelestialStagFlightPhase = 'takeoff' | 'flap' | 'glide' | 'landing';
 export function celestialStagFlightPlayback(

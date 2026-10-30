@@ -1,10 +1,17 @@
 import {
+  CELESTIAL_STAG_MOVEMENT_FRAMES,
   CELESTIAL_STAG_FLAP_CYCLE_MS,
   CELESTIAL_STAG_HOME_PHASE_DURATION,
   celestialStagFlightPlayback,
   celestialStagGardenFrameAt,
   CELESTIAL_STAG_GARDEN_GROWTH_MS,
 } from '../celestialStagAtlas';
+
+it('uses an eight-beat Home walk with six authored poses and contact holds', () => {
+  expect(CELESTIAL_STAG_MOVEMENT_FRAMES).toHaveLength(8);
+  expect(new Set(CELESTIAL_STAG_MOVEMENT_FRAMES).size).toBe(6);
+  expect(CELESTIAL_STAG_MOVEMENT_FRAMES).toEqual([0, 1, 2, 3, 4, 5, 4, 1]);
+});
 
 it('finishes the active Home sequence in 20 seconds before sleeping', () => {
   const duration = Object.values(CELESTIAL_STAG_HOME_PHASE_DURATION)

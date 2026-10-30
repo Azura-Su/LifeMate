@@ -20,11 +20,16 @@ tRNS (some image inspectors display the unused transparent RGB colour).
 
 One decoded1024×1024 RGBA atlas is approximately4MiB; this is an estimate, not
 a measured application memory profile. There is no preload of all species.
-Locomotion has four authored poses. Reanimated cross-fades most of each pose
-interval and interpolates body lift on the UI thread at the display refresh
-rate (60Hz target on a 60Hz display). This is rendered-frame rate, not 60 unique
-hand-authored poses per second. Inactive/reduced-motion views show the neutral
-frame; loading/errors show the original art/pixel rig.
+Most locomotion clips use four authored poses. Qilin has a dedicated 8-pose
+movement atlas: four original gait poses alternate with four full-body poses
+generated against `assets/pixelPet/qilin.png`, normalized with
+`scripts/build-home-pet-move-atlas.py`. The Qilin movement track switches
+complete silhouettes instead of cross-fading, so the legs do not double during
+the extended gait. Other clips still use the original 4×4 atlas. Reanimated
+samples poses on the UI thread at the display refresh rate (60Hz target on a
+60Hz display). This is rendered-frame rate, not 60 unique authored poses per
+second. Inactive/reduced-motion views show the neutral frame; loading/errors
+show the original art/pixel rig.
 
 The admin-only Celestial Stag is separate from the 15-pet pool: its
 `celestial_stag.png` atlas is2048×2048, with8 columns ×8 rows of256px cells
@@ -36,17 +41,18 @@ not assemble or rotate separate wing, head, or tail layers.
 One decoded base stag atlas is approximately16MiB RGBA. Home uses the smaller
 gait atlases below and mounts only the atlas for the current gait.
 
-Home uses corrected `_v2` full-body atlases for the Stag's ground trot, flight
-loop, takeoff, and landing. All four sheets are 4×4, with16 poses each and a
-consistent rounded chest, belly and haunches. Complete poses are registered
-using their face anchor at one shared pixel scale, so raised wings do not
-shrink or displace the body. The generated pose sheets are
-segmented globally before packing so wings and tails that cross nominal cell
-edges remain intact. One shared scale per sheet and transparent gutters keep
-the character size consistent and prevent adjacent poses from bleeding into a
-frame. Takeoff progresses from folded wings to airborne; the glide settles on
-spread wings; landing starts with spread wings, extends the hooves, then folds
-the wings before ground locomotion resumes. The 20-second Home sequence shares
+Home uses the `_v3` full-body atlas for the Stag's ground trot and corrected
+`_v2` atlases for flight, takeoff, and landing. All sheets are 4×4, with16
+slots each. The v2 flight-transition sheets retain the consistent rounded
+chest, belly and haunches. Their complete poses are registered using the face
+anchor at one shared pixel scale, so raised wings do not shrink or displace the
+body. The v2 generated pose sheets are segmented globally before packing so
+wings and tails that cross nominal cell edges remain intact. One shared scale
+per sheet and transparent gutters keep the character size consistent and
+prevent adjacent poses from bleeding into a frame. Takeoff progresses from
+folded wings to airborne; the glide settles on spread wings; landing starts
+with spread wings, extends the hooves, then folds the wings before ground
+locomotion resumes. The 20-second Home sequence shares
 its takeoff, glide and landing clock with pose playback. Flapping ends at a
 complete wingbeat; exact copies of boundary poses bridge the atlases. These
 whole-body poses switch without cross-fading to avoid ghosted
@@ -65,6 +71,16 @@ a gentle breathing loop. Walking reuses the folded-wing
 full-body ground atlas at a slower cadence. A tap wakes it and starts the
 sequence again; its next sleeping location is sampled anywhere along the bar.
 The garden atlas is packed with `scripts/pack-home-sleep-garden-atlas.py`.
+
+The Stag's ground trot uses six individually generated, whole-body pixel poses
+based on the original `celestial_stag.png`. The eight-beat loop holds two hoof
+contact poses to keep the wing silhouette consistent instead of mixing in
+folded-wing variants. The generator removes Gemini's baked checker matte by
+sampling its neutral edge tones and aligns each pose to one shared scale and
+hoof baseline. `scripts/key-celestial-stag-ground-frames.py` keys and crops
+source frames; `scripts/pack-celestial-stag-ground-v3.py` packs the 4×4 atlas
+with nearest-neighbor scaling. The prior ground atlas remains bundled as a
+rollback option. Full source names and provenance are in `provenance.json`.
 
 Waking the Stag leaves a separate scene at the previous sleeping coordinate.
 `home_sleep_garden_decay.png` plays16 complete scene frames from green leaves

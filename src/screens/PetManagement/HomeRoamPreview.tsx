@@ -3,7 +3,8 @@ import { useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fontSize, radius, spacing, typography } from '../../theme';
-import type { PixelPetSpeciesId, PixelPetStage } from '../../types/pixelPet';
+import { stageForLevel } from '../../services/pixelPet/pixelPetGuide';
+import type { PixelPetSpeciesId } from '../../types/pixelPet';
 import { useScreenActive } from '../../hooks/useScreenActive';
 import { HomePetRoamer } from '../Home/HomePetRoamer';
 
@@ -17,19 +18,25 @@ const TABS = [
 /** Full-screen mock of Home so admins can watch a pet roam the tab bar. */
 export function HomeRoamPreview({
   speciesId,
-  stage,
+  level,
+  onLevelChange,
   name,
   onClose,
 }: {
   speciesId: PixelPetSpeciesId;
-  stage: PixelPetStage;
+  level: number;
+  onLevelChange: (level: number) => void;
   name: string;
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const active = useScreenActive();
   const [lane, setLane] = useState({ width: 0, height: 0 });
-  const preview = useMemo(() => ({ speciesId, stage }), [speciesId, stage]);
+  const stage = stageForLevel(level);
+  const preview = useMemo(
+    () => ({ speciesId, stage, level }),
+    [speciesId, stage, level],
+  );
   return (
     <Modal animationType="slide" onRequestClose={onClose}>
       <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -38,6 +45,27 @@ export function HomeRoamPreview({
             <Text style={styles.eyebrow}>XEM THỬ TRÊN HOME</Text>
             <Text style={typography.heading}>{name}</Text>
           </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Giảm cấp xem thử"
+            disabled={level <= 1}
+            onPress={() => onLevelChange(level - 1)}
+            style={[styles.close, level <= 1 && styles.disabled]}
+          >
+            <Feather name="minus" size={18} color={colors.ink} />
+          </Pressable>
+          <Text accessibilityLiveRegion="polite" style={styles.level}>
+            Lv {level}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Tăng cấp xem thử"
+            disabled={level >= 10}
+            onPress={() => onLevelChange(level + 1)}
+            style={[styles.close, level >= 10 && styles.disabled]}
+          >
+            <Feather name="plus" size={18} color={colors.ink} />
+          </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Đóng xem thử trên Home"
@@ -117,6 +145,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.surface,
   },
+  level: {
+    minWidth: 40,
+    textAlign: 'center',
+    fontSize: fontSize.small,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  disabled: { opacity: 0.4 },
   lane: { flex: 1, padding: spacing.md },
   hint: {
     ...typography.small,

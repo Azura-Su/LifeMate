@@ -12,6 +12,13 @@ it('maps Home clips to the authored pose rows', () => {
   expect(homePetFrameTrack('skill')).toEqual([12, 13, 14, 15]);
 });
 
+it('maps the expanded Qilin gait to eight distinct pose cells', () => {
+  expect(homePetFrameTrack('move', 'qilin')).toEqual([
+    0, 1, 2, 3, 4, 5, 6, 7,
+  ]);
+  expect(homePetFrameTrack('happy', 'qilin')).toEqual([8, 9, 10, 11]);
+});
+
 it('paces Home locomotion to match each species anatomy', () => {
   expect(homePetPlayback('white_tiger', 'move', true)).toEqual({
     durationMs: 500,

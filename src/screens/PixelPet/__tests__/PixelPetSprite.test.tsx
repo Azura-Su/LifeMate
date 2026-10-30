@@ -16,6 +16,7 @@ import {
   PET_DRAG_ATLAS_READY,
   PET_DRAG_ATLASES,
   PET_HOME_ATLASES,
+  PET_HOME_MOVE_ATLASES,
   PET_REST_ATLASES,
 } from '../petArt';
 import { CELESTIAL_STAG_LANDING_FRAMES } from '../../../services/pixelPet/celestialStagAtlas';
@@ -69,6 +70,43 @@ it('renders a species-authored Home atlas for a roaming phoenix', () => {
     source: PET_HOME_ATLASES.phoenix,
     frameTrack: [4, 5, 6, 7],
     loop: true,
+  });
+});
+
+it('uses the 8-pose Qilin gait atlas only during Home movement', () => {
+  render(
+    <PixelPetSprite
+      species={PIXEL_PET_BY_ID.qilin}
+      stage="juvenile"
+      size={120}
+      clip="move"
+      loopMovement
+      homeMotion
+    />,
+  );
+
+  expect(screen.UNSAFE_getByType(PixelPetAtlas).props).toMatchObject({
+    source: PET_HOME_MOVE_ATLASES.qilin,
+    frameTrack: [0, 1, 2, 3, 4, 5, 6, 7],
+    loop: true,
+    blendFrames: false,
+  });
+});
+
+it('keeps Qilin expression clips on its original Home atlas', () => {
+  render(
+    <PixelPetSprite
+      species={PIXEL_PET_BY_ID.qilin}
+      stage="juvenile"
+      size={120}
+      clip="happy"
+      homeMotion
+    />,
+  );
+
+  expect(screen.UNSAFE_getByType(PixelPetAtlas).props).toMatchObject({
+    source: PET_HOME_ATLASES.qilin,
+    frameTrack: [8, 9, 10, 11],
   });
 });
 
@@ -273,6 +311,19 @@ it('bundles a dedicated 4×4 Home motion atlas for all 15 user pets', () => {
     expect(bytes[25]).toBe(3);
     expect(statSync(file).size).toBeLessThan(500_000);
   }
+});
+
+it('bundles the authored 8-pose Qilin Home gait atlas', () => {
+  const file = join(
+    __dirname,
+    '../../../../assets/pixelPet/animations/home_qilin_move.png',
+  );
+  const bytes = readFileSync(file);
+  expect(bytes.readUInt32BE(16)).toBe(1024);
+  expect(bytes.readUInt32BE(20)).toBe(1024);
+  expect(bytes[24]).toBe(8);
+  expect(bytes[25]).toBe(3);
+  expect(statSync(file).size).toBeLessThan(700_000);
 });
 
 it('renders the existing rig for a drag phase before its atlas is ready', () => {

@@ -203,3 +203,15 @@ it('opens a Home preview of the pet from its detail page', async () => {
   );
   expect(screen.queryByText('XEM THỬ TRÊN HOME')).toBeNull();
 });
+it('lists the admin Linh Lộc without revoke and previews each level', async () => {
+  render(<PetManagementScreen {...props} />);
+  fireEvent.press(
+    await screen.findByLabelText('Mở chi tiết Thiên Dực Linh Lộc'),
+  );
+  expect(screen.getByText('Lv 1 · Ấu thể · từ 0 EXP')).toBeTruthy();
+  fireEvent.press(screen.getByLabelText('Xem cấp 8'));
+  expect(screen.getByText('Lv 8 · Thăng hoa · từ 630 EXP')).toBeTruthy();
+  expect(screen.getByText('Ngũ Sắc Thiên Hà')).toBeTruthy();
+  fireEvent.press(screen.getByLabelText('Quay về danh sách linh thú'));
+  expect(screen.queryByLabelText('Thu hồi Thiên Dực Linh Lộc')).toBeNull();
+});
