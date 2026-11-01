@@ -1,5 +1,6 @@
 import type { PixelPetSpeciesId, PixelPetStage } from '../../types/pixelPet';
 import { pixelPetSpecies } from '../pixelPet/pixelPetCatalog';
+import { LEVEL_THRESHOLDS } from '../pixelPet/pixelPetGuide';
 import { requestAdmin } from './userManagement';
 
 export type ManagedPet = {
@@ -61,7 +62,7 @@ export function parsePetInventory(value: unknown): PetInventory {
             !count(p.adoption.totalExp) ||
             !Number.isInteger(p.adoption.level) ||
             p.adoption.level < 1 ||
-            p.adoption.level > 10 ||
+            p.adoption.level > LEVEL_THRESHOLDS.length ||
             !['hatchling', 'juvenile', 'ascended'].includes(p.adoption.stage)),
     )
   )

@@ -31,7 +31,10 @@ import {
   CELESTIAL_STAG_ID,
   isExtraClip,
 } from '../../services/pixelPet/celestialStagPuppet';
-import type { CelestialStagFlightPhase } from '../../services/pixelPet/celestialStagAtlas';
+import type {
+  CelestialStagFlightPhase,
+  CelestialStagHomePhase,
+} from '../../services/pixelPet/celestialStagAtlas';
 import {
   NINE_TAIL_FOX_HOME_FRAME_TRACKS,
   nineTailFoxHomePlayback,
@@ -78,6 +81,8 @@ import {
 type Props = {
   species: PixelPetSpecies;
   stage: PixelPetStage;
+  /** Saved evolution level; used to select level-specific Home art. */
+  level?: number;
   size: number;
   /** Extra clips are only played by the Celestial Stag puppet. */
   clip?: PixelPetAnyClipId;
@@ -95,6 +100,8 @@ type Props = {
   motionCanvasScale?: number;
   /** Select the authored flight transition for the Home sequence. */
   flightPhase?: CelestialStagFlightPhase;
+  /** Authored Home phase for the Celestial Stag's level-specific atlas. */
+  homeStagPhase?: CelestialStagHomePhase;
   onClipEnd?: () => void;
   /** Select authored expression poses without changing saved pet data. */
   expression?: PixelPetExpression | null;
@@ -227,6 +234,8 @@ export function PixelPetSprite({
           gaitCycleDurationMs={gaitCycleDurationMs}
           motionCanvasScale={motionCanvasScale}
           flightPhase={flightPhase}
+          homeStagPhase={props.homeStagPhase}
+          level={props.level}
           expression={props.expression}
           sleeping={sleeping}
           dragPhase={dragPhase}

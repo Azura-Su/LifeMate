@@ -65,8 +65,8 @@ test('levels, stages and skill tiers follow total EXP down as well as up', () =>
   assert.equal(levelForExp(0), 1);
   assert.equal(levelForExp(-50), 1);
   assert.deepEqual(
-    [29, 30, 150, 1000, 99999].map((exp) => levelForExp(exp)),
-    [1, 2, 4, 10, 10],
+    [29, 30, 150, 1000, 4649, 4650, 99999].map((exp) => levelForExp(exp)),
+    [1, 2, 4, 10, 19, 20, 20],
   );
   assert.equal(progressFor(630).stage, 'ascended');
   assert.equal(progressFor(629).stage, 'juvenile');

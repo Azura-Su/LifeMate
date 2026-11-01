@@ -12,11 +12,49 @@ import {
 import {
   CELESTIAL_STAG_SLEEP_GARDEN_ATLAS,
   CELESTIAL_STAG_SLEEP_GARDEN_DECAY_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV04_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV04_DECAY_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV06_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV06_DECAY_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV08_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV08_DECAY_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV10_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV10_DECAY_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV12_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV12_DECAY_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV14_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV14_DECAY_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV16_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV16_DECAY_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV18_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV18_DECAY_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV20_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV20_DECAY_ATLAS,
 } from '../PixelPet/petArt';
 import { PixelPetAtlas } from '../PixelPet/PixelPetAtlas';
 import { usePetPlayback } from '../PixelPet/usePetPlayback';
 
 const SCENE_SIZE = 168;
+const STAG_SLEEP_GARDEN_ATLASES: Record<number, readonly [number, number]> = {
+  4: [CELESTIAL_STAG_SLEEP_GARDEN_LV04_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV04_DECAY_ATLAS],
+  6: [CELESTIAL_STAG_SLEEP_GARDEN_LV06_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV06_DECAY_ATLAS],
+  8: [CELESTIAL_STAG_SLEEP_GARDEN_LV08_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV08_DECAY_ATLAS],
+  10: [CELESTIAL_STAG_SLEEP_GARDEN_LV10_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV10_DECAY_ATLAS],
+  12: [CELESTIAL_STAG_SLEEP_GARDEN_LV12_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV12_DECAY_ATLAS],
+  14: [CELESTIAL_STAG_SLEEP_GARDEN_LV14_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV14_DECAY_ATLAS],
+  16: [CELESTIAL_STAG_SLEEP_GARDEN_LV16_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV16_DECAY_ATLAS],
+  18: [CELESTIAL_STAG_SLEEP_GARDEN_LV18_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV18_DECAY_ATLAS],
+  20: [CELESTIAL_STAG_SLEEP_GARDEN_LV20_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV20_DECAY_ATLAS],
+};
+
+function sleepGardenAtlas(level: number, withering: boolean) {
+  const tier = Math.max(2, Math.min(20, Math.floor(level / 2) * 2));
+  const pair = STAG_SLEEP_GARDEN_ATLASES[tier];
+  if (!pair) return withering
+    ? CELESTIAL_STAG_SLEEP_GARDEN_DECAY_ATLAS
+    : CELESTIAL_STAG_SLEEP_GARDEN_ATLAS;
+  return pair[withering ? 1 : 0];
+}
 
 type Props = {
   visible: boolean;
@@ -24,6 +62,8 @@ type Props = {
   mode?: 'growing' | 'withering';
   /** Freeze this partial growth pose if the pet wakes before the tree is mature. */
   growthFrame?: number;
+  /** Scene atlas is selected from the level the pet had when it went to sleep. */
+  level?: number;
   onFinished?: () => void;
 };
 
@@ -33,6 +73,7 @@ export function HomeSleepGarden({
   active = true,
   mode = 'growing',
   growthFrame = 15,
+  level = 2,
   onFinished,
 }: Props) {
   const withering = mode === 'withering';
@@ -74,7 +115,7 @@ export function HomeSleepGarden({
       {earlyWake && (
         <Animated.View style={[styles.snapshot, snapshotStyle]}>
           <PixelPetAtlas
-            source={CELESTIAL_STAG_SLEEP_GARDEN_ATLAS}
+            source={sleepGardenAtlas(level, false)}
             size={SCENE_SIZE}
             clip="move"
             progress={progress}
@@ -101,11 +142,7 @@ export function HomeSleepGarden({
       >
         <PixelPetAtlas
           key={mode}
-          source={
-            withering
-              ? CELESTIAL_STAG_SLEEP_GARDEN_DECAY_ATLAS
-              : CELESTIAL_STAG_SLEEP_GARDEN_ATLAS
-          }
+          source={sleepGardenAtlas(level, withering)}
           size={sceneSize}
           clip="move"
           progress={progress}

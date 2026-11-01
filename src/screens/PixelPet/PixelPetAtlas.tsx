@@ -41,6 +41,7 @@ export function PixelPetAtlas({
   loopMovement,
   animating,
   fallback,
+  fallbackWhileLoading = true,
   columns = PET_ATLAS.columns,
   rows = PET_ATLAS.rows,
   frameTrack,
@@ -55,6 +56,8 @@ export function PixelPetAtlas({
   loopMovement: boolean;
   animating: boolean;
   fallback: ReactNode;
+  /** False keeps the viewport empty (not the fallback art) for the frame a swapped atlas takes to load. */
+  fallbackWhileLoading?: boolean;
   columns?: number;
   rows?: number;
   /** Optional custom frame sequence for atlas characters with more than 16 poses. */
@@ -108,7 +111,7 @@ export function PixelPetAtlas({
   });
   return (
     <View style={[styles.viewport, { width: size, height: size }]}>
-      {(!ready || failed) && fallback}
+      {((!ready && fallbackWhileLoading) || failed) && fallback}
       {!failed && (
         <Animated.Image
           testID="pixel-pet-atlas"

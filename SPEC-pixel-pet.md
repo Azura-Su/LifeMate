@@ -80,6 +80,126 @@ mỗi ô vẽ lại cả nhân vật ở một tư thế khác, không ghép cá
   Khi Home mất focus trong lúc ngủ, giữ nguyên pose và tiến độ cây; hoạt ảnh ngủ
   và cây tạm dừng rồi tiếp tục từ đúng khung khi quay lại, không phát lại cảnh
   nằm xuống hoặc mọc cây.
+  Thiên Lộc mở khóa **Rừng lông vũ** ở cấp 12: atlas mọc và atlas héo 4×4
+  dùng chung đường đất y=296 và footprint với cảnh cấp 2. Khung héo đầu tiên
+  khớp chính xác khung trưởng thành mọc; khi thức dậy, cảnh héo dùng cấp đã lưu
+  lúc linh thú ngủ. Ảnh gốc, khung tách, atlas và contact sheet nằm trong
+  `assets/pixelPet/sourceFrames/sleep_garden_lv12/`,
+  `assets/pixelPet/animations/` và `tasks/previews/`.
+  Các cảnh cấp 4, 6, 8, 10, 14 và 20 cũng có atlas mọc/héo riêng, cùng footprint
+  288px, đường đất y=296 và 16 ô. Khung cuối được căn từ ảnh cảnh đã chọn; các
+  khung trung gian dùng mặt nạ hé lộ mềm có seed ổn định, còn khung héo tan từ
+  trên xuống. Ảnh nguồn và khung đóng gói nằm trong thư mục `sleep_garden_lvNN/`
+  tương ứng; thuật toán đóng gói ở `scripts/pack-home-sleep-garden-tiers.cjs`.
+  Atlas Cây sao trời cấp 16 được chọn riêng cho Lv16–17. Hai atlas mọc/héo
+  4×4 dùng chung đường đất y=296; ô héo 0 trùng pixel với ô mọc 15. Ảnh nguồn,
+  khung và contact sheet nằm trong `assets/pixelPet/sourceFrames/sleep_garden_lv16/`
+  và `tasks/previews/`. Cung điện sapphire cấp 18 dùng atlas mọc/héo 4×4 riêng
+  cho Lv18–19; cảnh mọc lộ dần từ nền lên, cảnh thức tan từ trên xuống. Hai
+  atlas dùng đường đất y=296; ô héo 0 khớp pixel với ô mọc 15. Ảnh nguồn, các
+  khung và script đóng gói nằm trong
+  `assets/pixelPet/sourceFrames/sleep_garden_lv18/` và `scripts/`.
+  Cấp 1–2 dùng atlas đi/chạy/nhảy/ngủ riêng, giữ thiết kế và màu từ ảnh gốc đã
+  duyệt. Chuyển động nhảy là một nhịp nhảy thấp, không bay đường dài; linh lộc
+  tiếp đất rồi đi/chạy vào đúng điểm ngủ. Atlas ngủ chuyển từ đứng qua hạ thân,
+  nằm và nhắm mắt, sau đó lặp bốn khung thở. Các atlas 4×4, khung 320px và GIF
+  xem trước nằm trong `assets/pixelPet/animations/` và `tasks/previews/`.
+  Atlas cấp 1–2, 3–4 và 5–6 được chọn theo `level` của linh thú; cấp khác giữ
+  nguyên atlas hiện có. Cấp 3–4 dùng bộ đi/chạy/bay/nằm riêng, chung kích thước
+  hiển thị cho hai cấp (xem bảng kích thước theo cấp bên dưới). Mỗi tư thế được
+  tách khỏi contact sheet theo silhouette (không cắt lưới cố định, vì sheet gốc
+  lệch lưới), dùng một scale chung với chiều cao đứng 224px, chân ở y=287 và
+  không chạm mép ô 320px. Chu kỳ vẫn 20 giây, độ cao bay giảm còn 60%, vỗ cánh 3 vòng,
+  lượn 2 giây và dồn thời gian dư vào chạy. Pha settle phát 12 khung nằm xuống;
+  khi ngủ lặp bốn khung thở cuối. PNG nguồn, atlas đóng gói, contact sheet và
+  GIF kiểm tra nằm trong `assets/pixelPet/sourceFrames/celestial_stag_lv34/`
+  và `tasks/previews/`.
+  Cấp 7–8 cũng chọn atlas theo `level` chứ không theo stage, dùng chung kích
+  thước hiển thị cho cả hai cấp. Bộ riêng gồm đi, chạy, bay (cất cánh/vỗ/lượn/
+  hạ cánh) và nằm ngủ; pha settle phát 12 khung đầu, sau đó lặp bốn khung thở.
+  Chu kỳ bay, độ cao và thời lượng Home giữ cấu hình của linh lộc lớn. Cấp 6
+  không chọn bộ Lv7–8; cấp 9–10 chọn bộ Lv9–10 theo `level` và dùng cùng
+  `STAGE_LOOK.ascended` scale để không đổi cỡ khi lên cấp 9. Atlas đi bộ/chạy
+  riêng gồm tám tư thế lặp trong lưới 4×4; atlas bay chia 16 khung thành bốn
+  nhóm cất cánh, vỗ cánh, lượn và hạ cánh; atlas ngủ dùng 12 khung settle và
+  bốn khung thở lặp. Bộ bay dùng transform cố định để sải cánh không làm đổi
+  cỡ thân. Ảnh nguồn,
+  atlas, contact sheet và GIF được lưu trong `assets/pixelPet/sourceFrames/`
+  và `tasks/previews/`, với nguồn lv78 tại `celestial_stag_lv78/`.
+  Bộ cấp 9–10 và contact sheet/GIF nằm trong
+  `assets/pixelPet/sourceFrames/celestial_stag_lv910/` và `tasks/previews/`;
+  thông tin nguồn và trạng thái rà soát ở `animations/provenance.json`.
+  Cấp 13–14 chọn theo `level` (không theo stage): có bộ đi bộ 8 tư thế riêng
+  và bộ bay 16 tư thế chia theo cất cánh, vỗ cánh, lượn và hạ cánh; bộ ngủ 16
+  tư thế gồm hạ người, cuộn mình và vòng thở. Chạy phát lại atlas đi bộ Lv13–14
+  với nhịp nhanh hơn, không chuyển sang art cũ khác thiết kế;
+  chu kỳ Home giữ nguyên
+  20 giây, trình tự bay và logic đi vào vườn trước khi ngủ. Level 12 và 15 không
+  chọn atlas Lv13–14. Khung đứng được chọn và contact sheet/GIF đi bộ được lưu
+  trong `assets/pixelPet/sourceFrames/celestial_stag_lv1314/` và `tasks/previews/`;
+  chi tiết nguồn nằm trong `animations/provenance.json`.
+  Cấp 15–16 chọn theo `level` và dùng chung tỷ lệ ascended: bộ đi bộ 8 tư thế,
+  chạy 8 tư thế và bay 16 tư thế toàn thân. Home phát atlas riêng trong các pha
+  đi/chạy/bay và dùng atlas ngủ 16 khung (12 khung settle, 4 khung thở lặp).
+  Cấp 14 và 17 không chọn atlas Lv15–16. Nguồn, atlas,
+  contact sheet và GIF nằm trong `assets/pixelPet/sourceFrames/celestial_stag_lv1516/`
+  và `tasks/previews/`; trạng thái từng nhóm được ghi trong
+  `animations/provenance.json`.
+  Cấp 17–18 chọn theo `level` (không theo stage), dùng chung tỷ lệ ascended với
+  Lv15–16 và có atlas đi bộ/chạy riêng, mỗi atlas lặp tám tư thế toàn thân trong
+  lưới 4×4; atlas ngủ riêng gồm đoạn settle (8 khung, phát một lần) và vòng ngủ
+  (8 khung lặp), cùng cỡ canvas với lúc ngủ. Atlas bay riêng dùng khung 1–4
+  cất cánh, 5–8 vỗ cánh, 9–12 lượn; hạ cánh giữ khung 13 (duỗi chân) rồi chạm
+  đất ở khung 1, bỏ khung 14–16 lệch mẫu.
+  Khi giữ/kéo và thả trên Home, linh lộc giữ art của đúng cấp: cấp có atlas bay
+  riêng (3–4, 5–6, 7–8, 11–12, 13–14, 15–16, 19–20) vỗ cánh khi giữ và lượn vòng, rồi phát
+  các khung hạ cánh; Lv17–18 dùng khung 1–13 của atlas bay (bỏ 3 khung hạ cánh
+  lệch mẫu, như khi bay); Lv1–2 đạp chân bằng các khung nhảy; Lv9–10 phi nước đại bằng atlas
+  chạy. Sheet kéo chung chỉ còn dùng khi không biết cấp. Kích thước khi kéo
+  giữ nguyên như lúc đi lại.
+  Màn chi tiết linh thú và màn quản lý admin cũng hiển thị art theo cấp: Nghỉ ngơi nằm thở bằng vòng ngủ của cấp; Vỗ cánh/Linh hỏa
+  vỗ cánh tại chỗ, Bay lượn vỗ cánh rồi lượn, Vui vẻ bật nhảy (cất cánh + hạ
+  cánh), Xoay vòng phát trọn chuỗi bay; Lv1–2 dùng khung nhảy, Lv9–10 dùng dáng
+  phi. Lúc thức mà không phát động tác thì đứng ở tư thế đi bộ đầu tiên.
+  Lv5–6 và Lv11–12 có bộ đủ đi 8, chạy 8, bay 16, ngủ 16 tư thế, đóng gói bằng
+  `scripts/pack-celestial-stag-level.py`: ảnh nguồn mỗi tư thế tự lấp khung
+  nên cỡ nhân vật đo theo từng tư thế (SIFT giữa các tư thế cùng nhóm, neo vào
+  khung đứng đã duyệt; nhóm bay Lv5–6 hiệu chỉnh ×1.1 theo cỡ đầu). Lv5–6 vẽ
+  cao 180px để cánh bay vừa ô, tỷ lệ hiển thị bù lại theo bảng dưới. Track và
+  nhịp giống Lv19–20 (bay 1–4/5–8/9–12/13–16; ngủ 12 khung settle + 4 khung thở).
+  Tư thế nằm/ngủ cùng cỡ nhân vật với dáng đi bộ của cùng cấp: atlas ngủ gốc vẽ
+  con hươu nằm to hơn 1,2–1,5 lần (Lv1–4, 7–10, 13–20), nên từng khung được
+  đo bằng SIFT so với dáng đi và thu/phóng về cùng cỡ bởi
+  `scripts/match-celestial-stag-sleep-scale.py` (chạy lại không đổi gì).
+  Kích thước linh lộc đi theo cấp (không theo stage) ở Home, khi kéo và ở màn
+  chi tiết: chiều cao đứng hiển thị (px trên ô 320px) là 140 (Lv1–2), 165
+  (3–4), 185 (5–6), 198 (7–8), 208 (9–10), 214 (11–12), 218 (13–14), 221
+  (15–16), 224 (17–18), 226 (19–20). Tỷ lệ vẽ = chiều cao chuẩn / chiều cao
+  dáng đi bộ thực tế trong atlas của bộ đó (`celestialStagLevelLookScale`),
+  nên con hươu không bao giờ nhỏ đi khi lên cấp; sải chân Home và bóng nền ở
+  màn chi tiết dùng cùng tỷ lệ.
+  Nhịp chân khớp quãng đường và thời gian: mỗi vòng khung đi/chạy dịch đúng số
+  sải chân được vẽ (1 sải với track 8 khung của Lv1–2 và art cũ khi không biết cấp,
+  2 sải với track 16 khung của các cấp còn lại; sải chạy dài 1,3 lần sải đi).
+  Pha chạy có tốc độ dưới 1,5 lần tốc độ đi thì phát dáng đi. Lượt `runA` lặp
+  lại khi đã gần mốc thì chạy sang phía xa, không giậm chân tại chỗ. Cấp có
+  atlas nằm xuống riêng chạy thẳng vào chỗ ngủ ở `runB` và nằm xuống tại chỗ,
+  không trượt khi đang nằm; quãng 0px thì đứng yên ở khung 1. Quãng ngắn đến
+  mức tốc độ dưới 3/4 tốc độ đi thì đi với tốc độ đi bình thường, tới nơi rồi
+  đứng chờ hết pha thay vì bước chậm như quay chậm.
+  Trong cùng một cấp, nhân vật phải cùng tỷ lệ giữa đi/chạy/bay/ngủ:
+  `scripts/rescale-celestial-stag-frames.py` thu run/hop Lv1–2 (×0.9), walk
+  Lv7–8 (×0.88) và vẽ lại 4 khung settle đầu của Lv17–18 (×1.2) từ ảnh nguồn.
+  Cấp 16 và 19 không chọn bộ Lv17–18. Ảnh nguồn, contact sheet, GIF và trạng thái
+  nhóm nằm trong `assets/pixelPet/sourceFrames/celestial_stag_lv1718/`,
+  `tasks/previews/` và `animations/provenance.json`.
+  Cấp 19–20 chọn bộ theo `level` (Lv18 giữ bộ cũ), dùng chung tỷ lệ ascended.
+  Atlas đi bộ và chạy đã hoàn tất, mỗi bộ có tám tư thế toàn thân lặp thành lưới
+  4×4. Atlas bay và ngủ riêng đã đủ 16 tư thế mỗi bộ, được đóng gói và chọn theo
+  cấp 19–20 cho các pha cất cánh/vỗ cánh/lượn/hạ cánh và settle/ngủ. Cấp 18 tiếp
+  tục dùng bộ trước. Ảnh nguồn, contact sheet và GIF
+  đi/chạy nằm trong `assets/pixelPet/sourceFrames/celestial_stag_lv1920/` và
+  `tasks/previews/`; provenance ghi trạng thái từng nhóm.
   Khi chạm đánh thức, linh thú rời đi còn cảnh cây giữ nguyên tọa độ và hướng
   tại chỗ ngủ cũ: lá/hoa cỏ ngả vàng, héo khô rồi cây tan thành tro bụi qua atlas
   nền16 khung trong4,8 giây. Bụi mờ hết thì gỡ cảnh. Nếu đánh thức sớm khi cây
@@ -332,7 +452,7 @@ Số tiền **không** ảnh hưởng EXP. Không chi tiêu vẫn nhận `care_d
   revision tăng dưới khoá hàng tài khoản. Grant không bao giờ âm nên
   `total_exp = sum(ledger) = sum(grants) ≥ 0`, được đối soát trong test.
 - Level từ tổng EXP: ngưỡng tích luỹ `[0, 30, 80, 150, 240, 350, 480, 630, 800,
-1000]` (Lv 1–10). Level có thể giảm khi EXP bị thu hồi; giai đoạn và cấp kỹ
+1000, 1230, 1490, 1780, 2100, 2450, 2830, 3240, 3680, 4150, 4650]` (Lv 1–20, mọi loài). Level có thể giảm khi EXP bị thu hồi; giai đoạn và cấp kỹ
   năng (`0` <Lv5, `1` Lv5–7, `2` Lv8+) luôn theo Level hiện tại. Không xoá
   lịch sử.
 

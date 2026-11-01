@@ -14,7 +14,8 @@ export const DAILY_EFFECT_CAP = 3;
 
 // Cumulative EXP needed for level index + 1.
 export const LEVEL_THRESHOLDS = Object.freeze([
-  0, 30, 80, 150, 240, 350, 480, 630, 800, 1000,
+  0, 30, 80, 150, 240, 350, 480, 630, 800, 1000, 1230, 1490, 1780, 2100, 2450,
+  2830, 3240, 3680, 4150, 4650,
 ]);
 
 export function levelForExp(totalExp) {

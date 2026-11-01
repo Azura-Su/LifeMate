@@ -14,7 +14,14 @@ it('shows the same EXP per task as the backend policy', () => {
 });
 
 it('shows the same level thresholds as the backend policy', () => {
-  expect(config).toContain(`${LEVEL_THRESHOLDS.join(', ')},`);
+  const backend = config
+    .match(/LEVEL_THRESHOLDS = Object\.freeze\(\[([^\]]*)\]/)?.[1]
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map(Number);
+  expect(backend).toEqual(LEVEL_THRESHOLDS);
+  expect(LEVEL_THRESHOLDS).toHaveLength(20);
 });
 
 it('gives every species its own skill and outfits', () => {
@@ -42,4 +49,18 @@ it('lists the Home sleep scene at level 2 only for species that have one', () =>
   expect(petUnlocks('phoenix', 'x').some((u) => u.kind === 'scene')).toBe(
     false,
   );
+  expect(
+    petUnlocks('celestial_stag', 'x').filter((u) => u.kind === 'scene'),
+  ).toEqual([
+    { level: 2, kind: 'scene', name: 'Vườn hoa thiên lộc' },
+    { level: 4, kind: 'scene', name: 'Vườn suối nhỏ' },
+    { level: 6, kind: 'scene', name: 'Cổ thụ hoa anh linh' },
+    { level: 8, kind: 'scene', name: 'Đền đá rêu phong' },
+    { level: 10, kind: 'scene', name: 'Cổ thụ rune' },
+    { level: 12, kind: 'scene', name: 'Rừng lông vũ' },
+    { level: 14, kind: 'scene', name: 'Thánh địa vàng kim' },
+    { level: 16, kind: 'scene', name: 'Cây sao trời' },
+    { level: 18, kind: 'scene', name: 'Cung điện sapphire' },
+    { level: 20, kind: 'scene', name: 'Thiên giới ngọc lục bảo' },
+  ]);
 });

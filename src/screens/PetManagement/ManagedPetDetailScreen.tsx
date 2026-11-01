@@ -16,6 +16,7 @@ import {
   stageForLevel,
 } from '../../services/pixelPet/pixelPetGuide';
 import { PUPPET_PREVIEW_CLIPS } from '../../services/pixelPet/celestialStagPuppet';
+import { celestialStagDetailMotionKey } from '../PixelPet/CelestialStagAtlas';
 import type { PixelPetExpression } from '../../services/pixelPet/pixelPetExpressions';
 import type { PixelPetAnyClipId } from '../../types/pixelPet';
 import { colors, fontSize, radius, spacing, typography } from '../../theme';
@@ -111,6 +112,18 @@ export function ManagedPetDetailScreen({ pet, active, onBack }: Props) {
         loop: activity.clip === 'fly',
       })),
     );
+  // A level's art can make two buttons replay the same frames; show it once.
+  const motionsShown = new Set<string>();
+  const shownActivities = activities.filter(({ clip: value, rest }) => {
+    const key =
+      species.id === 'celestial_stag' && !rest
+        ? celestialStagDetailMotionKey(level, value)
+        : undefined;
+    if (key === undefined) return true;
+    if (motionsShown.has(key)) return false;
+    motionsShown.add(key);
+    return true;
+  });
 
   const isSelected = (value: PixelPetAnyClipId, rest: boolean) =>
     rest
@@ -147,6 +160,7 @@ export function ManagedPetDetailScreen({ pet, active, onBack }: Props) {
         <PixelPetSprite
           species={species}
           stage={stage}
+          level={level}
           size={208}
           clip={clip}
           flightPhase={clip === 'fly' ? 'glide' : undefined}
@@ -181,7 +195,7 @@ export function ManagedPetDetailScreen({ pet, active, onBack }: Props) {
       )}
 
       <View style={styles.options}>
-        {activities.map(
+        {shownActivities.map(
           ({ clip: value, label, loop = false, rest = false }) => {
             const selected = isSelected(value, rest);
             return (

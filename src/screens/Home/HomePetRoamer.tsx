@@ -29,8 +29,13 @@ import type {
 } from '../../types/pixelPet';
 import { CELESTIAL_STAG_ID } from '../../services/pixelPet/celestialStagPuppet';
 import {
-  CELESTIAL_STAG_HOME_PHASE_DURATION as STAG_PHASE_DURATION,
+  celestialStagLevelLookScale,
   celestialStagGardenFrameAt,
+  celestialStagGaitLoopDistance,
+  celestialStagGroundTravelMs,
+  celestialStagHomePhaseDuration,
+  celestialStagLiesDownInPlace,
+  celestialStagNextHomePhase,
   type CelestialStagHomePhase,
   type CelestialStagFlightPhase,
 } from '../../services/pixelPet/celestialStagAtlas';
@@ -84,12 +89,16 @@ const STAG_FLIGHT_HEIGHT = SIZE * 0.5;
 /** Travel speeds in points per second. */
 const FLY_SPEED = 60;
 const WALK_SPEED = 32;
+/** Below this the Stag walks even in a run phase, so legs match its speed. */
+const STAG_RUN_MIN_SPEED = WALK_SPEED * 1.5;
 /** Drop from the flight lane until the feet rest on the tab bar's top edge. */
 const GROUND_Y = SIZE * 0.24 + spacing.xs;
 /** Matches the level-2 sleep-scene unlock in pixelPetGuide. */
 const SLEEP_SCENE_LEVEL = 2;
 /** The stag's frames put its hooves lower in the canvas than other pets. */
 const STAG_GROUND_LIFT = SIZE * 0.05;
+// The Stag's hooves are drawn on the container's bottom edge, 0.81 × SIZE into
+// its box; keep CELESTIAL_STAG_HOME_GROUND_FROM_CENTER in step with these.
 const LAND_MS = 900;
 const TRICK_MS = 2600;
 const REST_MS = 4000;
@@ -110,29 +119,6 @@ const FOX_EDGE_INSET = 25;
 
 export type StagHomePhase = CelestialStagHomePhase;
 
-const STAG_NEXT_PHASE: Record<StagHomePhase, StagHomePhase> = {
-  runA: 'walkToFlight',
-  walkToFlight: 'takeoff',
-  takeoff: 'flap',
-  flap: 'glide',
-  glide: 'landing',
-  landing: 'walkAfterLanding',
-  walkAfterLanding: 'runB',
-  runB: 'settle',
-  settle: 'sleep',
-  sleep: 'sleep',
-};
-/** Run in and settle onto the garden. */
-const STAG_TO_BED_MS = STAG_PHASE_DURATION.runB + STAG_PHASE_DURATION.settle;
-const STAG_RUN_THEN_BED_MS = STAG_PHASE_DURATION.runA + STAG_TO_BED_MS;
-const STAG_FLIGHT_THEN_BED_MS =
-  STAG_PHASE_DURATION.walkToFlight +
-  STAG_PHASE_DURATION.takeoff +
-  STAG_PHASE_DURATION.flap +
-  STAG_PHASE_DURATION.glide +
-  STAG_PHASE_DURATION.landing +
-  STAG_PHASE_DURATION.walkAfterLanding +
-  STAG_TO_BED_MS;
 /** Timer drift allowance so a full wake window still fits the flight. */
 const STAG_BEDTIME_SLACK_MS = 1000;
 
@@ -144,6 +130,11 @@ const STAG_GROUND_PHASES = new Set<StagHomePhase>([
   'settle',
   'sleep',
 ]);
+const STAG_RUN_PHASES = new Set<StagHomePhase>(['runA', 'runB']);
+const stagPhaseDefaultPace = (phase: StagHomePhase): 'walk' | 'run' =>
+  phase === 'walkToFlight' || phase === 'walkAfterLanding' || phase === 'settle'
+    ? 'walk'
+    : 'run';
 const STAG_GROUND_TRAVEL_PHASES = new Set<StagHomePhase>([
   'runA',
   'walkToFlight',
@@ -276,6 +267,7 @@ type DepartingGarden = {
   id: number;
   x: number;
   growthFrame: number;
+  level: number;
 };
 
 type DepartingFoxScene = {
@@ -333,18 +325,50 @@ export function HomePetRoamer({
   const garudaLandingLift = garudaSleepLandingLift(garudaSceneSize);
   const flier = !!species && petMovementKind(species) === 'wings';
   const stag = species?.id === CELESTIAL_STAG_ID;
+  const stagLevel = pet?.level;
+  const stagLv12 = !!stag && stagLevel !== undefined && stagLevel <= 2;
+  const stagLv34 = !!stag && stagLevel !== undefined && stagLevel >= 3 && stagLevel <= 4;
+  const stagToBedMs =
+    celestialStagHomePhaseDuration('runB', stagLevel) +
+    celestialStagHomePhaseDuration('settle', stagLevel);
+  const stagRunThenBedMs =
+    celestialStagHomePhaseDuration('runA', stagLevel) + stagToBedMs;
+  const stagLv12RunThenBedMs =
+    celestialStagHomePhaseDuration('runA', stagLevel) + stagToBedMs;
+  const stagFlightThenBedMs =
+    celestialStagHomePhaseDuration('walkToFlight', stagLevel) +
+    celestialStagHomePhaseDuration('takeoff', stagLevel) +
+    celestialStagHomePhaseDuration('flap', stagLevel) +
+    celestialStagHomePhaseDuration('glide', stagLevel) +
+    celestialStagHomePhaseDuration('landing', stagLevel) +
+    celestialStagHomePhaseDuration('walkAfterLanding', stagLevel) +
+    stagToBedMs;
+  const stagHopThenBedMs =
+    celestialStagHomePhaseDuration('walkToFlight', stagLevel) +
+    celestialStagHomePhaseDuration('takeoff', stagLevel) +
+    celestialStagHomePhaseDuration('walkAfterLanding', stagLevel) +
+    stagToBedMs;
+  const stagFlightHeight =
+    STAG_FLIGHT_HEIGHT * (stagLv12 ? 0.25 : stagLv34 ? 0.6 : 1);
   const groundY = stag ? GROUND_Y - STAG_GROUND_LIFT : GROUND_Y;
   const stagStrideDistance =
     STAG_STRIDE_DISTANCE *
     STAG_MOTION_CANVAS_SCALE *
-    (pet ? STAGE_LOOK[pet.stage].scale : 1);
+    (celestialStagLevelLookScale(stagLevel) ??
+      (pet ? STAGE_LOOK[pet.stage].scale : 1));
   const [walking, setWalking] = useState<boolean | null>(null);
   const [beat, setBeat] = useState<RoamBeat | null>(null);
   const [garudaLanded, setGarudaLanded] = useState(false);
   const [stagPhase, setStagPhase] = useState<StagHomePhase>('runA');
   const stagPhaseRef = useRef(stagPhase);
   stagPhaseRef.current = stagPhase;
-  const [stagGaitCycleMs, setStagGaitCycleMs] = useState<number>();
+  const [stagGait, setStagGait] = useState<{
+    phase: StagHomePhase;
+    pace: 'walk' | 'run';
+    cycleMs: number | undefined;
+  }>();
+  const stagGaitCycleMs =
+    stagGait?.phase === stagPhase ? stagGait.cycleMs : undefined;
   const [foxPhase, setFoxPhase] = useState<NineTailFoxHomePhase>('walk');
   const [sleepSceneCycle, setSleepSceneCycle] = useState(0);
   const [departingGarudaScene, setDepartingGarudaScene] = useState<{
@@ -471,11 +495,12 @@ export function HomePetRoamer({
             id: ++gardenDepartureId.current,
             x: sleepTarget.value,
             growthFrame,
+            level: stagLevel ?? 2,
           }
         : null,
     );
     setStagPhase('runA');
-  }, [sleepTarget]);
+  }, [sleepTarget, stagLevel]);
 
   // Pick the next bed only once the old garden has handed over to its
   // withering copy; moving it earlier makes the live garden jump for a frame.
@@ -518,7 +543,7 @@ export function HomePetRoamer({
     () =>
       laneTop +
       ground.value * groundY -
-      airHeight.value * STAG_FLIGHT_HEIGHT +
+      airHeight.value * stagFlightHeight +
       -foxJumpHeight.value * FOX_JUMP_HEIGHT +
       -Math.max(0, (1 - Math.cos(foxRunStride.value * Math.PI * 4)) / 2) *
         FOX_RUN_BOUNCE_HEIGHT +
@@ -533,6 +558,7 @@ export function HomePetRoamer({
       ground,
       groundY,
       laneTop,
+      stagFlightHeight,
       travelling,
       x,
     ],
@@ -873,22 +899,37 @@ export function HomePetRoamer({
   useEffect(() => {
     if (!stagActive || stagPhase === 'sleep') return;
     const timer = setTimeout(() => {
-      let next = STAG_NEXT_PHASE[stagPhase];
+      let next = celestialStagNextHomePhase(stagPhase, stagLevel);
       const left = awakeTimeLeft() + STAG_BEDTIME_SLACK_MS;
       // Only take off when the whole flight still ends on the garden in time;
       // after landing, run another lap while there is time to spare.
-      if (next === 'walkToFlight' && left < STAG_FLIGHT_THEN_BED_MS)
-        next = 'runB';
-      else if (stagPhase === 'walkAfterLanding' && left >= STAG_RUN_THEN_BED_MS)
+      const flightSequenceMs = stagLv12 ? stagHopThenBedMs : stagFlightThenBedMs;
+      if (next === 'walkToFlight' && left < flightSequenceMs) {
+        next =
+          stagLv12 && left >= stagLv12RunThenBedMs ? 'runA' : 'runB';
+      }
+      else if (stagPhase === 'walkAfterLanding' && left >= stagRunThenBedMs)
         next = 'runA';
       if (next === 'sleep') {
         // Lie down exactly on the garden even if the walk-in timer ran early.
         x.value = sleepTarget.value;
       }
       setStagPhase(next);
-    }, STAG_PHASE_DURATION[stagPhase]);
+    }, celestialStagHomePhaseDuration(stagPhase, stagLevel));
     return () => clearTimeout(timer);
-  }, [awakeTimeLeft, stagActive, stagPhase, sleepTarget, x]);
+  }, [
+    awakeTimeLeft,
+    stagActive,
+    stagLv12,
+    stagPhase,
+    stagLevel,
+    stagFlightThenBedMs,
+    stagHopThenBedMs,
+    stagLv12RunThenBedMs,
+    stagRunThenBedMs,
+    sleepTarget,
+    x,
+  ]);
 
   // Bedtime: head for the garden instead of dozing off mid-lap. Without
   // motion, lie down where it stands and grow the garden there.
@@ -1150,12 +1191,12 @@ export function HomePetRoamer({
     if (!stag) return;
     cancelAnimation(airHeight);
     if (stagPhase === 'takeoff') {
-      ground.value = withTiming(0, {
-        duration: STAG_PHASE_DURATION.takeoff,
+      ground.value = withTiming(stagLv12 ? 0.7 : 0, {
+        duration: celestialStagHomePhaseDuration('takeoff', stagLevel),
         easing: Easing.inOut(Easing.quad),
       });
       airHeight.value = withTiming(1, {
-        duration: STAG_PHASE_DURATION.takeoff,
+        duration: celestialStagHomePhaseDuration('takeoff', stagLevel),
         easing: Easing.inOut(Easing.quad),
       });
     } else if (stagPhase === 'flap') {
@@ -1164,23 +1205,32 @@ export function HomePetRoamer({
     } else if (stagPhase === 'glide') {
       ground.value = 0;
       airHeight.value = withTiming(0.28, {
-        duration: STAG_PHASE_DURATION.glide,
+        duration: celestialStagHomePhaseDuration('glide', stagLevel),
         easing: Easing.linear,
       });
     } else if (stagPhase === 'landing') {
       ground.value = withTiming(1, {
-        duration: STAG_PHASE_DURATION.landing,
+        duration: celestialStagHomePhaseDuration('landing', stagLevel),
         easing: Easing.inOut(Easing.quad),
       });
       airHeight.value = withTiming(0, {
-        duration: STAG_PHASE_DURATION.landing,
+        duration: celestialStagHomePhaseDuration('landing', stagLevel),
         easing: Easing.inOut(Easing.quad),
+      });
+    } else if (stagLv12 && stagPhase === 'walkAfterLanding') {
+      ground.value = withTiming(1, {
+        duration: 220,
+        easing: Easing.out(Easing.quad),
+      });
+      airHeight.value = withTiming(0, {
+        duration: 220,
+        easing: Easing.out(Easing.quad),
       });
     } else if (STAG_GROUND_PHASES.has(stagPhase)) {
       ground.value = 1;
       airHeight.value = 0;
     }
-  }, [stag, stagPhase, ground, airHeight]);
+  }, [stag, stagLv12, stagPhase, stagLevel, ground, airHeight]);
 
   useEffect(() => {
     if (!stagActive) return;
@@ -1188,15 +1238,19 @@ export function HomePetRoamer({
     switch (stagPhase) {
       case 'runA':
         to = range * 0.72;
+        // A repeat lap starting near the mark would barely move while the
+        // legs gallop; cross to the far side instead.
+        if (Math.abs(to - x.value) < range / 3)
+          to = x.value > range / 2 ? range * 0.05 : range * 0.95;
         break;
       case 'walkToFlight':
         to = Math.max(
           0,
-          x.value - (WALK_SPEED * STAG_PHASE_DURATION.walkToFlight) / 1000,
+          x.value - (WALK_SPEED * celestialStagHomePhaseDuration('walkToFlight', stagLevel)) / 1000,
         );
         break;
       case 'takeoff':
-        to = Math.min(range * 0.9, x.value + range * 0.18);
+        to = Math.min(range * 0.9, x.value + range * (stagLv12 ? 0.1 : 0.18));
         break;
       case 'flap':
         to = range * 0.9;
@@ -1205,7 +1259,12 @@ export function HomePetRoamer({
         to = range * 0.35;
         break;
       case 'runB': {
-        const walkInDistance = (WALK_SPEED * STAG_PHASE_DURATION.settle) / 1000;
+        // Authored lie-down poses play in place, so run straight to the bed.
+        if (celestialStagLiesDownInPlace(stagLevel)) {
+          to = sleepTarget.value;
+          break;
+        }
+        const walkInDistance = (WALK_SPEED * celestialStagHomePhaseDuration('settle', stagLevel)) / 1000;
         const left = Math.max(0, sleepTarget.value - walkInDistance);
         const right = Math.min(range, sleepTarget.value + walkInDistance);
         to =
@@ -1215,45 +1274,74 @@ export function HomePetRoamer({
       case 'walkAfterLanding':
         to = Math.min(
           range,
-          x.value + (WALK_SPEED * STAG_PHASE_DURATION.walkAfterLanding) / 1000,
+          x.value + (WALK_SPEED * celestialStagHomePhaseDuration('walkAfterLanding', stagLevel)) / 1000,
         );
         break;
       case 'settle':
-        to = sleepTarget.value;
+        to = celestialStagLiesDownInPlace(stagLevel) ? null : sleepTarget.value;
         break;
       default:
         break;
     }
     if (to === null) {
-      setStagGaitCycleMs(undefined);
+      setStagGait({
+        phase: stagPhase,
+        pace: stagPhaseDefaultPace(stagPhase),
+        cycleMs: undefined,
+      });
       travelling.value = 0;
       return;
     }
-    const duration = STAG_PHASE_DURATION[stagPhase];
+    const phaseMs = celestialStagHomePhaseDuration(stagPhase, stagLevel);
     const distance = Math.abs(to - x.value);
-    setStagGaitCycleMs(
-      STAG_GROUND_TRAVEL_PHASES.has(stagPhase)
+    const groundTravel = STAG_GROUND_TRAVEL_PHASES.has(stagPhase);
+    // A short leg would crawl in slow motion: walk it, then stand.
+    const duration = groundTravel
+      ? celestialStagGroundTravelMs(distance, phaseMs, WALK_SPEED)
+      : phaseMs;
+    const pace =
+      STAG_RUN_PHASES.has(stagPhase) &&
+      (distance / duration) * 1000 < STAG_RUN_MIN_SPEED
+        ? 'walk'
+        : stagPhaseDefaultPace(stagPhase);
+    // One loop of gait frames covers exactly its drawn strides: no sliding.
+    setStagGait({
+      phase: stagPhase,
+      pace,
+      cycleMs: groundTravel
         ? distance > 1
-          ? (duration * stagStrideDistance) / distance
+          ? (duration *
+              celestialStagGaitLoopDistance(stagStrideDistance, pace, stagLevel)) /
+            distance
           : 0
         : undefined,
-    );
+    });
     if (distance > 1) heading.value = to > x.value ? 1 : -1;
     travelling.value = 1;
     x.value = withTiming(to, {
       duration,
       easing:
-        STAG_GROUND_TRAVEL_PHASES.has(stagPhase) || stagPhase === 'glide'
+        groundTravel || stagPhase === 'glide'
           ? Easing.linear
           : Easing.inOut(Easing.quad),
     });
+    const arrived =
+      duration < phaseMs
+        ? setTimeout(() => {
+            travelling.value = 0;
+            setStagGait({ phase: stagPhase, pace, cycleMs: 0 });
+          }, duration)
+        : undefined;
     return () => {
+      clearTimeout(arrived);
       travelling.value = 0;
       cancelAnimation(x);
     };
   }, [
     stagActive,
     stagPhase,
+    stagLevel,
+    stagLv12,
     stagStrideDistance,
     range,
     heading,
@@ -1349,7 +1437,7 @@ export function HomePetRoamer({
             ? dragTop.value
             : laneTop +
               g * groundY -
-              airHeight.value * STAG_FLIGHT_HEIGHT +
+              airHeight.value * stagFlightHeight +
               garudaSleepLift.value * -garudaLandingLift +
               foxJumpHeight.value * -FOX_JUMP_HEIGHT +
               -runArc * FOX_RUN_BOUNCE_HEIGHT +
@@ -1505,7 +1593,7 @@ export function HomePetRoamer({
           testID="home-pet-stag-sleep-garden"
           style={[styles.pet, sleepSceneAnchor]}
         >
-          <HomeSleepGarden visible active={active} />
+          <HomeSleepGarden visible active={active} level={stagLevel} />
         </Animated.View>
       )}
       {sceneUnlocked && runeWolf && departingWolfScene && (
@@ -1614,6 +1702,7 @@ export function HomePetRoamer({
             active={active}
             mode="withering"
             growthFrame={departingGarden.growthFrame}
+            level={departingGarden.level}
             onFinished={() => finishGarden(departingGarden.id)}
           />
         </View>
@@ -1646,6 +1735,8 @@ export function HomePetRoamer({
         <PixelPetSprite
           species={species}
           stage={pet.stage}
+          level={pet.level}
+          homeStagPhase={stag ? stagPhase : undefined}
           size={SIZE}
           clip={
             stag ? stagClip : garudaSleepFlight ? 'move' : (trick ?? 'move')
@@ -1662,10 +1753,11 @@ export function HomePetRoamer({
                 : (walking ?? !flier)
           }
           pace={
-            stag &&
-            ['walkToFlight', 'walkAfterLanding', 'settle'].includes(stagPhase)
-              ? 'walk'
-              : 'run'
+            !stag
+              ? 'run'
+              : stagGait?.phase === stagPhase
+              ? stagGait.pace
+              : stagPhaseDefaultPace(stagPhase)
           }
           gaitCycleDurationMs={stag ? stagGaitCycleMs : undefined}
           motionCanvasScale={stag ? STAG_MOTION_CANVAS_SCALE : undefined}

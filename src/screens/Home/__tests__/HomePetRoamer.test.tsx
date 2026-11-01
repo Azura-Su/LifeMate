@@ -13,6 +13,29 @@ import {
 } from '../HomePetRoamer';
 import { PixelPetSprite } from '../../PixelPet/PixelPetSprite';
 import { HomeSleepGarden } from '../HomeSleepGarden';
+import { PixelPetAtlas } from '../../PixelPet/PixelPetAtlas';
+import {
+  CELESTIAL_STAG_SLEEP_GARDEN_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_DECAY_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV04_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV04_DECAY_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV06_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV06_DECAY_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV08_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV08_DECAY_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV10_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV10_DECAY_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV12_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV12_DECAY_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV14_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV14_DECAY_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV16_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV16_DECAY_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV18_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV18_DECAY_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV20_ATLAS,
+  CELESTIAL_STAG_SLEEP_GARDEN_LV20_DECAY_ATLAS,
+} from '../../PixelPet/petArt';
 import { HomeSleepScene } from '../HomeSleepScene';
 import {
   PIXEL_PET_SPECIES,
@@ -22,6 +45,7 @@ import {
   CELESTIAL_STAG_HOME_PHASE_DURATION,
   CELESTIAL_STAG_GARDEN_GROWTH_MS,
   celestialStagGardenFrameAt,
+  celestialStagLevelLookScale,
 } from '../../../services/pixelPet/celestialStagAtlas';
 import { NINE_TAIL_FOX_HOME_PHASE_DURATION } from '../../../services/pixelPet/nineTailFoxHome';
 import { spacing } from '../../../theme';
@@ -29,6 +53,45 @@ import { spacing } from '../../../theme';
 const FOX_BEFORE_SLEEP_MS = (
   ['walk', 'run', 'jump', 'turn', 'land', 'walkAway'] as const
 ).reduce((total, phase) => total + NINE_TAIL_FOX_HOME_PHASE_DURATION[phase], 0);
+
+it.each([
+  [2, CELESTIAL_STAG_SLEEP_GARDEN_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_DECAY_ATLAS],
+  [3, CELESTIAL_STAG_SLEEP_GARDEN_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_DECAY_ATLAS],
+  [4, CELESTIAL_STAG_SLEEP_GARDEN_LV04_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV04_DECAY_ATLAS],
+  [5, CELESTIAL_STAG_SLEEP_GARDEN_LV04_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV04_DECAY_ATLAS],
+  [6, CELESTIAL_STAG_SLEEP_GARDEN_LV06_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV06_DECAY_ATLAS],
+  [8, CELESTIAL_STAG_SLEEP_GARDEN_LV08_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV08_DECAY_ATLAS],
+  [10, CELESTIAL_STAG_SLEEP_GARDEN_LV10_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV10_DECAY_ATLAS],
+  [12, CELESTIAL_STAG_SLEEP_GARDEN_LV12_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV12_DECAY_ATLAS],
+  [14, CELESTIAL_STAG_SLEEP_GARDEN_LV14_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV14_DECAY_ATLAS],
+  [16, CELESTIAL_STAG_SLEEP_GARDEN_LV16_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV16_DECAY_ATLAS],
+  [18, CELESTIAL_STAG_SLEEP_GARDEN_LV18_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV18_DECAY_ATLAS],
+  [19, CELESTIAL_STAG_SLEEP_GARDEN_LV18_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV18_DECAY_ATLAS],
+  [20, CELESTIAL_STAG_SLEEP_GARDEN_LV20_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV20_DECAY_ATLAS],
+])('selects the sleep scene and decay atlases for level %i', (level, growthAtlas, decayAtlas) => {
+  const growing = render(<HomeSleepGarden visible level={level as number} />);
+  expect(growing.UNSAFE_getByType(PixelPetAtlas).props.source).toBe(growthAtlas);
+  growing.unmount();
+
+  const withering = render(
+    <HomeSleepGarden visible level={level as number} mode="withering" />,
+  );
+  expect(withering.UNSAFE_getByType(PixelPetAtlas).props.source).toBe(decayAtlas);
+  withering.unmount();
+});
+
+it('keeps the matching Lv18 garden frame visible when the Stag wakes early', () => {
+  const earlyWake = render(
+    <HomeSleepGarden visible level={18} mode="withering" growthFrame={8} />,
+  );
+  const atlases = earlyWake.UNSAFE_getAllByType(PixelPetAtlas);
+  expect(atlases.map((atlas) => atlas.props.source)).toEqual([
+    CELESTIAL_STAG_SLEEP_GARDEN_LV18_ATLAS,
+    CELESTIAL_STAG_SLEEP_GARDEN_LV18_DECAY_ATLAS,
+  ]);
+  expect(atlases[0].props.staticFrame).toBe(8);
+  earlyWake.unmount();
+});
 
 jest.mock('react-native-reanimated', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -52,6 +115,30 @@ const pets: Record<string, unknown> = {
     level: 5,
     totalExp: 40,
   },
+  stagLv2: {
+    speciesId: 'celestial_stag',
+    stage: 'hatchling',
+    level: 2,
+    totalExp: 40,
+  },
+  stagLv13: {
+    speciesId: 'celestial_stag',
+    stage: 'ascended',
+    level: 13,
+    totalExp: 3680,
+  },
+  stagLv12: {
+    speciesId: 'celestial_stag',
+    stage: 'ascended',
+    level: 12,
+    totalExp: 3240,
+  },
+  stagLv14: {
+    speciesId: 'celestial_stag',
+    stage: 'ascended',
+    level: 14,
+    totalExp: 4150,
+  },
   fox: {
     speciesId: 'nine_tail_fox',
     stage: 'juvenile',
@@ -69,6 +156,9 @@ jest.mock('../../../services/pixelPet/pixelPetApi', () => ({
   readOwnedPixelPet: (uid: string) => pets[uid] ?? null,
   subscribeOwnedPixelPet: () => () => {},
 }));
+
+/** 48px walked in 1.5s; one 16-frame Lv5–6 loop draws two walk strides. */
+const LV5_WALK_CYCLE_MS = (1500 * 44.8 * celestialStagLevelLookScale(5)! * 2) / 48;
 
 const renderRoamer = (props: { uid: string | null; active: boolean }) =>
   render(
@@ -96,6 +186,20 @@ it('shows the owned pet without exposing a detail navigation action', () => {
     screen.getByTestId('home-pet-drag-roam').props.onPress,
   ).toBeUndefined();
 });
+
+it.each([[13, 'stagLv13'], [14, 'stagLv14']] as const)(
+  'passes the owned Lv%i level into the Home Stag sprite', (level, uid) => {
+    const view = renderRoamer({ uid, active: true });
+    try {
+      expect(screen.UNSAFE_getByType(PixelPetSprite).props).toMatchObject({
+        level,
+        homeStagPhase: 'runA',
+      });
+    } finally {
+      view.unmount();
+    }
+  },
+);
 
 it('uses the species Home motion atlas while roaming outside drag phases', () => {
   renderRoamer({ uid: 'owner', active: true });
@@ -395,6 +499,66 @@ it('keeps the Celestial Stag sharp after releasing it in the air', () => {
   }
 });
 
+it('runs the Lv2 Stag through a short hop and into its authored sleep transition', () => {
+  jest.useFakeTimers();
+  const view = renderRoamer({ uid: 'stagLv2', active: true });
+  const sprite = () => screen.UNSAFE_getByType(PixelPetSprite).props;
+
+  try {
+    expect(sprite()).toMatchObject({
+      level: 2,
+      homeStagPhase: 'runA',
+    });
+    act(() => jest.advanceTimersByTime(CELESTIAL_STAG_HOME_PHASE_DURATION.runA));
+    expect(sprite().homeStagPhase).toBe('walkToFlight');
+    act(() =>
+      jest.advanceTimersByTime(CELESTIAL_STAG_HOME_PHASE_DURATION.walkToFlight),
+    );
+    expect(sprite()).toMatchObject({
+      homeStagPhase: 'takeoff',
+      flightPhase: 'takeoff',
+    });
+    act(() => jest.advanceTimersByTime(1600));
+    expect(sprite()).toMatchObject({
+      homeStagPhase: 'walkAfterLanding',
+      flightPhase: undefined,
+      walking: true,
+    });
+    act(() =>
+      jest.advanceTimersByTime(
+        CELESTIAL_STAG_HOME_PHASE_DURATION.walkAfterLanding,
+      ),
+    );
+    expect(sprite().homeStagPhase).toBe('runA');
+    act(() =>
+      jest.advanceTimersByTime(CELESTIAL_STAG_HOME_PHASE_DURATION.runA),
+    );
+    let shortRunCount = 1;
+    while (sprite().homeStagPhase === 'runA' && shortRunCount < 5) {
+      act(() =>
+        jest.advanceTimersByTime(CELESTIAL_STAG_HOME_PHASE_DURATION.runA),
+      );
+      shortRunCount += 1;
+    }
+    expect(sprite().homeStagPhase).toBe('runB');
+    act(() =>
+      jest.advanceTimersByTime(2880),
+    );
+    expect(sprite().homeStagPhase).toBe('settle');
+    expect(sprite().sleeping).toBe(false);
+    act(() =>
+      jest.advanceTimersByTime(CELESTIAL_STAG_HOME_PHASE_DURATION.settle),
+    );
+    expect(sprite()).toMatchObject({
+      homeStagPhase: 'sleep',
+      sleeping: true,
+    });
+  } finally {
+    view.unmount();
+    jest.useRealTimers();
+  }
+});
+
 it('follows the pointer to all four edges, including the Home header', () => {
   const responderSpy = jest.spyOn(PanResponder, 'create');
   const view = renderRoamer({ uid: 'owner', active: true });
@@ -543,6 +707,30 @@ it('lands a woken Stag into runB and keeps it awake for the full 20 seconds', ()
   }
 });
 
+it('matches Lv13 hoof cadence to distance and lies down in place', () => {
+  jest.useFakeTimers();
+  const view = renderRoamer({ uid: 'stagLv13', active: true });
+  const sprite = () => screen.UNSAFE_getByType(PixelPetSprite).props;
+  const advance = (phase: keyof typeof CELESTIAL_STAG_HOME_PHASE_DURATION) =>
+    act(() => jest.advanceTimersByTime(CELESTIAL_STAG_HOME_PHASE_DURATION[phase]));
+  try {
+    advance('runA');
+    // 48px in 1.5s; one 16-frame loop draws two 44.8px walk strides.
+    expect(sprite()).toMatchObject({ homeStagPhase: 'walkToFlight', pace: 'walk' });
+    const stride = 44.8 * celestialStagLevelLookScale(13)!;
+    expect(sprite().gaitCycleDurationMs).toBeCloseTo((1500 * stride * 2) / 48);
+    for (const phase of ['walkToFlight', 'takeoff', 'flap', 'glide', 'landing', 'walkAfterLanding'] as const)
+      advance(phase);
+    expect(sprite().homeStagPhase).toBe('runB');
+    advance('runB');
+    // The authored lie-down plays where the Stag stopped: no gait, no glide.
+    expect(sprite()).toMatchObject({ homeStagPhase: 'settle', gaitCycleDurationMs: undefined });
+  } finally {
+    view.unmount();
+    jest.useRealTimers();
+  }
+});
+
 it('completes the Stag flight and grounded approach before sleeping at 20 seconds', () => {
   jest.useFakeTimers();
   const view = renderRoamer({ uid: 'stag', active: true });
@@ -555,7 +743,7 @@ it('completes the Stag flight and grounded approach before sleeping at 20 second
   try {
     expect(sprite()).toMatchObject({ walking: true, sleeping: false });
     advance('runA');
-    expect(sprite().gaitCycleDurationMs).toBeCloseTo(1232);
+    expect(sprite().gaitCycleDurationMs).toBeCloseTo(LV5_WALK_CYCLE_MS);
     advance('walkToFlight');
     expect(sprite()).toMatchObject({ flightPhase: 'takeoff', walking: false });
     advance('takeoff');
@@ -566,12 +754,12 @@ it('completes the Stag flight and grounded approach before sleeping at 20 second
     expect(sprite().flightPhase).toBe('landing');
     advance('landing');
     expect(sprite()).toMatchObject({ walking: true, flightPhase: undefined });
-    expect(sprite().gaitCycleDurationMs).toBeCloseTo(1232);
+    expect(sprite().gaitCycleDurationMs).toBeCloseTo(LV5_WALK_CYCLE_MS);
     advance('walkAfterLanding');
     advance('runB');
     expect(sprite()).toMatchObject({ walking: true, sleeping: false });
     if (sprite().gaitCycleDurationMs > 0)
-      expect(sprite().gaitCycleDurationMs).toBeGreaterThanOrEqual(1232 - 0.01);
+      expect(sprite().gaitCycleDurationMs).toBeGreaterThanOrEqual(LV5_WALK_CYCLE_MS - 0.01);
     // The fixed sleep spot begins growing its scene as the pet enters settle.
     expect(screen.getByTestId('home-pet-stag-sleep-garden')).toBeTruthy();
     act(() =>
@@ -714,6 +902,32 @@ it('leaves a withering garden at the old sleep spot while the Stag moves away', 
   } finally {
     view.unmount();
     random.mockRestore();
+    jest.useRealTimers();
+  }
+});
+
+it('keeps the Lv12 garden atlas for both sleep and wake-up', () => {
+  jest.useFakeTimers();
+  const view = renderRoamer({ uid: 'stagLv12', active: true });
+  const advance = (duration: number) =>
+    act(() => jest.advanceTimersByTime(duration));
+  const phases = Object.values(CELESTIAL_STAG_HOME_PHASE_DURATION).filter(
+    Number.isFinite,
+  );
+  try {
+    for (const duration of phases) advance(duration);
+    const sleepingGarden = screen
+      .UNSAFE_getAllByType(HomeSleepGarden)
+      .find((garden) => garden.props.mode !== 'withering');
+    expect(sleepingGarden?.props.level).toBe(12);
+
+    fireEvent(screen.getByLabelText(/Đánh thức linh thú/), 'accessibilityTap');
+    const witheringGarden = screen
+      .UNSAFE_getAllByType(HomeSleepGarden)
+      .find((garden) => garden.props.mode === 'withering');
+    expect(witheringGarden?.props.level).toBe(12);
+  } finally {
+    view.unmount();
     jest.useRealTimers();
   }
 });

@@ -35,13 +35,25 @@ const inventory = {
 };
 it('accepts the complete catalog and rejects contradictory or incomplete inventories', () => {
   expect(parsePetInventory(inventory).pets).toHaveLength(15);
+  const maxLevel = {
+    ...owned,
+    adoption: { ...owned.adoption, level: 20, stage: 'ascended' },
+  };
+  expect(
+    parsePetInventory({
+      ...available,
+      pets: available.pets.map((p) =>
+        p.speciesId === 'phoenix' ? maxLevel : p,
+      ),
+    }).pets,
+  ).toHaveLength(15);
   for (const invalid of [
     null,
     { ...available, pets: available.pets.slice(1) },
     { ...available, pets: available.pets.map(() => available.pets[0]) },
     ...[
       { ...owned, holder: null },
-      { ...owned, adoption: { ...owned.adoption, level: 99 } },
+      { ...owned, adoption: { ...owned.adoption, level: 21 } },
       { ...owned, status: 'available' },
       { ...owned, adoption: { ...owned.adoption, totalExp: -1 } },
     ].map((pet) => ({

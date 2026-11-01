@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fontSize, radius, spacing, typography } from '../../theme';
-import { stageForLevel } from '../../services/pixelPet/pixelPetGuide';
+import { LEVEL_THRESHOLDS, stageForLevel } from '../../services/pixelPet/pixelPetGuide';
 import type { PixelPetSpeciesId } from '../../types/pixelPet';
 import { useScreenActive } from '../../hooks/useScreenActive';
 import { HomePetRoamer } from '../Home/HomePetRoamer';
@@ -60,9 +60,9 @@ export function HomeRoamPreview({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Tăng cấp xem thử"
-            disabled={level >= 10}
+            disabled={level >= LEVEL_THRESHOLDS.length}
             onPress={() => onLevelChange(level + 1)}
-            style={[styles.close, level >= 10 && styles.disabled]}
+            style={[styles.close, level >= LEVEL_THRESHOLDS.length && styles.disabled]}
           >
             <Feather name="plus" size={18} color={colors.ink} />
           </Pressable>

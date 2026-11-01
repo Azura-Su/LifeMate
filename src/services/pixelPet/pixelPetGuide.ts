@@ -39,7 +39,10 @@ export const CARE_TASKS = [
 ] as const;
 
 /** Cumulative EXP needed to reach level index + 1 (mirrors expConfig.mjs). */
-export const LEVEL_THRESHOLDS = [0, 30, 80, 150, 240, 350, 480, 630, 800, 1000];
+export const LEVEL_THRESHOLDS = [
+  0, 30, 80, 150, 240, 350, 480, 630, 800, 1000, 1230, 1490, 1780, 2100, 2450,
+  2830, 3240, 3680, 4150, 4650,
+];
 
 export type PetUnlock = {
   level: number;
@@ -122,12 +125,25 @@ const SPECIES_UNLOCKS: Record<PixelPetSpeciesId, SpeciesUnlocks> = {
   },
 };
 
-/** Home sleep backdrops, shown from level 2 (HomePetRoamer). */
-const SLEEP_SCENES: Partial<Record<PixelPetSpeciesId, string>> = {
-  nine_tail_fox: 'Đền hồ ly hoa đào',
-  garuda: 'Chùa núi mây',
-  rune_wolf: 'Cổ thụ đêm trăng',
-  celestial_stag: 'Vườn hoa thiên lộc',
+/** Home sleep backdrops unlocked at specific levels. */
+const SLEEP_SCENES: Partial<
+  Record<PixelPetSpeciesId, readonly { level: number; name: string }[]>
+> = {
+  nine_tail_fox: [{ level: 2, name: 'Đền hồ ly hoa đào' }],
+  garuda: [{ level: 2, name: 'Chùa núi mây' }],
+  rune_wolf: [{ level: 2, name: 'Cổ thụ đêm trăng' }],
+  celestial_stag: [
+    { level: 2, name: 'Vườn hoa thiên lộc' },
+    { level: 4, name: 'Vườn suối nhỏ' },
+    { level: 6, name: 'Cổ thụ hoa anh linh' },
+    { level: 8, name: 'Đền đá rêu phong' },
+    { level: 10, name: 'Cổ thụ rune' },
+    { level: 12, name: 'Rừng lông vũ' },
+    { level: 14, name: 'Thánh địa vàng kim' },
+    { level: 16, name: 'Cây sao trời' },
+    { level: 18, name: 'Cung điện sapphire' },
+    { level: 20, name: 'Thiên giới ngọc lục bảo' },
+  ],
 };
 
 /** Body stage shown at a level (mirrors the Lv 4 / Lv 8 stage unlocks). */
@@ -138,9 +154,9 @@ export function stageForLevel(level: number): PixelPetStage {
 /** Every unlock for a species, in level order. */
 export function petUnlocks(id: PixelPetSpeciesId, skill: string): PetUnlock[] {
   const { skill2, skins } = SPECIES_UNLOCKS[id];
-  const scene = SLEEP_SCENES[id];
-  return [
-    ...(scene ? [{ level: 2, kind: 'scene' as const, name: scene }] : []),
+  const scenes = SLEEP_SCENES[id] ?? [];
+  const unlocks: PetUnlock[] = [
+    ...scenes.map(({ level, name }) => ({ level, kind: 'scene' as const, name })),
     { level: 3, kind: 'skin', name: skins[0] },
     { level: 4, kind: 'stage', name: 'Trưởng thành' },
     { level: 5, kind: 'skill', name: skill },
@@ -149,4 +165,5 @@ export function petUnlocks(id: PixelPetSpeciesId, skill: string): PetUnlock[] {
     { level: 8, kind: 'skill', name: skill2 },
     { level: 10, kind: 'skin', name: skins[2] },
   ];
+  return unlocks.sort((left, right) => left.level - right.level);
 }

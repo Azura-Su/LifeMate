@@ -22,7 +22,12 @@ import {
   PIXEL_PET_EXCLUSIVE,
   pixelPetSpecies,
 } from '../../services/pixelPet/pixelPetCatalog';
-import { PUPPET_PREVIEW_CLIPS } from '../../services/pixelPet/celestialStagPuppet';
+import {
+  CELESTIAL_STAG_ID,
+  PUPPET_PREVIEW_CLIPS,
+} from '../../services/pixelPet/celestialStagPuppet';
+import { celestialStagLevelLookScale } from '../../services/pixelPet/celestialStagAtlas';
+import { celestialStagDetailMotionKey } from './CelestialStagAtlas';
 import { EFFECT_CLIP, STAGE_LOOK } from '../../services/pixelPet/pixelPetRig';
 import { petMovementLabel } from '../../services/pixelPet/pixelPetFrames';
 import type { PixelPetExpression } from '../../services/pixelPet/pixelPetExpressions';
@@ -117,6 +122,25 @@ function ActionChip({
       </Text>
     </Pressable>
   );
+}
+
+/** Drops Stag buttons whose level art would replay a motion already offered. */
+function uniqueStagClips<T extends { clip: PixelPetAnyClipId }>(
+  level: number | undefined,
+  extras: readonly T[],
+): T[] {
+  const shown = new Set(
+    (['move', 'happy'] as const).map((clip) =>
+      celestialStagDetailMotionKey(level, clip),
+    ),
+  );
+  return extras.filter(({ clip }) => {
+    const key = celestialStagDetailMotionKey(level, clip);
+    if (key === undefined) return true;
+    if (shown.has(key)) return false;
+    shown.add(key);
+    return true;
+  });
 }
 
 export function PixelPetScreen({ navigation }: Props) {
@@ -271,7 +295,11 @@ export function PixelPetScreen({ navigation }: Props) {
             <PetStageBackdrop
               tint={species.palette[2]}
               spriteSize={spriteSize}
-              stageScale={STAGE_LOOK[pet?.stage ?? 'hatchling'].scale}
+              stageScale={
+                (species.id === CELESTIAL_STAG_ID
+                  ? celestialStagLevelLookScale(pet?.level)
+                  : undefined) ?? STAGE_LOOK[pet?.stage ?? 'hatchling'].scale
+              }
             />
             {species.id === 'rune_wolf' && (
               <RuneWolfSleepBackdrop
@@ -283,6 +311,7 @@ export function PixelPetScreen({ navigation }: Props) {
             <PixelPetSprite
               species={species}
               stage={pet?.stage ?? 'hatchling'}
+              level={pet?.level}
               size={spriteSize}
               clip={clip}
               flightPhase={clip === 'fly' ? 'glide' : undefined}
@@ -401,7 +430,7 @@ export function PixelPetScreen({ navigation }: Props) {
             />
           ))}
           {PIXEL_PET_EXCLUSIVE.includes(species) &&
-            PUPPET_PREVIEW_CLIPS.map(({ clip: value, label }) => (
+            uniqueStagClips(species.id === CELESTIAL_STAG_ID ? pet?.level : undefined, PUPPET_PREVIEW_CLIPS).map(({ clip: value, label }) => (
               <ActionChip
                 key={value}
                 clip={value}

@@ -199,6 +199,98 @@
     "prompt": "Preserve the exact S-curved ancient tree, grass patch, flowers and stones. Sixteen fixed-camera scenes progress from green to drooping yellow leaves, golden/dry brown foliage, bare branches, gray crumbling trunk, then ash and drifting dust. No pet, fire or scenery movement. Clean off-white matte used for alpha extraction.",
     "packing": "Find clean grid separators, retain detached falling leaves and dust in each scene, key the flat matte, and use one scale plus a296px ground anchor. The first cell is replaced with an exact copy of growth frame15. See scripts/pack-home-sleep-garden-decay-atlas.py."
   },
+  "home_sleep_garden_lv04": {
+    "file": "home_sleep_garden_lv04.png",
+    "decayFile": "home_sleep_garden_lv04_decay.png",
+    "generator": "Built-in image_gen growth frames; normalized and packed locally",
+    "sourceFrames": "../sourceFrames/sleep_garden_lv04/packed320/frame00.png through frame15.png; decay00.png through decay15.png",
+    "layout": "Two 4×4 transparent PNG atlases; 16 frames each; 1280×1280; 320px cells",
+    "packing": "scripts/pack-home-sleep-garden-tiers.cjs normalizes the source scenes to a shared 288px footprint and y=296 baseline. Growth preserves the supplied sequence; decay uses a stable soft dissolve. RGB is quantized to six levels and alpha to sixteen levels.",
+    "review": "Verified contact sheet, frame endpoints, baseline, 4×4 dimensions and atlas budget."
+  },
+  "home_sleep_garden_lv06": {
+    "file": "home_sleep_garden_lv06.png",
+    "decayFile": "home_sleep_garden_lv06_decay.png",
+    "generator": "Built-in image_gen approved Sakura Grove final scene; procedural soft reveal and dissolve",
+    "generatedSource": "../sourceFrames/sleep_garden_lv06/frame15-approved.png",
+    "sourceFrames": "../sourceFrames/sleep_garden_lv06/packed320/frame00.png through frame15.png; decay00.png through decay15.png",
+    "layout": "Two 4×4 transparent PNG atlases; 16 frames each; 1280×1280; 320px cells",
+    "packing": "scripts/pack-home-sleep-garden-tiers.cjs normalizes the scene to a 288px footprint and y=296 baseline, then builds a stable, bottom-up soft reveal and reverse dissolve. RGB is quantized to six levels and alpha to sixteen levels.",
+    "review": "Reviewed final frame and contact sheet; verified the baseline, endpoints, dimensions and atlas budget. Intermediate frames are procedural transitions from the approved scene."
+  },
+  "home_sleep_garden_lv08": {
+    "file": "home_sleep_garden_lv08.png",
+    "decayFile": "home_sleep_garden_lv08_decay.png",
+    "generator": "Built-in image_gen final scene; procedural soft reveal and dissolve",
+    "generatedSource": "../sourceFrames/sleep_garden_lv08/frame15.png",
+    "sourceFrames": "../sourceFrames/sleep_garden_lv08/packed320/frame00.png through frame15.png; decay00.png through decay15.png",
+    "layout": "Two 4×4 transparent PNG atlases; 16 frames each; 1280×1280; 320px cells",
+    "packing": "scripts/pack-home-sleep-garden-tiers.cjs normalizes the scene to a 288px footprint and y=296 baseline, then builds a stable, bottom-up soft reveal and reverse dissolve. RGB is quantized to six levels and alpha to sixteen levels.",
+    "review": "Reviewed final frame and contact sheet; verified the baseline, endpoints, dimensions and atlas budget. Intermediate frames are procedural transitions from the final scene."
+  },
+  "home_sleep_garden_lv10": {
+    "file": "home_sleep_garden_lv10.png",
+    "decayFile": "home_sleep_garden_lv10_decay.png",
+    "generator": "Built-in image_gen final scene; procedural soft reveal and dissolve",
+    "generatedSource": "../sourceFrames/sleep_garden_lv10/normalized320/frame15_candidate.png",
+    "sourceFrames": "../sourceFrames/sleep_garden_lv10/packed320/frame00.png through frame15.png; decay00.png through decay15.png",
+    "layout": "Two 4×4 transparent PNG atlases; 16 frames each; 1280×1280; 320px cells",
+    "packing": "scripts/pack-home-sleep-garden-tiers.cjs normalizes the scene to a 288px footprint and y=296 baseline, then builds a stable, bottom-up soft reveal and reverse dissolve. RGB is quantized to six levels and alpha to sixteen levels.",
+    "review": "Reviewed final frame and contact sheet; verified the baseline, endpoints, dimensions and atlas budget. Intermediate frames are procedural transitions from the final scene."
+  },
+  "home_sleep_garden_lv14": {
+    "file": "home_sleep_garden_lv14.png",
+    "decayFile": "home_sleep_garden_lv14_decay.png",
+    "generator": "Built-in image_gen final scene; procedural soft reveal and dissolve",
+    "generatedSource": "../sourceFrames/sleep_garden_lv14/frame15-candidate.png",
+    "sourceFrames": "../sourceFrames/sleep_garden_lv14/packed320/frame00.png through frame15.png; decay00.png through decay15.png",
+    "layout": "Two 4×4 transparent PNG atlases; 16 frames each; 1280×1280; 320px cells",
+    "packing": "scripts/pack-home-sleep-garden-tiers.cjs normalizes the scene to a 288px footprint and y=296 baseline, then builds a stable, bottom-up soft reveal and reverse dissolve. RGB is quantized to six levels and alpha to sixteen levels.",
+    "review": "Reviewed final frame and contact sheet; verified the baseline, endpoints, dimensions and atlas budget. Intermediate frames are procedural transitions from the final scene."
+  },
+  "home_sleep_garden_lv12": {
+    "file": "home_sleep_garden_lv12.png",
+    "decayFile": "home_sleep_garden_lv12_decay.png",
+    "generator": "Built-in image_gen; referenced the approved level-12 Feather Forest final frame",
+    "references": ["home_sleep_garden.png", "../sourceFrames/sleep_garden_lv12/frame15-approved.png"],
+    "generatedSources": ["../sourceFrames/sleep_garden_lv12/growth-sheet.png", "../sourceFrames/sleep_garden_lv12/decay-sheet.png"],
+    "layout": "Two 4×4 atlases; 16 whole-scene frames each; 1280×1280 transparent PNG; 320px cells",
+    "packing": "scripts/pack-home-sleep-garden-lv12.cjs crops each growth/decay scene, fits to a shared 288px footprint and baseline y=296, removes low-alpha and edge-connected green fringe, quantizes color and alpha. Growth frame 15 is the approved final scene; decay frame 0 is copied from it exactly; both atlases are under 700KB.",
+    "review": "Contact sheets reviewed for progression, footprint, open resting area and matched decay start."
+  },
+  "home_sleep_garden_lv16": {
+    "file": "home_sleep_garden_lv16.png",
+    "decayFile": "home_sleep_garden_lv16_decay.png",
+    "generator": "Built-in image_gen; referenced the existing sleep garden atlas and Lv15–16 sleeping celestial stag",
+    "references": ["home_sleep_garden.png", "../sourceFrames/celestial_stag_lv1516/sleep/frame-16-source.png"],
+    "generatedSources": ["../sourceFrames/sleep_garden_lv16/frame15-candidate.png", "../sourceFrames/sleep_garden_lv16/frame01.png"],
+    "sourceFrames": "../sourceFrames/sleep_garden_lv16/frame00.png through frame15.png; decay00.png through decay15.png",
+    "layout": "Two 4×4 transparent PNG atlases; 16 whole-scene frames each; 1280×1280; 320px cells",
+    "packing": "scripts/pack-home-sleep-garden-lv16.cjs cleans large neutral-white extraction artifacts, packs 320px whole-scene frames, dims the stars, fades purple sky and teal foliage in stages, dissolves the tree with a softened top-down mask, and adds rising light motes. RGB channels use 6 levels and alpha uses 16 levels. Growth frame 15 and decay frame 0 use the same pixels; each atlas is under 700KB.",
+    "review": "Reviewed growth/decay contact sheets, canvas dimensions, empty endpoints, and exact growth-15/decay-0 handoff. The final scene leaves a lower-middle opening for the sleeping stag. Transition frames are procedural approximations of the written brief rather than individually generated painted poses."
+  },
+  "home_sleep_garden_lv18_frame15": {
+    "file": "home_sleep_garden_lv18.png",
+    "decayFile": "home_sleep_garden_lv18_decay.png",
+    "generator": "Built-in image_gen; referenced existing Lv2 sleep garden and generated Lv18 Sapphire Palace concept",
+    "reference": "../home_sleep_garden.png frame 15",
+    "generatedSource": "exec-af90da05-b8f2-470d-baff-83482c19e8a6.png",
+    "layout": "Two 4×4 transparent PNG atlases; 16 frames each; 1280×1280; 320px cells",
+    "prompt": "Create the Lv18 Sapphire Palace sleep scene in the existing painterly style. Keep the grass footprint and y=296 baseline, with a white sapphire-domed palace behind a golden twisting teal-leaf tree, sapphire fruit and gold chain, and a low gold-trimmed dais behind an open lower-middle resting area. No characters, text, or border.",
+    "sourceFrames": "../sourceFrames/sleep_garden_lv18/frame00.png through frame15.png; decay00.png through decay15.png",
+    "packing": "scripts/pack-home-sleep-garden-lv18.cjs derives a bottom-up soft reveal with a stable, softly varying mask for growth and a top-down fade for decay from the approved complete scene, then quantizes RGB to 6 levels and alpha to 16 levels to meet the 700KB atlas budget. Completed scene normalized to bbox x=17..305, y=24..296. Decay frame 0 matches growth frame 15 pixel-for-pixel; growth frame 0 and decay frame 15 are transparent.",
+    "review": "Reviewed final frame style, palette, scale, ground baseline, lower-middle resting area, and both contact sheets; verified monotone reveal/fade, atlas dimensions, empty endpoints, budget, and exact decay start handoff. Transition frames are a procedural soft reveal approximation from the approved still, not separately hand-painted poses."
+  },
+  "home_sleep_garden_lv20": {
+    "file": "home_sleep_garden_lv20.png",
+    "decayFile": "home_sleep_garden_lv20_decay.png",
+    "generator": "Built-in image_gen final scene; procedural soft reveal and dissolve",
+    "generatedSource": "../sourceFrames/sleep_garden_lv20/frame15_candidate.png",
+    "sourceFrames": "../sourceFrames/sleep_garden_lv20/packed320/frame00.png through frame15.png; decay00.png through decay15.png",
+    "layout": "Two 4×4 transparent PNG atlases; 16 frames each; 1280×1280; 320px cells",
+    "packing": "scripts/pack-home-sleep-garden-tiers.cjs normalizes the scene to a 288px footprint and y=296 baseline, then builds a stable, bottom-up soft reveal and reverse dissolve. RGB is quantized to six levels and alpha to sixteen levels.",
+    "review": "Reviewed final frame and contact sheet; verified the baseline, endpoints, dimensions and atlas budget. Intermediate frames are procedural transitions from the final scene."
+  },
   "restVariants": [
     {
       "id": "nine_tail_fox",
@@ -707,6 +799,269 @@
       "layout": "8 columns x 4 rows; 32 frames; 2560x1280 RGBA; 320px cells",
       "durationMs": 8000,
       "sequence": "Afternoon to night to dawn/day; leaves age and fall, tree dries and dies, grass becomes desert sand, wind disperses the entire scene; transparent final frame."
+    }
+  ],
+  "celestialStagLevelVariants": [
+    {
+      "levels": [
+        9,
+        10
+      ],
+      "reference": "../sourceFrames/celestial_stag_lv910/reference.webp",
+      "standingFrame": "../sourceFrames/celestial_stag_lv910/frame0_approved.png",
+      "sourceFrames": "../sourceFrames/celestial_stag_lv910/{walk,run,flight,sleep}_NN_candidate.png; replacement flight frames 07/15/16 use *_candidate_v2.png",
+      "atlases": [
+        "celestial_stag_lv910_walk.png",
+        "celestial_stag_lv910_run.png",
+        "celestial_stag_lv910_flight.png",
+        "celestial_stag_lv910_sleep.png"
+      ],
+      "generator": "Built-in image_gen; individual full-body poses referenced against the supplied Lv9–10 image and approved standing frame. Frames 07, 15 and 16 were regenerated after review. Atlas candidates prepared by scripts/prepare-celestial-stag-lv910-atlas.swift with fixed canvas scale for flight, then quantized to 192 colours with dithering.",
+      "layout": "Four 4×4 indexed PNG atlases, 320px cells, 1280×1280; walk/run repeat eight poses, flight maps takeoff/flap/glide/landing to frames 1–4/5–8/9–12/13–16, sleep uses frames 1–12 for settling and 13–16 for breathing. Each shipped atlas is under 700KB.",
+      "review": "Walk, run, flight and sleep contact sheets/GIFs self-reviewed at tasks/previews/celestial-stag-lv910-{walk,run,flight,sleep}-{contact.png,gif}. Regenerated flight frames repair the downstroke and landing; fixed canvas scaling keeps wing spread from changing torso scale."
+    },
+    {
+      "levels": [
+        1,
+        2
+      ],
+      "reference": "../sourceFrames/celestial_stag_lv12/reference.webp",
+      "approvedStandingFrame": "../sourceFrames/celestial_stag_lv12/frame-00-candidate.png",
+      "sourceFrames": "../sourceFrames/celestial_stag_lv12/{walk,run,hop,sleep}/frame-*.png",
+      "atlases": [
+        "celestial_stag_lv12_walk.png",
+        "celestial_stag_lv12_run.png",
+        "celestial_stag_lv12_hop.png",
+        "celestial_stag_lv12_sleep.png"
+      ],
+      "generator": "Individually generated full-body poses with the supplied level 1 reference; normalized and packed with scripts/prepare-celestial-stag-lv12-frame.cjs and scripts/pack-celestial-stag-lv12-atlas.cjs.",
+      "layout": "Four 4×4 RGBA atlases, 320px cells, 1280×1280 each. Walk/run contain eight distinct gait poses; hop contains sixteen low-arc frames; sleep contains twelve transition frames and four breathing poses.",
+      "review": "Walk, run, hop, and sleep contact sheets and GIFs: tasks/previews/celestial-stag-lv12-{walk,run,hop,sleep}-{contact.png,gif}.",
+      "scaleAdjustment": "Run and hop atlases rescaled ×0.9 by scripts/rescale-celestial-stag-frames.py to match the walk/sleep character scale."
+    },
+    {
+      "levels": [
+        3,
+        4
+      ],
+      "reference": "../sourceFrames/celestial_stag_lv34/reference.webp",
+      "sourceFrames": "../sourceFrames/celestial_stag_lv34/{walk,run,flight,sleep}/frame-*.png",
+      "atlases": [
+        "celestial_stag_lv34_walk.png",
+        "celestial_stag_lv34_run.png",
+        "celestial_stag_lv34_flight.png",
+        "celestial_stag_lv34_sleep.png"
+      ],
+      "generator": "Built-in image_gen with approved level 3–4 Celestial Stag standing reference. scripts/pack-celestial-stag-lv34.py removes the baked checker/cell dividers, separates each pose by silhouette (the raw sheets are not on an exact grid), and packs all four groups at one shared scale (224px standing height, hooves at y=287, alpha-centroid at x=160), quantized to 256 colours. Replaces the fixed-grid slicer that cropped neighbouring poses into frames.",
+      "layout": "Four 4×4 RGBA atlases, 320px cells, 1280×1280 each.",
+      "review": "Contact sheets and GIF previews: tasks/previews/celestial-stag-lv34-{walk,run,flight,sleep}-{contact.png,gif}."
+    },
+    {
+      "levels": [
+        5,
+        6
+      ],
+      "reference": "../sourceFrames/celestial_stag_lv56/reference.webp",
+      "standingFrame": "../sourceFrames/celestial_stag_lv56/standing-frame-00-approved.png",
+      "sourceFrames": "../sourceFrames/celestial_stag_lv56/{walk,run,flight,sleep}/*-source.png",
+      "alignedFrames": "../sourceFrames/celestial_stag_lv56/{walk,run}/*-aligned.png",
+      "candidateAtlases": [
+        "celestial_stag_lv56_walk_candidate.png",
+        "celestial_stag_lv56_run_candidate.png",
+        "celestial_stag_lv56_flight_candidate.png",
+        "celestial_stag_lv56_sleep_candidate.png"
+      ],
+      "generator": "Built-in image_gen with the approved level 5–6 standing frame and supplied reference; aligned by scripts/pack-celestial-stag-lv56-walk.py",
+      "layout": "Candidate 4×4 indexed PNGs, 320px cells, 1280×1280; flight poses use a 154px normalized silhouette height to fit wide wings and tails.",
+      "review": "Walk, run, flight, and sleep previews self-reviewed. Flight has 16 source frames and a 4x4 candidate atlas; preview: tasks/previews/celestial-stag-lv56-flight-{contact.png,gif}. Takeoff 1-4, flap loop 5-8, glide 9-12, landing 13-16. Sleep has 16 frames; preview: tasks/previews/celestial-stag-lv56-sleep-{contact.png,gif}. The Lv5-6 suite is still not integrated.",
+      "atlases": [
+        "celestial_stag_lv56_walk.png",
+        "celestial_stag_lv56_run.png",
+        "celestial_stag_lv56_flight.png",
+        "celestial_stag_lv56_sleep.png"
+      ],
+      "integration": "Shipped and wired for Home, drag and detail screens. All four groups re-packed from the -source.png poses by scripts/pack-celestial-stag-level.py: per-pose size measured with SIFT (pairwise within a group, anchored to the approved standing frame), hooves on y=287, alpha centroid at x=160, 256 colours. Packed 180px tall so flight wings fit; flight group calibrated ×1.1."
+    },
+    {
+      "levels": [
+        11,
+        12
+      ],
+      "reference": "../sourceFrames/celestial_stag_lv1112/reference.webp",
+      "standingFrame": "../sourceFrames/celestial_stag_lv1112/standing-frame-00-approved.png",
+      "sourceFrames": "../sourceFrames/celestial_stag_lv1112/walk/walk-*-source.png",
+      "alignedFrames": "../sourceFrames/celestial_stag_lv1112/walk/walk-*-aligned.png",
+      "candidateAtlas": "../../../tasks/previews/celestial-stag-lv1112-walk-atlas-candidate.png",
+      "generator": "Built-in image_gen; each full-body walk pose was generated separately from the supplied reference and approved standing frame, then normalized by scripts/pack-celestial-stag-lv1112-walk.py.",
+      "layout": "Candidate 4×4 indexed PNG, 320px cells, 1280×1280; eight walk poses repeated once and quantized to 256 colors with dithering.",
+      "review": "Pending owner review; tasks/previews/celestial-stag-lv1112-walk-contact.png and tasks/previews/celestial-stag-lv1112-walk.gif (eight frames, 800ms loop).",
+      "atlases": [
+        "celestial_stag_lv1112_walk.png",
+        "celestial_stag_lv1112_run.png",
+        "celestial_stag_lv1112_flight.png",
+        "celestial_stag_lv1112_sleep.png"
+      ],
+      "integration": "Shipped and wired for Home, drag and detail screens. All four groups re-packed from the -source.png poses by scripts/pack-celestial-stag-level.py: per-pose size measured with SIFT (pairwise within a group, anchored to the approved standing frame), hooves on y=287, alpha centroid at x=160, 256 colours."
+    },
+    {
+      "levels": [
+        13,
+        14
+      ],
+      "reference": "../sourceFrames/celestial_stag_lv1314/reference.webp",
+      "standingFrame": "../sourceFrames/celestial_stag_lv1314/standing-frame-00-approved.png",
+      "sourceFrames": {
+        "walk": "../sourceFrames/celestial_stag_lv1314/walk/frame-*.png",
+        "flight": "../sourceFrames/celestial_stag_lv1314/flight/frame-*.png",
+        "sleep": "../sourceFrames/celestial_stag_lv1314/sleep/frame-*.png"
+      },
+      "atlases": [
+        "celestial_stag_lv1314_walk.png",
+        "celestial_stag_lv1314_flight.png",
+        "celestial_stag_lv1314_sleep.png"
+      ],
+      "generator": "Built-in image_gen; separate whole-body poses generated against the provided reference and approved standing frame for walk, flight, and sleep. Contact sheets/GIFs packed by scripts/review-celestial-stag-lv1314-{walk,flight,sleep}.swift; atlases quantized to 256 colors with Floyd–Steinberg dithering by scripts/quantize-celestial-stag-lv1314.py.",
+      "layout": "Three 4×4 RGBA atlases, 320px cells, 1280×1280; walk repeats eight authored poses; flight has takeoff/flap/glide/landing tracks; sleep has 12 transition poses plus four breathing poses. Each atlas ≤700KB.",
+      "review": "Walk contact sheet/GIF self-reviewed. Flight contact sheet/GIF self-reviewed; a few poses vary in apparent scale/wing silhouette. Sleep contact sheet/GIF self-reviewed: transition to curled pose and closed-eye breathing loop, with some visible variation in character scale between transition and rest poses."
+    },
+    {
+      "levels": [
+        11,
+        12
+      ],
+      "reference": "../sourceFrames/celestial_stag_lv1112/reference.webp",
+      "standingFrame": "../sourceFrames/celestial_stag_lv1112/standing-frame-00-approved.png",
+      "sourceFrames": "../sourceFrames/celestial_stag_lv1112/run/run-*-source.png",
+      "alignedFrames": "../sourceFrames/celestial_stag_lv1112/run/run-*-aligned.png",
+      "candidateAtlas": "../../../tasks/previews/celestial-stag-lv1112-run-atlas-candidate.png",
+      "generator": "Built-in image_gen; eight full-body gallop poses generated separately and normalized by scripts/pack-celestial-stag-lv1112-run.py.",
+      "layout": "Candidate 4×4 indexed PNG, 320px cells, 1280×1280; eight run poses repeated once, quantized to 256 colors with dithering.",
+      "review": "Self-reviewed contact sheet; tasks/previews/celestial-stag-lv1112-run-contact.png and tasks/previews/celestial-stag-lv1112-run.gif (eight frames, 480ms loop).",
+      "atlases": [
+        "celestial_stag_lv1112_walk.png",
+        "celestial_stag_lv1112_run.png",
+        "celestial_stag_lv1112_flight.png",
+        "celestial_stag_lv1112_sleep.png"
+      ],
+      "integration": "Shipped and wired for Home, drag and detail screens. All four groups re-packed from the -source.png poses by scripts/pack-celestial-stag-level.py: per-pose size measured with SIFT (pairwise within a group, anchored to the approved standing frame), hooves on y=287, alpha centroid at x=160, 256 colours."
+    },
+    {
+      "levels": [
+        7,
+        8
+      ],
+      "reference": "../sourceFrames/celestial_stag_lv78/reference.webp",
+      "standingFrame": "../sourceFrames/celestial_stag_lv78/frame-00-standing-review.png",
+      "sourceFrames": "../sourceFrames/celestial_stag_lv78/{walk,run,flight,sleep}-NN.png",
+      "atlases": [
+        "celestial_stag_lv78_walk.png",
+        "celestial_stag_lv78_run.png",
+        "celestial_stag_lv78_flight.png",
+        "celestial_stag_lv78_sleep.png"
+      ],
+      "generator": "Built-in image_gen; individual full-body poses generated from the approved Lv7–8 reference and standing pose. Packed and aligned by scripts/pack-celestial-stag-lv78.py using alpha bounds, shared cell scale, fixed hoof line, and 256-color dithering.",
+      "layout": "Four 4×4 indexed PNG atlases, 320px cells, 1280×1280; walk and run repeat eight authored poses, flight maps takeoff/flap/glide/landing to frames 1–4/5–8/9–12/13–16, sleep maps settle to frames 1–12 and breathing to frames 13–16. All atlases ≤700KB.",
+      "review": "Contact sheets and preview GIFs self-reviewed in tasks/previews/celestial-stag-lv78-{walk,run,flight,sleep}-contact.png and .gif. Incorrect generated standing poses in sleep were retained with -generated-rejected suffixes and replaced by lying transition/breath frames. All four atlases pass 1280×1280 layout and ≤700KB checks.",
+      "scaleAdjustment": "Walk atlas rescaled ×0.88 by scripts/rescale-celestial-stag-frames.py to match the run/flight/sleep character scale."
+    },
+    {
+      "levels": [
+        11,
+        12
+      ],
+      "reference": "../sourceFrames/celestial_stag_lv1112/reference.webp",
+      "standingFrame": "../sourceFrames/celestial_stag_lv1112/standing-frame-00-approved.png",
+      "sourceFrames": "../sourceFrames/celestial_stag_lv1112/flight/flight-*-source.png",
+      "alignedFrames": "../sourceFrames/celestial_stag_lv1112/flight/flight-*-aligned.png",
+      "candidateAtlas": "../../../tasks/previews/celestial-stag-lv1112-flight-atlas-candidate.png",
+      "generator": "Built-in image_gen; individually painted full-body flight poses, aligned at a fixed 0.2 scale and torso anchor by scripts/pack-celestial-stag-lv1112-flight.py.",
+      "layout": "Candidate 4×4 indexed PNG, 320px cells, 1280×1280; 16 flight poses, quantized to 256 colors with dithering.",
+      "review": "Self-reviewed contact sheet; takeoff/landing GIFs 1.4s each, flap GIF 0.72s, glide GIF 1.4s in tasks/previews/celestial-stag-lv1112-flight-{takeoff,flap,glide,landing}.gif.",
+      "atlases": [
+        "celestial_stag_lv1112_walk.png",
+        "celestial_stag_lv1112_run.png",
+        "celestial_stag_lv1112_flight.png",
+        "celestial_stag_lv1112_sleep.png"
+      ],
+      "integration": "Shipped and wired for Home, drag and detail screens. All four groups re-packed from the -source.png poses by scripts/pack-celestial-stag-level.py: per-pose size measured with SIFT (pairwise within a group, anchored to the approved standing frame), hooves on y=287, alpha centroid at x=160, 256 colours."
+    },
+    {
+      "levels": [
+        19,
+        20
+      ],
+      "reference": "../sourceFrames/celestial_stag_lv1920/reference.webp",
+      "standingFrame": "../sourceFrames/celestial_stag_lv1920/standing-frame-00-self-reviewed.png",
+      "sourceFrames": "../sourceFrames/celestial_stag_lv1920/{walk,run,flight,sleep}-NN-source.png; rejected drafts use *-rejected.png",
+      "atlases": [
+        "celestial_stag_lv1920_walk.png",
+        "celestial_stag_lv1920_run.png",
+        "celestial_stag_lv1920_flight.png",
+        "celestial_stag_lv1920_sleep.png"
+      ],
+      "generator": "Built-in image_gen; eight full-body walk poses, eight gallop poses, sixteen flight poses, and sixteen sleep poses generated separately. Packed by scripts/pack-celestial-stag-lv1920.py.",
+      "layout": "Walk/run: eight authored poses repeated once. Flight/sleep: sixteen authored poses each. All are 4×4 indexed PNG atlases, 320px cells, 1280×1280, 256-color dithering, each under 700KB.",
+      "review": "Walk/run/flight/sleep contact sheets and GIF previews are at tasks/previews/celestial-stag-lv1920-{walk,run,flight,sleep}-{contact.png,gif}; contact sheets were visually self-reviewed. Flight frames 07 and 08 were regenerated after rejecting earlier anatomy/ground-contact drafts; the first sleep frame 03 draft was rejected because it did not reach with a foreleg. Lv19–20 selects its own walk/run/flight/sleep atlases; Lv18 retains the previous selection. Home device-cycle review remains outstanding."
+    },
+    {
+      "id": "lv1516",
+      "levels": [
+        15,
+        16
+      ],
+      "reference": "../sourceFrames/celestial_stag_lv1516/reference.webp",
+      "standingFrame": "../sourceFrames/celestial_stag_lv1516/standing-frame-00-self-approved.png",
+      "sourceFrames": "../sourceFrames/celestial_stag_lv1516/{walk,run,flight,sleep}-NN-source.png; frame-09-rejected-portrait.png records the superseded tall render",
+      "atlases": [
+        "celestial_stag_lv1516_walk.png",
+        "celestial_stag_lv1516_run.png",
+        "celestial_stag_lv1516_flight.png",
+        "celestial_stag_lv1516_sleep.png"
+      ],
+      "generator": "Built-in image_gen using the supplied lv15–16 reference and reviewed standing frame; packed by scripts/review-celestial-stag-lv1516.swift and quantized by scripts/quantize-celestial-stag-lv1516.py.",
+      "layout": "Four 4×4 1280×1280 RGBA atlases, 320px cells. Walk/run each repeat eight authored poses once; flight uses 16 phase poses; sleep uses 12 settle poses plus four breathing poses. Quantized with 256-color RGB dithering and 16-level alpha; each atlas under 700KB.",
+      "review": "Walk, run, flight and sleep contact sheets/GIFs self-reviewed at tasks/previews/celestial-stag-lv1516-{walk,run,flight,sleep}-{contact.png,gif}. A portrait sleep frame 09 render was rejected and preserved as frame-09-rejected-portrait.png; a square replacement is used. All four groups are wired for Lv15–16 only."
+    },
+    {
+      "id": "lv1718",
+      "levels": [
+        17,
+        18
+      ],
+      "reference": "../sourceFrames/celestial_stag_lv1718/reference.webp",
+      "standingFrame": "../sourceFrames/celestial_stag_lv1718/standing-frame-00-approved.png",
+      "sourceFrames": "../sourceFrames/celestial_stag_lv1718/{walk,run,flight,sleep}-NN-source.png",
+      "atlases": [
+        "celestial_stag_lv1718_walk.png",
+        "celestial_stag_lv1718_run.png",
+        "celestial_stag_lv1718_flight.png",
+        "celestial_stag_lv1718_sleep.png"
+      ],
+      "generator": "Built-in image_gen; full-body poses generated one at a time from the supplied lv17–18 reference and the selected standing frame. Packed by scripts/review-celestial-stag-lv1718.swift and quantized by scripts/quantize-celestial-stag-lv1718.py.",
+      "layout": "Four 4×4 indexed PNG atlases, 320px cells, 1280×1280. Walk/run repeat eight authored poses; flight has 16 generated poses; sleep uses 15 generated poses plus one clean held pose replacing a detached-artifact frame. Quantized to 256 colors with Floyd–Steinberg dithering; all under 700KB.",
+      "review": "Walk/run are integrated but need future wing-fold/leg-pose cleanup. Flight has 16 frames and is packed, but frames 14–16 diverge in scale/style, so Home keeps legacy flight art. Sleep has 16 frames; Home uses frames 0–7 for settle and 8–15 for the resting loop. See tasks/celestial-stag-lv1718-motion-review.md. Update: Home flight now uses frames 1–12 for takeoff/flap/glide and landing [13, 13, 13, 1]; off-model frames 14–16 stay unused.",
+      "scaleAdjustment": "Sleep frames 1–4 redrawn ×1.2 from their source frames by scripts/rescale-celestial-stag-frames.py to match the lying poses and walk scale."
+    },
+    {
+      "levels": [
+        11,
+        12
+      ],
+      "reference": "../sourceFrames/celestial_stag_lv1112/reference.webp",
+      "standingFrame": "../sourceFrames/celestial_stag_lv1112/standing-frame-00-approved.png",
+      "sourceFrames": "../sourceFrames/celestial_stag_lv1112/sleep/sleep-*-source.png",
+      "alignedFrames": "../sourceFrames/celestial_stag_lv1112/sleep/sleep-*-aligned.png",
+      "candidateAtlas": "../../../tasks/previews/celestial-stag-lv1112-sleep-atlas-candidate.png",
+      "generator": "Built-in image_gen; 16 individually generated full-body sleep transition/breathing poses, normalized at a shared 0.16 scale and orange-body anchor by scripts/pack-celestial-stag-lv1112-sleep.py.",
+      "layout": "Candidate 4×4 indexed PNG, 320px cells, 1280×1280; frames 1–12 settle and frames 13–16 breathe, quantized to 256 colors with dithering.",
+      "review": "Self-reviewed contact sheet tasks/previews/celestial-stag-lv1112-sleep-contact.png. Settle GIF 12×200ms=2.4s; breathe GIF 4×500ms=2s. Awaiting owner review; not integrated into runtime.",
+      "atlases": [
+        "celestial_stag_lv1112_walk.png",
+        "celestial_stag_lv1112_run.png",
+        "celestial_stag_lv1112_flight.png",
+        "celestial_stag_lv1112_sleep.png"
+      ],
+      "integration": "Shipped and wired for Home, drag and detail screens. All four groups re-packed from the -source.png poses by scripts/pack-celestial-stag-level.py: per-pose size measured with SIFT (pairwise within a group, anchored to the approved standing frame), hooves on y=287, alpha centroid at x=160, 256 colours."
     }
   ],
   "homeMoveVariants": [
