@@ -1,0 +1,57 @@
+{
+  "generator": "Built-in image_gen (no CLI/API fallback)",
+  "purpose": "Complete authored Lv4 sleep-garden decay frames, approved in chat and installed in the runtime atlases.",
+  "transparent_background": true,
+  "frames": [
+    {
+      "file": "decay07.png",
+      "editTarget": "decay06.png",
+      "generatedSource": "exec-6340e10f-a1b5-40cd-a973-03687c863e57.png",
+      "prompt": "Use case: precise-object-edit. Asset: ONE standalone full-scene animation frame, decay frame 07 for the existing Lv4 Little Stream Garden game prop. The attached image is the edit target (frame06). Keep the EXACT camera, canvas, scene scale, baseline, curved S-shaped trunk anatomy, branch positions, stones, resting space and all ground placement. Preserve the existing soft hand-painted fantasy game illustration style. Change only one aging step: about half the golden-orange leaves have fallen off revealing the original existing branches; remaining foliage is sparse dull ochre/brown, with a few falling leaves and two fruits resting at the same front bank. Flowers are visibly drooped and faded. The small front stream now has only a tiny residual blue puddle amid exposed pebbles and a mostly dry muddy channel. No green light, no fireflies. Keep trunk and ground fixed. No new objects or new branches, no animal, no text, no grid. Truly transparent background, no checkerboard, no cast shadow outside ground patch. Show the entire original scene with original margins, do not zoom or crop."
+    },
+    {
+      "file": "decay08.png",
+      "editTarget": "decay07.png",
+      "generatedSource": "exec-f03e2cf7-1a55-406c-8044-ea607643034c.png",
+      "prompt": "Use case: precise-object-edit. ONE standalone game animation scene: decay frame08, immediately after the attached frame07 edit target. Keep exact camera, scene size, baseline, S-curved twisted trunk geometry, all major branch positions, stones and foreground banks. Same detailed soft hand-painted fantasy style. Only continue withering one step: nearly all foliage has dropped away leaving the SAME original branches mostly bare, with only a few curled dull brown leaves on their tips and scattered beneath. All hanging red fruits have fallen; keep two dulling fruits on the central front bank. Bushes are wilted and sparse brown, flowers fully bowed and drying. The front stream is completely dry, exposing the original winding channel filled with pale pebbles and small dry cracks. No water and no green glow. Keep entire composition fixed, particularly root foot at bottom and the rocks. No new branches or scenery. Truly transparent background; no checkerboard, no animal, no text, no frame or grid, no external cast shadow. Same canvas margins, do not zoom or crop."
+    },
+    {
+      "file": "decay09.png",
+      "editTarget": "decay08.png",
+      "generatedSource": "exec-948d08dc-7732-4832-8635-276201333474.png",
+      "prompt": "Use case: precise-object-edit. ONE standalone full-scene game animation frame09, next small withering step from attached frame08 edit target. Keep exact canvas, scale, camera, baseline, S-curved twisted trunk, existing bare branch geometry, roots, stones, and dry winding stream placement. Same painterly game style. Tree is now fully bare, the last brown leaves have dropped to the ground. Trunk and branches lose their warm orange color and turn desaturated gray-brown, still completely intact. Side bushes become sparse straw-colored dried stems; flowers dried and bowed. The two fallen fruits on front bank are now small shriveled brown-red fruits. Stream remains a dry cracked pebbly channel. Keep composition and original ground outline fixed, no new objects, no ash yet, no movement of the tree. Real transparent background, no checkerboard, no animal, no text, no grid, no outside shadow, no crop or zoom."
+    },
+    {
+      "file": "decay10.png",
+      "editTarget": "decay09.png",
+      "generatedSource": "exec-e8f36aee-1c0c-4036-9342-e9ad309403e6.png",
+      "prompt": "Use case: precise-object-edit. Asset: ONE standalone game scene animation decay frame10. Attached frame09 is the edit target. Preserve exact scene scale, camera, canvas margins, baseline, S-shaped trunk silhouette and bare branch geometry, rocks and dry stream. Same detailed painterly fantasy game style. Only one gradual aging step: the fully bare intact tree becomes lighter weathered ash-gray with thin dry cracks along existing bark lines, roots unchanged. Side plants lose most broad leaves leaving low straw stems and shriveled flower heads. Fallen foliage and the two small shriveled fruits on the front bank are dull brown-gray. The original dry winding pebbly stream channel remains recognizable, no water. No crumbling yet, no particles yet. No added scenery or branches. Real transparency outside the ground patch, no checkerboard, no characters, no text or grid, no shadow outside patch, no zoom/crop."
+    },
+    {
+      "file": "decay11.png",
+      "editTarget": "decay10.png",
+      "generatedSource": "exec-d2f306cb-6c5e-4b6d-a9b6-792d80d77762.png",
+      "prompt": "Use case: precise-object-edit. ONE standalone full-scene animation frame11. Attached frame10 is the edit target. Preserve EXACT camera, square canvas, scale, baseline, S-curved trunk and all existing branches and ground positions. Continue decay by one subtle step: fully bare tree becomes a little darker desaturated brittle gray with slightly deeper narrow cracks in bark, but tree is still intact. Ground vegetation settles lower, mostly thin faded straw and dried flower stems; no green. Original rocks and dry winding pebble stream remain fixed. Two fallen fruits are now small dark shriveled forms. Just the very thinnest twig tips begin to crumble with a handful of tiny gray ash grains near their tips; no large missing sections yet and no smoke cloud. Keep same illustration style, no new objects. Transparent background with original margins, no checkerboard, no animal, no text, no grid, no external cast shadow, no zoom or crop."
+    },
+    {
+      "file": "decay12.png",
+      "editTarget": "decay11.png",
+      "generatedSource": "exec-03e6583b-5806-414c-95cb-96dc89b0585a.png",
+      "prompt": "Use case: precise-object-edit. ONE standalone full-scene animation frame12, edit attached frame11. Keep EXACT fixed camera, scale, original ground baseline, root and lower S-shaped trunk positions, rocks and dried stream placement. Same hand-painted fantasy game style. Begin unmistakable top-down disintegration: uppermost quarter of the existing tree branches has crumbled away into small soft ash flecks drifting slightly upward within the original scene silhouette. The middle branch forks remain but their thin tips are breaking. Lower curved trunk and roots remain in exact position, cracked gray. Ground plants are low dry straw; some upper stems have turned to dust. Thin scattered gray particles only, no dense smoke, no fire or glowing embers. Original dry pebbly stream and stones remain fixed and readable. No new branches, no animals, no text or grid. Genuine transparent background and small transparent holes where the upper branches used to be. Full original canvas and margins; no crop or zoom; no outside cast shadow."
+    },
+    {
+      "file": "decay13.png",
+      "editTarget": "decay12.png",
+      "generatedSource": "exec-09a047d8-95c8-48a1-86a5-03618410f4e8.png",
+      "prompt": "Use case: precise-object-edit. ONE standalone game scene animation frame13 from attached frame12 edit target. Same fixed camera, original canvas and scale, exact ground baseline. Continue top-down magical decay clearly: ALL upper branches and the entire upper half of the tree have vanished, leaving ONLY the LOWER HALF of the original curved gray trunk and the same roots, still anchored in EXACTLY their original lower positions. The top of this low remaining stump crumbles into a loose scattering of small gray ash grains just above it. Do not shrink, move or redesign the surviving lower trunk. Side plants, dry leaves, pebbles and the dry winding stream bed are now disintegrating too: ground patch has irregular transparent gaps, especially at its sides, with some original stones remaining in place. No solid tree branches in the top half of the canvas; leave it mostly transparent. Fine subdued dust, no smoke cloud, no flames. Preserve painterly illustration style, no new objects, no animal, no text or grid, no checkerboard, real transparency, no outside shadow, no zoom/crop."
+    },
+    {
+      "file": "decay14.png",
+      "editTarget": "decay13.png",
+      "generatedSource": "exec-901d80f3-d150-4db0-891b-d7fb9eca7777.png",
+      "prompt": "Use case: precise-object-edit. ONE standalone full-scene animation frame14, the PENULTIMATE frame before an entirely transparent empty frame15. Edit attached frame13 keeping the exact camera, original square canvas, scale and ground baseline. Finish magical disintegration: almost the ENTIRE remaining stump, roots, dried plants, stream bed and stones are now gone into fine faint ash. Leave only a VERY small low fragment at the original root position and a few tiny fragments of the original banks near the baseline, all breaking apart. A light sparse scatter of semitransparent gray-brown ash grains drifts slightly upward through the former lower-trunk space. At least 90 percent of the previous solid scene is gone. Upper half of canvas completely empty transparent. NO recognizable full stump, no intact side bushes or large intact rocks, no solid continuous ground strip, no smoke cloud, no flames or sparks, no new objects. Preserve the soft painterly texture of tiny remnants. Real transparent background, no checkerboard, no animal, no text or grid, no outside shadow, no zoom/crop. Make this an almost empty image with faint ash, still using original full canvas."
+    }
+  ],
+  "packing": "node scripts/pack-home-sleep-garden-lv04.cjs --install; swift -module-cache-path /private/tmp/lifemate-lv04-swift-cache scripts/preview-celestial-stag-lv04-garden.swift --install",
+  "status": "Approved in chat; authored growth/decay atlases installed and shared provenance updated."
+}

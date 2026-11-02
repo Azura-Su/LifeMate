@@ -1,4 +1,4 @@
-import { Pressable } from 'react-native';
+import { Alert, Pressable } from 'react-native';
 import { doc, getFirestore, setDoc } from '@react-native-firebase/firestore';
 import { resetFirestoreMock } from '../../../testing/firestoreMock';
 import {
@@ -7,6 +7,7 @@ import {
   render,
   screen,
   within,
+  waitFor,
 } from '@testing-library/react-native';
 import { NotesScreen } from '../NotesScreen';
 import { useAuthStore } from '../../../store/authStore';
@@ -55,6 +56,66 @@ it('keeps date notes out of the freeform Notes list', () => {
   expect(screen.getByText('Ý tưởng')).toBeTruthy();
   expect(screen.queryByText('Ghi chú ngày 2026-10-09')).toBeNull();
   expect(screen.queryByText('Việc riêng trong ngày')).toBeNull();
+});
+
+it.each(['hidden', 'reopened'] as const)(
+  'rejects a delete confirmation after Notes was %s',
+  async (state) => {
+    resetFirestoreMock();
+    const note = useNoteStore.getState().notes.find(
+      ({ id }) => id === 'free-note',
+    )!;
+    await setDoc(doc(getFirestore(), 'noteAccounts', 'u1', 'notes', note.id), note);
+    await act(async () => useNoteStore.getState().load('u1'));
+    let confirm: (() => void) | undefined;
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(
+      (_title, _message, buttons) => {
+        confirm = buttons?.find(({ style }) => style === 'destructive')?.onPress;
+      },
+    );
+    try {
+      const view = render(<NotesScreen />);
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Xóa ghi chú Ý tưởng' }),
+      );
+      expect(confirm).toBeDefined();
+      view.rerender(<NotesScreen suspended />);
+      if (state === 'reopened') view.rerender(<NotesScreen suspended={false} />);
+      await act(async () => confirm?.());
+
+      expect(useNoteStore.getState().notes).toContainEqual(note);
+      await act(async () => useNoteStore.getState().load('u1'));
+      expect(useNoteStore.getState().notes).toContainEqual(note);
+    } finally {
+      alert.mockRestore();
+    }
+  },
+);
+
+it('allows a fresh delete confirmation after Notes is reopened', async () => {
+  resetFirestoreMock();
+  const note = useNoteStore.getState().notes.find(
+    ({ id }) => id === 'free-note',
+  )!;
+  await setDoc(doc(getFirestore(), 'noteAccounts', 'u1', 'notes', note.id), note);
+  await act(async () => useNoteStore.getState().load('u1'));
+  let confirm: (() => void) | undefined;
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(
+    (_title, _message, buttons) => {
+      confirm = buttons?.find(({ style }) => style === 'destructive')?.onPress;
+    },
+  );
+  try {
+    const view = render(<NotesScreen />);
+    view.rerender(<NotesScreen suspended />);
+    view.rerender(<NotesScreen suspended={false} />);
+    fireEvent.press(screen.getByRole('button', { name: 'Xóa ghi chú Ý tưởng' }));
+    expect(confirm).toBeDefined();
+    await act(async () => confirm?.());
+    await waitFor(() => expect(useNoteStore.getState().notes).toEqual([]));
+  } finally {
+    alert.mockRestore();
+  }
 });
 
 it('keeps the notes search field fixed while the notes list scrolls', () => {

@@ -271,7 +271,7 @@ function resolveBout(state, now, outcome) {
 export function newTanGame(uids, deck, now, previousWinner = null) {
   if (
     uids.length < 2 ||
-    uids.length > 4 ||
+    uids.length > 6 ||
     new Set(uids).size !== uids.length ||
     !validCards(deck) ||
     deck.length !== 52

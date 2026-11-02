@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { styles } from './Mp3Screen.styles';
 import { useScreenActive } from '../../hooks/useScreenActive';
+import { usePrefersReducedMotion } from '../../utils/motion';
 
 type Props = {
   title: string;
@@ -29,11 +30,13 @@ export function AudioTrackTitle({ title, active, onActivate, style }: Props) {
   const [measuredTitle, setMeasuredTitle] = useState(title);
   // Pause the marquee while the app is backgrounded or the screen is blurred.
   const visible = useScreenActive();
+  const reducedMotion = usePrefersReducedMotion();
   const offset = useRef(new Animated.Value(0)).current;
   const overflowDistance = Math.max(0, contentWidth - viewportWidth);
   const cycleDistance = contentWidth + MARQUEE_GAP;
   const running =
     visible &&
+    !reducedMotion &&
     measuredTitle === title &&
     overflowDistance > 1 &&
     (active || hovered);

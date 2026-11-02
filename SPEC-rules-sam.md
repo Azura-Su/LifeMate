@@ -7,7 +7,8 @@ Tiến lên với 10 lá.
 
 ## Luật nền đề xuất
 
-- Bộ 52 lá, 2–4 người, chia 10 lá mỗi người. Hạng 3 < … < A < 2; chất không
+- Bộ 52 lá, 2–5 người, chia 10 lá mỗi người. Bàn 5 người có 2 lá không chia,
+  không công khai. Hạng 3 < … < A < 2; chất không
   phá hòa. Người đầu được chọn theo luật phòng/ván trước; mặc định ván đầu người
   có 3♠ đi trước nếu lá này nằm trong số bài được chia, nếu không chọn lá thấp
   nhất.
@@ -54,6 +55,9 @@ Tiến lên với 10 lá.
 
 ## Nguồn
 
+- [52 Lá Bài — hướng dẫn Sâm của nhà phát hành](https://m.52labai.com/game/huong_dan/20-sam):
+  xác nhận tối đa 5 người, 10 lá/người và 2 lá dư. Các mức điểm và biến thể
+  còn lại vẫn theo profile LifeMate đã lưu, không tự áp dụng mức cược ngoài app.
 - [Viet Game Index — Sâm Lốc](https://vietgameindex.com/tro-choi/sam-loc/): tổng hợp 10 lá, không so chất, các bộ cơ bản và xác nhận báo Sâm/báo một/chặn 2/đền thay đổi theo bàn; bài không xem một mức phạt là phổ quát.
 - [Pagat — Tiến Lên](https://www.pagat.com/climbing/thirteen.html): chỉ dùng để đối chiếu họ game climbing và cách so bộ, không coi luật miền Nam là luật Sâm.
 

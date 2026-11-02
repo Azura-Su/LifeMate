@@ -2,7 +2,8 @@ import { StyleSheet } from 'react-native';
 import { colors, fontSize, layout, radius, spacing } from '../../theme';
 
 export const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, backgroundColor: colors.background },
+  cardViewport: { flex: 1, overflow: 'hidden' },
   fixedHeader: {
     paddingHorizontal: layout.screenGutter,
     paddingTop: spacing.sm,

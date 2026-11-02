@@ -1,18 +1,44 @@
+import { useSyncExternalStore } from 'react';
 import { AccessibilityInfo, LayoutAnimation } from 'react-native';
 
 let reduceMotion = false;
+let receivedMotionEvent = false;
+const listeners = new Set<() => void>();
+function updateReducedMotion(enabled: boolean) {
+  if (reduceMotion === enabled) return;
+  reduceMotion = enabled;
+  listeners.forEach((listener) => listener());
+}
+
 void AccessibilityInfo.isReduceMotionEnabled?.()
   .then((enabled) => {
-    reduceMotion = enabled;
+    if (!receivedMotionEvent) updateReducedMotion(enabled);
   })
   .catch(() => undefined);
 AccessibilityInfo.addEventListener?.('reduceMotionChanged', (enabled) => {
-  reduceMotion = enabled;
+  receivedMotionEvent = true;
+  updateReducedMotion(enabled);
 });
 
 /** True when the user asked the OS to reduce motion. */
 export function prefersReducedMotion() {
   return reduceMotion;
+}
+
+function subscribeReducedMotion(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/** Shares one native listener while updating mounted animations immediately. */
+export function usePrefersReducedMotion() {
+  return useSyncExternalStore(
+    subscribeReducedMotion,
+    prefersReducedMotion,
+    prefersReducedMotion,
+  );
 }
 
 /**

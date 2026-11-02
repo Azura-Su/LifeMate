@@ -208,6 +208,7 @@ export function CardGameMoneyCounter({
 const styles = StyleSheet.create({
   counter: {
     minWidth: 34,
+    maxWidth: '100%',
     minHeight: 18,
     position: 'relative',
     alignItems: 'center',

@@ -4,6 +4,7 @@ import type {
   GameSnapshot,
   VariantGameConfig,
 } from '../../types/cardGame';
+import { requiresLargeTableClient } from './gameCapacity';
 
 const requiresVariantV11 = (config?: VariantGameConfig) =>
   !!config &&
@@ -78,7 +79,8 @@ export function createGameSession(deps: Dependencies) {
         room?.nextSouthRules?.southConfig.instantWinAmount !== undefined;
       // Keep the pending request's identity so its negotiated HTTP protocol
       // survives retries. This local fence is stripped by gameRequest.
-      if (needsSouthV12) input.requiredClientVersion = 12;
+      if (requiresLargeTableClient(room)) input.requiredClientVersion = 13;
+      else if (needsSouthV12) input.requiredClientVersion = 12;
       else if (['north', 'sam', 'tan'].includes(room?.gameKind ?? ''))
         input.requiredClientVersion =
           requiresVariantV11(room?.variantConfig) ||
@@ -388,7 +390,8 @@ export function createGameSession(deps: Dependencies) {
       if (!['create', 'join'].includes(intent.type)) {
         if (!room) return false;
         input.roomId = room.id;
-        if (
+        if (requiresLargeTableClient(room)) input.requiredClientVersion = 13;
+        else if (
           room.southConfig?.instantWinAmount !== undefined ||
           room.nextSouthRules?.southConfig.instantWinAmount !== undefined ||
           (intent.type === 'set-south-rules' &&

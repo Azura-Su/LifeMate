@@ -2,6 +2,19 @@
 const fs = require('node:fs');
 const vm = require('node:vm');
 const ts = require('typescript');
+function compileModule(path) {
+  return ts.transpileModule(fs.readFileSync(path, 'utf8'), {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
+}
+const capacity = { exports: {} };
+vm.runInNewContext(
+  compileModule(require.resolve('../src/services/cardGames/gameCapacity.ts')),
+  capacity,
+);
 // Pass an older gameSession.ts path to measure the baseline under the same clock.
 const source =
   process.argv[2] ||
@@ -16,17 +29,16 @@ const setTimer = (fn, ms) => {
 };
 const context = {
   exports: {},
+  require: (specifier) => {
+    if (specifier === './gameCapacity') return capacity.exports;
+    throw new Error(`Unexpected benchmark dependency: ${specifier}`);
+  },
   AbortController,
   setTimeout: setTimer,
   clearTimeout: (key) => timers.delete(key),
 };
 vm.runInNewContext(
-  ts.transpileModule(fs.readFileSync(source, 'utf8'), {
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2022,
-    },
-  }).outputText,
+  compileModule(source),
   context,
 );
 const flush = async () => {

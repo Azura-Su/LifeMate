@@ -16,6 +16,7 @@ import { DialogModal } from '../../components/DialogModal';
 import { Screen } from '../../components/Screen';
 import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { useNotesAccount } from '../../hooks/useNotesAccount';
+import { useInteractionGuard } from '../../hooks/useInteractionGuard';
 import { colors, layout, typography } from '../../theme';
 import { actionIconStyles } from '../../theme/actionIcons';
 import type { LifeNote } from '../../types/note';
@@ -63,6 +64,7 @@ export function NotesScreen({
   suspended = false,
 }: NotesScreenProps = {}) {
   const model = useNotesAccount();
+  const canInteract = useInteractionGuard(!suspended, model.uid);
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<LifeNote | null>(null);
   const [visible, setVisible] = useState(false);
@@ -168,14 +170,15 @@ export function NotesScreen({
   }
 
   function confirmDelete(note: LifeNote) {
-    if (deleting.current.has(note.id)) return;
+    if (!canInteract() || deleting.current.has(note.id)) return;
     Alert.alert('Xóa ghi chú?', `“${note.title}” sẽ bị xóa khỏi tài khoản.`, [
       { text: 'Hủy', style: 'cancel' },
       {
         text: 'Xóa',
         style: 'destructive',
         onPress: () => {
-          if (!model.uid || deleting.current.has(note.id)) return;
+          if (!canInteract() || !model.uid || deleting.current.has(note.id))
+            return;
           deleting.current.add(note.id);
           setDeletingIds((current) => new Set(current).add(note.id));
           void model

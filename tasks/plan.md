@@ -254,3 +254,8 @@ kỹ năng. Ảnh gốc là reference và fallback; không thay quyền sở h�
    export native. Ghi rõ những kiểm tra runtime/thiết bị chưa thực hiện được.
 
 Task checklist ở todo.md. Không thêm dependency hoặc deploy trong lượt này.
+
+## Mở rộng: tỷ lệ Linh Lộc trên Home, 02/11/2026
+
+Kế hoạch và tiêu chí riêng tại [celestial-stag-home-scale-plan.md](celestial-stag-home-scale-plan.md).
+Triển khai theo yêu cầu “lên plan và làm”; giữ nguyên các hạng mục art chưa hoàn tất ở trên.

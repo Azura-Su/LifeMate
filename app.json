@@ -98,9 +98,9 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "LifeMate dùng máy ảnh khi bạn chọn chụp khoảnh khắc cho Dòng ký ức.",
+          "cameraPermission": "LifeMate dùng máy ảnh khi bạn chọn chụp khoảnh khắc hoặc quét QR vào phòng.",
           "recordAudioAndroid": false,
-          "barcodeScannerEnabled": false
+          "barcodeScannerEnabled": true
         }
       ],
       [

@@ -495,6 +495,7 @@ export function CardGameTable({
   // Side seats sit right below the measured top seat so cards never overlap.
   const portraitSideTop = 6 + seatHeights.top + 8;
   const fourPlayerLandscape = landscape && seatPlayers.length === 4;
+  const manyPlayers = seatPlayers.length > 4;
   const changeSortOrder = () => {
     if (Platform.OS === 'android') {
       UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -520,6 +521,7 @@ export function CardGameTable({
           fourPlayerPortrait && styles.portraitFourOpponent,
           landscape && styles.landscapeOpponent,
           fourPlayerLandscape && styles.landscapeFourOpponent,
+          manyPlayers && styles.largeTableOpponent,
           isPlayingTurn && styles.currentOpponent,
           isPlayingTurn &&
             !landscape &&
@@ -672,7 +674,7 @@ export function CardGameTable({
                 <Text
                   testID={`opponent-name-${p.uid}`}
                   accessibilityLabel={playerName}
-                  numberOfLines={2}
+                  numberOfLines={manyPlayers ? 1 : 2}
                   ellipsizeMode="tail"
                   style={[
                     styles.opponentName,
@@ -685,7 +687,7 @@ export function CardGameTable({
                   {playerName}
                 </Text>
               </Pressable>
-              <View style={styles.opponentMetaRow}>
+              <View style={[styles.opponentMetaRow, manyPlayers && styles.largeTableMeta]}>
                 {isSam && p.count === 1 && !p.finished && !p.forfeited && (
                   <Text
                     testID={`sam-one-${p.uid}`}
@@ -786,9 +788,10 @@ export function CardGameTable({
           paddingTop: Math.max(150, portraitSideTop + seatHeights.side + 16),
         },
         landscape && styles.landscapeBoard,
+        manyPlayers && styles.largeTableBoard,
       ]}
     >
-      <View style={styles.boardCenter}>
+      <View style={[styles.boardCenter, manyPlayers && styles.largeTableCenter]}>
         {!roundFinished && latestCut && (
           <Text accessibilityLiveRegion="polite" style={styles.subtitle}>
             {game.players.find((p) => p.uid === latestCut.to)?.name ??
@@ -809,7 +812,7 @@ export function CardGameTable({
           (!landscape || !game.table) &&
           !activeDealAnimationKey && (
             <Text
-              style={[styles.centerText, game.table && styles.boardPlayLabel]}
+              style={[styles.centerText, game.table && styles.boardPlayLabel, manyPlayers && styles.largeTablePlayLabel]}
             >
               {isSamReporting
                 ? 'Báo Sâm trước khi bắt đầu'
@@ -877,7 +880,7 @@ export function CardGameTable({
         <View
           ref={anchorRef('table')}
           onLayout={measureAnchors}
-          style={styles.tablePlayAnchor}
+          style={[styles.tablePlayAnchor, manyPlayers && styles.largeTablePlayAnchor]}
           pointerEvents="none"
         >
           {game.table ? (
@@ -903,7 +906,7 @@ export function CardGameTable({
             </Animated.View>
           ) : null}
         </View>
-        <View style={styles.boardFooter}>
+        <View style={[styles.boardFooter, manyPlayers && styles.largeTableBoardFooter]}>
           {!roundFinished && seconds === 0 && (
             <View testID="board-turn-indicator" style={styles.turnIndicator}>
               <Text accessibilityLiveRegion="polite" style={styles.turnText}>
@@ -948,6 +951,13 @@ export function CardGameTable({
             borderColor: turnColor,
             backgroundColor: turnSoftColor,
           },
+        manyPlayers && {
+          height: undefined,
+          minHeight: 136,
+          flexGrow: 0,
+          flexShrink: 0,
+          flexBasis: 'auto',
+        },
       ]}
     >
       {!roundFinished && mine && seconds > 0 && turnProgressBar}
@@ -963,8 +973,8 @@ export function CardGameTable({
             { opacity: collection ? roundCleanup : 1 },
           ]}
         >
-          <View testID="hand-ready-action" style={styles.handReadyAction}>
-            <View style={styles.handReadyPlayer}>
+          <View testID="hand-ready-action" style={[styles.handReadyAction, manyPlayers && styles.largeTableReadyAction]}>
+            <View style={[styles.handReadyPlayer, manyPlayers && { flexShrink: 1 }]}>
               <Pressable
                 testID="own-player-status"
                 style={styles.ownAvatarAnchor}
@@ -1032,7 +1042,7 @@ export function CardGameTable({
                   </View>
                 )}
               </Pressable>
-              <View style={styles.handReadyCopy}>
+              <View style={[styles.handReadyCopy, manyPlayers && { flex: 1, minWidth: 0 }]}>
                 {ownResult && (
                   <Text
                     testID={`round-feedback-${uid}`}
@@ -1075,11 +1085,12 @@ export function CardGameTable({
             style={[
               styles.handHeading,
               landscape && styles.landscapeHandHeading,
+              manyPlayers && styles.largeTableHeading,
             ]}
           >
             <View
               accessibilityLabel={`Bài của bạn, ${hand.length} lá, số dư bàn ${myBalance} ${balanceUnit === 'đ' ? 'đồng' : balanceUnit}`}
-              style={styles.handSummary}
+              style={[styles.handSummary, manyPlayers && styles.largeTableSummary]}
               testID="hand-summary"
             >
               <Text numberOfLines={1} style={styles.handTitle}>
@@ -1110,6 +1121,7 @@ export function CardGameTable({
                   styles.turnTimer,
                   styles.handTurnTimer,
                   landscape && styles.landscapeHandTurnTimer,
+                  manyPlayers && styles.largeTableTimer,
                   timerTone,
                   { transform: [{ scale: turnPulse }] },
                 ]}
@@ -1242,6 +1254,34 @@ export function CardGameTable({
     />
   );
   const finishedSpacer = <View style={{ width: 100 }} />;
+  if (manyPlayers) return (
+    <View testID="large-game-table" style={[styles.largeTable, landscape && styles.largeTableLandscape]}>
+      <View style={styles.largeTableBody}>
+        <ScrollView
+          testID="large-table-opponents"
+          horizontal
+          style={{ flex: 1, maxHeight: Math.min(160, height * 0.3) }}
+          contentContainerStyle={styles.largeTableOpponents}
+          onScroll={measureAnchors}
+          onMomentumScrollEnd={measureAnchors}
+          onScrollEndDrag={measureAnchors}
+          scrollEventThrottle={80}
+        >{opponents}</ScrollView>
+        <ScrollView testID="large-table-board" style={styles.grow} contentContainerStyle={styles.largeTableBoardContent} onScroll={measureAnchors} onMomentumScrollEnd={measureAnchors} onScrollEndDrag={measureAnchors} scrollEventThrottle={80}>
+          {board}
+        </ScrollView>
+      </View>
+      <View testID="large-table-hand" style={[styles.largeTableHand, landscape && { width: Math.min(310, width * 0.4), flex: 0, flexBasis: 'auto' }]}>
+        <ScrollView style={styles.grow} contentContainerStyle={styles.largeTableHandContent} onScroll={measureAnchors} onMomentumScrollEnd={measureAnchors} onScrollEndDrag={measureAnchors} scrollEventThrottle={80}>
+          {handSection}
+        </ScrollView>
+        {!roundFinished && <View style={styles.footer}>
+          <View style={styles.grow}>{passButton}</View>
+          <View style={styles.grow}>{playButton}</View>
+        </View>}
+      </View>
+    </View>
+  );
   if (landscape)
     return (
       <View testID="game-table-landscape" style={styles.landscapeTable}>

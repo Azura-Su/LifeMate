@@ -27,6 +27,8 @@ const errors = {
   'pet-busy': 409,
   'no-pet': 409,
   'pet-name-invalid': 400,
+  'appearance-locked': 409,
+  'appearance-invalid': 400,
 };
 const json = (status, value) =>
   Response.json(value, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -41,6 +43,7 @@ function validate(input) {
     restore: ['type', 'actionId'],
     care: ['type', 'actionId'],
     rename: ['type', 'adoptionId', 'nickname'],
+    appearance: ['type', 'adoptionId', 'appearanceLevel', 'sleepSceneLevel'],
     confirm: ['type', 'actionId', 'reservationId'],
   }[input.type];
   if (
@@ -65,6 +68,12 @@ function validate(input) {
       throw Error('pet-name-invalid');
     return { ...input, nickname };
   }
+  if (input.type === 'appearance' && (
+    !UUID.test(input.adoptionId) ||
+    [input.appearanceLevel, input.sleepSceneLevel].some((level) => level !== null && (
+      !Number.isInteger(level) || level < 1 || level > 20
+    ))
+  )) throw Error('invalid-input');
   return input;
 }
 
@@ -160,6 +169,14 @@ export function createPetHandler({
             : presentState(result),
         );
       }
+      if (input.type === 'appearance')
+        return json(200, presentState(await rpc('lifemate_pet_set_appearance', {
+          p_uid: identity.uid,
+          p_auth_time: identity.authTime,
+          p_adoption_id: input.adoptionId,
+          p_appearance_level: input.appearanceLevel,
+          p_sleep_scene_level: input.sleepSceneLevel,
+        })));
       if (input.type === 'rename')
         return json(
           200,

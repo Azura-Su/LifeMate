@@ -1,0 +1,206 @@
+{
+  "date": "2026-11-02",
+  "status": "complete authored candidate set; awaiting owner art review before app replacement",
+  "generator": "built-in image_gen; precise-object-edit; transparent_background=true; no CLI/API fallback",
+  "references": [
+    "frame03-candidate-source.png",
+    "frame15-candidate-source.png"
+  ],
+  "promptNote": "Common recipe and per-frame summaries of the tool prompts, not verbatim transcripts. V2 growth stages 04–09 derive from the final scene; stage 10 derives from v2 stage 09. Later stages use neighboring frames or the final reference.",
+  "commonPromptSummary": "Use case: precise-object-edit. ONE whole-scene soft hand-painted fantasy game animation frame on a true transparent square canvas. Preserve reference camera, ground baseline, grass footprint, empty central sleeping area and all unaffected structure positions/proportions. No text, border, characters, checkerboard or shadow outside grass. Change only the specified growth/decay stage.",
+  "selectedSourceFrames": [
+    {
+      "filename": "frame01-source.png",
+      "kind": "growth",
+      "index": 1,
+      "promptSummary": "Golden light ring on the existing grass patch; no solid dais."
+    },
+    {
+      "filename": "frame02-source.png",
+      "kind": "growth",
+      "index": 2,
+      "promptSummary": "White circular gold-trimmed sleeping dais; no columns."
+    },
+    {
+      "filename": "frame03-candidate-source.png",
+      "kind": "growth",
+      "index": 3,
+      "promptSummary": "Existing short white/gold column stubs."
+    },
+    {
+      "filename": "frame04-v2-source.png",
+      "kind": "growth",
+      "index": 4,
+      "promptSummary": "Final-height white columns and golden inlay; no arch or tree."
+    },
+    {
+      "filename": "frame05-v2-source.png",
+      "kind": "growth",
+      "index": 5,
+      "promptSummary": "Two partial arch segments from the column ends; center gap."
+    },
+    {
+      "filename": "frame06-v2-source.png",
+      "kind": "growth",
+      "index": 6,
+      "promptSummary": "Closed gold arch and a tiny sprout at the final right-hand tree root."
+    },
+    {
+      "filename": "frame07-v2-source.png",
+      "kind": "growth",
+      "index": 7,
+      "promptSummary": "Slender sapling with a few green leaves."
+    },
+    {
+      "filename": "frame08-v2-source.png",
+      "kind": "growth",
+      "index": 8,
+      "promptSummary": "Half-grown twisting trunk with thin branches."
+    },
+    {
+      "filename": "frame09-v2-source.png",
+      "kind": "growth",
+      "index": 9,
+      "promptSummary": "Small green canopy behind the arch, without golden leaf margins."
+    },
+    {
+      "filename": "frame10-v2-source.png",
+      "kind": "growth",
+      "index": 10,
+      "promptSummary": "Gold margins begin at outer canopy leaves."
+    },
+    {
+      "filename": "frame11-source.png",
+      "kind": "growth",
+      "index": 11,
+      "promptSummary": "Larger canopy; all leaves gold-edged; no floating motes."
+    },
+    {
+      "filename": "frame12-source.png",
+      "kind": "growth",
+      "index": 12,
+      "promptSummary": "First small golden light mote."
+    },
+    {
+      "filename": "frame13-source.png",
+      "kind": "growth",
+      "index": 13,
+      "promptSummary": "Additional small gold/teal motes and white blossoms along dais rim."
+    },
+    {
+      "filename": "frame14-source.png",
+      "kind": "growth",
+      "index": 14,
+      "promptSummary": "Penultimate finishing detail; reduce fine engraving highlights/dais reflections."
+    },
+    {
+      "filename": "frame15-candidate-source.png",
+      "kind": "growth",
+      "index": 15,
+      "promptSummary": "Existing final Golden Sanctuary composition."
+    },
+    {
+      "filename": "decay01-source.png",
+      "kind": "decay",
+      "index": 1,
+      "promptSummary": "Motes descend slightly and dim; structures intact."
+    },
+    {
+      "filename": "decay02-source.png",
+      "kind": "decay",
+      "index": 2,
+      "promptSummary": "Motes descend toward grass and mostly extinguish."
+    },
+    {
+      "filename": "decay03-source.png",
+      "kind": "decay",
+      "index": 3,
+      "promptSummary": "Gold begins tarnishing to bronze."
+    },
+    {
+      "filename": "decay04-source.png",
+      "kind": "decay",
+      "index": 4,
+      "promptSummary": "All gilding bronze, foliage dull olive, motes gone."
+    },
+    {
+      "filename": "decay05-source.png",
+      "kind": "decay",
+      "index": 5,
+      "promptSummary": "Center third of arch dissolves into small bronze grains."
+    },
+    {
+      "filename": "decay06-source.png",
+      "kind": "decay",
+      "index": 6,
+      "promptSummary": "Remaining arch segments dissolve outward to columns."
+    },
+    {
+      "filename": "decay07-source.png",
+      "kind": "decay",
+      "index": 7,
+      "promptSummary": "About one-third of leaves fall; stone becomes pale grey."
+    },
+    {
+      "filename": "decay08-source.png",
+      "kind": "decay",
+      "index": 8,
+      "promptSummary": "Most leaves fall; grey columns still standing; grass and flowers dry."
+    },
+    {
+      "filename": "decay09-source.png",
+      "kind": "decay",
+      "index": 9,
+      "promptSummary": "Columns crack and shed small chips; almost bare tree."
+    },
+    {
+      "filename": "decay10-source.png",
+      "kind": "decay",
+      "index": 10,
+      "promptSummary": "Upper columns collapse; lower shafts remain, dais begins cracking."
+    },
+    {
+      "filename": "decay11-source.png",
+      "kind": "decay",
+      "index": 11,
+      "promptSummary": "Low column rubble; dais cracks; branch tips turn into ash."
+    },
+    {
+      "filename": "decay12-source.png",
+      "kind": "decay",
+      "index": 12,
+      "promptSummary": "Upper tree gone; lower trunk and broken ground begin disintegrating."
+    },
+    {
+      "filename": "decay13-source.png",
+      "kind": "decay",
+      "index": 13,
+      "promptSummary": "No structures remain, only semi-transparent rising bronze-grey dust."
+    },
+    {
+      "filename": "decay14-source.png",
+      "kind": "decay",
+      "index": 14,
+      "promptSummary": "Nearly empty; sparse faint dust wisps and grains."
+    }
+  ],
+  "endpoints": {
+    "growth00": "empty RGBA",
+    "decay00": "byte-identical copy of normalized growth15",
+    "decay15": "empty RGBA"
+  },
+  "layout": "Two 1280x1280 RGBA PNG atlases; 4x4 cells of 320px; ground y=296; width at most 288px",
+  "packing": "scripts/review-celestial-stag-lv14-garden.cjs; 7 levels per RGB channel, 4 alpha levels, Deflate level 9 strategy 0. Ground-normalized growth/decay through 12; final scene transform for dust 13–14. Outputs candidates only.",
+  "outputs": {
+    "growth": "tasks/previews/celestial-stag-lv14-growth-atlas-candidate.png",
+    "decay": "tasks/previews/celestial-stag-lv14-decay-atlas-candidate.png",
+    "growthBytes": 591585,
+    "decayBytes": 698453
+  },
+  "review": "Contact sheets and static four-pose Home-scale pet composite inspected; frame counts/timing checked; no native runtime validation or app asset replacement yet.",
+  "endpointRGBA_SHA256": "6f931e368f3fb819d393c90d81b022b55b496e40a3d479b0265f9e7d249e8b10",
+  "rgbaColorCounts": {
+    "growth": 351,
+    "decay": 342
+  }
+}

@@ -15,7 +15,7 @@ import { useFinanceStore } from '../../../store/financeStore';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { RefreshControl } from 'react-native';
+import { RefreshControl, StyleSheet } from 'react-native';
 import { useAgendaStore } from '../../../store/agendaStore';
 import { useNoteStore } from '../../../store/noteStore';
 import { loadRemoteConfig } from '../../../services/firebase/remoteConfigService';
@@ -47,9 +47,10 @@ jest.mock('react-native-reanimated', () => ({
   useReducedMotion: () => false,
 }));
 jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/src/mock'));
+let mockHomePet: { speciesId: 'celestial_stag'; stage: 'ascended'; level: number; totalExp: number } | null = null;
 jest.mock('../../../services/pixelPet/pixelPetApi', () => ({
   syncPixelPetInBackground: jest.fn(),
-  readOwnedPixelPet: () => null,
+  readOwnedPixelPet: () => mockHomePet,
   subscribeOwnedPixelPet: () => () => {},
 }));
 jest.mock('@react-native-async-storage/async-storage', () =>
@@ -74,6 +75,7 @@ jest.mock('../../../services/firebase/messagingService', () => ({
 }));
 
 beforeEach(async () => {
+  mockHomePet = null;
   homeFocusHandler = null;
   await AsyncStorage.clear();
   resetFirestoreMock();
@@ -146,6 +148,23 @@ function renderHome() {
   );
 }
 
+it('keeps the cards outside the Stag area even while the menu pauses the pet', () => {
+  mockHomePet = { speciesId: 'celestial_stag', stage: 'ascended', level: 20, totalExp: 5000 };
+  const view = renderHome();
+  fireEvent(screen.getByTestId('home-root'), 'layout', {
+    nativeEvent: { layout: { width: 390, height: 844, x: 0, y: 0 } },
+  });
+  fireEvent(screen.getByTestId('screen-fixed-header'), 'layout', {
+    nativeEvent: { layout: { width: 390, height: 80, x: 0, y: 0 } },
+  });
+  const reserved = () => StyleSheet.flatten(screen.getByTestId('home-card-viewport').props.style).marginBottom;
+  expect(reserved()).toBe(252);
+  expect(screen.getByTestId('home-card-viewport').findAllByProps({ testID: 'home-finance-card' }).length).toBeGreaterThan(0);
+  fireEvent.press(screen.getByLabelText('Mở menu'));
+  expect(reserved()).toBe(252);
+  view.unmount();
+});
+
 it('keeps the pull-to-refresh indicator hidden during background loads', () => {
   useConfigStore.setState({ loading: true });
   useAgendaStore.setState({ uid: 'home-user', loading: true });
@@ -155,6 +174,7 @@ it('keeps the pull-to-refresh indicator hidden during background loads', () => {
   expect(screen.getByText('Lịch')).toBeTruthy();
   expect(screen.getByText('Việc cần làm')).toBeTruthy();
   expect(screen.getByTestId('home-finance-card')).toBeTruthy();
+  expect(StyleSheet.flatten(screen.getByTestId('home-card-viewport').props.style).marginBottom).toBe(0);
 });
 
 it('shows the pull-to-refresh indicator only while a manual refresh runs', async () => {

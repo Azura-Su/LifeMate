@@ -1,0 +1,358 @@
+{
+  "atlasFiles": [
+    "home_sleep_garden_lv08_v2.png",
+    "home_sleep_garden_lv08_decay_v2.png"
+  ],
+  "uniquePoses": 30,
+  "exactHandoff": true,
+  "transparentEndpoints": true,
+  "originalSourcesPreserved": true,
+  "frames": [
+    {
+      "clip": "growth",
+      "frame": 0,
+      "bounds": null,
+      "paintedPixels": 0
+    },
+    {
+      "clip": "growth",
+      "frame": 1,
+      "bounds": [
+        16,
+        198,
+        304,
+        296
+      ],
+      "paintedPixels": 22164
+    },
+    {
+      "clip": "growth",
+      "frame": 2,
+      "bounds": [
+        16,
+        178,
+        304,
+        296
+      ],
+      "paintedPixels": 23747
+    },
+    {
+      "clip": "growth",
+      "frame": 3,
+      "bounds": [
+        16,
+        80,
+        304,
+        296
+      ],
+      "paintedPixels": 30046
+    },
+    {
+      "clip": "growth",
+      "frame": 4,
+      "bounds": [
+        16,
+        59,
+        304,
+        296
+      ],
+      "paintedPixels": 33725
+    },
+    {
+      "clip": "growth",
+      "frame": 5,
+      "bounds": [
+        16,
+        59,
+        304,
+        296
+      ],
+      "paintedPixels": 34097
+    },
+    {
+      "clip": "growth",
+      "frame": 6,
+      "bounds": [
+        16,
+        44,
+        304,
+        296
+      ],
+      "paintedPixels": 36119
+    },
+    {
+      "clip": "growth",
+      "frame": 7,
+      "bounds": [
+        16,
+        48,
+        304,
+        296
+      ],
+      "paintedPixels": 35933
+    },
+    {
+      "clip": "growth",
+      "frame": 8,
+      "bounds": [
+        16,
+        48,
+        304,
+        296
+      ],
+      "paintedPixels": 38210
+    },
+    {
+      "clip": "growth",
+      "frame": 9,
+      "bounds": [
+        16,
+        50,
+        304,
+        296
+      ],
+      "paintedPixels": 46708
+    },
+    {
+      "clip": "growth",
+      "frame": 10,
+      "bounds": [
+        16,
+        36,
+        304,
+        296
+      ],
+      "paintedPixels": 50585
+    },
+    {
+      "clip": "growth",
+      "frame": 11,
+      "bounds": [
+        16,
+        32,
+        304,
+        296
+      ],
+      "paintedPixels": 52348
+    },
+    {
+      "clip": "growth",
+      "frame": 12,
+      "bounds": [
+        16,
+        32,
+        304,
+        296
+      ],
+      "paintedPixels": 53678
+    },
+    {
+      "clip": "growth",
+      "frame": 13,
+      "bounds": [
+        16,
+        31,
+        304,
+        296
+      ],
+      "paintedPixels": 54339
+    },
+    {
+      "clip": "growth",
+      "frame": 14,
+      "bounds": [
+        16,
+        30,
+        304,
+        296
+      ],
+      "paintedPixels": 54387
+    },
+    {
+      "clip": "growth",
+      "frame": 15,
+      "bounds": [
+        16,
+        34,
+        304,
+        296
+      ],
+      "paintedPixels": 53353
+    },
+    {
+      "clip": "decay",
+      "frame": 0,
+      "bounds": [
+        16,
+        34,
+        304,
+        296
+      ],
+      "paintedPixels": 53353
+    },
+    {
+      "clip": "decay",
+      "frame": 1,
+      "bounds": [
+        16,
+        33,
+        304,
+        296
+      ],
+      "paintedPixels": 54268
+    },
+    {
+      "clip": "decay",
+      "frame": 2,
+      "bounds": [
+        16,
+        33,
+        304,
+        296
+      ],
+      "paintedPixels": 54822
+    },
+    {
+      "clip": "decay",
+      "frame": 3,
+      "bounds": [
+        16,
+        33,
+        304,
+        296
+      ],
+      "paintedPixels": 55120
+    },
+    {
+      "clip": "decay",
+      "frame": 4,
+      "bounds": [
+        16,
+        32,
+        304,
+        296
+      ],
+      "paintedPixels": 55461
+    },
+    {
+      "clip": "decay",
+      "frame": 5,
+      "bounds": [
+        16,
+        30,
+        304,
+        296
+      ],
+      "paintedPixels": 55684
+    },
+    {
+      "clip": "decay",
+      "frame": 6,
+      "bounds": [
+        16,
+        28,
+        304,
+        296
+      ],
+      "paintedPixels": 52621
+    },
+    {
+      "clip": "decay",
+      "frame": 7,
+      "bounds": [
+        16,
+        30,
+        304,
+        296
+      ],
+      "paintedPixels": 45255
+    },
+    {
+      "clip": "decay",
+      "frame": 8,
+      "bounds": [
+        16,
+        27,
+        304,
+        296
+      ],
+      "paintedPixels": 45095
+    },
+    {
+      "clip": "decay",
+      "frame": 9,
+      "bounds": [
+        16,
+        28,
+        304,
+        296
+      ],
+      "paintedPixels": 46754
+    },
+    {
+      "clip": "decay",
+      "frame": 10,
+      "bounds": [
+        16,
+        28,
+        304,
+        296
+      ],
+      "paintedPixels": 47298
+    },
+    {
+      "clip": "decay",
+      "frame": 11,
+      "bounds": [
+        16,
+        25,
+        303,
+        296
+      ],
+      "paintedPixels": 36223
+    },
+    {
+      "clip": "decay",
+      "frame": 12,
+      "bounds": [
+        16,
+        41,
+        304,
+        296
+      ],
+      "paintedPixels": 28454
+    },
+    {
+      "clip": "decay",
+      "frame": 13,
+      "bounds": [
+        16,
+        46,
+        304,
+        296
+      ],
+      "paintedPixels": 17759
+    },
+    {
+      "clip": "decay",
+      "frame": 14,
+      "bounds": [
+        57,
+        44,
+        272,
+        265
+      ],
+      "paintedPixels": 3573
+    },
+    {
+      "clip": "decay",
+      "frame": 15,
+      "bounds": null,
+      "paintedPixels": 0
+    }
+  ],
+  "sha256": {
+    "home_sleep_garden_lv08_v2.png": "4db1b0758226b475210b5fdd2dd2755c2dc89f5935dba59641d63a06ab949f00",
+    "home_sleep_garden_lv08_decay_v2.png": "a793e98acaf178663b0d0f9323505673f91ae4c1fd477e44231dae077618d43b"
+  }
+}

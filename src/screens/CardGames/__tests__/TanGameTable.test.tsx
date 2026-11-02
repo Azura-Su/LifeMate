@@ -45,6 +45,18 @@ const room: CardGameRoom = {
   },
 };
 
+it.each([[320, 568], [568, 320], [390, 844], [844, 390]])('keeps six Tấn players and controls reachable at %sx%s', (width, height) => {
+  Dimensions.set({ window: { width, height, scale: 1, fontScale: 1.8 }, screen: { width, height, scale: 1, fontScale: 1.8 } });
+  const members = ['a', 'b', 'c', 'd', 'e', 'f'].map((uid) => ({ uid, name: `Người ${uid} tên dài`, ready: true, wins: 0 }));
+  const larger: CardGameRoom = { ...room, members, game: { ...room.game as TanView, players: members.map((m) => ({ uid: m.uid, count: m.uid === 'a' ? 3 : 8, finished: false, forfeited: false })) } };
+  render(<TanGameTable room={larger} uid="a" serverTime={Date.now()} active disabled={false} busy={false} onAction={jest.fn()} />);
+  expect(screen.getByTestId('large-tan-table')).toBeTruthy();
+  expect(screen.getByTestId('tan-opponents-scroll')).toBeTruthy();
+  for (const member of members.slice(1)) expect(screen.getByText(member.name)).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Tấn 1 lá' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Bỏ lượt' })).toBeTruthy();
+});
+
 it('sends a selected attack through the authoritative game-action command', () => {
   const onAction = jest.fn();
   render(

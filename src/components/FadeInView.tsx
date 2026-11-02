@@ -1,6 +1,6 @@
 import { useEffect, useRef, type PropsWithChildren } from 'react';
 import { Animated, type StyleProp, type ViewStyle } from 'react-native';
-import { prefersReducedMotion } from '../utils/motion';
+import { usePrefersReducedMotion } from '../utils/motion';
 
 type Props = PropsWithChildren<{
   /** Stagger delay in ms. */
@@ -12,10 +12,13 @@ type Props = PropsWithChildren<{
 
 /** Fades and lifts its content in once, on mount. */
 export function FadeInView({ delay = 0, offset = 10, style, children }: Props) {
-  const reduced = prefersReducedMotion();
+  const reduced = usePrefersReducedMotion();
   const progress = useRef(new Animated.Value(reduced ? 1 : 0)).current;
   useEffect(() => {
-    if (reduced) return;
+    if (reduced) {
+      progress.setValue(1);
+      return;
+    }
     const animation = Animated.timing(progress, {
       toValue: 1,
       duration: 320,

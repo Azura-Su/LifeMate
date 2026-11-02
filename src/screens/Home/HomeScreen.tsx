@@ -60,6 +60,8 @@ export function HomeScreen({
   const refreshInFlight = useRef(false);
   const [focused, setFocused] = useState(true);
   const [homeLayout, setHomeLayout] = useState({ width: 0, height: 0 });
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [petReservedHeight, setPetReservedHeight] = useState(0);
   useEffect(() => {
     const offFocus = navigation.addListener?.('focus', () => setFocused(true));
     const offBlur = navigation.addListener?.('blur', () => setFocused(false));
@@ -139,6 +141,7 @@ export function HomeScreen({
   }
   return (
     <View
+      testID="home-root"
       style={styles.root}
       onLayout={(event: LayoutChangeEvent) => {
         const { width, height } = event.nativeEvent.layout;
@@ -149,6 +152,7 @@ export function HomeScreen({
         );
       }}
     >
+      <View testID="home-card-viewport" style={[styles.cardViewport, { marginBottom: petReservedHeight }]}>
       <Screen
         backgroundColor={colors.background}
         safeAreaBackgroundColor={colors.sunlightFaint}
@@ -181,6 +185,7 @@ export function HomeScreen({
           </View>
         }
         fixedHeaderStyle={styles.fixedHeader}
+        fixedHeaderOnLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
         contentStyle={styles.content}
         refreshControl={
           <RefreshControl
@@ -341,12 +346,17 @@ export function HomeScreen({
           }}
         />
       </Screen>
+      </View>
       <HomePetRoamer
         uid={uid ?? null}
         active={focused && active && !calendarVisible && !drawerVisible}
         containerWidth={homeLayout.width}
         containerHeight={homeLayout.height}
         topInset={insets.top}
+        maxReservedHeight={homeLayout.height > 0
+          ? Math.max(0, homeLayout.height - insets.top - headerHeight) * 0.55
+          : undefined}
+        onReservedSpaceChange={setPetReservedHeight}
       />
     </View>
   );

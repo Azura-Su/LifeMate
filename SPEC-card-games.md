@@ -47,7 +47,7 @@ bản ứng dụng có catalog mới để client cũ không thể tạo hoặc 
 
 ## Trải nghiệm
 
-Home → Trò chơi & điểm số → Chơi online → chọn chung Tạo phòng mới hoặc Vào phòng có sẵn. Vào phòng dùng một ô mã chung và mã xác định trò; tạo phòng chọn trò rồi cấu hình riêng trong một vùng và dùng một nút tạo chung → vào thẳng bàn chờ → mọi thành viên sẵn sàng → máy chủ tự bắt đầu → Chơi → Kết quả / Ván tiếp. Phòng cần ít nhất hai người; mọi thành viên, gồm chủ phòng, bật/tắt trạng thái sẵn sàng ngay trên bàn. Máy chủ tự bắt đầu ván đầu hoặc ván tiếp theo khi phòng có ít nhất hai người và tất cả thành viên hiện tại đã sẵn sàng; người mới vào chưa sẵn sàng và không xóa trạng thái sẵn sàng của những người đang chờ; rời phòng vẫn reset sẵn sàng của các thành viên còn lại. Không cần action bắt đầu riêng từ chủ phòng. Chơi online có danh mục nhiều trò; chỉ trò đã hoàn thiện luật và backend mới mở tạo/tham gia phòng. Tiến lên miền Nam, Tiến lên miền Bắc, Sâm, Tấn và Phỏm đã có luật/version riêng trong source. Phòng 2–4 người, mã 8 ký tự dễ đọc. Không có khán giả, bot, tiền cược hay giao dịch Tài chính; số tiền trong phòng chỉ là điểm số.
+Home → Trò chơi & điểm số → Chơi online → chọn chung Tạo phòng mới hoặc Vào phòng có sẵn. Vào phòng dùng một ô mã chung và mã xác định trò; tạo phòng chọn trò rồi cấu hình riêng trong một vùng và dùng một nút tạo chung → vào thẳng bàn chờ → mọi thành viên sẵn sàng → máy chủ tự bắt đầu → Chơi → Kết quả / Ván tiếp. Phòng cần ít nhất hai người; mọi thành viên, gồm chủ phòng, bật/tắt trạng thái sẵn sàng ngay trên bàn. Máy chủ tự bắt đầu ván đầu hoặc ván tiếp theo khi phòng có ít nhất hai người và tất cả thành viên hiện tại đã sẵn sàng; người mới vào chưa sẵn sàng và không xóa trạng thái sẵn sàng của những người đang chờ; rời phòng vẫn reset sẵn sàng của các thành viên còn lại. Không cần action bắt đầu riêng từ chủ phòng. Chơi online có danh mục nhiều trò; chỉ trò đã hoàn thiện luật và backend mới mở tạo/tham gia phòng. Tiến lên miền Nam, Tiến lên miền Bắc, Sâm, Tấn và Phỏm đã có luật/version riêng trong source. Giới hạn theo trò: Tiến lên Bắc/Nam và Phỏm 2–4, Sâm 2–5, Tấn 2–6 người; mã 8 ký tự dễ đọc. Không có khán giả, bot, tiền cược hay giao dịch Tài chính; số tiền trong phòng chỉ là điểm số.
 
 Khi tạo phòng Tiến lên miền Nam, chủ phòng đặt số đồng bị trừ trên mỗi lá còn lại (mặc định 1). Người thua bị trừ `số lá còn × mức mỗi lá`; người nhất nhận tổng tiền bị trừ để mỗi ván cân bằng. Mức phạt chặt 2 mặc định là 4 điểm/lá; mức tới trắng mặc định là 15 điểm cho mỗi đối thủ trả người thắng (đặt 0 để tắt), chỉ áp dụng khi kết quả có nhãn instant-win. Config phòng cũ thiếu trường tới trắng vẫn giữ mức 0. Cóng/thối không có phạt riêng. Kết quả và số dư tích lũy do máy chủ tính, hiển thị trong sảnh, bàn chơi và kết quả. Khi ván kết thúc, mỗi ghế hiện delta ngay dưới số dư, delta bay vào số dư rồi bộ đếm chạy từ `số dư cuối - delta` đến chính xác số dư cuối. Hiệu ứng dùng cùng một `matchId` để không phát lại do snapshot lặp; ván hủy và delta 0 không chạy cộng/trừ. Pháo hoa particle xuất hiện quanh avatar người thắng trên mọi thiết bị, chạy một lần trong khoảng 2 giây rồi dừng; kết quả gọn ở từng ghế, không phủ giữa bàn. Avatar dùng ảnh hồ sơ của tài khoản khi có, nếu không tải được thì hiện chữ cái đầu tên; ảnh được chia sẻ qua URL ký hạn ngắn cho thành viên phòng và không lưu trong cache offline. Người thắng chỉ có vương miện trên avatar, không có huy hiệu ready bên dưới; trạng thái sẵn sàng sau kết quả hiện ở dòng tổng của bàn. Ở sảnh, trạng thái ready lấy từ snapshot server và hiển thị tại từng ghế; chủ phòng được biểu thị là ghế có quyền bắt đầu và được tính trong điều kiện sẵn sàng hiện có. Không tự động bắt đầu ngay sau khi công bố kết quả: mọi người cần chủ động sẵn sàng; khi tất cả đã sẵn sàng, máy chủ tự xác nhận điều kiện và bắt đầu match mới. Không thêm tự động ready/countdown nếu protocol phòng chưa cung cấp. Phòng và số dư/thành tích được giữ sau khi ván kết thúc; thành viên chỉ vào lại khi phòng còn hạn hoặc sau khi chủ phòng tạo lại phòng đã hết hạn. Mỗi phòng có một bảng điểm chung trên server, kể cả khi chủ phòng đang chờ một mình. Kết quả hoàn tất dùng matchId để chống ghi trùng; ván hủy không thêm dòng điểm. Chỉ chủ phòng hiện tại được sửa/xóa bảng điểm; thành viên cùng xem điểm và lịch sử thay đổi. Việc sửa bảng điểm không đổi số dư có thẩm quyền của game. Máy chỉ lưu cache mã hóa theo UID; các bản cũ cục bộ được giữ chỉ xem và không tạo bản cũ mới. Xem SPEC-card-score.md.
 
@@ -153,3 +153,31 @@ chuyển luật; xem SPEC-rules-tien-len-south.md.
 Chủ phòng sửa10 mức điểm từ menu phòng, cùng dialog với Tiến lên; luật đang
 chơi và ván tới hiển thị riêng. PendingPhỏm cần protocol6; chỉ promote lúc
 chia match mới và yêu cầu ready lại sau lưu ở sảnh. Luồng South giữ floor5.
+
+
+## QR vào phòng và bàn nhiều người — 02/11/2026
+
+- Popup Mã phòng hiển thị QR đen/trắng có quiet zone 4 modules. Màn Vào phòng
+  có sẵn có nút Quét QR vào phòng và luôn giữ nhập mã thủ công. Payload chỉ là
+  `LIFEMATE:ROOM:1:<mã 8 ký tự>`; không có UID, token hay dữ liệu bài. Chỉ nhận
+  đúng phiên bản/định dạng, không mở URL hoặc thực thi nội dung QR tùy ý.
+- Camera chỉ gắn khi màn/modal đang active, chỉ xin quyền khi người dùng chọn
+  quét; từ chối quyền hoặc camera lỗi vẫn cho nhập mã. Một lần quét hợp lệ chỉ
+  gửi một join qua luồng xác thực/kiểm tra ghế hiện có. Đóng, blur, logout và
+  background dừng camera, bỏ sự kiện muộn. Chưa hỗ trợ mở lời mời từ camera hệ
+  thống bên ngoài LifeMate.
+- Expo Camera bật `barcodeScannerEnabled`; native Android/iOS đã prebuild đồng
+  bộ. Đây là thay đổi native, cần build lại binary; OTA JavaScript vào binary
+  cũ tắt barcode không đủ để quét QR.
+- Bàn hơn 4 người giữ ghế theo UID/thứ tự lượt, có viewport cuộn độc lập cho ghế,
+  vùng bài giữa và kết quả; bài của mình và nút thao tác ở vùng riêng. Tên dài
+  ellipsis, số dư bị giới hạn theo ghế. Header tay bài của bàn lớn xuống dòng;
+  mọi cuộn cập nhật tọa độ animation. Bàn 2–4 giữ bố cục trước đó.
+- SQL và Edge cùng giới hạn south/north/phom=4, sam=5, tan=6. Capability13 bảo vệ
+  cả members và game.players còn giữ lại sau rời/kick. Client cũ không được ghi
+  hoặc đọc snapshot bàn lớn, vẫn được rời. Takeover, status và lưu luật kiểm tra
+  cùng điều kiện; legacy commit cũng đi qua guard này. Retry giữ fingerprint,
+  actionId và protocol đã chốt; lỗi nâng cấp kết thúc request cũ rồi sync mới.
+- Migration `20261102120000_card_game_large_tables.sql` và Edge mới phải deploy
+  trước bản app mới. Không tính lại lịch sử/điểm và không ghi dữ liệu người dùng
+  thật trong kiểm chứng. Plan/checklist: `tasks/card-games-qr-capacity-plan.md`.

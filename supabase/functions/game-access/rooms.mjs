@@ -1,4 +1,5 @@
 import { gameEngine } from './game-engines.mjs';
+import { gameCapacity } from './game-capacity.mjs';
 import { configuredSouth, settleConfiguredSouth } from './tienlen-scoring.mjs';
 import { settleNorthVariant, settleSamVariant } from './variant-scoring.mjs';
 
@@ -39,7 +40,7 @@ export function updateRoom(input, uid, action, now, deck) {
     )
       state.phase = state.game ? 'finished' : 'lobby';
     if (member) return state;
-    if (state.members.length >= 4) throw Error('room-full');
+    if (state.members.length >= gameCapacity(state.gameKind)) throw Error('room-full');
     if (!['lobby', 'finished'].includes(state.phase))
       throw Error('room-playing');
     if (state.members.length === 0 && uid !== state.ownerUid)

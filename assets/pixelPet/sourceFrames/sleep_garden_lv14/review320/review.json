@@ -1,0 +1,324 @@
+{
+  "missing": [],
+  "frames": [
+    {
+      "filename": "frame01-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 191,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.2408026755852843,
+      "sourceEdge": false
+    },
+    {
+      "filename": "frame02-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 192,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.27507163323782235,
+      "sourceEdge": false
+    },
+    {
+      "filename": "frame03-candidate-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 182,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.27692307692307694,
+      "sourceEdge": false
+    },
+    {
+      "filename": "frame04-v2-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 147,
+        "right": 303,
+        "bottom": 295
+      },
+      "scale": 0.2506527415143603,
+      "sourceEdge": false
+    },
+    {
+      "filename": "frame05-v2-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 117,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.25,
+      "sourceEdge": false
+    },
+    {
+      "filename": "frame06-v2-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 104,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.2506527415143603,
+      "sourceEdge": false
+    },
+    {
+      "filename": "frame07-v2-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 105,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.25043478260869567,
+      "sourceEdge": false
+    },
+    {
+      "filename": "frame08-v2-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 103,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.25,
+      "sourceEdge": false
+    },
+    {
+      "filename": "frame09-v2-source.png",
+      "bounds": {
+        "left": 17,
+        "top": 34,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.25021720243266726,
+      "sourceEdge": false
+    },
+    {
+      "filename": "frame10-v2-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 33,
+        "right": 304,
+        "bottom": 295
+      },
+      "scale": 0.2491349480968858,
+      "sourceEdge": false
+    },
+    {
+      "filename": "frame11-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 31,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.24956672443674177,
+      "sourceEdge": false
+    },
+    {
+      "filename": "frame12-source.png",
+      "bounds": {
+        "left": 17,
+        "top": 31,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.24870466321243523,
+      "sourceEdge": false
+    },
+    {
+      "filename": "frame13-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 29,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.24849007765314926,
+      "sourceEdge": false
+    },
+    {
+      "filename": "frame14-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 26,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.2508710801393728,
+      "sourceEdge": false
+    },
+    {
+      "filename": "frame15-candidate-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 28,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.2513089005235602,
+      "sourceEdge": false
+    },
+    {
+      "filename": "decay01-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 28,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.25043478260869567,
+      "sourceEdge": false
+    },
+    {
+      "filename": "decay02-source.png",
+      "bounds": {
+        "left": 17,
+        "top": 24,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.25,
+      "sourceEdge": false
+    },
+    {
+      "filename": "decay03-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 24,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.24978317432784042,
+      "sourceEdge": false
+    },
+    {
+      "filename": "decay04-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 25,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.24935064935064935,
+      "sourceEdge": false
+    },
+    {
+      "filename": "decay05-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 24,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.24870466321243523,
+      "sourceEdge": false
+    },
+    {
+      "filename": "decay06-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 24,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.24806201550387597,
+      "sourceEdge": false
+    },
+    {
+      "filename": "decay07-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 25,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.24636441402908468,
+      "sourceEdge": false
+    },
+    {
+      "filename": "decay08-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 25,
+        "right": 303,
+        "bottom": 296
+      },
+      "scale": 0.24468988954970264,
+      "sourceEdge": false
+    },
+    {
+      "filename": "decay09-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 25,
+        "right": 303,
+        "bottom": 296
+      },
+      "scale": 0.2440677966101695,
+      "sourceEdge": false
+    },
+    {
+      "filename": "decay10-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 25,
+        "right": 303,
+        "bottom": 296
+      },
+      "scale": 0.2440677966101695,
+      "sourceEdge": false
+    },
+    {
+      "filename": "decay11-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 9,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.24324324324324326,
+      "sourceEdge": false
+    },
+    {
+      "filename": "decay12-source.png",
+      "bounds": {
+        "left": 16,
+        "top": 29,
+        "right": 304,
+        "bottom": 296
+      },
+      "scale": 0.23860811930405965,
+      "sourceEdge": false
+    },
+    {
+      "filename": "decay13-source.png",
+      "bounds": {
+        "left": 22,
+        "top": 26,
+        "right": 301,
+        "bottom": 296
+      },
+      "scale": 0.2513089005235602,
+      "sourceEdge": false
+    },
+    {
+      "filename": "decay14-source.png",
+      "bounds": {
+        "left": 83,
+        "top": 30,
+        "right": 295,
+        "bottom": 295
+      },
+      "scale": 0.2513089005235602,
+      "sourceEdge": false
+    }
+  ]
+}

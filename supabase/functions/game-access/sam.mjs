@@ -191,7 +191,7 @@ export function newSamGame(
 ) {
   if (
     uids.length < 2 ||
-    uids.length > 4 ||
+    uids.length > 5 ||
     new Set(uids).size !== uids.length ||
     !validCards(deck) ||
     deck.length !== 52

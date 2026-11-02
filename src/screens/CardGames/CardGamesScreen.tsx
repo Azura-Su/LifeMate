@@ -40,6 +40,9 @@ import { VariantGameEntry } from './VariantGameEntry';
 import { RoomEntryModeSelector } from './RoomEntryModeSelector';
 import { CardGameCreatePanel, type CreateGame } from './CardGameCreatePanel';
 import { TanGameTable } from './TanGameTable';
+import { CardRoomQr } from './CardRoomQr';
+import { CardRoomScanner } from './CardRoomScanner';
+import { gameCapacity } from '../../services/cardGames/gameCapacity';
 import {
   getCachedRoomSnapshot,
   loadCachedRoomSnapshot,
@@ -101,6 +104,7 @@ export function CardGamesScreen({
   const [leavingRoom, setLeavingRoom] = useState(false);
   const [roomRejoinPending, setRoomRejoinPending] = useState(false);
   const [roomCodePopupVisible, setRoomCodePopupVisible] = useState(false);
+  const [scannerVisible, setScannerVisible] = useState(false);
   const [rejoinCode, setRejoinCode] = useState<string | null>(
     route.params?.roomCode ?? null,
   );
@@ -135,6 +139,7 @@ export function CardGamesScreen({
     setLastKnownRoom(null);
     setRejoinCode(null);
     setRoomCodePopupVisible(false);
+    setScannerVisible(false);
   }, [uid]);
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -528,7 +533,7 @@ export function CardGamesScreen({
     }
   }, [serverRoom, sessionInitializationError, state, queuedRoomIntent]);
   useEffect(() => {
-    if (!active) setRules(false);
+    if (!active) { setRules(false); setScannerVisible(false); }
   }, [active]);
   const send = (intent: GameIntent) => {
     Keyboard.dismiss();
@@ -599,7 +604,7 @@ export function CardGamesScreen({
     if (
       intent.type === 'join' &&
       room?.code === intent.code.toUpperCase() &&
-      room.members.length >= 4 &&
+      room.members.length >= gameCapacity(room.gameKind) &&
       !room.members.some((member) => member.uid === uid)
     ) {
       Alert.alert(
@@ -1038,6 +1043,12 @@ export function CardGamesScreen({
                         Mã phòng sẽ tự nhận diện trò chơi.
                       </Text>
                       <Button
+                        title="Quét QR vào phòng"
+                        variant="secondary"
+                        disabled={blocked}
+                        onPress={() => { Keyboard.dismiss(); setScannerVisible(true); }}
+                      />
+                      <Button
                         title="Vào phòng"
                         variant="secondary"
                         loading={connecting || state?.busy}
@@ -1343,7 +1354,7 @@ export function CardGamesScreen({
                 <View style={styles.lobbyHeading}>
                   <Text style={styles.lobbyTitle}>Người chơi</Text>
                   <Text style={styles.playerCount}>
-                    {room.members.length}/4
+                    {room.members.length}/{gameCapacity(room.gameKind)}
                   </Text>
                 </View>
                 {room.members.map((p) => (
@@ -1392,7 +1403,7 @@ export function CardGamesScreen({
                     </View>
                   </Pressable>
                 ))}
-                {room.members.length < 4 && (
+                {room.members.length < gameCapacity(room.gameKind) && (
                   <View style={styles.emptySeat}>
                     <Text style={styles.lobbyHint}>
                       Gửi mã phòng để mời thêm người
@@ -1452,6 +1463,17 @@ export function CardGamesScreen({
             </>
           )}
         </Screen>
+        {scannerVisible && active && !room && !blocked && uid && (
+          <CardRoomScanner
+            key={uid}
+            onClose={() => setScannerVisible(false)}
+            onCode={(roomCode) => {
+              setScannerVisible(false);
+              setCode(roomCode);
+              startRoomAction({ type: 'join', name: playerName, code: roomCode });
+            }}
+          />
+        )}
         <CardGameRules
           visible={rules && active}
           gameKind={room?.gameKind ?? selectedGame ?? 'south'}
@@ -1477,7 +1499,7 @@ export function CardGamesScreen({
           visible={roomCodePopupVisible && !!room}
           onRequestClose={() => setRoomCodePopupVisible(false)}
           onBackdropPress={() => setRoomCodePopupVisible(false)}
-          style={styles.roomCodeDialog}
+          style={[styles.roomCodeDialog, { maxHeight: Math.max(180, height - insets.top - insets.bottom - 40) }]}
         >
           <View style={styles.roomCodeHeading}>
             <View style={styles.grow}>
@@ -1542,6 +1564,8 @@ export function CardGamesScreen({
                 </Text>
               </View>
             </Pressable>
+            {room && roomCodePopupVisible && <CardRoomQr code={room.code} />}
+            <Text style={styles.body}>Bạn bè có thể chọn Quét QR vào phòng trong màn Vào phòng có sẵn.</Text>
             <View style={styles.roomCodeActions}>
               {[
                 (room?.ownerUid !== undefined ? room.ownerUid : room?.host) ===

@@ -109,6 +109,7 @@ export function TanGameTable({
   const seats = playing
     ? game.players
     : members.map((member) => ({ uid: member.uid }));
+  const manyPlayers = seats.length > 4;
   const readyCount = members.filter((member) => member.ready).length;
   const memberInfo = (playerUid: string) =>
     members.find((member) => member.uid === playerUid);
@@ -135,7 +136,7 @@ export function TanGameTable({
         : `Người thua còn ${lastCards} lá: −${(lastCards * (naturalFinisherCount - 1) * pointsPerCard).toLocaleString('vi-VN')} điểm (${lastCards} × (${naturalFinisherCount}−1) × ${pointsPerCard}); mỗi người về trước +${(lastCards * pointsPerCard).toLocaleString('vi-VN')} điểm. Người bỏ cuộc không chia điểm; bài nhặt chỉ tính nếu còn trên tay lúc kết thúc.`;
 
   const players = (
-    <View style={[styles.players, landscape && styles.playersLandscape]}>
+    <View style={[styles.players, landscape && styles.playersLandscape, manyPlayers && styles.largePlayers]}>
       {seats
         .filter((player) => player.uid !== uid)
         .map((player) => {
@@ -188,7 +189,7 @@ export function TanGameTable({
   );
 
   const center = (
-    <View style={[styles.board, landscape && styles.boardLandscape]}>
+    <View style={[styles.board, landscape && styles.boardLandscape, manyPlayers && { flex: 0, minHeight: 180 }]}>
       <View style={styles.trumpBadge}>
         <Feather name="star" size={14} color={colors.sunlight} />
         <Text style={styles.trumpText}>
@@ -316,6 +317,7 @@ export function TanGameTable({
         styles.handPanel,
         landscape && styles.handPanelLandscape,
         landscape && { width: Math.min(310, Math.max(220, width * 0.32)) },
+        manyPlayers && { flex: 1, minHeight: 0, minWidth: 0, width: undefined },
       ]}
     >
       <View style={styles.handHeading}>
@@ -326,6 +328,7 @@ export function TanGameTable({
       </View>
       <ScrollView
         horizontal
+        style={manyPlayers ? { flexShrink: 1, minHeight: 0 } : undefined}
         keyboardShouldPersistTaps="handled"
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.handCards}
@@ -426,6 +429,21 @@ export function TanGameTable({
     </View>
   );
 
+  if (manyPlayers) return (
+    <View testID="large-tan-table" style={[styles.largeRoot, landscape && styles.largeLandscape]}>
+      <View style={styles.largeBody}>
+        <ScrollView testID="tan-opponents-scroll" horizontal style={{ flexGrow: 0, maxHeight: height * 0.3 }}>
+          {players}
+        </ScrollView>
+        <ScrollView testID="tan-board-scroll" style={{ flex: 1, minHeight: 0 }}>
+          {center}
+        </ScrollView>
+      </View>
+      <View style={[styles.largeHand, landscape && { width: Math.min(310, width * 0.42), flex: 0 }]}>
+        {ownHand}
+      </View>
+    </View>
+  );
   return (
     <View style={[styles.root, landscape && styles.rootLandscape]}>
       {!landscape && players}

@@ -1,4 +1,5 @@
 import type { CardGameRoom, GameSnapshot } from '../../types/cardGame';
+import { gameCapacity } from './gameCapacity';
 import { audioCloudUrl } from '../../config/audioCloud';
 import { isPhomConfig } from './phomConfig';
 import { isPhomView } from './phomProtocol';
@@ -154,7 +155,7 @@ export function parseGameSnapshot(
     typeof r.controller !== 'boolean' ||
     r.topic !== `card-room:${r.id}:${r.epoch}` ||
     !Array.isArray(r.members) ||
-    r.members.length > 4 ||
+    r.members.length > gameCapacity(r.gameKind) ||
     !r.members.every(
       (m) =>
         object(m) &&
@@ -400,7 +401,7 @@ export function parseGameRoomStatus(value: unknown, expectedRoomId: string) {
     typeof value.canDelete !== 'boolean' ||
     typeof value.expired !== 'boolean' ||
     (value.minClientVersion !== undefined &&
-      (!integer(value.minClientVersion) || value.minClientVersion > 12)) ||
+      (!integer(value.minClientVersion) || value.minClientVersion > 13)) ||
     (value.gameKind !== undefined &&
       !['south', 'phom', 'north', 'sam', 'tan'].includes(
         value.gameKind as string,

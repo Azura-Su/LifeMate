@@ -1,7 +1,8 @@
 import { getAuth, getIdToken } from '@react-native-firebase/auth';
 import { randomUUID } from 'expo-crypto';
 import { audioCloudApiKey, audioCloudUrl } from '../../config/audioCloud';
-import type { PixelPetState } from '../../types/pixelPet';
+import type { PixelPetAppearance, PixelPetState } from '../../types/pixelPet';
+import { validPetAppearance } from './pixelPetAppearance';
 import { assertAccountWritable } from '../security/accountLifecycle';
 import { pixelPetSpecies } from './pixelPetCatalog';
 import { useAuthStore } from '../../store/authStore';
@@ -21,6 +22,8 @@ const messages: Record<string, string> = {
   'pet-busy': 'Máy chủ đang bận. Hãy thử lại.',
   'stale-snapshot': 'Dữ liệu vừa được cập nhật ở thiết bị khác.',
   'pet-name-invalid': 'Tên linh thú cần từ 1 đến 24 ký tự.',
+  'appearance-locked': 'Hình dạng hoặc khung ngủ này chưa được mở khóa.',
+  'appearance-invalid': 'Hình dạng hoặc khung ngủ không phù hợp với linh thú này.',
   'request-timeout':
     'Yêu cầu linh thú quá lâu. Hãy tải lại để kiểm tra trạng thái.',
 };
@@ -59,6 +62,7 @@ export class PixelPetApiError extends Error {
 export type PixelPetRequest =
   | { type: 'state' | 'sync' }
   | { type: 'rename'; adoptionId: string; nickname: string }
+  | ({ type: 'appearance'; adoptionId: string } & PixelPetAppearance)
   | { type: 'roll' | 'restore' | 'care'; actionId: string }
   | { type: 'confirm'; actionId: string; reservationId: string };
 
@@ -88,7 +92,14 @@ export function parsePixelPetState(value: unknown): PixelPetState {
         (state.pet.nickname !== undefined &&
           state.pet.nickname !== null &&
           !isValidPixelPetNickname(state.pet.nickname)) ||
-        !['hatchling', 'juvenile', 'ascended'].includes(state.pet.stage)))
+        !['hatchling', 'juvenile', 'ascended'].includes(state.pet.stage) ||
+        (state.pet.maxUnlockedLevel !== undefined && (
+          !Number.isInteger(state.pet.maxUnlockedLevel) || state.pet.maxUnlockedLevel < state.pet.level || state.pet.maxUnlockedLevel > 20
+        )) ||
+        !validPetAppearance(state.pet, {
+          appearanceLevel: state.pet.appearanceLevel === undefined ? null : state.pet.appearanceLevel,
+          sleepSceneLevel: state.pet.sleepSceneLevel === undefined ? null : state.pet.sleepSceneLevel,
+        })))
   )
     throw new PixelPetApiError('pet-unavailable');
   return state;

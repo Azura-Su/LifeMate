@@ -1,3 +1,13 @@
+# Đang làm: phóng Linh Lộc và cảnh ngủ trên Home, 02/11/2026
+
+- [x] Rà plan độc lập và kiểm tra hình học cho cấp1–20, màn hẹp/ngắn/ngang.
+- [x] Tăng thú/cảnh theo bố cục responsive, chừa vùng riêng ngoài viewport thẻ.
+- [x] Regression mọc/ngủ/thức sớm, kéo/thả và đổi kích thước; typecheck, lint.
+- [x] Review diff, kiểm tra trực quan/native và cập nhật SPEC/kết quả.
+
+Plan: [celestial-stag-home-scale-plan.md](celestial-stag-home-scale-plan.md).
+Kết quả và giới hạn: [celestial-stag-home-scale-result.md](celestial-stag-home-scale-result.md).
+
 # Chia khoản chi theo người/suất
 
 - [x] Reviewer duyệt plan tính tiền và tương thích receipts.

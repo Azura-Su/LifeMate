@@ -18,6 +18,7 @@ import { useFinanceStore } from '../store/financeStore';
 import { useNoteStore } from '../store/noteStore';
 import { useNotificationStore } from '../store/notificationStore';
 import { useProfileStore } from '../store/profileStore';
+import type { SessionUser } from '../types/models';
 import {
   observeAccountAccess,
   recoverAccountCleanup,
@@ -74,20 +75,16 @@ export function useAppBootstrap() {
       listener.remove();
     };
   }, []);
-  useEffect(
-    () =>
-      observeAuth(
-        (user) => {
-          const oldUid = useAuthStore.getState().user?.uid;
-          if (oldUid !== user?.uid || !user)
-            useNotificationStore.getState().reset();
-          useAuthStore.getState().setUser(user);
-          if (!user) void disablePush().catch(() => undefined);
-        },
-        () => useAuthStore.getState().setUser(null),
-      ),
-    [],
-  );
+  useEffect(() => {
+    const updateSession = (user: SessionUser | null) => {
+      const oldUid = useAuthStore.getState().user?.uid;
+      if (oldUid !== user?.uid || !user)
+        useNotificationStore.getState().reset();
+      useAuthStore.getState().setUser(user);
+      if (!user) void disablePush().catch(() => undefined);
+    };
+    return observeAuth(updateSession, () => updateSession(null));
+  }, []);
 
   // Local reminders outlive the session. Cancel the previous account's ones
   // whenever it signs out or another account takes over, from any path

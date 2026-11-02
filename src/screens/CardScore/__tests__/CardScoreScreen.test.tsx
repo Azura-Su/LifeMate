@@ -2657,6 +2657,12 @@ it('keeps a failed local finish open for retry without changing shared scores', 
       screen.getByRole('button', { name: 'Xác nhận kết thúc bàn' }),
     );
   });
+  await waitFor(() => expect(screen.queryByText('Kết thúc bàn chơi?')).toBeNull());
+  // Native dismissal is explicit here; fallback timing is covered separately.
+  const onDismiss = screen.UNSAFE_getAllByType(Modal)
+    .find((modal) => modal.props.onDismiss)?.props.onDismiss;
+  expect(onDismiss).toBeDefined();
+  act(() => onDismiss());
   await waitFor(() =>
     expect(screen.queryByTestId('card-score-open-table')).toBeNull(),
   );

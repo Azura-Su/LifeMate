@@ -1,6 +1,8 @@
 #!/usr/bin/env node
+/* global __dirname */
 
 const path = require('node:path');
+const { Buffer } = require('node:buffer');
 const Jimp = require('jimp-compact');
 
 const root = path.resolve(__dirname, '..');

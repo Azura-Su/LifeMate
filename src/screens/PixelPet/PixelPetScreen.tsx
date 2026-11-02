@@ -42,9 +42,11 @@ import type {
 import { colors, spacing } from '../../theme';
 import { PixelPetSprite } from './PixelPetSprite';
 import { PetStageBackdrop } from './PetStageBackdrop';
-import { RuneWolfSleepBackdrop } from './RuneWolfSleepBackdrop';
 import { PetCareGuide } from './PetCareGuide';
 import { styles } from './PixelPetScreen.styles';
+import { PetAppearancePicker } from './PetAppearancePicker';
+import { PetAppearancePreview, petAppearanceComposition } from './PetAppearancePreview';
+import { resolvePetAppearance, sleepSceneOptions } from '../../services/pixelPet/pixelPetAppearance';
 
 type Props = BottomTabScreenProps<MainTabParams, 'PixelPet'>;
 const STAGE_LABEL = {
@@ -158,9 +160,18 @@ export function PixelPetScreen({ navigation }: Props) {
   const [expression, setExpression] = useState<PixelPetExpression | null>(null);
   const [renameOpen, setRenameOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [nicknameDraft, setNicknameDraft] = useState('');
   const latest = useRef(0);
   const [stageSize, setStageSize] = useState(0);
+  useEffect(() => {
+    latest.current++;
+    setState(null);
+    setBusy(null);
+    setError(null);
+    setAppearanceOpen(false);
+    setRenameOpen(false);
+  }, [uid]);
   // The pet fills the stage; its canvas has its own margin around the art.
   const spriteSize = stageSize ? Math.round(stageSize * 0.98) : 260;
   usePixelPetRefresh(uid, focused && active && !busy, setState, false);
@@ -224,6 +235,14 @@ export function PixelPetScreen({ navigation }: Props) {
     setClip('happy');
   };
   const pet = state?.pet ?? null;
+  const display = pet ? resolvePetAppearance(pet) : null;
+  const compositionSize = stageSize || 260;
+  const composition = pet ? petAppearanceComposition(pet.speciesId, compositionSize) : null;
+  // Reserve the scene's proportions before it unlocks, so Lv2 only adds the
+  // backdrop and never shrinks the pet or changes its size when it wakes.
+  const hasSleepScenes = !!pet && sleepSceneOptions(pet.speciesId).length > 0;
+  const displaySpriteSize = hasSleepScenes && composition
+    ? composition.petSize * composition.scale : spriteSize;
   const species = pixelPetSpecies(
     pet?.speciesId ?? reservation?.speciesId ?? '',
   );
@@ -294,34 +313,29 @@ export function PixelPetScreen({ navigation }: Props) {
           >
             <PetStageBackdrop
               tint={species.palette[2]}
-              spriteSize={spriteSize}
+              spriteSize={displaySpriteSize}
               stageScale={
                 (species.id === CELESTIAL_STAG_ID
-                  ? celestialStagLevelLookScale(pet?.level)
-                  : undefined) ?? STAGE_LOOK[pet?.stage ?? 'hatchling'].scale
+                  ? celestialStagLevelLookScale(display?.level)
+                  : undefined) ?? STAGE_LOOK[display?.stage ?? 'hatchling'].scale
               }
             />
-            {species.id === 'rune_wolf' && (
-              <RuneWolfSleepBackdrop
-                visible={sleeping}
-                active={focused && active}
-                size={spriteSize}
-              />
-            )}
-            <PixelPetSprite
+            {pet && sleeping && hasSleepScenes ? (
+              <PetAppearancePreview pet={pet} size={compositionSize} active={focused && active && !appearanceOpen} />
+            ) : <PixelPetSprite
               species={species}
-              stage={pet?.stage ?? 'hatchling'}
-              level={pet?.level}
-              size={spriteSize}
+              stage={display?.stage ?? 'hatchling'}
+              level={display?.level}
+              size={displaySpriteSize}
               clip={clip}
               flightPhase={clip === 'fly' ? 'glide' : undefined}
               expression={expression}
               sleeping={sleeping}
-              active={focused && active}
+              active={focused && active && !appearanceOpen}
               loopMovement={loopMovement}
               homeMotion={homeMotion}
               onClipEnd={onClipEnd}
-            />
+            />}
           </View>
           {pet && (
             <View style={styles.heroInfo}>
@@ -399,6 +413,11 @@ export function PixelPetScreen({ navigation }: Props) {
         </View>
       )}
 
+      {pet && species && (
+        <Button title="Hình dạng & khung ngủ" compact variant="secondary" disabled={!!busy}
+          onPress={() => { setError(null); setAppearanceOpen(true); }} />
+      )}
+
       {species && (
         // Every motion in one wrapping group; exclusive pets append theirs.
         <View style={styles.controlGrid}>
@@ -430,7 +449,7 @@ export function PixelPetScreen({ navigation }: Props) {
             />
           ))}
           {PIXEL_PET_EXCLUSIVE.includes(species) &&
-            uniqueStagClips(species.id === CELESTIAL_STAG_ID ? pet?.level : undefined, PUPPET_PREVIEW_CLIPS).map(({ clip: value, label }) => (
+            uniqueStagClips(species.id === CELESTIAL_STAG_ID ? display?.level : undefined, PUPPET_PREVIEW_CLIPS).map(({ clip: value, label }) => (
               <ActionChip
                 key={value}
                 clip={value}
@@ -554,6 +573,14 @@ export function PixelPetScreen({ navigation }: Props) {
             )}
           </View>
         </>
+      )}
+
+      {appearanceOpen && pet && (
+        <PetAppearancePicker key={`${uid}:${pet.adoptionId}`} pet={pet} busy={busy === 'appearance'} error={error}
+          onClose={() => { setAppearanceOpen(false); setError(null); }}
+          onSave={(selection) => void run({ type: 'appearance', adoptionId: pet.adoptionId, ...selection }, () => {
+            setAppearanceOpen(false); rest();
+          })} />
       )}
 
       {guideOpen && species && (

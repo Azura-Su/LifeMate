@@ -2,6 +2,11 @@ import { StyleSheet } from 'react-native';
 import { colors, fontSize, radius, spacing } from '../../theme';
 
 export const tanStyles = StyleSheet.create({
+  largeRoot: { flex: 1, minHeight: 0, gap: spacing.sm },
+  largeLandscape: { flexDirection: 'row' },
+  largeBody: { flex: 1, minWidth: 0, minHeight: 0, gap: spacing.sm },
+  largePlayers: { flexDirection: 'row', flexWrap: 'nowrap', width: undefined, alignSelf: 'stretch' },
+  largeHand: { flex: 1, minWidth: 0, minHeight: 0 },
   root: { flex: 1, minHeight: 510, gap: spacing.sm },
   rootLandscape: { minHeight: 0, flexDirection: 'row', gap: spacing.sm },
   players: {

@@ -32,6 +32,23 @@ const room: CardGameRoom = {
   })),
 };
 
+it.each([[320, 568], [568, 320], [390, 844], [844, 390]])(
+  'keeps six lobby seats in a scrolling viewport and readiness reachable at %sx%s',
+  (width, height) => {
+    jest.mocked(useWindowDimensions).mockReturnValue({ width, height, scale: 1, fontScale: 1.8 });
+    const members = ['a', 'b', 'c', 'd', 'e', 'f'].map((uid) => ({ uid, name: `Người chơi ${uid} tên rất dài`, ready: false, wins: 0 }));
+    const onAction = jest.fn();
+    const view = render(<CardGameLobbyTable room={{ ...room, gameKind: 'tan', members }} uid="a" controller disabled={false} busy={false} onAction={onAction} />);
+    const opponents = view.getByTestId('lobby-opponents');
+    expect(StyleSheet.flatten(opponents.props.style).maxHeight).toBeGreaterThan(0);
+    expect(StyleSheet.flatten(opponents.props.contentContainerStyle).flexWrap).toBe('wrap');
+    for (const member of members.slice(1)) expect(within(opponents).getByText(member.name)).toBeTruthy();
+    expect(within(view.getByTestId('lobby-ready-panel')).getByRole('button', { name: 'Sẵn sàng' })).toBeTruthy();
+    fireEvent.press(view.getByRole('button', { name: 'Sẵn sàng' }));
+    expect(onAction).toHaveBeenCalledWith({ type: 'ready', ready: true });
+  },
+);
+
 it.each([
   [568, 320],
   [667, 375],
@@ -63,7 +80,7 @@ it.each([
     const board = view.getByTestId('lobby-board');
     expect(StyleSheet.flatten(board.props.style).flexDirection).toBe('column');
     const opponents = view.getByTestId('lobby-opponents');
-    expect(StyleSheet.flatten(opponents.props.style).flexWrap).toBe('nowrap');
+    expect(StyleSheet.flatten(opponents.props.contentContainerStyle).flexWrap).toBe('nowrap');
     expect(within(board).getByTestId('lobby-deck')).toBeTruthy();
     expect(within(board).getByText('Chờ mọi người sẵn sàng')).toBeTruthy();
     for (const member of room.members.slice(1)) {

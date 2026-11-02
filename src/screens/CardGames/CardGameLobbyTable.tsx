@@ -1,10 +1,11 @@
 import Feather from '@expo/vector-icons/Feather';
-import { useWindowDimensions, View, Text, Pressable } from 'react-native';
+import { useWindowDimensions, View, Text, Pressable, ScrollView } from 'react-native';
 import { Button } from '../../components/Button';
 import type { CardGameRoom, GameIntent } from '../../types/cardGame';
 import { colors } from '../../theme';
 import { CardGameAvatarImage } from './CardGameAvatarImage';
 import { styles } from './CardGamesScreen.styles';
+import { gameCapacity } from '../../services/cardGames/gameCapacity';
 
 export function CardGameLobbyTable({
   room,
@@ -44,11 +45,13 @@ export function CardGameLobbyTable({
         testID="lobby-board"
         style={[styles.lobbyBoard, landscape && styles.landscapeLobbyBoard]}
       >
-        <View
+        <ScrollView
           testID="lobby-opponents"
-          style={[
+          style={{ width: '100%', flexGrow: 0, maxHeight: height * 0.35 }}
+          contentContainerStyle={[
             styles.lobbyOpponentRow,
             landscape && styles.landscapeLobbyOpponentRow,
+            others.length > 3 && { flexWrap: 'wrap' },
           ]}
         >
           {others.map((member) => (
@@ -57,6 +60,7 @@ export function CardGameLobbyTable({
               style={[
                 styles.lobbyPlayer,
                 landscape && styles.landscapeLobbyPlayer,
+                others.length > 3 && { flexBasis: '46%', flexGrow: 0, minWidth: 0, maxWidth: '48%' },
               ]}
               accessibilityRole="button"
               accessibilityLabel={`Thông tin người chơi ${member.name}`}
@@ -96,7 +100,7 @@ export function CardGameLobbyTable({
               </View>
             </Pressable>
           ))}
-        </View>
+        </ScrollView>
 
         <View testID="lobby-deck" style={styles.lobbyDeckStack}>
           <View style={[styles.lobbyDeckCard, styles.lobbyDeckCardBack]} />
@@ -165,7 +169,7 @@ export function CardGameLobbyTable({
                     : 'Đang chờ'}
             </Text>
           </View>
-          <Text style={styles.playerCount}>{room?.members.length ?? 1}/4</Text>
+          <Text style={styles.playerCount}>{room?.members.length ?? 1}/{gameCapacity(room?.gameKind)}</Text>
         </Pressable>
         <View
           style={[

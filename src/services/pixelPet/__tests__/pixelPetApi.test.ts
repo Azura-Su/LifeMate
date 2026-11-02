@@ -3,6 +3,7 @@ import {
   callPixelPet,
   invalidateOwnedPixelPet,
   readOwnedPixelPet,
+  parsePixelPetState,
 } from '../pixelPetApi';
 import { useAuthStore } from '../../../store/authStore';
 jest.mock('@react-native-firebase/auth', () => ({
@@ -34,6 +35,14 @@ const owned = {
     stage: 'hatchling',
   },
 };
+it('accepts old states and validates optional unlocked appearance fields', () => {
+  expect(parsePixelPetState(owned)).toBe(owned);
+  const state = { ...owned, pet: { ...owned.pet, speciesId: 'celestial_stag', level: 8, stage: 'ascended', maxUnlockedLevel: 8 } };
+  expect(parsePixelPetState({ ...state, pet: { ...state.pet, appearanceLevel: 1, sleepSceneLevel: 4 } }).pet?.appearanceLevel).toBe(1);
+  for (const fields of [{ maxUnlockedLevel: 21 }, { maxUnlockedLevel: 4 }, { appearanceLevel: '1' }, { sleepSceneLevel: 3 }, { appearanceLevel: 2 }]) {
+    expect(() => parsePixelPetState({ ...state, pet: { ...state.pet, ...fields } })).toThrow();
+  }
+});
 beforeEach(() => {
   useAuthStore.getState().setUser({ uid: 'u', email: null, displayName: null });
   jest

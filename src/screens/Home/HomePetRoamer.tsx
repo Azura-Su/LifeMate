@@ -42,12 +42,14 @@ import {
 import { scheduleOnRN } from 'react-native-worklets';
 import { PixelPetSprite } from '../PixelPet/PixelPetSprite';
 import { HomeSleepGarden } from './HomeSleepGarden';
+import { celestialStagHomeLayout } from './celestialStagHomeLayout';
 import { HomeSleepScene } from './HomeSleepScene';
 import {
   runeWolfSleepAnchorX,
   runeWolfSleepSceneSize,
 } from './runeWolfSleepLayout';
 import { pixelPetSpecies } from '../../services/pixelPet/pixelPetCatalog';
+import { resolvePetAppearance } from '../../services/pixelPet/pixelPetAppearance';
 import { STAGE_LOOK } from '../../services/pixelPet/pixelPetRig';
 import {
   petFacesLeft,
@@ -82,10 +84,8 @@ const SIZE = 120;
 const GARUDA_SLEEP_SCENE_SIZE = 250;
 const GARUDA_SLEEP_APPROACH_MS = 950;
 const GARUDA_SLEEP_LANDING_SETTLE_MS = 100;
-/** Approximate ground travel represented by one authored 16-frame gait loop. */
-const STAG_STRIDE_DISTANCE = SIZE * 0.32;
+/** Extra transparent canvas room for full wing extents on Home. */
 const STAG_MOTION_CANVAS_SCALE = 7 / 6;
-const STAG_FLIGHT_HEIGHT = SIZE * 0.5;
 /** Travel speeds in points per second. */
 const FLY_SPEED = 60;
 const WALK_SPEED = 32;
@@ -95,9 +95,7 @@ const STAG_RUN_MIN_SPEED = WALK_SPEED * 1.5;
 const GROUND_Y = SIZE * 0.24 + spacing.xs;
 /** Matches the level-2 sleep-scene unlock in pixelPetGuide. */
 const SLEEP_SCENE_LEVEL = 2;
-/** The stag's frames put its hooves lower in the canvas than other pets. */
-const STAG_GROUND_LIFT = SIZE * 0.05;
-// The Stag's hooves are drawn on the container's bottom edge, 0.81 × SIZE into
+// The Stag's hooves are drawn at the bottom edge, 0.81 × its fitted petSize into
 // its box; keep CELESTIAL_STAG_HOME_GROUND_FROM_CENTER in step with these.
 const LAND_MS = 900;
 const TRICK_MS = 2600;
@@ -254,6 +252,9 @@ type Props = {
   containerWidth: number;
   containerHeight: number;
   topInset: number;
+  /** Space below Home's fixed header that may be reserved outside the cards. */
+  maxReservedHeight?: number;
+  onReservedSpaceChange?: (height: number) => void;
   /** Shows this species instead of the owned pet (admin preview). */
   preview?: {
     speciesId: PixelPetSpeciesId;
@@ -282,15 +283,23 @@ export function HomePetRoamer({
   containerWidth,
   containerHeight,
   topInset,
+  maxReservedHeight,
+  onReservedSpaceChange,
   preview,
 }: Props) {
   const read = useCallback(() => (uid ? readOwnedPixelPet(uid) : null), [uid]);
   const owned = useSyncExternalStore(subscribeOwnedPixelPet, read, read);
-  const pet = preview ?? owned;
+  const selected = useMemo(() => owned ? resolvePetAppearance(owned) : null, [owned]);
+  const pet = useMemo(() => preview ?? (owned && selected
+    ? { ...owned, level: selected.level, stage: selected.stage }
+    : null), [preview, owned, selected]);
+  const sceneLevel = preview ? preview.level ?? SLEEP_SCENE_LEVEL : selected?.sceneLevel ?? null;
   // Sleep backdrops unlock at level 2; the admin preview follows its level.
-  const sceneUnlocked =
-    (preview ? (preview.level ?? SLEEP_SCENE_LEVEL) : (owned?.level ?? 0)) >=
-    SLEEP_SCENE_LEVEL;
+  const sceneUnlocked = (sceneLevel ?? 0) >= SLEEP_SCENE_LEVEL;
+  const appearanceIdentity = preview
+    ? `preview:${preview.speciesId}:${preview.level}:${preview.stage}`
+    : `owned:${uid}:${owned?.adoptionId}:${owned?.speciesId}:${owned?.appearanceLevel ?? 'auto'}:${owned?.sleepSceneLevel ?? 'auto'}`;
+  const previousAppearance = useRef(appearanceIdentity);
   const species = pixelPetSpecies(pet?.speciesId ?? '');
   const {
     asleep: timedAsleep,
@@ -314,9 +323,12 @@ export function HomePetRoamer({
   const fox = species?.id === 'nine_tail_fox';
   const garuda = species?.id === 'garuda';
   const runeWolf = species?.id === 'rune_wolf';
+  const stag = species?.id === CELESTIAL_STAG_ID;
+  const stagLayout = celestialStagHomeLayout(width, maxReservedHeight);
+  const petSize = stag ? stagLayout.petSize : SIZE;
   const horizontalInset = fox ? FOX_EDGE_INSET : spacing.md;
-  const range = Math.max(0, width - SIZE - horizontalInset * 2);
-  const laneTop = Math.max(0, height - SIZE - spacing.xs);
+  const range = Math.max(0, width - petSize - horizontalInset * 2);
+  const laneTop = Math.max(0, height - petSize - spacing.xs);
   const facing = species && petFacesLeft(species) ? -1 : 1;
   const garudaSceneSize = Math.max(
     SIZE,
@@ -324,7 +336,6 @@ export function HomePetRoamer({
   );
   const garudaLandingLift = garudaSleepLandingLift(garudaSceneSize);
   const flier = !!species && petMovementKind(species) === 'wings';
-  const stag = species?.id === CELESTIAL_STAG_ID;
   const stagLevel = pet?.level;
   const stagLv12 = !!stag && stagLevel !== undefined && stagLevel <= 2;
   const stagLv34 = !!stag && stagLevel !== undefined && stagLevel >= 3 && stagLevel <= 4;
@@ -349,17 +360,25 @@ export function HomePetRoamer({
     celestialStagHomePhaseDuration('walkAfterLanding', stagLevel) +
     stagToBedMs;
   const stagFlightHeight =
-    STAG_FLIGHT_HEIGHT * (stagLv12 ? 0.25 : stagLv34 ? 0.6 : 1);
-  const groundY = stag ? GROUND_Y - STAG_GROUND_LIFT : GROUND_Y;
+    petSize * 0.5 * (stagLv12 ? 0.25 : stagLv34 ? 0.6 : 1);
+  const groundY = stag ? petSize * 0.19 + spacing.xs : GROUND_Y;
+  // Ground travel per authored gait loop grows with the Home canvas.
   const stagStrideDistance =
-    STAG_STRIDE_DISTANCE *
+    petSize * 0.32 *
     STAG_MOTION_CANVAS_SCALE *
     (celestialStagLevelLookScale(stagLevel) ??
       (pet ? STAGE_LOOK[pet.stage].scale : 1));
   const [walking, setWalking] = useState<boolean | null>(null);
+  const reservedHeight = stag ? stagLayout.reservedHeight : 0;
+  useEffect(() => {
+    // Pausing Home must not let the cards expand underneath a retained garden.
+    onReservedSpaceChange?.(reservedHeight);
+  }, [onReservedSpaceChange, reservedHeight]);
   const [beat, setBeat] = useState<RoamBeat | null>(null);
   const [garudaLanded, setGarudaLanded] = useState(false);
   const [stagPhase, setStagPhase] = useState<StagHomePhase>('runA');
+  const sleepingSceneLevel = useRef(sceneLevel);
+  if (!['settle', 'sleep'].includes(stagPhase)) sleepingSceneLevel.current = sceneLevel;
   const stagPhaseRef = useRef(stagPhase);
   stagPhaseRef.current = stagPhase;
   const [stagGait, setStagGait] = useState<{
@@ -465,22 +484,24 @@ export function HomePetRoamer({
     !timedAsleep;
 
   const chooseNextSleepSpot = useCallback(() => {
-    if (range <= 1) {
-      sleepTarget.value = 0;
-      lastSleepSpot.current = 0;
+    const min = stagLayout.sleepMinX;
+    const span = stagLayout.sleepMaxX - min;
+    if (span <= 1) {
+      sleepTarget.value = min;
+      lastSleepSpot.current = min;
       return;
     }
-    let target = Math.random() * range;
+    let target = min + Math.random() * span;
     if (
       lastSleepSpot.current !== null &&
-      range > SIZE * 0.6 &&
-      Math.abs(target - lastSleepSpot.current) < range * 0.2
+      span > petSize * 0.6 &&
+      Math.abs(target - lastSleepSpot.current) < span * 0.2
     ) {
-      target = (target + range * 0.5) % range;
+      target = min + ((target - min + span * 0.5) % span);
     }
     lastSleepSpot.current = target;
     sleepTarget.value = target;
-  }, [range, sleepTarget]);
+  }, [stagLayout.sleepMinX, stagLayout.sleepMaxX, petSize, sleepTarget]);
 
   const wakeStag = useCallback(() => {
     const growthFrame = celestialStagGardenFrameAt(
@@ -495,18 +516,32 @@ export function HomePetRoamer({
             id: ++gardenDepartureId.current,
             x: sleepTarget.value,
             growthFrame,
-            level: stagLevel ?? 2,
+            level: sleepingSceneLevel.current ?? 2,
           }
         : null,
     );
     setStagPhase('runA');
-  }, [sleepTarget, stagLevel]);
+  }, [sleepTarget]);
 
   // Pick the next bed only once the old garden has handed over to its
   // withering copy; moving it earlier makes the live garden jump for a frame.
   useEffect(() => {
     if (stag && stagPhase === 'runA') chooseNextSleepSpot();
   }, [stag, stagPhase, chooseNextSleepSpot]);
+
+  useEffect(() => {
+    if (!stag) return;
+    const clampBed = (value: number) => Math.max(stagLayout.sleepMinX,
+      Math.min(stagLayout.sleepMaxX, value));
+    sleepTarget.value = clampBed(sleepTarget.value);
+    setDepartingGarden((current) => {
+      if (!current || current.x === clampBed(current.x)) return current;
+      return { ...current, x: clampBed(current.x) };
+    });
+    const phase = stagPhaseRef.current;
+    if (dragPhaseRef.current === 'roam' && (phase === 'settle' || phase === 'sleep'))
+      x.value = sleepTarget.value;
+  }, [stag, stagLayout.sleepMinX, stagLayout.sleepMaxX, sleepTarget, x]);
 
   const wakeFox = useCallback(() => {
     if (foxSleeping) {
@@ -733,7 +768,7 @@ export function HomePetRoamer({
 
     if (dragPhase === 'circle') {
       const startX = x.value;
-      const radius = Math.min(range * 0.3, SIZE * 0.3);
+      const radius = Math.min(range * 0.3, petSize * 0.3);
       const rightX = Math.max(0, Math.min(range, startX + radius));
       const leftX = Math.max(0, Math.min(range, startX - radius));
       x.value = withSequence(
@@ -812,6 +847,7 @@ export function HomePetRoamer({
     dragTop,
     fallStyle,
     groundTop,
+    petSize,
     range,
     reducedMotion,
     stag,
@@ -866,6 +902,22 @@ export function HomePetRoamer({
     setWalking(startsWalking);
     ground.value = startsWalking || stag ? 1 : 0;
   }, [species, flier, stag, ground]);
+
+  useEffect(() => {
+    if (previousAppearance.current === appearanceIdentity) return;
+    previousAppearance.current = appearanceIdentity;
+    stagStarted.current = false;
+    gardenElapsedMs.current = 0;
+    gardenStartedAt.current = null;
+    setDepartingGarden(null);
+    setDepartingFoxScene(null);
+    setDepartingGarudaScene(null);
+    setDepartingWolfScene(null);
+    setFoxPhase('walk');
+    setSleepSceneCycle((cycle) => cycle + 1);
+    setBeat(null);
+    restartWakeWindow();
+  }, [appearanceIdentity, restartWakeWindow]);
 
   useEffect(() => {
     if (!stag || !pet) {
@@ -938,12 +990,13 @@ export function HomePetRoamer({
     const phase = stagPhaseRef.current;
     if (!stagActive) {
       if (phase === 'sleep') return;
-      sleepTarget.value = x.value;
+      sleepTarget.value = Math.max(stagLayout.sleepMinX, Math.min(stagLayout.sleepMaxX, x.value));
+      x.value = sleepTarget.value;
       setStagPhase('sleep');
     } else if (phase === 'runA' || phase === 'walkToFlight') {
       setStagPhase('runB');
     }
-  }, [stag, timedAsleep, stagActive, sleepTarget, x]);
+  }, [stag, timedAsleep, stagActive, sleepTarget, x, stagLayout.sleepMinX, stagLayout.sleepMaxX]);
 
   useEffect(() => {
     if (!fox || !pet) {
@@ -1542,7 +1595,7 @@ export function HomePetRoamer({
       x,
     ],
   );
-  if (!species || !pet || (!stag && walking === null)) return null;
+  if (!species || !pet || (stag && petSize <= 0) || (!stag && walking === null)) return null;
   const trick = beat?.kind === 'trick' ? beat.clip : null;
   const stagClip: PixelPetAnyClipId =
     dragPhase === 'roam' && stagPhase === 'glide' ? 'fly' : 'move';
@@ -1593,7 +1646,8 @@ export function HomePetRoamer({
           testID="home-pet-stag-sleep-garden"
           style={[styles.pet, sleepSceneAnchor]}
         >
-          <HomeSleepGarden visible active={active} level={stagLevel} />
+          <HomeSleepGarden visible active={active} level={sleepingSceneLevel.current ?? 2}
+            size={stagLayout.sceneSize} petSize={petSize} />
         </Animated.View>
       )}
       {sceneUnlocked && runeWolf && departingWolfScene && (
@@ -1703,6 +1757,8 @@ export function HomePetRoamer({
             mode="withering"
             growthFrame={departingGarden.growthFrame}
             level={departingGarden.level}
+            size={stagLayout.sceneSize}
+            petSize={petSize}
             onFinished={() => finishGarden(departingGarden.id)}
           />
         </View>
@@ -1726,6 +1782,7 @@ export function HomePetRoamer({
         testID={`home-pet-drag-${dragPhase}`}
         style={[
           styles.pet,
+          stag && { width: petSize, height: petSize },
           fox && { left: horizontalInset },
           flight,
           dragPhase !== 'roam' &&
@@ -1737,7 +1794,7 @@ export function HomePetRoamer({
           stage={pet.stage}
           level={pet.level}
           homeStagPhase={stag ? stagPhase : undefined}
-          size={SIZE}
+          size={petSize}
           clip={
             stag ? stagClip : garudaSleepFlight ? 'move' : (trick ?? 'move')
           }

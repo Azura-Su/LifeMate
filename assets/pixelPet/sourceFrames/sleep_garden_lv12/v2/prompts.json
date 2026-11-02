@@ -1,0 +1,148 @@
+{
+  "generator": "Built-in image_gen; transparent_background=true",
+  "reference": "../frame15-approved.png",
+  "initialEdits": {
+    "frame14": "Preserve the approved final whole scene; raise lower-right feather a little and add subtle small ripples below it.",
+    "frame13": "Preserve frame14; move lower-right feather slightly upward toward canopy and remove its ripple.",
+    "decay01": "Preserve the approved final scene; raise both detached feathers a little to begin their upward drift."
+  },
+  "common": "Use case: precise-object-edit. Asset: ONE complete individually painted animation frame for the Feather Forest sleeping scene, never a sheet. Image 1 is adjacent animation frame to edit; image 2 is approved final for style and exact fixed layout. Preserve the exact 1254x1254 square canvas, fixed camera, ground island footprint, rocks, root positions and broad empty foreground grassy resting area. Water belongs behind and at left/right sides of that grass, never across the resting area. Every persistent object stays in its fixed position. Match soft hand-painted fantasy style, green/teal feather foliage and warm wood. Transparent background and transparent margin around ALL edges; no clipping, characters, text, borders, background rectangle or shadow outside the island. Draw the ENTIRE scene as one coherent painting. ",
+  "growth": [
+    [
+      12,
+      "Immediately before frame13: fully mature canopy, same size, same tree and side saplings. Keep ONLY the upper-left floating feather as it has just detached near the canopy; REMOVE the lower-right floating feather. Keep water and foreground grass unchanged."
+    ],
+    [
+      11,
+      "Immediately before frame12: same fully mature layered feather canopy, tree and side saplings. REMOVE the remaining upper-left floating feather; no detached feathers anywhere. Keep all canopy leaves, water and foreground grass unchanged."
+    ],
+    [
+      10,
+      "Immediately before frame11: main tree canopy is 90% of its final fullness and height, with a few fewer outer feather leaves, still soft and drooping teal. Fixed trunk roots and existing branches. Two small side saplings remain. Shallow side waters now clearly reflect the teal canopy. No detached feathers."
+    ],
+    [
+      9,
+      "Immediately before frame10: main tree canopy is 80% of final fullness/height, soft and drooping teal feather-shaped leaves, water has no detailed tree reflection yet. Two side saplings at one-quarter of final scene height. Preserve root position and foreground grass. No detached feathers."
+    ],
+    [
+      8,
+      "Immediately before frame09: central tree is about 65% of mature height, its first loose canopy of teal feather-shaped leaves has just formed on slimmer same-shaped trunk, softly drooping. Side saplings smaller. Stable grass, rocks, water and resting spot. No detached feathers."
+    ],
+    [
+      7,
+      "Immediately before frame08: central tree is only HALF of mature height, same rooted location and trunk bend, with sparse branches and several individual feather-shaped leaves transitioning green to teal. No dense canopy yet. Side saplings remain very small. Stable grass, water and rocks."
+    ],
+    [
+      6,
+      "Immediately before frame07: central tree 40% mature height, slim curved trunk, first few branches each with a few GREEN feather-shaped leaves. No teal canopy yet. Tiny side saplings. Same grass, side water and rocks, no other objects."
+    ],
+    [
+      5,
+      "Immediately before frame06: central young tree only 28% mature height, a small slender curved stem with its FIRST small branch and a few ordinary tiny green leaves; NO feather canopy yet. Two side saplings tiny. Preserve grass, side water, rocks and open foreground."
+    ],
+    [
+      4,
+      "Immediately before frame05: replace central young trunk by a tiny two-leaf sprout at exactly its root point. Two tiny same-species sprouts emerge at the fixed left and right sapling points. Only grass, side water, rocks and three sprouts, NO larger trees or canopies."
+    ],
+    [
+      3,
+      "Immediately before frame04: REMOVE all three sprouts completely. Only the smooth oval grass patch, pale edge rocks and shallow small turquoise pools behind and to either side of the broad empty central foreground grass. No tree, leaves, branch, feather or other objects."
+    ],
+    [
+      2,
+      "Immediately before frame03: grass island and white rocks stay identical. Water has just begun pooling: REDUCE the side/behind water areas to two much smaller shallow turquoise puddles in their same positions, grass where the rest of the water will appear. No trees, plants except low grass, sprouts or feathers."
+    ],
+    [
+      1,
+      "Immediately before frame02: REMOVE all water completely, replacing its area with short smooth grass matching surroundings. Only the oval smooth grass island and two white rocks at far left and far right edges. No trees, sprouts, feather leaves, floating feathers or effects. Keep exact same oval grass footprint and ground position."
+    ]
+  ],
+  "decay": [
+    [
+      2,
+      "Immediately after decay01: both detached feathers drift upward again. Upper left feather now smaller, 50% transparent and higher; lower right feather higher and 75% opaque. Tree canopy, saplings, water, grass remain unchanged."
+    ],
+    [
+      3,
+      "Immediately after decay02: detached feathers have drifted away and are COMPLETELY GONE. The mature feather canopy still lush, side saplings intact, water and grass unchanged."
+    ],
+    [
+      4,
+      "Immediately after decay03: canopy begins thinning gently, remove about 15% of outer feather leaves revealing existing branches, remaining leaves lose some saturation toward pale gray teal. Two side sapling canopies begin paling. Roots, grass and water remain fixed. No detached large feathers."
+    ],
+    [
+      5,
+      "Immediately after decay04: canopy visibly thinner, about 45% of feather leaves have gone, remaining leaves PALE GRAY with subtle teal tint. Existing branches visible. Side saplings similarly sparse and gray. Water still present, foreground grass unchanged."
+    ],
+    [
+      6,
+      "Immediately after decay05: keep thin gray canopy and fixed branches. Water loses its tree reflection and becomes dull, shallower, less reflective. Grass begins losing saturation very subtly. No new objects."
+    ],
+    [
+      7,
+      "Immediately after decay06: water level visibly recedes to HALF its prior area, exposing damp earthy banks around side pools. Gray feather leaves a little sparser. Keep trunk, roots, rocks fixed."
+    ],
+    [
+      8,
+      "Immediately after decay07: pools now almost dry, only small damp patches where water was. Side saplings dry, canopies almost gone and small branches droop. Central canopy reduced to a few sparse gray feather leaves. Foreground grass starts yellowing."
+    ],
+    [
+      9,
+      "Immediately after decay08: water completely gone, damp soil traces remain in its exact places. Both small side trees are dry and drooping, nearly bare. Main tree mostly bare with very few gray leaves. Foreground grass yellow-green. No floating large feathers."
+    ],
+    [
+      10,
+      "Immediately after decay09: main tree has become a completely BARE dry branching tree, every feather-shaped leaf GONE. Warm wood desaturated to dry brown gray. Both side saplings bare and wilted. All root and branch locations same. Grass dry, damp patches fade."
+    ],
+    [
+      11,
+      "Immediately after decay10: same bare branching dry tree, still full original height, but wood now fully gray-brown and visibly cracked. Small saplings also dry gray. Grass now straw colored. No canopy, leaves, water, large feathers or new props."
+    ],
+    [
+      12,
+      "Immediately after decay11: upper half of bare tree begins dissolving into fine pale gray/teal ash, with only a few tiny feather wisps rising. Lower trunk and roots remain solid in exact position; upper branches crumble and thin away. Side saplings begin crumbling. Dry grass and rocks fixed."
+    ],
+    [
+      13,
+      "Immediately after decay12: most tree and both saplings dissolved; ONLY a short lower trunk/root remnant and delicate rising ash remain. Sparse dry grass and pale rocks at same ground positions. Some fine tiny feather wisps, no intact canopy, large feather or upper branches."
+    ],
+    [
+      14,
+      "Immediately after decay13, immediately before completely empty frame15: all tree trunks, saplings, branches have vanished. Only a very faint, mostly transparent trace of the original grass/rocks near the ground and a few pale rising dust motes and tiny feather fibers remain. Entire remaining scene is 15% opacity fading into TRUE TRANSPARENCY, retain original ground position. No tree, no water, no solid object."
+    ]
+  ],
+  "corrections": [
+    {
+      "key": "decay07-corrected",
+      "prompt": "Use case: precise-object-edit. Edit this single entire existing game scene. Change ONLY the color of ALL feather-shaped leaves on the main tree and both side saplings to PALE SILVER GRAY with a faint desaturated blue-gray shadow, as they are withering. Absolutely NO saturated green or teal leaf remains on any tree. Keep every leaf, branch and trunk in exactly the same position and size. Preserve the current half-dried side pools and exposed damp earth, the rocks, grass and framing completely unchanged. Keep true transparent background. Single complete scene, not a sheet. No text or animal."
+    },
+    {
+      "key": "frame06-corrected",
+      "prompt": "Use case: precise-object-edit. Edit this whole fantasy game scene into the earlier growth stage. Preserve the ENTIRE grass island, water, rocks, two small side saplings and their exact positions unchanged. Change ONLY the central tree: it must be significantly YOUNGER, SHORTER and SLIMMER. Its roots stay exactly at current point around x=750,y=940 on this 1254 square canvas, but the TOPMOST central leaf must now be around y=460 (NOT y=300). Draw a slender young curved trunk, first few small branches and just a few green feather-shaped leaves; main tree crown spans only about x=560 to x=950. It is about 480px high from root to top. The empty area above it is true transparent background, not filler. Keep the whole canvas and padding unchanged, no zoom. Same soft hand-painted style. Single complete scene, not a sheet; no animal or text."
+    },
+    {
+      "key": "decay10",
+      "prompt": "Use case: precise-object-edit. Edit this ONE whole fantasy game scene. The ONLY change is to REMOVE ALL turquoise/blue water and ALL lily pads from BOTH left and right pools. Replace the former water area with dry cracked brown-gray earth, a drained pool bed. ABSOLUTELY NO WATER, blue water, teal pool, reflection, lily pads or puddles should remain. Preserve every tree/trunk/branch/ash particle, its exact colors and position, all rocks, dry grass, camera, island outline and canvas unchanged. Keep true transparent background. No new objects, no characters, no text, no collage. This is a WITHERED DRY scene; do not restore leaves, green grass or water."
+    },
+    {
+      "key": "decay11",
+      "prompt": "Use case: precise-object-edit. Edit this ONE whole fantasy game scene. The ONLY change is to REMOVE ALL turquoise/blue water and ALL lily pads from BOTH left and right pools. Replace the former water area with dry cracked brown-gray earth, a drained pool bed. ABSOLUTELY NO WATER, blue water, teal pool, reflection, lily pads or puddles should remain. Preserve every tree/trunk/branch/ash particle, its exact colors and position, all rocks, dry grass, camera, island outline and canvas unchanged. Keep true transparent background. No new objects, no characters, no text, no collage. This is a WITHERED DRY scene; do not restore leaves, green grass or water."
+    },
+    {
+      "key": "decay12",
+      "prompt": "Use case: precise-object-edit. Edit this ONE whole fantasy game scene. The ONLY change is to REMOVE ALL turquoise/blue water and ALL lily pads from BOTH left and right pools. Replace the former water area with dry cracked brown-gray earth, a drained pool bed. ABSOLUTELY NO WATER, blue water, teal pool, reflection, lily pads or puddles should remain. Preserve every tree/trunk/branch/ash particle, its exact colors and position, all rocks, dry grass, camera, island outline and canvas unchanged. Keep true transparent background. No new objects, no characters, no text, no collage. This is a WITHERED DRY scene; do not restore leaves, green grass or water."
+    },
+    {
+      "key": "decay13",
+      "prompt": "Use case: precise-object-edit. Edit this ONE whole fantasy game scene. The ONLY change is to REMOVE ALL turquoise/blue water and ALL lily pads from BOTH left and right pools. Replace the former water area with dry cracked brown-gray earth, a drained pool bed. ABSOLUTELY NO WATER, blue water, teal pool, reflection, lily pads or puddles should remain. Preserve every tree/trunk/branch/ash particle, its exact colors and position, all rocks, dry grass, camera, island outline and canvas unchanged. Keep true transparent background. No new objects, no characters, no text, no collage. This is a WITHERED DRY scene; do not restore leaves, green grass or water."
+    },
+    {
+      "key": "decay14",
+      "prompt": "Use case: precise-object-edit. Edit this single existing scene into its LAST almost-vanished decay frame before an empty transparent frame. REMOVE ALL WATER, lily pads, every large feather and the bright green/gold glowing cloud shapes. No living green or blue object. All trees and trunks are already gone. Leave ONLY a faint desaturated gray-brown trace of the original oval ground/rocks, plus a few tiny fine pale gray dust wisps at the old tree location. The WHOLE remaining ground/dust is only 15% opaque (85% genuinely transparent), so almost empty and fading. Keep same 1254 square canvas, ground position and camera, transparent background. No new objects, text, border, sheet or animal."
+    },
+    {
+      "key": "frame07",
+      "prompt": "Use case: precise-object-edit. Edit this one whole game scene. Keep the entire grass island, side water, rocks, side saplings, camera and canvas unchanged. ONLY the CENTRAL TREE must be a younger intermediate growth stage: root stays around x=750,y=940 in this 1254 square canvas; TOPMOST CENTRAL LEAF must be around y=380 rather than y=280. Main young tree is about 560px tall, a noticeably narrower slender S-shaped trunk with a few sparse branches bearing green leaves transitioning to teal feather-shaped leaves; crown spans roughly x=500 to x=1050. No dense canopy yet. Preserve true transparency, no zoom, no clipping, no animal, no text, no sheet."
+    }
+  ]
+}

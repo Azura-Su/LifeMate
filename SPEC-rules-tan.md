@@ -6,7 +6,8 @@ game theo vòng tấn công-phòng thủ, khác hẳn các game leo bài.
 
 ## Luật nền đề xuất
 
-- Bộ 52 lá, 2–4 người, chia 8 lá mỗi người. Lật một lá để xác định chất chủ;
+- Bộ 52 lá, 2–6 người, chia 8 lá mỗi người. Bàn 6 người có 48 lá trên tay và
+  4 lá trong nọc (gồm lá chủ). Lật một lá để xác định chất chủ;
   lá ngửa vẫn thuộc nọc và được rút cuối. Người tấn mở lượt; người phòng thủ kế
   tiếp theo chiều bàn.
 - Hạng 2 < … < A. Một lá bị đỡ bởi lá cùng chất cao hơn hoặc lá chủ; lá chủ chỉ
@@ -52,6 +53,9 @@ game theo vòng tấn công-phòng thủ, khác hẳn các game leo bài.
 
 ## Nguồn và giới hạn
 
+- [Đối chiếu Tấn 52 lá, 8 lá/người, 2–6 người](https://rdsic.edu.vn/blog/blog-4/choi-bai-tan-vi-cb.html).
+  Chỉ mở thêm số ghế; giữ profile Việt Nam đã chọn, không đổi sang bộ Durak
+  36 lá / 6 lá/người và không thêm chuyển tấn.
 - [Bài Tấn — luật, chất chủ và cách tấn/đỡ (nguồn thứ cấp tiếng Việt)](https://gamebaidoithuonguytin.net/bai-tan-2/): mô tả tấn, đỡ, ôm và lá chủ; không dùng các nội dung cược.
 - [Pagat — Podkidnoy Durak](https://www.pagat.com/beating/podkidnoy_durak.html): nguồn quy tắc chi tiết cho một game họ hàng; đỡ cùng chất cao hơn/chủ, thả thêm hạng đang có, giới hạn đòn, nhặt cả bàn, rút bù và nhiều biến thể. Tấn Việt Nam không mặc định kế thừa toàn bộ.
 - [Durak app — luật tấn/đỡ và chuyển tấn](https://www.durak.app/en/rules/): đối chiếu khác biệt giữa throw-in và transfer; đây không phải nguồn chuẩn hoá luật Việt Nam.

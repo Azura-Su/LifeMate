@@ -80,7 +80,7 @@ function normalizeTokenError(error: unknown): unknown {
   return error;
 }
 
-type ProtocolVersion = 12 | 11 | 10 | 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | undefined;
+type ProtocolVersion = 13 | 12 | 11 | 10 | 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | undefined;
 // A pending request owns its protocol until it is released. Retrying after an
 // Edge rollout must preserve the receipt fingerprint, including clientVersion.
 const negotiatedProtocols = new WeakMap<
@@ -162,6 +162,8 @@ export async function gameRequest(
     input.variantConfig && 'rulesVersion' in input.variantConfig
       ? input.variantConfig.rulesVersion
       : undefined;
+  const requiresV13 = input.requiredClientVersion === 13 || input.type === 'join' ||
+    (input.type === 'create' && ['sam', 'tan'].includes(input.game ?? ''));
   const requiresV12 =
     input.requiredClientVersion === 12 ||
     (input.southConfig?.instantWinAmount !== undefined &&
@@ -183,23 +185,11 @@ export async function gameRequest(
     input.type === 'game-action' ||
     input.gameAction !== undefined;
   const negotiated = negotiatedProtocols.get(input);
-  let protocolVersion: ProtocolVersion =
-    negotiated &&
-    negotiated.uid === uid &&
-    negotiated.epoch === epoch &&
-    negotiated.sessionId === input.sessionId &&
-    negotiated.actionId === input.actionId
-      ? negotiated.version
-      : requiresV12
-        ? 12
-        : requiresV11
-        ? 11
-        : requiresV10
-          ? 10
-          : requiresV9
-            ? 9
-            : 8;
-  const minimumVersion = requiresV12
+  const pinnedOnEntry = !!negotiated && negotiated.uid === uid &&
+    negotiated.epoch === epoch && negotiated.sessionId === input.sessionId &&
+    negotiated.actionId === input.actionId;
+  let protocolVersion: ProtocolVersion = pinnedOnEntry ? negotiated!.version : 13;
+  const minimumVersion = requiresV13 ? 13 : requiresV12
     ? 12
     : requiresV11
     ? 11
@@ -285,8 +275,9 @@ export async function gameRequest(
             if (
               code === 'game-update-required' &&
               response.status === 409 &&
+              !pinnedOnEntry &&
               protocolVersion !== undefined &&
-              protocolVersion < 12
+              protocolVersion < 13
             ) {
               protocolVersion =
                 protocolVersion < 9
@@ -295,7 +286,7 @@ export async function gameRequest(
                     ? 10
                     : protocolVersion < 11
                       ? 11
-                      : 12;
+                      : protocolVersion < 12 ? 12 : 13;
               negotiationFloor = Math.max(negotiationFloor, protocolVersion);
               attempt -= 1;
               continue;
@@ -305,10 +296,12 @@ export async function gameRequest(
               response.status === 400 &&
               protocolVersion !== undefined
             ) {
-              if (protocolVersion <= negotiationFloor)
+              if (pinnedOnEntry || protocolVersion <= negotiationFloor)
                 throw new GameApiError('game-update-required', 409);
               protocolVersion =
-                protocolVersion === 12
+                protocolVersion === 13
+                  ? 12
+                  : protocolVersion === 12
                   ? 11
                   : protocolVersion === 11
                   ? 10

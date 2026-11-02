@@ -60,6 +60,7 @@ it.each([
   [4, CELESTIAL_STAG_SLEEP_GARDEN_LV04_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV04_DECAY_ATLAS],
   [5, CELESTIAL_STAG_SLEEP_GARDEN_LV04_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV04_DECAY_ATLAS],
   [6, CELESTIAL_STAG_SLEEP_GARDEN_LV06_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV06_DECAY_ATLAS],
+  [7, CELESTIAL_STAG_SLEEP_GARDEN_LV06_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV06_DECAY_ATLAS],
   [8, CELESTIAL_STAG_SLEEP_GARDEN_LV08_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV08_DECAY_ATLAS],
   [10, CELESTIAL_STAG_SLEEP_GARDEN_LV10_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV10_DECAY_ATLAS],
   [12, CELESTIAL_STAG_SLEEP_GARDEN_LV12_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV12_DECAY_ATLAS],
@@ -78,6 +79,26 @@ it.each([
   );
   expect(withering.UNSAFE_getByType(PixelPetAtlas).props.source).toBe(decayAtlas);
   withering.unmount();
+});
+
+it.each([
+  [6, 'growing'],
+  [7, 'growing'],
+  [6, 'withering'],
+  [7, 'withering'],
+  [16, 'growing'],
+  [17, 'growing'],
+  [16, 'withering'],
+  [17, 'withering'],
+] as const)('keeps the Lv%i %s garden ground above the tab bar', (level, mode) => {
+  const garden = render(<HomeSleepGarden visible level={level} mode={mode} />);
+  const tree = garden.toJSON();
+  if (!tree || Array.isArray(tree)) throw new Error('Expected one garden scene');
+  const style = StyleSheet.flatten(tree.props.style);
+  // Home's enlarged 144pt Stag canvas meets the tab bar at 81% of its height.
+  // The packed scene's ground is y=296 in each 320px cell.
+  expect(style.top + style.height * (296 / 320)).toBeCloseTo(144 * 0.81);
+  garden.unmount();
 });
 
 it('keeps the matching Lv18 garden frame visible when the Stag wakes early', () => {
@@ -158,7 +179,8 @@ jest.mock('../../../services/pixelPet/pixelPetApi', () => ({
 }));
 
 /** 48px walked in 1.5s; one 16-frame Lv5–6 loop draws two walk strides. */
-const LV5_WALK_CYCLE_MS = (1500 * 44.8 * celestialStagLevelLookScale(5)! * 2) / 48;
+const HOME_STAG_STRIDE = 144 * 0.32 * (7 / 6);
+const LV5_WALK_CYCLE_MS = (1500 * HOME_STAG_STRIDE * celestialStagLevelLookScale(5)! * 2) / 48;
 
 const renderRoamer = (props: { uid: string | null; active: boolean }) =>
   render(
@@ -169,6 +191,123 @@ const renderRoamer = (props: { uid: string | null; active: boolean }) =>
       topInset={59}
     />,
   );
+
+function growStagGardenBeforeWake() {
+  // Phase effects schedule their next timer after React commits each step.
+  for (let i = 0; i < 70 && !screen.UNSAFE_getByType(PixelPetSprite).props.sleeping; i += 1)
+    act(() => jest.advanceTimersByTime(500));
+  expect(screen.UNSAFE_getByType(PixelPetSprite).props.sleeping).toBe(true);
+  act(() => jest.advanceTimersByTime(CELESTIAL_STAG_GARDEN_GROWTH_MS));
+}
+
+it('uses selected Stag art and motion independently from the selected sleep scene', () => {
+  jest.useFakeTimers();
+  pets.customStyle = { speciesId: 'celestial_stag', adoptionId: 'custom', stage: 'ascended',
+    level: 20, maxUnlockedLevel: 20, appearanceLevel: 1, sleepSceneLevel: 4 };
+  const view = renderRoamer({ uid: 'customStyle', active: true });
+  try {
+    expect(screen.UNSAFE_getByType(PixelPetSprite).props).toMatchObject({ level: 1, stage: 'hatchling' });
+    growStagGardenBeforeWake();
+    act(() => jest.advanceTimersByTime(12_000));
+    const garden = screen.UNSAFE_getAllByType(HomeSleepGarden).find((node) => node.props.mode !== 'withering');
+    expect(garden?.props.level).toBe(4);
+    fireEvent(screen.getByLabelText(/Đánh thức linh thú/), 'accessibilityTap');
+    expect(screen.UNSAFE_getAllByType(HomeSleepGarden).find((node) => node.props.mode === 'withering')?.props.level).toBe(4);
+    expect(pets.customStyle).toMatchObject({ level: 20 });
+  } finally {
+    view.unmount(); delete pets.customStyle; jest.useRealTimers();
+  }
+});
+
+it('keeps the planted scene when automatic progression refreshes during sleep', () => {
+  jest.useFakeTimers();
+  pets.autoStyle = { speciesId: 'celestial_stag', adoptionId: 'auto', stage: 'juvenile', level: 5 };
+  const view = renderRoamer({ uid: 'autoStyle', active: true });
+  try {
+    growStagGardenBeforeWake();
+    act(() => jest.advanceTimersByTime(12_000));
+    pets.autoStyle = { speciesId: 'celestial_stag', adoptionId: 'auto', stage: 'juvenile', level: 6 };
+    view.rerender(<HomePetRoamer uid="autoStyle" active containerWidth={390} containerHeight={844} topInset={59} />);
+    expect(screen.UNSAFE_getByType(PixelPetSprite).props.sleeping).toBe(true);
+    expect(screen.UNSAFE_getAllByType(HomeSleepGarden).find((node) => node.props.mode !== 'withering')?.props.level).toBe(4);
+    fireEvent(screen.getByLabelText(/Đánh thức linh thú/), 'accessibilityTap');
+    expect(screen.UNSAFE_getAllByType(HomeSleepGarden).find((node) => node.props.mode === 'withering')?.props.level).toBe(4);
+  } finally {
+    view.unmount(); delete pets.autoStyle; jest.useRealTimers();
+  }
+});
+
+it.each(Array.from({ length: 20 }, (_, index) => index + 1))(
+  'enlarges the Home Stag at level %i without dropping its reserved area when paused',
+  (level) => {
+    const reserve = jest.fn();
+    const props = {
+      uid: null, active: true, containerWidth: 390, containerHeight: 844, topInset: 59,
+      preview: { speciesId: 'celestial_stag' as const, stage: 'ascended' as const, level },
+      onReservedSpaceChange: reserve,
+    };
+    const view = render(<HomePetRoamer {...props} />);
+    expect(view.UNSAFE_getByType(PixelPetSprite).props.size).toBe(144);
+    expect(reserve).toHaveBeenLastCalledWith(240 + spacing.md);
+    view.rerender(<HomePetRoamer {...props} active={false} />);
+    expect(reserve).toHaveBeenLastCalledWith(240 + spacing.md);
+    view.unmount();
+  },
+);
+
+it.each(['growing', 'withering'] as const)(
+  'keeps every enlarged garden on the same ground during %s and early wake',
+  (mode) => {
+    for (let level = 2; level <= 20; level += 1) {
+      const view = render(<HomeSleepGarden visible level={level} mode={mode}
+        size={240} petSize={144} growthFrame={8} />);
+      const tree = view.toJSON();
+      if (!tree || Array.isArray(tree)) throw new Error('Expected one garden');
+      const style = StyleSheet.flatten(tree.props.style);
+      expect(style.left + style.width / 2).toBeCloseTo(144 / 2);
+      expect(style.top + style.height * (296 / 320)).toBeCloseTo(144 * 0.81);
+      if (mode === 'withering')
+        expect(view.UNSAFE_getAllByType(PixelPetAtlas)[0].props.size).toBe(240);
+      view.unmount();
+    }
+  },
+);
+
+it('reclamps both the sleeping Stag and its departing garden after a resize', () => {
+  jest.useFakeTimers();
+  const props = {
+    uid: null, active: true, containerWidth: 430, containerHeight: 932, topInset: 59,
+    preview: { speciesId: 'celestial_stag' as const, stage: 'ascended' as const, level: 20 },
+  };
+  const view = render(<HomePetRoamer {...props} />);
+  const position = (id: string) => StyleSheet.flatten(screen.getByTestId(id).props.style).transform!;
+  const assertSceneFits = (id: string) => {
+    const garden = view.UNSAFE_getAllByType(HomeSleepGarden).find((node) =>
+      id === 'home-pet-departing-garden' ? node.props.mode === 'withering' : node.props.mode !== 'withering')!;
+    const x = (position(id)[0] as { translateX: number }).translateX;
+    const left = spacing.md + x + (garden.props.petSize - garden.props.size) / 2;
+    expect(left).toBeGreaterThanOrEqual(spacing.sm - 0.001);
+    expect(left + garden.props.size).toBeLessThanOrEqual(240 - spacing.sm + 0.001);
+    return x;
+  };
+  try {
+    for (const duration of Object.values(CELESTIAL_STAG_HOME_PHASE_DURATION).filter(Number.isFinite))
+      act(() => jest.advanceTimersByTime(duration));
+    act(() => jest.advanceTimersByTime(CELESTIAL_STAG_GARDEN_GROWTH_MS));
+    const compact = { ...props, containerWidth: 240, containerHeight: 464, maxReservedHeight: 140 };
+    view.rerender(<HomePetRoamer {...compact} />);
+    // Reanimated's mock styles refresh on render, unlike live UI shared values.
+    view.rerender(<HomePetRoamer {...compact} />);
+    const sceneX = assertSceneFits('home-pet-stag-sleep-garden');
+    expect((position('home-pet-drag-roam')[0] as { translateX: number }).translateX).toBe(sceneX);
+    fireEvent(screen.getByLabelText(/Đánh thức linh thú/), 'accessibilityTap');
+    view.rerender(<HomePetRoamer {...compact} maxReservedHeight={125} />);
+    assertSceneFits('home-pet-departing-garden');
+  } finally {
+    view.unmount();
+    jest.useRealTimers();
+  }
+});
 
 it('shows the owned pet without exposing a detail navigation action', () => {
   renderRoamer({ uid: 'owner', active: true });
@@ -717,7 +856,7 @@ it('matches Lv13 hoof cadence to distance and lies down in place', () => {
     advance('runA');
     // 48px in 1.5s; one 16-frame loop draws two 44.8px walk strides.
     expect(sprite()).toMatchObject({ homeStagPhase: 'walkToFlight', pace: 'walk' });
-    const stride = 44.8 * celestialStagLevelLookScale(13)!;
+    const stride = HOME_STAG_STRIDE * celestialStagLevelLookScale(13)!;
     expect(sprite().gaitCycleDurationMs).toBeCloseTo((1500 * stride * 2) / 48);
     for (const phase of ['walkToFlight', 'takeoff', 'flap', 'glide', 'landing', 'walkAfterLanding'] as const)
       advance(phase);

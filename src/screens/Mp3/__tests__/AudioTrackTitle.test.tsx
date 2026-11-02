@@ -1,16 +1,66 @@
-import { fireEvent, render } from '@testing-library/react-native';
-import { AppState, StyleSheet } from 'react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
+import { Animated, AppState, StyleSheet } from 'react-native';
 import { AudioTrackTitle } from '../AudioTrackTitle';
 import { styles } from '../Mp3Screen.styles';
 
-beforeEach(() => {
+jest.mock(
+  'react-native/Libraries/Components/AccessibilityInfo/AccessibilityInfo',
+  () => {
+    const listeners = new Set<(mockEnabled: boolean) => void>();
+    return {
+      __esModule: true,
+      default: {
+        isReduceMotionEnabled: jest.fn().mockResolvedValue(false),
+        addEventListener: (_event: string, listener: (mockEnabled: boolean) => void) => {
+          listeners.add(listener);
+          return { remove: () => listeners.delete(listener) };
+        },
+      },
+      emitReducedMotion: (enabled: boolean) => {
+        listeners.forEach((listener) => listener(enabled));
+      },
+    };
+  },
+);
+const { emitReducedMotion } = jest.requireMock(
+  'react-native/Libraries/Components/AccessibilityInfo/AccessibilityInfo',
+) as { emitReducedMotion: (enabled: boolean) => void };
+
+beforeEach(async () => {
   AppState.currentState = 'active';
+  await act(async () => emitReducedMotion(false));
 });
 
 jest.mock('@expo/vector-icons/Feather', () => ({
   __esModule: true,
   default: () => null,
 }));
+
+it('stops a running title when Reduced Motion is enabled and keeps the title readable', async () => {
+  const title = 'Tên âm thanh dài hơn khung hiển thị';
+  const start = jest.fn();
+  const stop = jest.fn();
+  const loop = jest.spyOn(Animated, 'loop').mockReturnValue({ start, stop, reset: jest.fn() });
+  try {
+    const view = render(<AudioTrackTitle title={title} active onActivate={jest.fn()} />);
+    fireEvent(view.getByTestId('audio-title-viewport'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 100, height: 36 } },
+    });
+    fireEvent(view.getByTestId('audio-title-measure'), 'contentSizeChange', 300, 36);
+    expect(start).toHaveBeenCalledTimes(1);
+
+    await act(async () => emitReducedMotion(true));
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(view.getByLabelText(`Chạy tên ${title}`)).toBeTruthy();
+    const staticTitle = view.getAllByText(title).find((text) => text.props.ellipsizeMode === 'tail');
+    expect(StyleSheet.flatten(staticTitle?.props.style).opacity ?? 1).toBe(1);
+
+    await act(async () => emitReducedMotion(false));
+    expect(start).toHaveBeenCalledTimes(2);
+  } finally {
+    loop.mockRestore();
+  }
+});
 
 it('truncates the title to one line and starts/stops its marquee when pressed', () => {
   const title = 'Một tiêu đề âm thanh rất dài cần chạy ngang trên màn hình';

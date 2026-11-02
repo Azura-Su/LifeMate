@@ -52,6 +52,12 @@ export type DragFallStyle =
 /** Care effects derived server-side from finance records (capped per day). */
 export type PixelPetEffect = 'eat' | 'wardrobe' | 'move' | 'heal' | 'mood' | 'neutral';
 
+/** Null follows progression; manual choices are checked by the server. */
+export type PixelPetAppearance = {
+  appearanceLevel: number | null;
+  sleepSceneLevel: number | null;
+};
+
 /** Server-authoritative state returned by the pet-access Edge Function. */
 export type PixelPetState = {
   status: 'none' | 'reserved' | 'owned';
@@ -68,6 +74,9 @@ export type PixelPetState = {
     level: number;
     stage: PixelPetStage;
     skillTier: number;
+    appearanceLevel?: number | null;
+    sleepSceneLevel?: number | null;
+    maxUnlockedLevel?: number;
     levelFloorExp: number;
     nextLevelExp: number | null;
   } | null;

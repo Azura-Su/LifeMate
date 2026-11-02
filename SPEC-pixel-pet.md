@@ -68,6 +68,16 @@ mỗi ô vẽ lại cả nhân vật ở một tư thế khác, không ghép cá
 - Home chạy một chu kỳ 20 giây: chạy, đi bộ đến điểm cất cánh, cất cánh/đập
   cánh, lượn, hạ cánh, đi bộ một nhịp rồi chạy đến vị trí ngủ; không chen động
   tác vui vẻ/xòe cánh trước khi nằm.
+  Trên Home, canvas Thiên Lộc cấp 1–20 có kích thước mục tiêu 144pt (tăng 20%),
+  giữ tỷ lệ tiến hóa giữa các cấp; mọi cảnh ngủ có khung mục tiêu 240pt.
+  `celestialStagHomeLayout.ts` thu cả thú/cảnh cùng tỷ lệ trên màn hẹp/ngắn.
+  Home dành một vùng dưới viewport thẻ, tối đa 55% chiều cao còn lại dưới
+  header, có khoảng hở ít nhất `spacing.md`; thẻ vẫn cuộn được và không vẽ
+  vào vùng cảnh. Vùng này được giữ khi tạm dừng hoạt ảnh hoặc mở menu/lịch.
+  Cảnh dùng chung đường đất 296/320, căn với chân thú ở 0,81 canvas, và điểm
+  ngủ được giới hạn để toàn cảnh nằm trong màn hình. Khi resize, thú đang
+  ngủ và cảnh đang tan được căn lại cùng bố cục. Kích thước ở màn chi tiết
+  tiếp tục theo tỷ lệ chuẩn hiện có.
   Nhịp chân được tính từ quãng đường thực, thời lượng pha và kích thước hình
   theo giai đoạn; khi không di
   chuyển sẽ giữ pose đứng thay vì chạy tại chỗ. Chạm khi đang ngủ sẽ đánh thức
@@ -86,7 +96,39 @@ mỗi ô vẽ lại cả nhân vật ở một tư thế khác, không ghép cá
   lúc linh thú ngủ. Ảnh gốc, khung tách, atlas và contact sheet nằm trong
   `assets/pixelPet/sourceFrames/sleep_garden_lv12/`,
   `assets/pixelPet/animations/` và `tasks/previews/`.
-  Các cảnh cấp 4, 6, 8, 10, 14 và 20 cũng có atlas mọc/héo riêng, cùng footprint
+  Rừng lông vũ v2 dùng từng tranh toàn cảnh vẽ riêng, cùng tỷ lệ và
+  đường đất; giữ cỏ giữa và nước hai bên xuyên suốt chuỗi mọc. Ảnh, prompt và
+  khung 320px nằm trong `sleep_garden_lv12/v2/`; atlas/GIF/ảnh ghép thú ở
+  `tasks/previews/celestial-stag-lv12-sleep-scene-*-v2*`. Hai atlas v2 đã được
+  duyệt và thay vào app cho Lv12–13; khung mọc cuối và héo đầu trùng pixel.
+  Vườn suối nhỏ cấp 4 dùng 16 khung mọc và 16 khung héo vẽ riêng: đom đóm tắt,
+  lá vàng rồi rụng, suối cạn, cây xám và tan thành tro từ ngọn xuống. Các khung
+  dùng cùng tỷ lệ, footprint tối đa 288px và đường đất y=296; ô héo 0 trùng
+  pixel ô mọc 15. Script `scripts/pack-home-sleep-garden-lv04.cjs` tạo bản xem
+  trước; `--install` thay atlas sau khi duyệt ảnh. Ảnh gốc, prompt và khung
+  đóng gói nằm trong `assets/pixelPet/sourceFrames/sleep_garden_lv04/`. Trên Home,
+  cảnh Lv4–5 dùng bố cục phóng chung 240pt, giữ nguyên tâm và đường đất; cả cảnh
+  héo và khung chụp lúc thức sớm dùng cùng kích thước.
+  Cổ thụ hoa anh linh cấp 6–7 dùng 16 khung mọc và 16 khung héo vẽ riêng:
+  cây hai tầng tán ra nụ, nở hoa trắng hồng; khi thức, hoa rụng, nấm teal tắt,
+  lá úa rồi cành và gốc cây tan dần. Ô héo 0 trùng pixel ô mọc 15; hai atlas
+  dùng chung bảng màu 256 màu, ô 320px và đường đất y=296. Ảnh nguồn và prompt
+  nằm trong `assets/pixelPet/sourceFrames/sleep_garden_lv06/`; script
+  `scripts/review-celestial-stag-lv06-garden.cjs --install` đóng gói bộ đã duyệt.
+  Trên Home, cả cảnh mọc và héo Lv6–7 căn đất với chân thú để thảm cỏ và đá
+  không bị thanh tab che.
+  Đền đá rêu phong cấp 8–9 dùng 16 khung mọc và 16 khung héo toàn cảnh vẽ
+  riêng: chân cột, cổng đá, chồi cây, dây leo, tán cây rồi đèn teal; khi thức,
+  đèn tắt, lá úa, cổng nứt và sụp, cây cùng đá tan thành bụi. Hai atlas
+  `home_sleep_garden_lv08_v2.png` và `home_sleep_garden_lv08_decay_v2.png`
+  dùng chung bảng màu 256 màu, ô 320px, footprint tối đa 288px và đường đất
+  y=296; ô héo 0 trùng pixel ô mọc 15. Nguồn và prompt nằm trong
+  `assets/pixelPet/sourceFrames/sleep_garden_lv08/`, khung đóng gói ở
+  `review320/`; script `scripts/review-celestial-stag-lv08-garden.cjs --pack`
+  nhận thêm đường dẫn module Sharp có sẵn để đóng gói. Contact sheet, GIF
+  mọc 3,8 giây/héo 4,8 giây và ảnh ghép thú Lv8–9 trên nền sáng/tối nằm
+  trong `tasks/previews/celestial-stag-lv08-*`.
+  Các cảnh cấp 10 và 14 cũng có atlas mọc/héo riêng, cùng footprint
   288px, đường đất y=296 và 16 ô. Khung cuối được căn từ ảnh cảnh đã chọn; các
   khung trung gian dùng mặt nạ hé lộ mềm có seed ổn định, còn khung héo tan từ
   trên xuống. Ảnh nguồn và khung đóng gói nằm trong thư mục `sleep_garden_lvNN/`
@@ -94,11 +136,30 @@ mỗi ô vẽ lại cả nhân vật ở một tư thế khác, không ghép cá
   Atlas Cây sao trời cấp 16 được chọn riêng cho Lv16–17. Hai atlas mọc/héo
   4×4 dùng chung đường đất y=296; ô héo 0 trùng pixel với ô mọc 15. Ảnh nguồn,
   khung và contact sheet nằm trong `assets/pixelPet/sourceFrames/sleep_garden_lv16/`
-  và `tasks/previews/`. Cung điện sapphire cấp 18 dùng atlas mọc/héo 4×4 riêng
+  và `tasks/previews/`. Bản v2 dùng các khung mọc/héo được vẽ riêng: hai mầm
+  lớn thành vòm cây, sao rơi rồi tán rụng và thân tan thành bụi; không cắt ngang
+  ảnh cây trưởng thành hoặc làm chi tiết đã héo xuất hiện lại. Nguồn, prompt và
+  32 khung đóng gói ở `sleep_garden_lv16/v2/`; đóng gói bằng
+  `scripts/pack-home-sleep-garden-lv16-v2.cjs`. Hai atlas `_v2.png` giữ footprint
+  288px, đường đất y=296, lề trong suốt và chuyển tiếp mọc-15/héo-0 trùng pixel.
+  Cảnh Lv16–17 dùng khung mục tiêu 240pt như các cấp khác, giữ tâm
+  theo thú và căn đường đất với mép trên thanh tab của Home để thảm cỏ không
+  bị thanh điều hướng che; dùng cùng vị trí khi mọc và khi héo.
+  Cung điện sapphire cấp 18 dùng atlas mọc/héo 4×4 riêng
   cho Lv18–19; cảnh mọc lộ dần từ nền lên, cảnh thức tan từ trên xuống. Hai
   atlas dùng đường đất y=296; ô héo 0 khớp pixel với ô mọc 15. Ảnh nguồn, các
   khung và script đóng gói nằm trong
   `assets/pixelPet/sourceFrames/sleep_garden_lv18/` và `scripts/`.
+  Thiên giới ngọc lục bảo cấp 20 dùng hai atlas 4×4 với các cảnh mọc/tan được
+  vẽ riêng: ngọc và mây → đài sen, hồ → cung điện, cây vàng → thác, cầu vồng;
+  khi thức, cảnh tắt sáng, khép đài sen, rụng lá rồi tan thành bụi sao. Khoảng
+  nghỉ giữa–dưới được vẽ liền với hồ/đài sen, không khoét nền trong suốt. Hai
+  atlas giữ cùng tỷ lệ, footprint tối đa 288px và đường đất y=296; khung mọc 15
+  trùng pixel với khung tan 0, hai đầu còn lại trống. Nguồn, prompt và 32 khung
+  ở `assets/pixelPet/sourceFrames/sleep_garden_lv20/`; đóng gói riêng bằng
+  `scripts/pack-home-sleep-garden-lv20.cjs`. Bộ đóng gói chung không ghi đè Lv20.
+  Trên Home, cảnh Lv20 dùng khung mục tiêu 240pt, giữ nguyên tâm và
+  đường đất cho cả mọc, tan và ảnh giữ khi đánh thức sớm.
   Cấp 1–2 dùng atlas đi/chạy/nhảy/ngủ riêng, giữ thiết kế và màu từ ảnh gốc đã
   duyệt. Chuyển động nhảy là một nhịp nhảy thấp, không bay đường dài; linh lộc
   tiếp đất rồi đi/chạy vào đúng điểm ngủ. Atlas ngủ chuyển từ đứng qua hạ thân,
@@ -499,6 +560,38 @@ lịch sử và danh sách dry-run trước khi dùng `supabase db push` lần t
 `pet-access` và bản `user-admin` có dọn Pet đã được triển khai trên Supabase.
 Firebase tiếp tục cung cấp Auth và giao dịch Firestore hiện có; Pixel Pet không
 thêm rules hoặc Cloud Function Firebase.
+
+### 7.1. Chọn hình dạng và khung ngủ đã mở khóa (02/11/2026)
+
+- Màn Linh thú có **Hình dạng & khung ngủ**. Hai lựa chọn độc lập, có ảnh xem
+  trước ghép chung và chỉ hiển thị các mẫu đã mở khóa. Mỗi mục có **Tự động
+  theo cấp**; lựa chọn chỉ đổi khi bấm **Áp dụng diện mạo**. Đóng mà chưa áp
+  dụng không đổi mẫu; lỗi lưu giữ bản nháp để thử lại.
+- Hình dạng dùng asset có thật: 15 loài trong kho có mốc 1/4/8; Thiên Lộc có
+  mốc 1/3/4/5/7/8/9/11/13/15/17/19. Các mốc 4/8 giữ lựa chọn giai đoạn tiến
+  hóa. Khung ngủ Thiên Lộc có mốc chẵn 2–20; Cửu Vĩ Hồ, Lang Linh và Garuda
+  hiện có khung cấp 2. Loài chưa có khung riêng không hiện mẫu giả.
+- Cấp và stage hiển thị chỉ điều khiển art/chuyển động. EXP, cấp thật và quyền
+  kỹ năng giữ nguyên. Tự động theo cấp tiếp tục dùng cấp thật; lựa chọn thủ
+  công dùng mẫu đã chọn kể cả khi lên cấp hoặc EXP điều chỉnh giảm.
+- Migration `20261102010000_pixel_pet_appearance.sql` thêm `appearance_level`,
+  `sleep_scene_level` (nullable = tự động), `max_unlocked_level` theo adoption.
+  Mốc mở khóa tăng từ state cuối đã xác nhận, không tính EXP trung gian của
+  reconcile. Backfill lấy EXP hiện tại, receipt đã hoàn tất cùng adoption và
+  tổng ledger theo từng batch giao dịch hoàn tất; giữ lịch sử khi chuyển loài
+  trong cùng adoption. Nhận nuôi mới bắt đầu mốc và lựa chọn mới.
+- Request `appearance` gửi `adoptionId`, `appearanceLevel`, `sleepSceneLevel`.
+  Edge chỉ chấp nhận các trường này, RPC xác thực UID, phiên đăng nhập, adoption,
+  mẫu đúng loài và mốc đã mở; chỉ `service_role` được gọi. Client không gửi EXP
+  hoặc mốc mở khóa. Client cũ thiếu trường mới vẫn hiển thị tự động.
+- Home và màn chi tiết dùng cùng resolver. Art và chuyển động dùng hình dạng
+  đã chọn; cảnh dùng lựa chọn khung riêng. Cảnh đang ngủ và cảnh héo giữ khung
+  đã gieo khi bắt đầu ngủ, không nhảy khung khi đồng bộ cấp. Đổi lựa chọn thủ
+  công bắt đầu chu kỳ mới; đồng bộ cấp tự động không đánh thức thú.
+- Ảnh xem trước và cảnh Home giữ tỷ lệ, mặt đất và khoảng trống của từng loài;
+  Garuda giữ độ nâng chân theo bệ. Thu đồng đều cả thú lẫn cảnh trên màn hẹp.
+- Migration và `pet-access` đã triển khai trên Supabase LifeMate ngày02/11/2026;
+  đã kiểm tra lưu/mở lại trên Simulator và quyền gọi RPC trên production.
 
 ## 8. Ngoài phạm vi phiên bản này
 

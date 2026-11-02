@@ -19,6 +19,33 @@ const room = {
   game: null,
 };
 
+it.each([['sam', 5], ['tan', 6]] as const)('accepts every player in a full %s room and rejects one more', (kind, capacity) => {
+  const members = Array.from({ length: capacity }, (_, i) => ({ uid: i === 0 ? 'a' : `p${i}`, name: `Player ${i}`, ready: true, wins: 0 }));
+  const players = members.map((m, i) => ({ uid: m.uid, count: i === 0 ? 2 : kind === 'sam' ? 10 : 8, finished: false, forfeited: false }));
+  const common = { status: 'playing', hand: [0, 4], players, turn: 'a', deadline: 40000, result: null };
+  const game = kind === 'sam' ? {
+    ...common, rulesVersion: 'sam-v1', step: 'report-sam', table: null, passed: [], openingCard: 0,
+    reportOrder: members.map((m) => m.uid), reported: [], reportedSam: false, callUid: null, samOutcome: null,
+  } : {
+    ...common, rulesVersion: 'tan-v1', step: 'attack', stockCount: 4, trumpCard: 40, trumpSuit: 0,
+    attackerUid: 'a', defenderUid: 'p1', maxAttackCards: 8, table: [],
+  };
+  const larger = { ...room, gameKind: kind, phase: 'playing', members, game };
+  expect(parseGameSnapshot({ room: larger, serverTime: 100 }, 'a').room?.game?.players).toHaveLength(capacity);
+  const finished = {
+    ...larger, phase: 'finished',
+    game: { ...game, status: 'finished', step: kind === 'sam' ? 'play' : 'finished',
+      ...(kind === 'sam' ? { reportOrder: [], reported: [] } : {}),
+      turn: null, deadline: null,
+      result: { reason: 'played-out', ranking: members.map((m, i) => ({ uid: m.uid, rank: i + 1, labels: [], remainingCards: 0, moneyDelta: 0, breakdown: [] })) },
+    },
+  };
+  expect(parseGameSnapshot({ room: finished, serverTime: 100 }, 'a').room?.game?.result?.ranking).toHaveLength(capacity);
+  expect(() => parseGameSnapshot({ room: { ...larger, members: [...members, { ...members[0], uid: 'overflow' }] }, serverTime: 100 }, 'a')).toThrow();
+  for (const gameKind of ['south', 'north', 'phom'])
+    expect(() => parseGameSnapshot({ room: { ...room, gameKind, members, game: null }, serverTime: 100 }, 'a')).toThrow();
+});
+
 it('validates configured South settings, fee participants and pinned game version', () => {
   const southConfig = { finishMode: 'first-winner', cutTwoAmount: 17 };
   const configured = {
@@ -355,7 +382,7 @@ it('accepts protocol 11 room capability metadata and rejects unsupported version
   };
   expect(parseGameRoomStatus(status, id)).toEqual(status);
   expect(() =>
-    parseGameRoomStatus({ ...status, minClientVersion: 13 }, id),
+    parseGameRoomStatus({ ...status, minClientVersion: 14 }, id),
   ).toThrow();
 });
 

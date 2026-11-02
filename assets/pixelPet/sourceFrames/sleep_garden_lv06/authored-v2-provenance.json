@@ -1,0 +1,156 @@
+{
+  "date": "2026-11-01",
+  "status": "Approved in chat and installed for Lv6-7 on 2026-11-02",
+  "generator": "Built-in image_gen; transparent_background=true; one whole-scene image per requested frame",
+  "scope": "Cổ thụ hoa anh linh, sleep garden Lv6–7",
+  "existingSources": "frame03-source.png through frame08-source.png; frame15-approved.png retained from earlier work",
+  "emptyEndpoints": "Growth frame00 and decay frame15 are transparent; decay00 is an exact copy of normalized growth15",
+  "rejectedCandidates": {
+    "frame09-source.png": "Extra lower foliage tier; use frame09-v2-source.png",
+    "frame10-source.png": "Extra canopy tier; use frame10-v2-source.png"
+  },
+  "packingScript": "scripts/review-celestial-stag-lv06-garden.cjs",
+  "packing": "One fixed scene scale and a y=296 ground boundary; shared 256-color palette via bundled Sharp 0.35.5, without spatial dithering; transparent endpoints; exact sleep/wake pixel match",
+  "candidateBytes": { "growth": 307807, "decay": 444688 },
+  "review": "32 normalized frames, dimensions, alpha endpoints, ground boundary, edge bleed, pixel handoff and atlas size verified. Contact sheets and deer overlay approved. Installed files match the approved candidates byte-for-byte. Verified sleeping scenes at Lv6 and Lv7 plus Lv6 wake/decay on iOS Simulator; raised the scene 14.2pt to keep grass and rocks above the tabs. Typecheck, affected ESLint and 85 targeted tests passed.",
+  "previewScript": "scripts/preview-celestial-stag-lv06-garden.swift",
+  "correctionPrompts": [
+    {
+      "file": "decay08-v2-source.png",
+      "ref": "decay07-source.png",
+      "prompt": "Use case: precise-object-edit. Correct one whole-scene animation frame for this painterly game spirit-tree garden. Preserve exact reference canvas, camera, ground anchor, tree trunk/root geometry and scene footprint. Transparent RGBA background outside the isolated scene. NO flowers, pink petals, buds, new plants or characters. NO opaque smoke cloud, fog, solid dust silhouette, text, border or background. Withering FRAME08: remove about 75 percent of the golden leaves from the supplied frame07, revealing the SAME original branches under them. Keep only scattered yellow/ochre leaves on both tiers, with 5 small golden leaves drifting downward. The mushrooms remain cream and UNLIT; grass and side bushes start drying brown. Brown/yellow fallen leaves lie on the original grass patch. Absolutely no blossoms return; this reference has no flowers, keep it that way. Do not extend any branches beyond reference silhouette."
+    },
+    {
+      "file": "decay11-v2-source.png",
+      "ref": "decay10-source.png",
+      "prompt": "Use case: precise-object-edit. Correct one whole-scene animation frame for this painterly game spirit-tree garden. Preserve exact reference canvas, camera, ground anchor, tree trunk/root geometry and scene footprint. Transparent RGBA background outside the isolated scene. NO flowers, pink petals, buds, new plants or characters. NO opaque smoke cloud, fog, solid dust silhouette, text, border or background. Withering FRAME11: retain the bare dry gray tree from frame10 almost exactly. The ONLY change is 10 very small gray wood/ash flecks detaching from the very top twig tips, WITHIN THE EXISTING TREE ENVELOPE, and a few millimeters missing from twig tips. Do not make tree taller, do not add new branches. The original brown dry ground, shriveled mushrooms and rocks stay identical."
+    },
+    {
+      "file": "decay12-v2-source.png",
+      "ref": "decay10-source.png",
+      "prompt": "Use case: precise-object-edit. Correct one whole-scene animation frame for this painterly game spirit-tree garden. Preserve exact reference canvas, camera, ground anchor, tree trunk/root geometry and scene footprint. Transparent RGBA background outside the isolated scene. NO flowers, pink petals, buds, new plants or characters. NO opaque smoke cloud, fog, solid dust silhouette, text, border or background. Withering FRAME12: the ENTIRE UPPER CROWN and UPPER HALF of trunk have disappeared, leaving lower forked BARE branches and lower HALF of the original dry gray S-trunk rooted at same spot. No attached leaves anywhere. 25 tiny isolated gray dust/wood particles drift upward near where the upper tree was, separated by lots of FULLY TRANSPARENT space; no continuous smoke fill. Retain dry brown original grass patch, two rocks and shriveled mushrooms at exact reference positions. Do not replace missing crown with its opaque dust silhouette."
+    },
+    {
+      "file": "decay13-v2-source.png",
+      "ref": "decay10-source.png",
+      "prompt": "Use case: precise-object-edit. Correct one whole-scene animation frame for this painterly game spirit-tree garden. Preserve exact reference canvas, camera, ground anchor, tree trunk/root geometry and scene footprint. Transparent RGBA background outside the isolated scene. NO flowers, pink petals, buds, new plants or characters. NO opaque smoke cloud, fog, solid dust silhouette, text, border or background. Withering FRAME13: remove ALL branches and upper THREE QUARTERS of trunk. Only original low gray ROOT STUMP remains at original location and original size, no green growth. Original dry grass, two stones and side bushes crumble halfway from their edges. At most 20 tiny isolated gray/tan dust grains drift above stump separated by CLEAR FULLY TRANSPARENT AIR. Absolutely NO smoke cloud or tree-shaped dust mass. Ground much more sparse than reference, but do not move or reframe it."
+    },
+    {
+      "file": "decay14-v2-source.png",
+      "ref": "decay10-source.png",
+      "prompt": "Use case: precise-object-edit. Correct one whole-scene animation frame for this painterly game spirit-tree garden. Preserve exact reference canvas, camera, ground anchor, tree trunk/root geometry and scene footprint. Transparent RGBA background outside the isolated scene. NO flowers, pink petals, buds, new plants or characters. NO opaque smoke cloud, fog, solid dust silhouette, text, border or background. Withering FRAME14, almost transparent final dissipation: remove ALL TREE, trunk, roots, bushes, mushrooms and intact ground. Only 8 TINY dull gray rock/grass fragments remain at the ORIGINAL GROUND BASELINE near original stones, with 12 tiny isolated low-opacity gray/tan dust grains drifting upward within lower-middle part of original canvas. At least 95 percent of canvas fully transparent; very faint sparse particles, NO solid mound, cloud, stump, ribbons, bright colors or pink petals. Do NOT recenter the particles in the canvas: keep original ground location at bottom."
+    }
+  ],
+  "prompts": [
+    {
+      "file": "frame01-source.png",
+      "ref": "frame03-source.png",
+      "prompt": "Use case: precise-object-edit. Single whole-scene animation image for a painterly fantasy game sleep garden, truly transparent RGBA square canvas. Use supplied frame03 as a locked composition reference: identical camera, grass ground line, footprint and the two mossy rocks in exactly their original places. NO tree, sprout, flowers, mushrooms, glowing lights, characters, text, border or outside ground shadow. Keep the large upper canvas empty and the center foreground open. Make EARLY GROWTH FRAME01: only the SAME two mossy rocks and a LOW THIN STRIP of short green grass connecting them. Remove the two tall side bushes almost entirely, leaving a few small tufts at their bases. Keep the ground strip at exactly the reference baseline and footprint; do not zoom the strip."
+    },
+    {
+      "file": "frame02-source.png",
+      "ref": "frame03-source.png",
+      "prompt": "Use case: precise-object-edit. Single whole-scene animation image for a painterly fantasy game sleep garden, truly transparent RGBA square canvas. Use supplied frame03 as a locked composition reference: identical camera, grass ground line, footprint and the two mossy rocks in exactly their original places. NO tree, sprout, flowers, mushrooms, glowing lights, characters, text, border or outside ground shadow. Keep the large upper canvas empty and the center foreground open. Make EARLY GROWTH FRAME02: the same grass patch now fuller, two small green side bushes appearing behind each of the original mossy rocks (about HALF the height of the reference bushes). There are NO mushrooms yet. Preserve rock size and exact ground positions. This is the intermediate frame immediately before the reference mushrooms appear."
+    },
+    {
+      "file": "frame09-v2-source.png",
+      "ref": "frame10-v2-source.png",
+      "prompt": "Use case: precise-object-edit. Create GROWTH FRAME09 immediately before this frame10 of a spirit sakura garden. Keep identical full square transparent canvas, camera, grass patch, ground line, two rocks, side bushes, teal mushroom clusters, their exact positions, and open middle foreground. Change ONLY central tree: remove ALL PINK BUDS and flowers, leaving entirely GREEN LEAVES; make trunk and crown about 70 percent of their current HEIGHT and 75 percent their WIDTH around the same ROOT POSITION. Tree is a young sapling developing its TWO green canopy tiers (upper crown and lower forked left/right tier). No third or fourth layer. Preserve same S-twisted trunk design in younger thinner form. Do NOT enlarge or move any ground objects. Soft painterly game art, no character, text, borders or background."
+    },
+    {
+      "file": "decay01-source.png",
+      "ref": "frame15-approved.png",
+      "prompt": "Use case: precise-object-edit. Whole-scene WITHERING FRAME01 immediately after the supplied mature spirit sakura sleep garden. Preserve exact tree trunk, root silhouette, TWO canopy tiers, same positions, size, square RGBA transparent canvas, ground line, shrubs, two rocks, glowing teal mushrooms and resting opening. Only tiny initial change: remove roughly 10 percent of open flowers from canopy to reveal green leaves, and add 8 small detached white/pink petals beginning to fall gently in the air around tree, with a few petals on grass. No yellowing or dried branches yet. Entire tree still lush and mostly flowering. Soft hand-painted style identical reference, no background, no text, no character, no border."
+    },
+    {
+      "file": "frame10-v2-source.png",
+      "ref": "frame11-source.png",
+      "prompt": "Use case: precise-object-edit. Create growth frame10 immediately before the reference frame11 for this spirit sakura garden animation. Exact same hand-painted whole-scene style, square transparent canvas, fixed grass patch, rocks, shrubs, teal mushroom clusters and foreground resting area. Central tree has the SAME S-curved trunk and ONLY TWO CANOPY TIERS of the reference (one upper crown, and forked lower left/right layer). Make that tree about 80 percent of reference tree's height, rooted at EXACT SAME point; keep side ground objects identical scale and position. ALL blossoms are CLOSED PALE PINK BUDS scattered among mostly green leaves, NONE open. No falling petals or ground petal litter. Do not add extra tier or branches. Truly transparent background, no characters, text, border or out-of-patch shadow."
+    },
+    {
+      "file": "frame14-source.png",
+      "ref": "frame15-approved.png",
+      "prompt": "Use case: precise-object-edit. Create growth frame14 immediately before the reference mature sakura spirit tree scene. Keep the entire reference EXACTLY unchanged in composition, tree trunk and roots, two tiers of flowers, shrubs, stones, mushrooms, foreground resting space, camera, size and ground line. Make just one small change: remove all the fallen petals already lying on the ground, remove all detached floating petals except ONE small pink petal just beginning to detach from the left lower canopy edge. The tree is fully in bloom. Do not alter or redraw any other objects. Whole hand-painted game scene, truly transparent outside background, square RGBA canvas, no text, no characters or border."
+    },
+    {
+      "file": "frame11-source.png",
+      "ref": "frame15-approved.png",
+      "prompt": "Use case: precise-object-edit. Edit the supplied whole-scene fantasy sleep garden to make growth frame11. PRESERVE THE EXACT TREE ANATOMY, twisting trunk, root location, two foliage tiers, silhouette size, same square canvas, ground line, stones, side shrubs, mushroom clusters and open foreground resting place. Change only the maturity of the flowers: replace most pink/white blossoms with green leaves and closed pale pink buds, and keep about 25 percent of flowers only JUST STARTING TO OPEN. Canopy should be mostly green with scattered pink and white half-open buds. Remove all falling petals, remove petal litter from the ground. No extra branches or foliage tiers. Keep exact final scene composition; do not move, zoom or recenter anything. Hand-painted soft game art with truly transparent outside background, no text, no border, no character. Save generated image."
+    },
+    {
+      "file": "frame12-source.png",
+      "ref": "frame15-approved.png",
+      "prompt": "Use case: precise-object-edit. Edit this hand-painted fantasy Sakura spirit sleep garden into one whole-scene animation frame on transparent RGBA square canvas. Preserve the EXACT twisting trunk and root shape, ONLY TWO canopy tiers (the forked left/right lower tier and upper crown), canvas, camera, size, ground line, side shrubs, two stones, teal mushroom clusters and open foreground resting spot. No extra branches, no changing positions, no background, no text, borders or character. Growth frame12: half the canopy flowers are open white and pink sakura blossoms, the other half remain pale pink half-open buds with green leaves. Remove falling petals and ground petal litter. Match the final composition precisely; only blossom maturity changes."
+    },
+    {
+      "file": "frame13-source.png",
+      "ref": "frame15-approved.png",
+      "prompt": "Use case: precise-object-edit. Edit this hand-painted fantasy Sakura spirit sleep garden into one whole-scene animation frame on transparent RGBA square canvas. Preserve the EXACT twisting trunk and root shape, ONLY TWO canopy tiers (the forked left/right lower tier and upper crown), canvas, camera, size, ground line, side shrubs, two stones, teal mushroom clusters and open foreground resting spot. No extra branches, no changing positions, no background, no text, borders or character. Growth frame13: both canopy tiers are now fully covered by open white and blush pink sakura flowers, exactly like the reference, green leaves just accents. Remove ALL detached floating/falling petals and all petal litter in the foreground; retain flowers attached to shrubs. This is the moment immediately before petals start falling."
+    },
+    {
+      "file": "decay10-source.png",
+      "ref": "frame15-approved.png",
+      "prompt": "Use case: precise-object-edit. One whole-scene WITHERING animation frame of the supplied spirit sakura sleep garden. Lock the exact tree anatomy and S-curved twisting trunk, root anchor, TWO canopy tiers, original stones, side bushes and mushroom locations, camera, square RGBA canvas, grass footprint and baseline. The middle foreground remains a resting opening. Change only the specified aging stage, preserve the same soft painterly style. Transparent outside the scene; no text, character, border, new scenery, extra tree branches or external ground shadow. Withering frame10: Exact original BARE tree anatomy and root silhouette, now dry gray wood with fine cracks. Small original mushrooms visibly shriveled and dull. Ground grass, side shrubs, fallen leaves and petals are dry tan/brown. No new sprouts, leaves or flowers anywhere. Do not change stone positions."
+    },
+    {
+      "file": "decay11-source.png",
+      "ref": "frame15-approved.png",
+      "prompt": "Use case: precise-object-edit. One whole-scene WITHERING animation frame of the supplied spirit sakura sleep garden. Lock the exact tree anatomy and S-curved twisting trunk, root anchor, TWO canopy tiers, original stones, side bushes and mushroom locations, camera, square RGBA canvas, grass footprint and baseline. The middle foreground remains a resting opening. Change only the specified aging stage, preserve the same soft painterly style. Transparent outside the scene; no text, character, border, new scenery, extra tree branches or external ground shadow. Withering frame11: The bare gray tree is beginning to crumble at the very TOP twig tips only: tiny fragments of gray ash drift upwards there. Most of exact trunk and branch skeleton still intact. Withered mushrooms, brown dry grass and gray original rocks remain. No leaves, flowers, or pink petals."
+    },
+    {
+      "file": "decay12-source.png",
+      "ref": "frame15-approved.png",
+      "prompt": "Use case: precise-object-edit. One whole-scene WITHERING animation frame of the supplied spirit sakura sleep garden. Lock the exact tree anatomy and S-curved twisting trunk, root anchor, TWO canopy tiers, original stones, side bushes and mushroom locations, camera, square RGBA canvas, grass footprint and baseline. The middle foreground remains a resting opening. Change only the specified aging stage, preserve the same soft painterly style. Transparent outside the scene; no text, character, border, new scenery, extra tree branches or external ground shadow. Withering frame12: Upper crown and uppermost trunk have crumbled away into a modest airy trail of fine gray/tan ASH rising from the exact original tree location. Lower forked branches, lower half of dry S-curved trunk and roots remain at original size/position. Original dry ground patch, shriveled mushrooms and rocks are still present. No intact tree at top."
+    },
+    {
+      "file": "decay13-source.png",
+      "ref": "frame15-approved.png",
+      "prompt": "Use case: precise-object-edit. One whole-scene WITHERING animation frame of the supplied spirit sakura sleep garden. Lock the exact tree anatomy and S-curved twisting trunk, root anchor, TWO canopy tiers, original stones, side bushes and mushroom locations, camera, square RGBA canvas, grass footprint and baseline. The middle foreground remains a resting opening. Change only the specified aging stage, preserve the same soft painterly style. Transparent outside the scene; no text, character, border, new scenery, extra tree branches or external ground shadow. Withering frame13: Only the bottom quarter of the old gray trunk and its roots remain. Broken lower branches and upper trunk are now a faint upwards-drifting gray/tan dust trail, thinning. Original dry grass patch and two original rocks partly crumble into small fragments from edges inward. No leaves, flowers, pink petals or living mushrooms. Preserve original baseline."
+    },
+    {
+      "file": "decay14-source.png",
+      "ref": "frame15-approved.png",
+      "prompt": "Use case: precise-object-edit. One whole-scene WITHERING animation frame of the supplied spirit sakura sleep garden. Lock the exact tree anatomy and S-curved twisting trunk, root anchor, TWO canopy tiers, original stones, side bushes and mushroom locations, camera, square RGBA canvas, grass footprint and baseline. The middle foreground remains a resting opening. Change only the specified aging stage, preserve the same soft painterly style. Transparent outside the scene; no text, character, border, new scenery, extra tree branches or external ground shadow. Withering frame14: Almost empty: NO tree or branches at all, NO intact bushes or mushrooms. Only a few tiny fragments at the original ground line, small fading traces where the two rocks used to be, and a VERY FAINT thin trail of gray/tan ash rising from original root position. At least 90 percent of canvas is fully transparent. Last sparse dust particles, no solid mound, cloud or background."
+    },
+    {
+      "file": "decay02-source.png",
+      "ref": "frame15-approved.png",
+      "prompt": "Use case: precise-object-edit. One whole-scene WITHERING animation frame of the supplied spirit sakura sleep garden. Lock the exact tree anatomy and S-curved twisting trunk, root anchor, TWO canopy tiers, original stones, side bushes and mushroom locations, camera, square RGBA canvas, grass footprint and baseline. The middle foreground remains a resting opening. Change only the specified aging stage, preserve the same soft painterly style. Transparent outside the scene; no text, character, border, new scenery, extra tree branches or external ground shadow. Withering frame02: Petal rain progresses: about 70 percent of the original canopy flowers remain, with more green leaves now exposed. Around 15 small white/pink detached petals fall between canopy and ground, more settle on the grass. The foliage is lush green, mushrooms still softly glow teal, trunk healthy."
+    },
+    {
+      "file": "decay03-source.png",
+      "ref": "frame15-approved.png",
+      "prompt": "Use case: precise-object-edit. One whole-scene WITHERING animation frame of the supplied spirit sakura sleep garden. Lock the exact tree anatomy and S-curved twisting trunk, root anchor, TWO canopy tiers, original stones, side bushes and mushroom locations, camera, square RGBA canvas, grass footprint and baseline. The middle foreground remains a resting opening. Change only the specified aging stage, preserve the same soft painterly style. Transparent outside the scene; no text, character, border, new scenery, extra tree branches or external ground shadow. Withering frame03: Heavier petal rain: only about 40 percent of canopy flowers remain, green leaves dominate. Around 20 small petals drift down mostly within the original scene width, a pink petal carpet starts to cover the grass, but the same original grass silhouette is visible. Healthy green leaves and teal mushrooms, no yellowing yet."
+    },
+    {
+      "file": "decay04-source.png",
+      "ref": "frame15-approved.png",
+      "prompt": "Use case: precise-object-edit. One whole-scene WITHERING animation frame of the supplied spirit sakura sleep garden. Lock the exact tree anatomy and S-curved twisting trunk, root anchor, TWO canopy tiers, original stones, side bushes and mushroom locations, camera, square RGBA canvas, grass footprint and baseline. The middle foreground remains a resting opening. Change only the specified aging stage, preserve the same soft painterly style. Transparent outside the scene; no text, character, border, new scenery, extra tree branches or external ground shadow. Withering frame04: Almost all flowers have fallen: only 5 percent of pink blossoms remain on canopy, otherwise the original canopy is GREEN LEAVES with exactly the same two-tier outline. A few last pink petals fall, a visible layer of white/pink petals covers the original grass patch. Teal mushrooms still lit."
+    },
+    {
+      "file": "decay05-source.png",
+      "ref": "frame15-approved.png",
+      "prompt": "Use case: precise-object-edit. One whole-scene WITHERING animation frame of the supplied spirit sakura sleep garden. Lock the exact tree anatomy and S-curved twisting trunk, root anchor, TWO canopy tiers, original stones, side bushes and mushroom locations, camera, square RGBA canvas, grass footprint and baseline. The middle foreground remains a resting opening. Change only the specified aging stage, preserve the same soft painterly style. Transparent outside the scene; no text, character, border, new scenery, extra tree branches or external ground shadow. Withering frame05: All canopy and shrub flowers gone. TWO healthy entirely GREEN LEAF CANOPY TIERS following exact original branching and outline; NO attached flowers or buds. No more airborne petals; white/pink petal carpet on original grass. Mushrooms still softly glow teal. Keep trunk/root original shape and exact size."
+    },
+    {
+      "file": "decay06-source.png",
+      "ref": "frame15-approved.png",
+      "prompt": "Use case: precise-object-edit. One whole-scene WITHERING animation frame of the supplied spirit sakura sleep garden. Lock the exact tree anatomy and S-curved twisting trunk, root anchor, TWO canopy tiers, original stones, side bushes and mushroom locations, camera, square RGBA canvas, grass footprint and baseline. The middle foreground remains a resting opening. Change only the specified aging stage, preserve the same soft painterly style. Transparent outside the scene; no text, character, border, new scenery, extra tree branches or external ground shadow. Withering frame06: No flowers remain. Two-tier green canopy has a few yellowing outer leaves, about 20 percent yellow. The LEFT mushroom cluster has lost its teal glow and is cream colored; RIGHT cluster still teal. Petals carpet same grass patch. Trunk healthy, exact original anatomy."
+    },
+    {
+      "file": "decay07-source.png",
+      "ref": "frame15-approved.png",
+      "prompt": "Use case: precise-object-edit. One whole-scene WITHERING animation frame of the supplied spirit sakura sleep garden. Lock the exact tree anatomy and S-curved twisting trunk, root anchor, TWO canopy tiers, original stones, side bushes and mushroom locations, camera, square RGBA canvas, grass footprint and baseline. The middle foreground remains a resting opening. Change only the specified aging stage, preserve the same soft painterly style. Transparent outside the scene; no text, character, border, new scenery, extra tree branches or external ground shadow. Withering frame07: No flowers. About 80 percent of the leaves in both original tiers turn warm ochre yellow, with a few green leaves. BOTH mushroom clusters are unlit cream, no glow. Same petal carpet starts to dull, grass slightly faded. Same intact trunk and root outline."
+    },
+    {
+      "file": "decay08-source.png",
+      "ref": "frame15-approved.png",
+      "prompt": "Use case: precise-object-edit. One whole-scene WITHERING animation frame of the supplied spirit sakura sleep garden. Lock the exact tree anatomy and S-curved twisting trunk, root anchor, TWO canopy tiers, original stones, side bushes and mushroom locations, camera, square RGBA canvas, grass footprint and baseline. The middle foreground remains a resting opening. Change only the specified aging stage, preserve the same soft painterly style. Transparent outside the scene; no text, character, border, new scenery, extra tree branches or external ground shadow. Withering frame08: Leaves have mostly fallen: only 25 percent ochre leaves remain on the original canopy branches, revealing exact two-tier branching skeleton. A few yellow leaves fall within original width. Ground petals are dull dusty pink and turning brown. Unlit cream mushrooms, muted grass. Trunk still original shape."
+    },
+    {
+      "file": "decay09-source.png",
+      "ref": "frame15-approved.png",
+      "prompt": "Use case: precise-object-edit. One whole-scene WITHERING animation frame of the supplied spirit sakura sleep garden. Lock the exact tree anatomy and S-curved twisting trunk, root anchor, TWO canopy tiers, original stones, side bushes and mushroom locations, camera, square RGBA canvas, grass footprint and baseline. The middle foreground remains a resting opening. Change only the specified aging stage, preserve the same soft painterly style. Transparent outside the scene; no text, character, border, new scenery, extra tree branches or external ground shadow. Withering frame09: ALL canopy leaves and flowers have fallen, leaving the exact original BARE branching skeleton, no broken or new branches. Brown dried petals and leaves cover the original grass. Both mushroom clusters unlit and wilted. Trunk loses its golden warmth, begins going gray-brown, retains original silhouette."
+    }
+  ]
+}

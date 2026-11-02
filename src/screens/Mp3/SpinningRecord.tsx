@@ -8,6 +8,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { colors } from '../../theme';
+import { usePrefersReducedMotion } from '../../utils/motion';
 
 type Props = {
   playing: boolean;
@@ -27,9 +28,10 @@ export function SpinningRecord({
 }: Props) {
   const scale = size / BASE_SIZE;
   const rotation = useRef(new Animated.Value(0)).current;
+  const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
-    if (!playing) {
+    if (!playing || reducedMotion) {
       rotation.setValue(0);
       return;
     }
@@ -44,7 +46,7 @@ export function SpinningRecord({
     );
     animation.start();
     return () => animation.stop();
-  }, [playing, rotation]);
+  }, [playing, reducedMotion, rotation]);
 
   return (
     <Animated.View

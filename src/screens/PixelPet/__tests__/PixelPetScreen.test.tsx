@@ -9,6 +9,8 @@ import { PixelPetScreen } from '../PixelPetScreen';
 import { callPixelPet } from '../../../services/pixelPet/pixelPetApi';
 import { useAuthStore } from '../../../store/authStore';
 import { PixelPetSprite } from '../PixelPetSprite';
+import { StyleSheet } from 'react-native';
+import { PetAppearancePreview } from '../PetAppearancePreview';
 
 jest.mock('react-native-reanimated', () => ({
   ...jest.requireActual('react-native-reanimated/mock'),
@@ -37,6 +39,19 @@ const base = {
   now: Date.now(),
 };
 
+function effectiveSpriteSize() {
+  const sprite = screen.UNSAFE_getByType(PixelPetSprite);
+  let scale = 1;
+  for (let parent = sprite.parent; parent && parent.type !== PetAppearancePreview; parent = parent.parent) {
+    if (typeof parent.type !== 'string') continue;
+    const style = StyleSheet.flatten(parent.props.style);
+    for (const transform of style?.transform ?? []) {
+      if ('scale' in transform && typeof transform.scale === 'number') scale *= transform.scale;
+    }
+  }
+  return sprite.props.size * scale;
+}
+
 it('plays a finance movement effect once even after the movement preview was looping', async () => {
   call.mockResolvedValueOnce({
     ...base,
@@ -56,7 +71,10 @@ it('plays a finance movement effect once even after the movement preview was loo
     todayEffects: { move: 1 },
   });
   render(<PixelPetScreen navigation={navigation} route={{} as never} />);
+  await screen.findByText('Hình dạng & khung ngủ');
+  const restingSize = effectiveSpriteSize();
   fireEvent.press(await screen.findByRole('button', { name: 'Đi dạo' }));
+  expect(effectiveSpriteSize()).toBeCloseTo(restingSize);
   expect(screen.UNSAFE_getByType(PixelPetSprite).props).toMatchObject({
     loopMovement: true,
     homeMotion: true,
@@ -67,6 +85,7 @@ it('plays a finance movement effect once even after the movement preview was loo
     loopMovement: false,
   });
   act(() => screen.UNSAFE_getByType(PixelPetSprite).props.onClipEnd());
+  expect(effectiveSpriteSize()).toBeCloseTo(restingSize);
   expect(screen.UNSAFE_getByType(PixelPetSprite).props).toMatchObject({
     clip: 'idle',
     homeMotion: false,
@@ -78,6 +97,69 @@ it('plays a finance movement effect once even after the movement preview was loo
 beforeEach(() => {
   call.mockReset();
   useAuthStore.setState({ user: { uid: 'u1' } as never });
+});
+
+it.each(['celestial_stag', 'nine_tail_fox', 'garuda', 'rune_wolf'])(
+  'keeps %s at the same detail scale when its first sleep scene unlocks',
+  async (speciesId) => {
+    const sizes: number[] = [];
+    for (const level of [1, 2]) {
+      call.mockResolvedValueOnce({
+        ...base,
+        status: 'owned',
+        pet: {
+          speciesId, adoptionId: 'first-scene', adoptedAt: 1,
+          totalExp: level === 1 ? 0 : 30, caredToday: true,
+          level, stage: 'hatchling', skillTier: 0,
+          levelFloorExp: level === 1 ? 0 : 30, nextLevelExp: level === 1 ? 30 : 80,
+        },
+      });
+      const view = render(<PixelPetScreen navigation={navigation} route={{} as never} />);
+      await screen.findByText('Hình dạng & khung ngủ');
+      const restingSize = effectiveSpriteSize();
+      sizes.push(restingSize);
+      fireEvent.press(screen.getByRole('button', { name: 'Vui vẻ' }));
+      expect(effectiveSpriteSize()).toBeCloseTo(restingSize);
+      view.unmount();
+    }
+    // Lv1–2 share both the same stage and art, so unlocking only adds scenery.
+    expect(sizes[1]).toBeCloseTo(sizes[0]);
+  },
+);
+
+it('saves independent unlocked appearance/scene choices while keeping real level and EXP', async () => {
+  const pet = { speciesId: 'celestial_stag', adoptionId: 'owned-appearance', adoptedAt: 1, totalExp: 630,
+    caredToday: true, level: 8, stage: 'ascended', skillTier: 2, levelFloorExp: 630, nextLevelExp: 800,
+    maxUnlockedLevel: 8, appearanceLevel: null, sleepSceneLevel: null };
+  call.mockResolvedValueOnce({ ...base, status: 'owned', pet });
+  render(<PixelPetScreen navigation={navigation} route={{} as never} />);
+  fireEvent.press(await screen.findByText('Hình dạng & khung ngủ'));
+  expect(screen.queryByRole('radio', { name: /Hình dạng: Hình dạng Lv 9/ })).toBeNull();
+  fireEvent.press(screen.getByRole('radio', { name: 'Hình dạng: Ấu thể, mở ở Lv 1' }));
+  fireEvent.press(screen.getByRole('radio', { name: 'Khung ngủ: Vườn suối nhỏ, mở ở Lv 4' }));
+  call.mockResolvedValueOnce({ ...base, status: 'owned', pet: { ...pet, appearanceLevel: 1, sleepSceneLevel: 4 } });
+  fireEvent.press(screen.getByText('Áp dụng diện mạo'));
+  await waitFor(() => expect(call).toHaveBeenLastCalledWith('u1', { type: 'appearance', adoptionId: 'owned-appearance', appearanceLevel: 1, sleepSceneLevel: 4 }));
+  await waitFor(() => expect(screen.queryByText('Diện mạo linh thú')).toBeNull());
+  expect(call).toHaveBeenLastCalledWith('u1', { type: 'appearance', adoptionId: 'owned-appearance', appearanceLevel: 1, sleepSceneLevel: 4 });
+  expect(screen.UNSAFE_getByType(PixelPetSprite).props).toMatchObject({ level: 1, stage: 'hatchling' });
+  expect(screen.getByText(/Lv 8/)).toBeTruthy();
+});
+
+it('keeps an unsaved appearance draft on failure and closes it when the account changes', async () => {
+  const pet = { speciesId: 'celestial_stag', adoptionId: 'owned-retry', adoptedAt: 1, totalExp: 150,
+    caredToday: true, level: 4, stage: 'juvenile', skillTier: 0, levelFloorExp: 150, nextLevelExp: 240 };
+  call.mockResolvedValueOnce({ ...base, status: 'owned', pet });
+  render(<PixelPetScreen navigation={navigation} route={{} as never} />);
+  fireEvent.press(await screen.findByText('Hình dạng & khung ngủ'));
+  fireEvent.press(screen.getByRole('radio', { name: 'Hình dạng: Trưởng thành, mở ở Lv 4' }));
+  call.mockRejectedValueOnce(new Error('Không kết nối được'));
+  fireEvent.press(screen.getByText('Áp dụng diện mạo'));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Không kết nối được');
+  expect(screen.getByRole('radio', { name: 'Hình dạng: Trưởng thành, mở ở Lv 4' }).props.accessibilityState.selected).toBe(true);
+  call.mockResolvedValueOnce({ ...base, status: 'none' });
+  act(() => useAuthStore.setState({ user: { uid: 'other' } as never }));
+  await waitFor(() => expect(screen.queryByText('Diện mạo linh thú')).toBeNull());
 });
 
 it('rolls, shows the reservation and confirms with its id', async () => {

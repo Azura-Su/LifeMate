@@ -33,8 +33,11 @@ import {
 } from '../PixelPet/petArt';
 import { PixelPetAtlas } from '../PixelPet/PixelPetAtlas';
 import { usePetPlayback } from '../PixelPet/usePetPlayback';
+import {
+  CELESTIAL_STAG_HOME_GARDEN_SIZE,
+  CELESTIAL_STAG_HOME_PET_SIZE,
+} from './celestialStagHomeLayout';
 
-const SCENE_SIZE = 168;
 const STAG_SLEEP_GARDEN_ATLASES: Record<number, readonly [number, number]> = {
   4: [CELESTIAL_STAG_SLEEP_GARDEN_LV04_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV04_DECAY_ATLAS],
   6: [CELESTIAL_STAG_SLEEP_GARDEN_LV06_ATLAS, CELESTIAL_STAG_SLEEP_GARDEN_LV06_DECAY_ATLAS],
@@ -64,6 +67,10 @@ type Props = {
   growthFrame?: number;
   /** Scene atlas is selected from the level the pet had when it went to sleep. */
   level?: number;
+  size?: number;
+  petSize?: number;
+  /** Hold a fully grown scene in the appearance picker. */
+  staticFrame?: number;
   onFinished?: () => void;
 };
 
@@ -74,12 +81,16 @@ export function HomeSleepGarden({
   mode = 'growing',
   growthFrame = 15,
   level = 2,
+  size = CELESTIAL_STAG_HOME_GARDEN_SIZE,
+  petSize = CELESTIAL_STAG_HOME_PET_SIZE,
+  staticFrame,
   onFinished,
 }: Props) {
   const withering = mode === 'withering';
   const earlyWake = withering && growthFrame < 15;
   const dustScale = earlyWake ? (growthFrame < 8 ? 0.55 : 0.85) : 1;
-  const sceneSize = SCENE_SIZE * dustScale;
+  const gardenSize = size;
+  const sceneSize = gardenSize * dustScale;
   const { progress, reducedMotion } = usePetPlayback({
     clip: 'move',
     speciesId: CELESTIAL_STAG_ID,
@@ -111,12 +122,20 @@ export function HomeSleepGarden({
   if (!visible) return null;
 
   return (
-    <Animated.View pointerEvents="none" style={[styles.garden, sceneStyle]}>
+    <Animated.View
+      pointerEvents="none"
+      style={[styles.garden, {
+        left: (petSize - size) / 2,
+        top: petSize * 0.81 - size * (296 / 320),
+        width: size,
+        height: size,
+      }, sceneStyle]}
+    >
       {earlyWake && (
         <Animated.View style={[styles.snapshot, snapshotStyle]}>
           <PixelPetAtlas
             source={sleepGardenAtlas(level, false)}
-            size={SCENE_SIZE}
+            size={gardenSize}
             clip="move"
             progress={progress}
             loopMovement={false}
@@ -132,8 +151,8 @@ export function HomeSleepGarden({
         style={[
           {
             position: 'absolute',
-            left: (SCENE_SIZE - sceneSize) / 2,
-            top: (SCENE_SIZE - sceneSize) * (296 / 320),
+            left: (gardenSize - sceneSize) / 2,
+            top: (gardenSize - sceneSize) * (296 / 320),
             width: sceneSize,
             height: sceneSize,
           },
@@ -147,7 +166,7 @@ export function HomeSleepGarden({
           clip="move"
           progress={progress}
           loopMovement={false}
-          animating={active && !reducedMotion}
+          animating={active && !reducedMotion && staticFrame === undefined}
           columns={4}
           rows={4}
           frameTrack={
@@ -157,7 +176,7 @@ export function HomeSleepGarden({
                 : CELESTIAL_STAG_GARDEN_WITHER_FRAMES
               : CELESTIAL_STAG_SLEEP_GARDEN_FRAMES
           }
-          staticFrame={reducedMotion ? 15 : undefined}
+          staticFrame={staticFrame ?? (reducedMotion ? 15 : undefined)}
           loop={false}
           blendFrames={withering}
           fallback={null}
@@ -171,9 +190,5 @@ const styles = StyleSheet.create({
   snapshot: { ...StyleSheet.absoluteFillObject },
   garden: {
     position: 'absolute',
-    left: -24,
-    top: -44,
-    width: SCENE_SIZE,
-    height: SCENE_SIZE,
   },
 });

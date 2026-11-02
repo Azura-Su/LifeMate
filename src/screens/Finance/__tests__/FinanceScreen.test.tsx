@@ -234,7 +234,7 @@ it('warns when the current records have not reached the account cloud store', as
     amount: 12000000,
     category: 'Lương',
     note: 'Lương chỉ trên máy',
-    createdAt: new Date(2026, 9, 1, 12).getTime(),
+    createdAt: Date.now(),
   };
   await AsyncStorage.setItem(
     financeStorageKey('finance-user'),
@@ -1200,7 +1200,8 @@ it('reveals a newly saved shared expense in the expense report', async () => {
 });
 
 it('lets the income report span a custom range across years', async () => {
-  const year = new Date().getFullYear();
+  const now = new Date();
+  const year = now.getFullYear();
   const decemberSalary: FinanceTransaction = {
     id: 'december-salary',
     ownerId: 'finance-user',
@@ -1234,7 +1235,9 @@ it('lets the income report span a custom range across years', async () => {
     }),
   ).toBeTruthy();
   expect(
-    screen.getByRole('button', { name: `Chọn tháng kết thúc: 10/${year}` }),
+    screen.getByRole('button', {
+      name: `Chọn tháng kết thúc: ${String(now.getMonth() + 1).padStart(2, '0')}/${year}`,
+    }),
   ).toBeTruthy();
   expect(screen.getByText('300 ₫')).toBeTruthy();
   fireEvent.press(

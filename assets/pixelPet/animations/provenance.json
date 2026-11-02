@@ -202,31 +202,38 @@
   "home_sleep_garden_lv04": {
     "file": "home_sleep_garden_lv04.png",
     "decayFile": "home_sleep_garden_lv04_decay.png",
-    "generator": "Built-in image_gen growth frames; normalized and packed locally",
+    "generator": "Built-in image_gen authored growth and withering frames; normalized and packed locally",
+    "prompts": "../sourceFrames/sleep_garden_lv04/generation-prompts.json (new decay frames 07–14, references and generated source IDs)",
     "sourceFrames": "../sourceFrames/sleep_garden_lv04/packed320/frame00.png through frame15.png; decay00.png through decay15.png",
     "layout": "Two 4×4 transparent PNG atlases; 16 frames each; 1280×1280; 320px cells",
-    "packing": "scripts/pack-home-sleep-garden-tiers.cjs normalizes the source scenes to a shared 288px footprint and y=296 baseline. Growth preserves the supplied sequence; decay uses a stable soft dissolve. RGB is quantized to six levels and alpha to sixteen levels.",
-    "review": "Verified contact sheet, frame endpoints, baseline, 4×4 dimensions and atlas budget."
+    "packing": "scripts/pack-home-sleep-garden-lv04.cjs --install uses a single scale for all authored source frames, aligns ground to y=296 and keeps the footprint within 288px. Decay follows leaf loss, a dry stream, gray wood and top-down ash. RGB is quantized to six levels and alpha to sixteen levels. Decay frame00 is copied exactly from growth frame15.",
+    "review": "Approved in chat after viewing the 4.8s decay GIF and Lv4 Home composite. Verified contact sheets, transparent endpoints, exact growth15/decay00 match, margins, baseline, 4×4 dimensions and the 700 KiB atlas budget."
   },
   "home_sleep_garden_lv06": {
     "file": "home_sleep_garden_lv06.png",
     "decayFile": "home_sleep_garden_lv06_decay.png",
-    "generator": "Built-in image_gen approved Sakura Grove final scene; procedural soft reveal and dissolve",
+    "generator": "Built-in image_gen authored Sakura Grove growth and withering frames; approved in chat and installed",
     "generatedSource": "../sourceFrames/sleep_garden_lv06/frame15-approved.png",
     "sourceFrames": "../sourceFrames/sleep_garden_lv06/packed320/frame00.png through frame15.png; decay00.png through decay15.png",
     "layout": "Two 4×4 transparent PNG atlases; 16 frames each; 1280×1280; 320px cells",
-    "packing": "scripts/pack-home-sleep-garden-tiers.cjs normalizes the scene to a 288px footprint and y=296 baseline, then builds a stable, bottom-up soft reveal and reverse dissolve. RGB is quantized to six levels and alpha to sixteen levels.",
-    "review": "Reviewed final frame and contact sheet; verified the baseline, endpoints, dimensions and atlas budget. Intermediate frames are procedural transitions from the approved scene."
+    "prompts": "../sourceFrames/sleep_garden_lv06/authored-v2-provenance.json",
+    "packing": "scripts/review-celestial-stag-lv06-garden.cjs --install uses one scene scale, a y=296 ground boundary and a shared 256-color palette. Growth uses authored seedlings, green canopy, buds and blossoms; decay uses petal loss, yellow leaves, bare gray branches and crumbling roots. Growth15 and decay00 match pixel-for-pixel.",
+    "review": "Approved in chat after reviewing both 16-frame contact sheets, growth/decay GIFs and a Lv6 sleeping deer composite. Verified transparency, margins, ground boundary, 1280x1280 dimensions, exact clip handoff, and 307807/444688-byte atlas sizes."
   },
   "home_sleep_garden_lv08": {
-    "file": "home_sleep_garden_lv08.png",
-    "decayFile": "home_sleep_garden_lv08_decay.png",
-    "generator": "Built-in image_gen final scene; procedural soft reveal and dissolve",
+    "file": "home_sleep_garden_lv08_v2.png",
+    "decayFile": "home_sleep_garden_lv08_decay_v2.png",
+    "generator": "Built-in image_gen; 28 individual full-scene growth/decay edits, preserved final scene, copied handoff and transparent endpoints",
     "generatedSource": "../sourceFrames/sleep_garden_lv08/frame15.png",
-    "sourceFrames": "../sourceFrames/sleep_garden_lv08/packed320/frame00.png through frame15.png; decay00.png through decay15.png",
+    "sourceFrames": "../sourceFrames/sleep_garden_lv08/review320/frame00.png through frame15.png; decay00.png through decay15.png",
+    "prompts": "../sourceFrames/sleep_garden_lv08/generation.json",
+    "previousFiles": [
+      "home_sleep_garden_lv08.png",
+      "home_sleep_garden_lv08_decay.png"
+    ],
     "layout": "Two 4×4 transparent PNG atlases; 16 frames each; 1280×1280; 320px cells",
-    "packing": "scripts/pack-home-sleep-garden-tiers.cjs normalizes the scene to a 288px footprint and y=296 baseline, then builds a stable, bottom-up soft reveal and reverse dissolve. RGB is quantized to six levels and alpha to sixteen levels.",
-    "review": "Reviewed final frame and contact sheet; verified the baseline, endpoints, dimensions and atlas budget. Intermediate frames are procedural transitions from the final scene."
+    "packing": "scripts/review-celestial-stag-lv08-garden.cjs --pack <bundledSharpModule> normalizes authored scenes to a 288px footprint and y=296 ground, clears low-alpha matte RGB before resizing, and uses one shared 256-color palette without spatial dithering. Late dust keeps the final scene transform.",
+    "review": "Reviewed both complete 4×4 contact sheets and Lv8/Lv9 sleeping deer composites on light/dark backgrounds. Growth and decay GIFs use 3.8s/4.8s. Palette-encoded growth15 and decay00 match pixel-for-pixel; endpoints are transparent. Atlas sizes are 496328 and 530511 bytes. Runtime references select the v2 pair for Lv8–9."
   },
   "home_sleep_garden_lv10": {
     "file": "home_sleep_garden_lv10.png",
@@ -236,7 +243,19 @@
     "sourceFrames": "../sourceFrames/sleep_garden_lv10/packed320/frame00.png through frame15.png; decay00.png through decay15.png",
     "layout": "Two 4×4 transparent PNG atlases; 16 frames each; 1280×1280; 320px cells",
     "packing": "scripts/pack-home-sleep-garden-tiers.cjs normalizes the scene to a 288px footprint and y=296 baseline, then builds a stable, bottom-up soft reveal and reverse dissolve. RGB is quantized to six levels and alpha to sixteen levels.",
-    "review": "Reviewed final frame and contact sheet; verified the baseline, endpoints, dimensions and atlas budget. Intermediate frames are procedural transitions from the final scene."
+    "review": "Reviewed final frame and contact sheet; verified the baseline, endpoints, dimensions and atlas budget. Intermediate frames are procedural transitions from the final scene.",
+    "authoredReplacementCandidate": {
+      "status": "Complete art candidate awaiting visual approval before replacing the existing runtime atlases",
+      "generator": "Built-in image_gen individual full-scene edits; retained growth sources 02-04; transparent endpoints and matching wake frame are deterministic",
+      "prompts": "../sourceFrames/sleep_garden_lv10/generation-prompts.json",
+      "frames": "../sourceFrames/sleep_garden_lv10/authored320/frame00.png through frame15.png; decay00.png through decay15.png",
+      "growthAtlas": "../../../tasks/previews/celestial-stag-lv10-sleep-scene-growth-atlas-candidate.png",
+      "decayAtlas": "../../../tasks/previews/celestial-stag-lv10-sleep-scene-decay-atlas-candidate.png",
+      "packing": "scripts/pack-home-sleep-garden-lv10.cjs; one common scale, per-frame ground registration at y=296, shared 256-entry premultiplied-RGBA palette with PNG tRNS alpha",
+      "validation": "Both 1280x1280 indexed PNGs decode with valid CRCs; 16 cells each; clear endpoints; exact mature/wake pixel match; 421953/580581 bytes; pet overlay uses the Lv10 Home transform",
+      "reviewAssets": "../../../tasks/previews/celestial-stag-lv10-sleep-scene-{growth,decay}-contact.png; cycle.gif; pet-overlay-168.png; tier-comparison.png",
+      "reviewNote": "../../../tasks/celestial-stag-lv10-sleep-scene-review.md"
+    }
   },
   "home_sleep_garden_lv14": {
     "file": "home_sleep_garden_lv14.png",
@@ -251,12 +270,17 @@
   "home_sleep_garden_lv12": {
     "file": "home_sleep_garden_lv12.png",
     "decayFile": "home_sleep_garden_lv12_decay.png",
-    "generator": "Built-in image_gen; referenced the approved level-12 Feather Forest final frame",
-    "references": ["home_sleep_garden.png", "../sourceFrames/sleep_garden_lv12/frame15-approved.png"],
-    "generatedSources": ["../sourceFrames/sleep_garden_lv12/growth-sheet.png", "../sourceFrames/sleep_garden_lv12/decay-sheet.png"],
+    "generator": "Built-in image_gen; individually painted whole-scene frames based on the approved level-12 Feather Forest final frame",
+    "references": ["../sourceFrames/sleep_garden_lv12/frame15-approved.png"],
+    "generatedSources": "../sourceFrames/sleep_garden_lv12/v2/frame01.png through frame14.png; decay01.png through decay14.png; frame15.png copies the approved final scene",
+    "sourceFrames": "../sourceFrames/sleep_garden_lv12/v2/packed320/frame00.png through frame15.png; decay00.png through decay15.png",
+    "prompts": "../sourceFrames/sleep_garden_lv12/v2/prompts.json",
     "layout": "Two 4×4 atlases; 16 whole-scene frames each; 1280×1280 transparent PNG; 320px cells",
-    "packing": "scripts/pack-home-sleep-garden-lv12.cjs crops each growth/decay scene, fits to a shared 288px footprint and baseline y=296, removes low-alpha and edge-connected green fringe, quantizes color and alpha. Growth frame 15 is the approved final scene; decay frame 0 is copied from it exactly; both atlases are under 700KB.",
-    "review": "Contact sheets reviewed for progression, footprint, open resting area and matched decay start."
+    "packing": "scripts/pack-home-sleep-garden-lv12-v2.cjs preserves full source canvases at one scale, reserves two pixels for edge variation within a maximum 288px footprint, anchors the ground at y=296, clears near-invisible RGB before resizing, and quantizes both tracks together to an adaptive 256-color RGBA palette stored as indexed PNG with partial alpha. --install replaces runtime files after review.",
+    "bytes": { "growth": 298398, "decay": 349101 },
+    "paletteEntries": 98,
+    "previews": "../../../tasks/previews/celestial-stag-lv12-sleep-scene-*-v2*",
+    "review": "Reviewed all 32 packed frames and Home-scale Lv12/Lv13 pet overlays on light/dark backgrounds. Verified transparent endpoints, 1280x1280 dimensions, safe framing, under-700KB sizes, and pixel-exact growth15/decay00. Art approved by the project owner in chat and installed. Native Home playback could not be checked because CoreSimulatorService was unavailable."
   },
   "home_sleep_garden_lv16": {
     "file": "home_sleep_garden_lv16.png",
@@ -267,7 +291,19 @@
     "sourceFrames": "../sourceFrames/sleep_garden_lv16/frame00.png through frame15.png; decay00.png through decay15.png",
     "layout": "Two 4×4 transparent PNG atlases; 16 whole-scene frames each; 1280×1280; 320px cells",
     "packing": "scripts/pack-home-sleep-garden-lv16.cjs cleans large neutral-white extraction artifacts, packs 320px whole-scene frames, dims the stars, fades purple sky and teal foliage in stages, dissolves the tree with a softened top-down mask, and adds rising light motes. RGB channels use 6 levels and alpha uses 16 levels. Growth frame 15 and decay frame 0 use the same pixels; each atlas is under 700KB.",
-    "review": "Reviewed growth/decay contact sheets, canvas dimensions, empty endpoints, and exact growth-15/decay-0 handoff. The final scene leaves a lower-middle opening for the sleeping stag. Transition frames are procedural approximations of the written brief rather than individually generated painted poses."
+    "review": "Reviewed growth/decay contact sheets, canvas dimensions, empty endpoints, and exact growth-15/decay-0 handoff. The final scene leaves a lower-middle opening for the sleeping stag. Transition frames are procedural approximations of the written brief rather than individually generated painted poses. Superseded on Home by home_sleep_garden_lv16_v2."
+  },
+  "home_sleep_garden_lv16_v2": {
+    "file": "home_sleep_garden_lv16_v2.png",
+    "decayFile": "home_sleep_garden_lv16_decay_v2.png",
+    "generator": "Built-in image_gen with transparent_background=true; two individually prompted growth/decay source sheets",
+    "references": ["../sourceFrames/sleep_garden_lv16/frame15-candidate.png"],
+    "generatedSources": ["../sourceFrames/sleep_garden_lv16/v2/growth-sheet.png", "../sourceFrames/sleep_garden_lv16/v2/decay-sheet.png"],
+    "prompts": "../sourceFrames/sleep_garden_lv16/v2/prompts.json",
+    "sourceFrames": "../sourceFrames/sleep_garden_lv16/v2/packed320/growth00.png through growth15.png; decay00.png through decay15.png",
+    "layout": "Two 4×4 transparent PNG atlases; 16 whole-scene frames each; 1280×1280; 320px cells; 288px footprint; baseline y=296",
+    "packing": "scripts/pack-home-sleep-garden-lv16-v2.cjs crops along measured transparent gutters in the generated sheets, fits whole painted scenes to a common ground footprint, preserves generated alpha above the faint fringe threshold, and quantizes RGB at step 32 and alpha at step 51. Decay frame 0 copies growth frame 15 exactly; growth frame 0 and decay frame 15 are empty. Each atlas is under 700KB. Original assets are retained.",
+    "review": "Growth progresses from grass and stardust through two saplings to an arch-shaped star tree. Decay loses stars, sky, feathers and foliage before bare trunks dissolve. No procedural horizontal reveal or reappearing faded layers. The original twin-trunk, teal/gold, peacock-feather identity is retained; the mature scene is redrawn as part of the new sheet."
   },
   "home_sleep_garden_lv18_frame15": {
     "file": "home_sleep_garden_lv18.png",
@@ -284,12 +320,14 @@
   "home_sleep_garden_lv20": {
     "file": "home_sleep_garden_lv20.png",
     "decayFile": "home_sleep_garden_lv20_decay.png",
-    "generator": "Built-in image_gen final scene; procedural soft reveal and dissolve",
-    "generatedSource": "../sourceFrames/sleep_garden_lv20/frame15_candidate.png",
+    "generator": "Built-in image_gen with transparent_background=true; painted growth/decay sheets and six individually repainted early growth stages",
+    "references": ["../sourceFrames/sleep_garden_lv20/frame15-source.png", "../sourceFrames/sleep_garden_lv20/frame15-v2-source.png", "../sourceFrames/sleep_garden_lv20/frame15-sheet-source.png", "../sourceFrames/sleep_garden_lv20/frame07-sheet-source.png"],
+    "generatedSources": ["../sourceFrames/sleep_garden_lv20/growth-sheet-source.png", "../sourceFrames/sleep_garden_lv20/decay-sheet-source.png", "../sourceFrames/sleep_garden_lv20/frame01-source.png", "../sourceFrames/sleep_garden_lv20/frame02-source.png", "../sourceFrames/sleep_garden_lv20/frame03-source.png", "../sourceFrames/sleep_garden_lv20/frame04-source.png", "../sourceFrames/sleep_garden_lv20/frame05-source.png", "../sourceFrames/sleep_garden_lv20/frame06-source.png"],
+    "prompts": "../sourceFrames/sleep_garden_lv20/prompts.md",
     "sourceFrames": "../sourceFrames/sleep_garden_lv20/packed320/frame00.png through frame15.png; decay00.png through decay15.png",
     "layout": "Two 4×4 transparent PNG atlases; 16 frames each; 1280×1280; 320px cells",
-    "packing": "scripts/pack-home-sleep-garden-tiers.cjs normalizes the scene to a 288px footprint and y=296 baseline, then builds a stable, bottom-up soft reveal and reverse dissolve. RGB is quantized to six levels and alpha to sixteen levels.",
-    "review": "Reviewed final frame and contact sheet; verified the baseline, endpoints, dimensions and atlas budget. Intermediate frames are procedural transitions from the final scene."
+    "packing": "scripts/pack-home-sleep-garden-lv20.cjs extracts whole scenes from the two 4x4 sheets, substitutes independently repainted stages 1-6, removes alpha below 24 before resizing, and uses one scale across both tracks with a y=296 ground anchor. The floating seed shares the first cloud's anchor. Late dust retains its source position instead of being enlarged. RGB uses six levels per channel and alpha sixteen levels. Growth frame 15 is copied exactly to decay frame 0; growth frame 0 and decay frame 15 are transparent. Both atlases are below 700000 bytes. The shared tiers packer no longer overwrites Lv20.",
+    "review": "Reviewed contact sheets and a sleeping Lv19-20 stag composite using Home's 184px garden/120px pet geometry. The garden is enlarged from 168px about its original centre and ground anchor. The foreground pool and lotus dais are painted continuously, replacing the previous transparent cutout. Growth has separately painted stages; decay loses the rainbow, waterfall, palace, foliage and solid tree before stardust disperses. Packing asserts padded bounds, endpoints, handoff and file budget. GIF previews use 3.8s growth and 4.8s decay. Device runtime verification remains outstanding."
   },
   "restVariants": [
     {

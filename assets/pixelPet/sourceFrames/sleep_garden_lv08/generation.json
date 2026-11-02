@@ -1,0 +1,186 @@
+{
+  "generator": "Built-in image_gen; individual full-scene edits, no CLI/API fallback",
+  "localDate": "2026-11-02",
+  "state": "complete authored source set",
+  "scene": "Lv8–9 Đền đá rêu phong",
+  "layoutMaster": "frame15.png (existing final scene, preserved)",
+  "commonPrompt": "One hand-painted fantasy full-scene square illustration. Preserve camera, ground footprint, architecture and object coordinates from the adjacent reference, except for the specified growth/decay step. Keep the lower central resting area clear. Actual transparent background and arch/branch openings. No text, characters, water, borders, sprite sheets, new unrelated objects or colored matte halo.",
+  "endpoints": {
+    "frame00.png": "Transparent PNG, 1254×1254",
+    "decay00.png": "Pixel-identical copy of frame15.png",
+    "decay15.png": "Transparent PNG, 1254×1254"
+  },
+  "retainedEarlierCandidates": [
+    "frame02.png",
+    "frame03.png",
+    "frame04.png",
+    "frame05.png"
+  ],
+  "entries": [
+    {
+      "out": "frame14.png",
+      "input": "frame15.png",
+      "promptSummary": "Keep the finished scene layout; slightly simplify fine moss/stone detail and remove floating teal flame droplets; keep the lantern flame steady."
+    },
+    {
+      "out": "frame13.png",
+      "input": "frame14.png",
+      "promptSummary": "Keep full canopy and bright teal lantern; simplify fine moss/crack detail and reduce tiny foreground flowers slightly."
+    },
+    {
+      "out": "frame12.png",
+      "input": "frame13.png",
+      "promptSummary": "Lantern has just ignited with a tiny weak teal flame; canopy slightly less full; keep vines at column tops."
+    },
+    {
+      "out": "frame11.png",
+      "input": "frame12.png",
+      "promptSummary": "Extinguish the lantern completely; canopy slightly thinner; vines reach column tops; preserve all architecture and ground."
+    },
+    {
+      "out": "decay01.png",
+      "input": "frame15.png",
+      "promptSummary": "First decay step: reduce/flicker teal flame and floating droplets; start faint short smoke; keep all foliage and architecture living."
+    },
+    {
+      "out": "frame10.png",
+      "input": "frame11.png",
+      "prompt": "Use case: precise-object-edit. Attached image is growth frame11; create adjacent earlier growth frame10. Keep square canvas, grass/paving ground line, stones, dark unlit lantern at lower right, entire curved cream stone arch and columns, S-curved tree trunk/root coordinates unchanged. Vines now climb only HALFWAY up both columns: remove vine leaves/flowers above column mid-height, leaving upper stone exposed, preserve moss at footings. Reduce the tree canopy about 10 percent at its outer tips; its top still rises a little above the arch crown. Branches remain fixed. Same bright green palette and soft hand-painted style. Lower-middle foreground remains empty for a sleeping deer. Actual transparent background/gaps, no particles, no characters, no text, no water. One full-scene square frame, no sheet, no reframing.",
+      "generatedFilename": "exec-a75e1f1f-8f69-40fa-9562-9d8f7f3f87b9.png"
+    },
+    {
+      "out": "decay02.png",
+      "input": "decay01.png",
+      "prompt": "Use case: precise-object-edit. Attached image is decay frame01. Create adjacent next frame02 with ONLY one change: the teal lantern flame and ALL floating teal flame droplets are now completely extinguished. Lantern interior is dark gray, with a very thin faint gray smoke wisp rising just above its roof. Preserve every green leaf, moss patch, flower, twisting tree/branches, cream stone arch/columns, all rocks and paving/grass base in exact positions and proportions. No yellowing leaves yet, no falling debris or new cracks. Same hand-painted painterly fantasy art, square canvas, actual transparent background including openings through arch. Keep central foreground empty. No text, no character, no stream, no sheet.",
+      "generatedFilename": "exec-9416b0e6-3c3b-4075-94e3-6ead4bdc7564.png"
+    },
+    {
+      "out": "frame09.png",
+      "input": "frame10.png",
+      "prompt": "Use case: precise-object-edit. Edit target is attached growth10. Make previous growth09 of the SAME scene. The tree is now a younger smaller tree: retain its exact ROOT position at the back-right of the empty resting area, preserve characteristic S-curved trunk direction and branching arrangement but make trunk thinner, branches shorter, and compact canopy approximately 75% of current size. Canopy TOP is slightly BELOW the stone arch crown, so more of the curved lintel is now visible behind it. Keep foliage green, no flame in dark stone lantern. Vines climb halfway up both columns. Keep the entire arch, decorated columns, lantern, stones, grass/paving footprint, camera, scale of architecture, ground line and lower empty resting area EXACTLY unchanged. Same painterly fantasy illustration. No water, no character, no text, no particles, no sheet. Real transparent background and gaps inside arch. Return one square full-scene frame, no reframing.",
+      "generatedFilename": "exec-b973daed-99ce-48f6-b098-b9f694ed137b.png"
+    },
+    {
+      "out": "decay03.png",
+      "input": "decay02.png",
+      "prompt": "Use case: precise-object-edit. Attached scene is decay02, lamp just extinguished. Make decay03, a subtle first leaf-yellowing step. Only the OUTERMOST quarter of the tree foliage and a few vine leaves acquire muted yellow-green/gold tips; most canopy and vines remain green. Thin smoke above the dark lantern is nearly gone. No leaves falling yet. Preserve tree shape and every branch, trunk, moss, column, curved lintel, flower/rock/grass/paving positions and exact square framing/ground footprint. No structural cracks or collapsed stone yet. Same soft hand-painted fantasy style, actual transparent background and open arch gaps. Empty lower middle resting spot. No characters, no water, no text, no sheet, no added objects.",
+      "generatedFilename": "exec-11abb58a-c0a0-412b-9bcb-9ce911933b48.png"
+    },
+    {
+      "out": "frame08.png",
+      "input": "frame09.png",
+      "prompt": "Use case: precise-object-edit. Attached is growth09; create one earlier growth08 of this exact sanctuary. Tree has NOT developed a canopy yet: remove all compact leaf clusters from tree branches, keep just a handful of tiny new green leaves on branch tips. Reduce tree height to HALF the arch height (measured from same rear-right root), with a thinner young S-curved trunk and shorter bare branches, same characteristic curve direction. Keep exact root anchor. The arch must be fully visible behind this small tree. Preserve both stone columns and curved lintel, vines halfway up columns, unlit lantern at lower right, rocks, low moss/grass/flowers and paving at same positions and sizes. Keep entire oval base and ground line unchanged, empty lower central resting area. Soft hand-painted fantasy art, actual transparent background and arch gaps. No water, no characters, no text, no extra elements, one square full-scene frame, no sheet, no reframing.",
+      "generatedFilename": "exec-e0e14184-111c-49a3-a4f4-3f1aaca1af1c.png"
+    },
+    {
+      "out": "decay04.png",
+      "input": "decay03.png",
+      "prompt": "Use case: precise-object-edit. Make adjacent decay04 from attached decay03. Progress ONLY foliage aging: most tree leaves are now muted ochre/golden-yellow, with some olive green near branch interiors; vines on the two columns also turn golden-yellow. Do NOT use red. A few tiny yellow leaves start to loosen, no heavy falling shower. Grass is still mostly green; moss is still green; lantern remains dark without smoke. Keep exact canopy silhouette, tree branches/trunk, architecture and intact lintel/columns, all rocks and ground footprint/camera unchanged. No structural collapse or expanded cracks yet. Preserve open lower-middle resting spot. Same painterly fantasy style with transparent background and openings. One full square frame, no text, animal, water or sheet.",
+      "generatedFilename": "exec-7f3d0db3-9a37-435f-b11c-7f39c02d9248.png"
+    },
+    {
+      "out": "frame07.png",
+      "input": "frame08.png",
+      "prompt": "Use case: precise-object-edit. Attached image is growth08. Create previous growth07 of the same sanctuary. Make young S-curved tree at SAME rear-right root smaller and thinner, about two thirds of its present height, only two short young branches with a few tiny leaves, NO canopy. Vines have only just begun winding around the LOWEST quarter of the two columns: remove vine leaves/flowers higher up, keep low footings moss. Preserve exact cream stone curved arch/columns, dark unlit lantern lower-right, all grass/paving ground and rocks, camera and square canvas. The lower-middle foreground stays completely open. Same soft hand-painted fantasy style. Real transparent background/gaps, no text, no characters, no stream, no particles, one square full-scene illustration, no sheet. Do not reframe or move architecture/base.",
+      "generatedFilename": "exec-b090b02f-2655-40b1-9613-bcd8fda78944.png"
+    },
+    {
+      "out": "decay05.png",
+      "input": "decay04.png",
+      "prompt": "Use case: precise-object-edit. Attached is decay04 with golden leaves. Make next decay05: vines on both stone columns dry to dull brown, curl and start detaching from the upper halves, with a few small dry vine fragments falling near columns. Moss on column footings and tree roots starts turning brown/olive. Tree canopy thins by roughly 20 percent as a few golden leaves fall, most leaves still attached, tree silhouette/branches remain same. Grass begins losing saturation. Lantern stays dark. Preserve exact stone arch/columns intact without collapse, S-curved trunk and root anchor, stones, paving, grass footprint and framing. No red foliage, no extra structures, no water or characters. Same soft painterly fantasy style, actual transparent background and arch openings. One square full scene, no sheet or text.",
+      "generatedFilename": "exec-61610e99-2dad-416a-b691-85a57ca00853.png"
+    },
+    {
+      "out": "frame06.png",
+      "input": "frame07.png",
+      "prompt": "Use case: precise-object-edit. Attached is growth07. Make previous growth06. Remove all climbing vines from the two columns and tree trunk; retain low moss at footings and roots. Tree at same rear-right root is now a slender young curved sapling, about two thirds of current tree height, with a single slim S-curved shoot and just two small leaves, no branches/canopy. Dark unlit small stone lantern stays at exact lower-right position, just present but not lit. Preserve same full curved stone arch and decorated columns, paving, rocks, low foliage, entire oval grass base, empty central foreground, camera, ground line and square framing. Same soft hand-painted fantasy style. Real clean transparent background and openings with NO colored/red/green matte fringe, no aura/colored rim. No water, characters, particles, text or sheet. One square full scene.",
+      "generatedFilename": "exec-7276fd9a-db3a-4188-b82d-fd3a45c7db74.png"
+    },
+    {
+      "out": "decay06.png",
+      "input": "decay05.png",
+      "prompt": "Use case: precise-object-edit. Attached decay05 is target. Make adjacent decay06: almost all dry vines have detached from columns, leaving just a few bare brown tendrils near footings and several small falling dry fragments beside columns. Moss is brown and dry. Tree loses roughly half the remaining yellow leaves, opening visible gaps through its branches; remaining leaves muted ochre-brown. Grass is muted straw/olive. Keep same exact S-curved trunk/branches and roots, intact cream stone arch/columns, dark lantern, rocks, paving footprint and ground line. No structural collapse yet. No red palette or glows; no smoke, no extra objects. Soft painterly fantasy style. Clean actual transparency without colored matte fringe. One full square scene, no text, water, character or sheet.",
+      "generatedFilename": "exec-1d7ffc51-23ef-4b19-b7b1-f36d4491e2df.png"
+    },
+    {
+      "out": "frame05-v2.png",
+      "input": "frame06.png",
+      "prompt": "Use case: precise-object-edit. Attached is growth06. Create the immediately previous growth05 of the SAME scene. Remove the stone lantern completely from the lower right, revealing just the same low rocks/grass underneath, no replacement object. Reduce the young tree to a tiny curved sprout with TWO small leaves emerging at the same rear-right root anchor behind the central resting spot; no exposed long roots or branches yet. Low green moss covers column bases. No vines. Keep the two decorated cream stone columns and curved stone lintel exactly fixed, same camera/square canvas and full oval grass/paving base with surrounding rocks/low plants. Do not add flowers or new objects. Keep lower middle empty. Same soft painterly fantasy illustration, genuine clean transparency and arch openings, no red/green matte halo, no text, character, water or sheet. One full-scene square frame.",
+      "generatedFilename": "exec-062328d5-b4b8-4848-8994-470ef3fc8103.png"
+    },
+    {
+      "out": "decay07.png",
+      "input": "decay06.png",
+      "prompt": "Use case: precise-object-edit. Attached is decay06. Make decay07: the tree is almost bare, remove about 90% of remaining brown leaves, reveal the SAME S-curved main trunk and branching structure in their exact positions. Only scattered dry leaves remain at a few branch tips and falling gently. All column vines are dry bare tendrils. First thin dark structural cracks spread on both cream stone columns and curved lintel, but all stone remains standing in place. Tree bark becomes slightly desaturated gray-brown; grass/moss are dry brown. Preserve dark stone lantern, exact paving/rocks/footprint, ground line, camera and empty lower foreground. No structural collapse yet. Soft painterly fantasy art, actual clean transparent background/gaps, no matte halo, no text, animals, water or sheet. One full square scene.",
+      "generatedFilename": "exec-515c82a4-79c6-4445-a7ae-1647e3357707.png"
+    },
+    {
+      "out": "frame04-v2.png",
+      "input": "frame05-v2.png",
+      "prompt": "Use case: precise-object-edit. Attached is growth05. Create previous growth04, when the stone gate has just joined. Remove the tiny tree sprout at rear right completely; there is NO tree/sprout/roots/lantern/vines. Reduce moss on the column footings to minimal traces, keep ordinary low grass. Keep exactly the SAME two cream decorated columns, curved stone lintel connecting them, rocks and full grassy/paving oval base, camera, square canvas, ground line, proportions and positions. Remove much of the upper lintel moss to expose its pale ancient stone. Preserve entire empty central foreground and open space inside arch. Same soft hand-painted fantasy illustration, genuine clean transparent background/gaps, no colored matte halo, no text, characters, water, new objects or sheet. One square full scene.",
+      "generatedFilename": "exec-22e48414-0f93-49a1-9445-8db0c8f083e9.png"
+    },
+    {
+      "out": "decay08.png",
+      "input": "decay07.png",
+      "prompt": "Use case: precise-object-edit. Attached is decay07; make next decay08. Remove the last leaves completely from tree and vines. Tree remains the exact same fully bare S-curved trunk and branch skeleton, now gray-brown and dry. Structural cracks on both columns and curved lintel widen and spread further, a few tiny stone chips near cracks, but the gate still stands intact with lintel supported. No major falling blocks yet. Keep dark stone lantern, low dry bushes, grass, paving, rocks, exact footprint/ground line and camera unchanged. No leaf canopy, no flame or smoke, no extra objects. Same painterly fantasy style, clean actual transparent background with no colored matte fringe. No characters, text, water or sheet. Return one square full scene.",
+      "generatedFilename": "exec-7c8f00c3-12e9-43fe-81e9-dd159b2b09f4.png"
+    },
+    {
+      "out": "frame03-v2.png",
+      "input": "frame04-v2.png",
+      "prompt": "Use case: precise-object-edit. Attached is growth04. Make previous growth03, before the gate lintel joins. Remove the ENTIRE horizontal/curved lintel connecting the columns; no floating beam or stone between columns. Keep the SAME two cream columns in exact positions, same shaft width and decorated capitals, their tops now short uneven broken stone ends a little above the capitals, reaching roughly two thirds of total scene height. Keep exact full oval grass/paving base, all lower rocks and plants, camera and ground line unchanged. No tree, sprout, roots, vines or lantern. Minimal moss traces at footings only. Actual transparent background with completely open empty space between pillars, same soft hand-painted fantasy style, no water, characters, text, matte halos or sheet. One square full-scene frame.",
+      "generatedFilename": "exec-574fc5ff-f215-42fb-b988-f5a686fe6075.png"
+    },
+    {
+      "out": "decay09.png",
+      "input": "decay08.png",
+      "prompt": "Use case: precise-object-edit. Attached is decay08. Make next decay09, first collapse step: the middle section of the cracked stone lintel BREAKS and drops a short distance below its old position, slightly tilted, exposing a gap through the arch. Add a few small falling stone chips directly below that broken middle section. Both columns still stand in exact positions at same height, arch side shoulders still supported. Preserve SAME bare S-curved tree skeleton and root anchor, dry gray-brown palette, dark lantern, all base rocks/paving/dry grass and exact footprint/camera. No canopy, flame, new structure or dramatic dust cloud yet. Soft painterly fantasy illustration, actual clean transparency including gaps, no colored matte halo, no text, animal, water or sheet. One square full scene.",
+      "generatedFilename": "exec-2b117e05-2f65-4786-9ec0-1299ed01939f.png"
+    },
+    {
+      "out": "frame02-v2.png",
+      "input": "frame03-v2.png",
+      "prompt": "Use case: precise-object-edit. Attached is growth03. Make earlier growth02, two new column footings emerging. Replace each tall column with a VERY SHORT pale stone footing/stub at the SAME x/root position behind side rocks, rising only about one sixth of the current column height above the grass. These are simple newly emerging flat uneven stone bases, NO decorated high capitals or tall shafts yet, no arch/lintel. Preserve exact full oval grass/paving base, all side rocks and low plants, empty central foreground, camera, scale, ground line and square canvas. Keep moss minimal. No tree, sprout, roots, vines or lantern. Same soft painterly fantasy illustration, genuine clean transparent background, no colored matte rim, no stream/water, characters, text, extra objects or sheet. One square full scene.",
+      "generatedFilename": "exec-408385e4-b5b2-4544-971a-549591b4d955.png"
+    },
+    {
+      "out": "decay10.png",
+      "input": "decay09.png",
+      "prompt": "Use case: precise-object-edit. Attached is decay09. Make next decay10: the broken central lintel piece has fallen farther, now just above the lower tree branches, and splits into a few large chunks. BOTH upper column capitals/arch shoulders begin crumbling downward into small stone blocks: column tops now lower by roughly one quarter of original height, lower shafts still standing in exact positions. Show a small restrained trail of pale dust and falling chips around the broken stone, staying inside the same scene footprint. Preserve SAME dry bare tree trunk/branches, root anchor, dark lantern, base rocks/dry grass/paving, ground line and camera. No canopy or flame. Soft painterly fantasy art, genuine transparent background/gaps without matte halo, one full square scene, no water, characters, text or sheet.",
+      "generatedFilename": "exec-73795c7e-3620-4c30-805a-8746fc731c85.png"
+    },
+    {
+      "out": "frame01.png",
+      "input": "frame02-v2.png",
+      "prompt": "Use case: precise-object-edit. Attached is growth02. Make previous growth01, the initial grass and old paving foundation. Remove BOTH newly emerging stone column stubs at back left/right completely, revealing only the same low surrounding rocks and grass. NO columns/footings, capitals, arch, tree, sprout, roots, vines or lantern yet. Preserve the entire exact oval grass patch, ancient pale paving stones visible between grass, side rocks and low plants, camera, square canvas, ground line and all base positions. Keep central lower resting area open. This is the same base the temple will grow from. Same soft hand-painted fantasy style, actual clean transparent background without colored matte halo, no water/stream, characters, text, new objects or sheet. One full-scene square illustration.",
+      "generatedFilename": "exec-853bc8f1-1222-4097-861f-f63b0bd3ea84.png"
+    },
+    {
+      "out": "decay11.png",
+      "input": "decay10.png",
+      "prompt": "Use case: precise-object-edit. Attached is decay10. Create next decay11: BOTH columns and remaining arch pieces have now COLLAPSED into pale stone rubble heaps at their SAME left/right footings. No standing columns or intact lintel remain. Fallen lintel chunks land between the rear rocks behind the open front resting area. Tree begins breaking into ASH from the top: upper half of its bare branches disintegrates into a restrained upward drift of gray-brown ash; lower S-curved trunk/root at the same rear-right anchor remains, about half original tree height. Dark stone lantern is cracked but still visible at lower right. Keep exact dry grass/paving base, original low rocks, ground line and camera unchanged. Dust stays within original footprint, no flames. Soft painterly fantasy art, actual clean transparency including newly open upper scene, no matte halo, text, water, characters or sheet. One square full scene.",
+      "generatedFilename": "exec-b571c63a-2891-4a6c-b7a0-e256899a6f09.png"
+    },
+    {
+      "out": "decay12.png",
+      "input": "decay11.png",
+      "prompt": "Use case: precise-object-edit. Attached is decay11. Make next decay12, continuing its destruction without reframing. The tree's remaining upper/lower branches are gone; only a LOW fractured S-curved stump/root remains at the same rear-right anchor, about one quarter the former tree height, breaking into gray-brown ash. The tall ash cloud is THINNER and more dispersed, drifting upward, do not enlarge its bounds. Both column rubble heaps shrink/lower as stone fragments begin dissolving into fine dust. The stone lantern is broken, roof and side pieces on the same lower-right footing, no intact lantern enclosure or flame. Preserve the dry paving/grass oval base and original low rocks/ground line for now, same exact camera and positions. Restrained particles inside original footprint, mostly open transparent upper space. Same soft hand-painted fantasy art, genuine clean transparency without colored matte halo. No text, characters, water, extra objects or sheet. One square full scene.",
+      "generatedFilename": "exec-57065256-28b0-4524-bd26-c3aea7d8ab40.png"
+    },
+    {
+      "out": "decay13.png",
+      "input": "decay12.png",
+      "prompt": "Use case: precise-object-edit. Attached is decay12. Create next decay13, second-to-last dissolution step before nearly empty. The stump, broken lantern, rubble heaps and paving/grass base are BREAKING APART into dust: no recognizable tree trunk, columns, arch or lantern remains. Only a shallow scattered layer of SMALL pale stone fragments and dry grass flecks remains at the same original ground footprint, with the edges of this base mostly gone/transparent. Two very sparse wisps of gray-brown stone dust/ash drift UP from the same rear-right tree position and side rubble positions; make the tall previous cloud much thinner and more transparent, with a few tiny suspended fragments. Keep exact camera/square canvas and original ground line; do not recenter or enlarge the remnant scene. Mostly actual transparent empty space, no opaque backdrop or floor rectangle. Same painterly fantasy style, no colored matte halo, no text, characters, water, flames or sheet. One full square frame.",
+      "generatedFilename": "exec-8aaecbc7-0eb4-4dea-a14f-6b96f01345d5.png"
+    },
+    {
+      "out": "decay14.png",
+      "input": "decay13.png",
+      "prompt": "Use case: precise-object-edit. Attached is decay13. Make the LAST VISIBLE decay14 frame, immediately before total transparency. Remove at least 90 PERCENT of all remaining visible material. The entire connected grass/stone/paving floor is GONE: no continuous base strip or recognizable paving slabs, no piles, no tree, columns, roots or lantern. The two tall dense dust plumes have almost completely dissipated: retain only a few disconnected wispy faint gray-brown brush traces higher above the same rear-right/left origins, and about 8–12 TINY pale dust flecks/stone grains suspended inside the original scene area. No grain larger than a tiny speck at app size. Almost the entire square canvas must be genuinely transparent, with only sparse fading ash. Preserve exact original camera/square framing and relative positions; do NOT zoom in, crop or enlarge these remnants to fill the canvas. No opaque backdrop, no ground rectangle, no colored matte halo, no text, water, animals, flames or sheet. Same soft painterly fantasy style, ONE square full-scene frame.",
+      "generatedFilename": "exec-82982b83-99b7-485e-a5cd-ab551e522c1d.png"
+    }
+  ],
+  "normalization": "scripts/review-celestial-stag-lv08-garden.cjs; 320px cells, 288px footprint, y=296 ground, low-alpha matte cleanup; late dust keeps the final scene transform",
+  "palettePacking": "--pack <bundledSharpModule>; one shared 256-color palette across growth/decay, no spatial dithering, 700 KiB maximum per atlas"
+}

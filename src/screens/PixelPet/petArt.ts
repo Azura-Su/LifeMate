@@ -209,8 +209,8 @@ export const CELESTIAL_STAG_SLEEP_GARDEN_LV04_ATLAS = require('../../../assets/p
 export const CELESTIAL_STAG_SLEEP_GARDEN_LV04_DECAY_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garden_lv04_decay.png');
 export const CELESTIAL_STAG_SLEEP_GARDEN_LV06_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garden_lv06.png');
 export const CELESTIAL_STAG_SLEEP_GARDEN_LV06_DECAY_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garden_lv06_decay.png');
-export const CELESTIAL_STAG_SLEEP_GARDEN_LV08_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garden_lv08.png');
-export const CELESTIAL_STAG_SLEEP_GARDEN_LV08_DECAY_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garden_lv08_decay.png');
+export const CELESTIAL_STAG_SLEEP_GARDEN_LV08_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garden_lv08_v2.png');
+export const CELESTIAL_STAG_SLEEP_GARDEN_LV08_DECAY_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garden_lv08_decay_v2.png');
 export const CELESTIAL_STAG_SLEEP_GARDEN_LV10_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garden_lv10.png');
 export const CELESTIAL_STAG_SLEEP_GARDEN_LV10_DECAY_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garden_lv10_decay.png');
 /** Lv12 feather forest growth and decay scene atlases. */
@@ -220,8 +220,8 @@ export const CELESTIAL_STAG_SLEEP_GARDEN_LV12_DECAY_ATLAS = require('../../../as
 export const CELESTIAL_STAG_SLEEP_GARDEN_LV14_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garden_lv14.png');
 export const CELESTIAL_STAG_SLEEP_GARDEN_LV14_DECAY_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garden_lv14_decay.png');
 /** Lv16 Starlit Grove growth and decay scene atlases. */
-export const CELESTIAL_STAG_SLEEP_GARDEN_LV16_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garden_lv16.png');
-export const CELESTIAL_STAG_SLEEP_GARDEN_LV16_DECAY_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garden_lv16_decay.png');
+export const CELESTIAL_STAG_SLEEP_GARDEN_LV16_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garden_lv16_v2.png');
+export const CELESTIAL_STAG_SLEEP_GARDEN_LV16_DECAY_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garden_lv16_decay_v2.png');
 /** Lv18 Sapphire Palace growth and decay scene atlases. */
 export const CELESTIAL_STAG_SLEEP_GARDEN_LV18_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garden_lv18.png');
 export const CELESTIAL_STAG_SLEEP_GARDEN_LV18_DECAY_ATLAS = require('../../../assets/pixelPet/animations/home_sleep_garden_lv18_decay.png');

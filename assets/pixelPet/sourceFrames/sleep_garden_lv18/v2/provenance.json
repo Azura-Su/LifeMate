@@ -1,0 +1,66 @@
+{
+  "status": "candidate-awaiting-owner-art-review",
+  "generator": "Built-in image_gen (transparent output)",
+  "reference": "../frame15.png",
+  "outputs": {
+    "growth": "growth-atlas.png",
+    "decay": "decay-atlas.png",
+    "layout": "1280x1280, 4x4, 320px cells",
+    "growthBytes": 449197,
+    "decayBytes": 444439
+  },
+  "sources": [
+    {
+      "file": "growth-source.png",
+      "generatedFile": "exec-bbf533ce-b31a-4caf-b791-9897f0f408bd.png",
+      "reference": "../frame15.png",
+      "prompt": "Use case: precise-object-edit. Asset: ONE production game animation sprite atlas, a perfect 4-column by 4-row square grid, 16 equally sized square cells in reading order, absolutely NO labels, numbers, grid lines, borders, text or characters. True transparent background. The attached reference is the COMPLETE mature scene; preserve its painterly style, gold twisting trunk on the RIGHT, white sapphire-domed palace behind the tree on the LEFT, turquoise foliage, hanging sapphire fruit and gold chains, grass oval and low round gold-trimmed blue dais at x=45%, ground at y=92.5% of each cell. In EVERY cell keep the same fixed camera, identical ground line, footprint (90% cell width), object positions, sizes for existing objects, and empty lower-middle foreground for a sleeping deer. Do not rotate or rescale the complete composition between cells. This is the GROWTH sequence; draw coherent whole-scene incremental states, no alpha wipes or random missing patches. All scenes grow upward from the same fixed ground. Cell 0 fully empty transparency. Cell 1 a thin grassy oval with a little gold paving, no tree or palace. Cell 2 thicker same grass, paving and low circular gold-trimmed blue dais only. Cell 3 same plus thin GOLD OUTLINE of palace behind dais on left, no tree. Cell 4 same plus low white palace walls filling outline. Cell 5 same plus blue sapphire palace domes and gold spires, palace now at its final height. Cell 6 same plus glowing palace windows and a tiny golden tree sprout at the reference trunk base on right. Cell 7 sprout grows into short smooth curved golden trunk, rest unchanged. Cell 8 trunk taller with small branches and a few teal leaves. Cell 9 branches extend to final positions, sparse teal canopy, palace domes remain visible. Cell 10 canopy fills out, ONE hanging blue sapphire fruit. Cell 11 fuller canopy and more hanging sapphires. Cell 12 same plus fine golden chains draped through branches, a subtle gold stardust arc. Cell 13 foliage and flowers almost mature, delicate sparse stars only within scene silhouette. Cell 14 nearly identical to the mature reference, gold architectural filigree and floor reflections. Cell 15 reproduce the attached mature reference composition closely, polished still frame. Keep the tree located on the right and the lower center unoccupied throughout. Avoid any sky rectangle, pedestal under whole scene, white matte, checkerboard drawing, or shadow outside the grass. Each nonempty cell has fully opaque painted objects with clean soft alpha edges, separated from neighbouring cells by transparent gutters."
+    },
+    {
+      "file": "decay-source.png",
+      "generatedFile": "exec-0395bf7e-19e4-4565-b070-2909ae4dff17.png",
+      "reference": "growth-source.png",
+      "prompt": "Use case: precise-object-edit. ONE game animation atlas, perfect 4x4 square grid, sixteen equal square cells, reading order left to right top to bottom. Reference image is a GROWTH atlas. Create its WAKE/DISSOLVE counterpart, starting from the mature scene in the bottom-right cell of the reference, NOT from the early growth cells. Every cell same composition and fixed camera: oval grass with rocks at lower corners, palace at upper left, twisting golden trunk on right, canopy over top middle, gold chains and hanging blue sapphire fruits, low blue/gold circular resting dais slightly left of center, empty lower-middle foreground for a deer. Same painterly style and fine detail as reference. Background genuinely transparent. Keep ground line at 92.5% of each cell, scene width at 90%, 5% clear horizontal gutters. Each stage a coherent whole-scene painting, not a random alpha mask. Cell0 full mature scene exactly like bottom-right reference. Cell1 full scene, palace windows dim slightly. Cell2 windows fully dark, rest identical. Cell3 palace walls become translucent like a mirage, tree still complete. Cell4 palace mostly transparent, tree and dais unchanged. Cell5 palace gone, only tree remains, blue sapphire fruits dim. Cell6 same tree with some sapphires fallen beside tree root. Cell7 gold chains begin slipping, sapphires dim and on ground. Cell8 chains have fallen, stardust arc faded; canopy remains mostly full. Cell9 some leaves falling and canopy thinned, grass and gold dais duller. Cell10 very sparse leaves, golden trunk and branches remain firmly rooted, no palace. Cell11 bare dry brown-gold tree, dull gray-gold dais and dry tan grass. Cell12 bare tree and dais cracked, a few tiny gold dust particles rise near trunk; no leaves or gems. Cell13 upper branches dissolved into fine gold dust, lower trunk and dais still recognizable. Cell14 only faint low grass silhouette and a restrained upward drift of fine gold dust; no recognizable palace, tree or dais. Cell15 entirely empty transparency. Keep objects aligned from cell to cell, no resizing, no camera motion. No text, numbers, captions, borders, grid lines, characters, sky rectangle, matte, green outline or checkerboard drawing. Sparse gold dust only, no big flames or smoke. Do not show newly appearing full trees late in sequence."
+    },
+    {
+      "file": "growth-04-source.png",
+      "generatedFile": "exec-f48501fc-7401-4a22-bd2b-84363773cb4c.png",
+      "reference": "growth-05.png",
+      "prompt": "Use case: precise-object-edit. Edit target: attached game-animation frame. Make the immediately PREVIOUS construction stage of this scene. CHANGE ONLY THE UPPER PALACE ROOFS: remove every blue sapphire dome and every golden spire/finial above the white palace walls. Keep a clearly recognizable low partially constructed white palace with smooth level unfinished wall tops and a few gold architectural edges. There must be NO domes or towers, NO gold silhouette of future domes, NO tree. Preserve the existing low white palace wall positions and windows. Preserve the grass oval, side rocks, flowers, shrubs, paving, blue-and-gold circular dais and its two little sapphire posts PIXEL-ALIGNED to the reference layout: same camera, same scale, same ground line at 92.5% height and same 90% scene width. Leave the upper part of the canvas completely empty transparent where the domes were removed; do NOT enlarge or move the remaining palace to fill that space. Same fine painterly game style and palette. Transparent background, square canvas, no sky, shadow, frame, text, characters or extra props."
+    },
+    {
+      "file": "growth-07-source.png",
+      "generatedFile": "exec-ab397938-514d-465f-9efb-355fe132bf4e.png",
+      "reference": "growth-source.png, cell 7 (registered at 320px)",
+      "prompt": "Use case: precise-object-edit. Edit target: attached game-animation frame. Make the earlier tree-growth stage. CHANGE ONLY THE TREE ON THE RIGHT: replace the tall branching tree with a SMALL LEAFLESS GOLDEN SAPLING, gently curved, rising only HALF as high from its same root base, with two short bare twig tips. No teal leaves, no canopy, no gemstones on the tree. Do not touch the palace, its white walls, blue sapphire domes, gold spires, windows, flowers, bushes, rocks, grass oval, blue-and-gold circular resting dais or little posts. Preserve their exact positions, proportions and colors. Same fixed camera, painterly style and transparent square canvas. Keep the floor footprint and ground baseline at 92.5% canvas height, with empty lower-middle foreground for the pet. Do not add any object or enlarge the remaining scene; simply reduce the tree to a half-height leafless golden sapling. No sky, text, border, shadow outside the grass, characters or other new elements."
+    }
+  ],
+  "packing": {
+    "script": "../../../../../scripts/pack-home-sleep-garden-lv18-v2.cjs",
+    "method": "Register whole painted scenes using lower-ground bounds; remove small disconnected neighbouring fragments touching crop edges; replace growth cells 4 and 7 with edited paintings. No procedural reveal masks.",
+    "groundLine": 296,
+    "horizontalSafetyGutter": 8,
+    "palette": "Shared adaptive RGBA palette, at most 256 entries; indexed PNG with tRNS retains partial transparency. Jimp's existing GIF encoder quantizes the input bitmap in place; its encoded GIF is discarded.",
+    "handoff": "Decoded growth cell 15 exactly equals decoded decay cell 0.",
+    "emptyEndpoints": "Growth cell 0 and decay cell 15 are completely transparent."
+  },
+  "review": {
+    "status": "Technical checks passed; owner art approval pending before replacing runtime assets.",
+    "nativeRuntimeChecked": false,
+    "candidateLayout": {
+      "scope": "Pet composite previews; runtime layout unchanged pending art review",
+      "sceneScale": 1.08,
+      "originalSceneSizePt": 168,
+      "sceneSizePt": 181.44,
+      "sceneLeftPt": -30.72,
+      "sceneTopPt": -56.432,
+      "anchor": "Preserve the ground centre and the existing pet position and size"
+    },
+    "previews": [
+      "../../../../../tasks/previews/celestial-stag-lv18-growth-v2.gif",
+      "../../../../../tasks/previews/celestial-stag-lv18-decay-v2.gif",
+      "../../../../../tasks/previews/celestial-stag-lv18-v2-pet-lv18.png",
+      "../../../../../tasks/previews/celestial-stag-lv18-v2-pet-lv19.png"
+    ]
+  }
+}

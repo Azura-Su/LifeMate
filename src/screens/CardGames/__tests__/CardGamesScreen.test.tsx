@@ -35,6 +35,10 @@ import {
 jest.mock('../CardGameAvatarImage', () => ({
   CardGameAvatarImage: () => null,
 }));
+jest.mock('expo-camera', () => ({
+  CameraView: 'CameraView',
+  useCameraPermissions: () => [{ granted: true, canAskAgain: true }, jest.fn()],
+}));
 jest.mock('../../../services/firebase/remoteConfigService', () => ({}));
 jest.mock('../../../hooks/useCardGame', () => ({ useCardGame: jest.fn() }));
 jest.mock('../../../hooks/useCardGameOrientation', () => ({
@@ -62,6 +66,30 @@ jest.mock('react-native-safe-area-context', () => ({
 const send = jest.fn(),
   retry = jest.fn(),
   retrySessionInitialization = jest.fn();
+
+it('joins through the existing shared room path when a valid QR is scanned', () => {
+  setup();
+  fireEvent.press(screen.getByRole('button', { name: 'Vào phòng có sẵn' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Quét QR vào phòng' }));
+  fireEvent(screen.getByTestId('room-qr-camera'), 'barcodeScanned', { data: 'LIFEMATE:ROOM:1:ABCDEFGH' });
+  expect(send).toHaveBeenCalledWith({ type: 'join', name: 'An', code: 'ABCDEFGH' });
+  expect(screen.queryByTestId('room-qr-camera')).toBeNull();
+});
+
+it('unmounts the QR camera on background and does not reopen it on resume', () => {
+  const view = setup();
+  fireEvent.press(screen.getByRole('button', { name: 'Vào phòng có sẵn' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Quét QR vào phòng' }));
+  expect(screen.getByTestId('room-qr-camera')).toBeTruthy();
+  const current = jest.mocked(useCardGame).mock.results.at(-1)!.value;
+  jest.mocked(useCardGame).mockReturnValue({ ...current, active: false });
+  view.rerender(<CardGamesScreen navigation={{ navigate: jest.fn() } as never} route={{} as never} />);
+  expect(screen.queryByTestId('room-qr-camera')).toBeNull();
+  jest.mocked(useCardGame).mockReturnValue(current);
+  view.rerender(<CardGamesScreen navigation={{ navigate: jest.fn() } as never} route={{} as never} />);
+  expect(screen.queryByTestId('room-qr-camera')).toBeNull();
+  expect(send).not.toHaveBeenCalled();
+});
 
 it('offers one shared room entry without choosing a game', () => {
   setup();

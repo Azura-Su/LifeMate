@@ -9,12 +9,9 @@ const animationDir = path.join(root, 'assets/pixelPet/animations');
 const CELL = 320;
 const ATLAS = CELL * 4;
 const specs = [
-  { level: 4, source: 'frame15.png' },
-  { level: 6, source: 'frame15-approved.png' },
   { level: 8, source: 'frame15.png' },
   { level: 10, source: 'normalized320/frame15_candidate.png' },
   { level: 14, source: 'frame15-candidate.png' },
-  { level: 20, source: 'frame15_candidate.png' },
 ];
 
 function alphaBounds(image, threshold = 24) {
@@ -130,9 +127,7 @@ async function main() {
     const decay = [];
     for (let index = 0; index < 16; index += 1) {
       const progress = index / 15;
-      const frame = level === 4
-        ? await normalizeFrame(path.join(sourceDir, `frame${String(index).padStart(2, '0')}.png`), bounds)
-        : revealScene(final, Math.pow(progress, 0.72));
+      const frame = revealScene(final, Math.pow(progress, 0.72));
       const dying = revealScene(final, 1 - Math.pow(progress, 0.72));
       growth.push(frame);
       decay.push(dying);

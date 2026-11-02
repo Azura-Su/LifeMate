@@ -14,6 +14,49 @@ jest.mock('../../../config/audioCloud', () => ({
   audioCloudApiKey: () => 'public-test-key',
 }));
 const originalFetch = global.fetch;
+
+it('keeps the same protocol after a lost acknowledgement when an older edge rejects the retry', async () => {
+  const input: GameRequest = {
+    type: 'ready',
+    ready: true,
+    sessionId: 'rollback-session',
+    actionId: 'committed-without-ack',
+  };
+  const fetchMock = jest.fn()
+    .mockRejectedValueOnce(new Error('ACK lost'))
+    .mockResolvedValueOnce({ ok: false, status: 400, json: async () => ({ error: 'invalid-input' }) })
+    .mockResolvedValueOnce({ ok: false, status: 400, json: async () => ({ error: 'invalid-input' }) })
+    .mockResolvedValueOnce({ ok: false, status: 400, json: async () => ({ error: 'invalid-input' }) })
+    .mockResolvedValue({ ok: true, status: 200, json: async () => ({ room: null, serverTime: 20 }) });
+  global.fetch = fetchMock;
+
+  await expect(gameRequest('a', input, new AbortController().signal)).rejects.toThrow('ACK lost');
+  for (let retry = 0; retry < 2; retry++) {
+    await expect(gameRequest('a', input, new AbortController().signal)).rejects.toMatchObject({ code: 'game-update-required' });
+  }
+  const retries = fetchMock.mock.calls.map((call) => JSON.parse(call[1].body));
+  expect(retries.map((body) => body.clientVersion)).toEqual([13, 13, 13]);
+  expect(retries.every((body) => body.actionId === input.actionId)).toBe(true);
+
+  await gameRequest('a', { type: 'sync', sessionId: input.sessionId }, new AbortController().signal);
+  expect(fetchMock.mock.calls.map((call) => JSON.parse(call[1].body).clientVersion)).toEqual([13, 13, 13, 13, 12]);
+});
+
+it('does not change a pinned older action after room growth; a fresh sync uses v13', async () => {
+  const input: GameRequest = { type: 'ready', ready: true, sessionId: 'pinned-large', actionId: 'same-action' };
+  const fetchMock = jest.fn()
+    .mockResolvedValueOnce({ ok: false, status: 400, json: async () => ({ error: 'invalid-input' }) })
+    .mockRejectedValueOnce(new Error('ACK lost'))
+    .mockResolvedValueOnce({ ok: false, status: 409, json: async () => ({ error: 'game-update-required' }) })
+    .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ room: null, serverTime: 20 }) });
+  global.fetch = fetchMock;
+  await expect(gameRequest('a', input, new AbortController().signal)).rejects.toThrow('ACK lost');
+  await expect(gameRequest('a', input, new AbortController().signal)).rejects.toMatchObject({ code: 'game-update-required' });
+  await gameRequest('a', { type: 'sync', sessionId: 'pinned-large' }, new AbortController().signal);
+  expect(fetchMock.mock.calls.map((call) => JSON.parse(call[1].body).clientVersion)).toEqual([13, 12, 12, 13]);
+  expect(JSON.parse(fetchMock.mock.calls[1][1].body).actionId).toBe('same-action');
+  expect(JSON.parse(fetchMock.mock.calls[2][1].body).actionId).toBe('same-action');
+});
 it.each(['create', 'set-phom-rules'] as const)(
   'never drops optional Phỏm rules when %s reaches an older server',
   async (type) => {
@@ -40,9 +83,9 @@ it.each(['create', 'set-phom-rules'] as const)(
         new AbortController().signal,
       ),
     ).rejects.toMatchObject({ code: 'game-update-required' });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(7);
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
-      clientVersion: 8,
+      clientVersion: 13,
       phomConfig,
     });
   },
@@ -97,7 +140,7 @@ it('keeps an uncertain action on its negotiated protocol after an edge rollout',
     fetchMock.mock.calls.map(
       ([, request]) => JSON.parse(request.body).clientVersion,
     ),
-  ).toEqual([8, 7, ...Array(140).fill(8), 7]);
+  ).toEqual([13, 12, ...Array(140).fill(13), 12]);
 });
 
 it('does not reuse a negotiated protocol across account epochs or below the required capability', async () => {
@@ -129,7 +172,7 @@ it('does not reuse a negotiated protocol across account epochs or below the requ
   await expect(
     gameRequest('a', input, new AbortController().signal),
   ).rejects.toThrow('ACK lost');
-  input.requiredClientVersion = 7;
+  input.requiredClientVersion = 12;
   await expect(
     gameRequest('a', input, new AbortController().signal),
   ).rejects.toMatchObject({ code: 'game-update-required' });
@@ -140,7 +183,7 @@ it('does not reuse a negotiated protocol across account epochs or below the requ
     .setUser({ uid: 'a', email: 'a@example.invalid', displayName: 'An' });
   await gameRequest('a', input, new AbortController().signal);
   expect(JSON.parse(fetchMock.mock.calls.at(-1)![1].body).clientVersion).toBe(
-    8,
+    13,
   );
 });
 
@@ -180,110 +223,33 @@ it.each([
     gameRequest('a', input as GameRequest, new AbortController().signal),
   ).rejects.toMatchObject({ code: 'game-update-required' });
 
-  expect(fetchMock).toHaveBeenCalledTimes(1);
+  const floor = input.type === 'game-action' ? 9 : input.type === 'join' ? 13 : 10;
+  expect(fetchMock.mock.calls.map((call) => JSON.parse(call[1].body).clientVersion))
+    .toEqual(Array.from({ length: 14 - floor }, (_, i) => 13 - i));
   const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-  expect(body.clientVersion).toBe(
-    input.type === 'game-action' ? 9 : input.type === 'join' ? 11 : 10,
-  );
   if (input.type === 'join') expect(body.game).toBeUndefined();
 });
 
-it('negotiates protocol 10 when a configured variant room requires its settings capability', async () => {
-  const versions: number[] = [];
-  const fetchMock = jest
-    .fn()
-    .mockImplementationOnce(async (_url, request) => {
-      versions.push(JSON.parse(request.body).clientVersion);
-      return {
-        status: 409,
-        ok: false,
-        json: async () => ({ error: 'game-update-required' }),
-      };
-    })
-    .mockImplementationOnce(async (_url, request) => {
-      versions.push(JSON.parse(request.body).clientVersion);
-      return {
-        status: 409,
-        ok: false,
-        json: async () => ({ error: 'game-update-required' }),
-      };
-    })
-    .mockImplementationOnce(async (_url, request) => {
-      versions.push(JSON.parse(request.body).clientVersion);
-      return {
-        status: 200,
-        ok: true,
-        json: async () => ({ room: null, serverTime: 10 }),
-      };
-    });
-  global.fetch = fetchMock;
-  await expect(
-    gameRequest(
-      'a',
-      { type: 'bootstrap', sessionId: 'session' },
-      new AbortController().signal,
-    ),
-  ).resolves.toMatchObject({ room: null, serverTime: 10 });
-  expect(versions).toEqual([8, 9, 10]);
+it('starts a fresh bootstrap with the largest supported table capability', async () => {
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ room: null, serverTime: 10 }) });
+  await gameRequest('a', { type: 'bootstrap', sessionId: 'session' }, new AbortController().signal);
+  expect(JSON.parse(jest.mocked(global.fetch).mock.calls[0][1]!.body as string).clientVersion).toBe(13);
 });
 
-it('negotiates protocol 9 after a room bootstrap reports that an existing variant needs an update', async () => {
-  const versions: number[] = [];
-  const fetchMock = jest
-    .fn()
-    .mockImplementationOnce(async (_url, request) => {
-      versions.push(JSON.parse(request.body).clientVersion);
-      return {
-        status: 409,
-        ok: false,
-        json: async () => ({ error: 'game-update-required' }),
-      };
-    })
-    .mockImplementationOnce(async (_url, request) => {
-      versions.push(JSON.parse(request.body).clientVersion);
-      return {
-        status: 200,
-        ok: true,
-        json: async () => ({ room: null, serverTime: 10 }),
-      };
-    });
-  global.fetch = fetchMock;
-
-  await expect(
-    gameRequest(
-      'a',
-      { type: 'bootstrap', sessionId: 'session' },
-      new AbortController().signal,
-    ),
-  ).resolves.toMatchObject({ room: null, serverTime: 10 });
-  expect(versions).toEqual([8, 9]);
+it('does not loop when the server requires a capability beyond the current app', async () => {
+  global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 409, json: async () => ({ error: 'game-update-required' }) });
+  await expect(gameRequest('a', { type: 'bootstrap', sessionId: 'session' }, new AbortController().signal))
+    .rejects.toMatchObject({ code: 'game-update-required' });
+  expect(global.fetch).toHaveBeenCalledTimes(1);
 });
 
-it('negotiates up to protocol 11 for rooms that use v2 scoring profiles', async () => {
-  const versions: number[] = [];
-  const fetchMock = jest
-    .fn()
-    .mockImplementationOnce(async (_url, request) => {
-      versions.push(JSON.parse(request.body).clientVersion);
-      return { status: 409, ok: false, json: async () => ({ error: 'game-update-required' }) };
-    })
-    .mockImplementationOnce(async (_url, request) => {
-      versions.push(JSON.parse(request.body).clientVersion);
-      return { status: 409, ok: false, json: async () => ({ error: 'game-update-required' }) };
-    })
-    .mockImplementationOnce(async (_url, request) => {
-      versions.push(JSON.parse(request.body).clientVersion);
-      return { status: 409, ok: false, json: async () => ({ error: 'game-update-required' }) };
-    })
-    .mockImplementationOnce(async (_url, request) => {
-      versions.push(JSON.parse(request.body).clientVersion);
-      return { status: 200, ok: true, json: async () => ({ room: null, serverTime: 10 }) };
-    });
-  global.fetch = fetchMock;
-  await expect(
-    gameRequest('a', { type: 'bootstrap', sessionId: 'session' }, new AbortController().signal),
-  ).resolves.toMatchObject({ room: null, serverTime: 10 });
-  expect(versions).toEqual([8, 9, 10, 11]);
+it('can negotiate upward again within a fresh request without replaying a pinned action', async () => {
+  global.fetch = jest.fn()
+    .mockResolvedValueOnce({ ok: false, status: 400, json: async () => ({ error: 'invalid-input' }) })
+    .mockResolvedValueOnce({ ok: false, status: 409, json: async () => ({ error: 'game-update-required' }) })
+    .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ room: null, serverTime: 10 }) });
+  await gameRequest('a', { type: 'bootstrap', sessionId: 'session' }, new AbortController().signal);
+  expect(jest.mocked(global.fetch).mock.calls.map((call) => JSON.parse(call[1]!.body as string).clientVersion)).toEqual([13, 12, 13]);
 });
 
 it('preserves the negotiated protocol through real session retries in an optional-rules room', async () => {
@@ -315,7 +281,7 @@ it('preserves the negotiated protocol through real session retries in an optiona
     const input = JSON.parse(init!.body as string);
     if (input.actionId) {
       versions.push(input.clientVersion);
-      if (firstWrite && input.clientVersion === 8)
+      if (firstWrite && input.clientVersion === 13)
         return {
           ok: false,
           status: 400,
@@ -344,7 +310,7 @@ it('preserves the negotiated protocol through real session retries in an optiona
     await session.send({ type: 'ready', ready: true });
     for (let i = 0; i < 50; i++) await Promise.resolve();
     await session.retry();
-    expect(versions).toEqual([8, 7, 7]);
+    expect(versions).toEqual([13, 12, 12]);
   } finally {
     session.stop();
   }
@@ -408,59 +374,16 @@ it('parses room status separately from a player room snapshot', async () => {
   });
 });
 
-it('falls back through protocol 8 through 2 when talking to an older edge function', async () => {
-  const fetchMock = jest
-    .fn()
-    .mockResolvedValueOnce({
-      status: 400,
-      ok: false,
-      json: async () => ({ error: 'invalid-input' }),
-    })
-    .mockResolvedValueOnce({
-      status: 400,
-      ok: false,
-      json: async () => ({ error: 'invalid-input' }),
-    })
-    .mockResolvedValueOnce({
-      status: 400,
-      ok: false,
-      json: async () => ({ error: 'invalid-input' }),
-    })
-    .mockResolvedValueOnce({
-      status: 400,
-      ok: false,
-      json: async () => ({ error: 'invalid-input' }),
-    })
-    .mockResolvedValueOnce({
-      status: 400,
-      ok: false,
-      json: async () => ({ error: 'invalid-input' }),
-    })
-    .mockResolvedValueOnce({
-      status: 400,
-      ok: false,
-      json: async () => ({ error: 'invalid-input' }),
-    })
-    .mockResolvedValueOnce({
-      status: 200,
-      ok: true,
-      json: async () => ({ room: null, serverTime: 10 }),
-    });
-  global.fetch = fetchMock;
-
-  await expect(
-    gameRequest(
-      'a',
-      { type: 'sync', sessionId: 'session' },
-      new AbortController().signal,
-    ),
-  ).resolves.toMatchObject({ room: null, serverTime: 10 });
-
-  expect(
-    fetchMock.mock.calls.map(
-      (call) => JSON.parse(call[1]!.body as string).clientVersion,
-    ),
-  ).toEqual([8, 7, 6, 5, 4, 3, 2]);
+it('falls back through protocol 13 through 2 when talking to an older edge function', async () => {
+  global.fetch = jest.fn(async (_url, init) => {
+    const version = JSON.parse(init!.body as string).clientVersion;
+    return { ok: version === 2, status: version === 2 ? 200 : 400,
+      json: async () => version === 2 ? { room: null, serverTime: 10 } : { error: 'invalid-input' } } as Response;
+  });
+  await expect(gameRequest('a', { type: 'sync', sessionId: 'session' }, new AbortController().signal))
+    .resolves.toMatchObject({ room: null, serverTime: 10 });
+  expect(jest.mocked(global.fetch).mock.calls.map((call) => JSON.parse(call[1]!.body as string).clientVersion))
+    .toEqual([13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2]);
 });
 
 it('never retries Phỏm creation with an unsupported protocol', async () => {
@@ -495,10 +418,10 @@ it('never retries Phỏm creation with an unsupported protocol', async () => {
       new AbortController().signal,
     ),
   ).rejects.toMatchObject({ code: 'game-update-required' });
-  expect(fetchMock).toHaveBeenCalledTimes(6);
+  expect(fetchMock).toHaveBeenCalledTimes(11);
   expect(
     fetchMock.mock.calls.map((call) => JSON.parse(call[1].body).clientVersion),
-  ).toEqual([8, 7, 6, 5, 4, 3]);
+  ).toEqual([13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3]);
 });
 
 it('never silently downgrades configured South or sends its local retry fence', async () => {
@@ -525,7 +448,7 @@ it('never silently downgrades configured South or sends its local retry fence', 
       ),
     ).rejects.toMatchObject({ code: 'game-update-required' });
   }
-  expect(global.fetch).toHaveBeenCalledTimes(10);
+  expect(global.fetch).toHaveBeenCalledTimes(20);
   for (const call of jest.mocked(global.fetch).mock.calls)
     expect(JSON.parse(call[1]!.body as string)).not.toHaveProperty(
       'requiredClientVersion',
@@ -556,9 +479,9 @@ it('pins South instant-win configuration to protocol 12 without downgrading', as
       new AbortController().signal,
     ),
   ).rejects.toMatchObject({ code: 'game-update-required' });
-  expect(global.fetch).toHaveBeenCalledTimes(1);
+  expect(global.fetch).toHaveBeenCalledTimes(2);
   expect(JSON.parse(jest.mocked(global.fetch).mock.calls[0][1]!.body as string)).toMatchObject({
-    clientVersion: 12,
+    clientVersion: 13,
   });
 });
 
@@ -634,9 +557,9 @@ it.each([
         new AbortController().signal,
       ),
     ).rejects.toMatchObject({ code: 'game-update-required' });
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(9);
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
-      clientVersion: 8,
+      clientVersion: 13,
     });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).not.toHaveProperty(
       'requiredClientVersion',
@@ -678,8 +601,8 @@ it.each([
         new AbortController().signal,
       ),
     ).rejects.toMatchObject({ code: 'game-update-required' });
-    expect(request).toHaveBeenCalledTimes(3);
-    expect(JSON.parse(request.mock.calls[0][1].body).clientVersion).toBe(8);
+    expect(request).toHaveBeenCalledTimes(8);
+    expect(JSON.parse(request.mock.calls[0][1].body).clientVersion).toBe(13);
     expect(JSON.parse(request.mock.calls[0][1].body)).not.toHaveProperty(
       'requiredClientVersion',
     );

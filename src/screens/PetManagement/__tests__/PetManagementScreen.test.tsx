@@ -121,9 +121,14 @@ it('guards non-admin and shows owner, level, local search and available pets', a
   expect(screen.queryByText('alice@example.com')).toBeNull();
 });
 it('requires confirmation, blocks double taps and reuses the action ID on retry', async () => {
+  let rejectFirst!: (cause: Error) => void;
   jest
     .mocked(revokeManagedPet)
-    .mockRejectedValueOnce(new Error('Mất kết nối'))
+    .mockImplementationOnce(
+      () => new Promise((_resolve, reject) => {
+        rejectFirst = reject;
+      }),
+    )
     .mockResolvedValueOnce({ pets: [], serverTime: 2 });
   render(<PetManagementScreen {...props} />);
   fireEvent.press(await screen.findByLabelText('Thu hồi Phượng Hoàng'));
@@ -133,9 +138,14 @@ it('requires confirmation, blocks double taps and reuses the action ID on retry'
   fireEvent.press(screen.getByLabelText('Thu hồi Phượng Hoàng'));
   fireEvent.press(screen.getByText('Xác nhận thu hồi'));
   fireEvent.press(screen.getByRole('button', { name: 'Xác nhận thu hồi' }));
+  expect(revokeManagedPet).toHaveBeenCalledTimes(1);
+  await act(async () => rejectFirst(new Error('Mất kết nối')));
   expect(await screen.findByText('Mất kết nối')).toBeTruthy();
   expect(revokeManagedPet).toHaveBeenCalledTimes(1);
-  fireEvent.press(screen.getByText('Xác nhận thu hồi'));
+  await act(async () =>
+    fireEvent.press(screen.getByRole('button', { name: 'Xác nhận thu hồi' })),
+  );
+  expect(revokeManagedPet).toHaveBeenCalledTimes(2);
   await waitFor(() =>
     expect(screen.queryByText('alice@example.com')).toBeNull(),
   );

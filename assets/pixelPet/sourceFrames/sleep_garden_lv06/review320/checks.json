@@ -1,0 +1,165 @@
+{
+  "boundaryPixelMatch": true,
+  "frames": [
+    {
+      "name": "frame00",
+      "painted": 0,
+      "bottom": 0
+    },
+    {
+      "name": "frame01",
+      "painted": 5408,
+      "bottom": 296
+    },
+    {
+      "name": "frame02",
+      "painted": 9550,
+      "bottom": 296
+    },
+    {
+      "name": "frame03",
+      "painted": 10320,
+      "bottom": 296
+    },
+    {
+      "name": "frame04",
+      "painted": 10638,
+      "bottom": 296
+    },
+    {
+      "name": "frame05",
+      "painted": 11225,
+      "bottom": 296
+    },
+    {
+      "name": "frame06",
+      "painted": 11911,
+      "bottom": 296
+    },
+    {
+      "name": "frame07",
+      "painted": 13504,
+      "bottom": 296
+    },
+    {
+      "name": "frame08",
+      "painted": 15839,
+      "bottom": 296
+    },
+    {
+      "name": "frame09",
+      "painted": 30683,
+      "bottom": 296
+    },
+    {
+      "name": "frame10",
+      "painted": 44208,
+      "bottom": 296
+    },
+    {
+      "name": "frame11",
+      "painted": 48937,
+      "bottom": 296
+    },
+    {
+      "name": "frame12",
+      "painted": 48392,
+      "bottom": 296
+    },
+    {
+      "name": "frame13",
+      "painted": 49289,
+      "bottom": 296
+    },
+    {
+      "name": "frame14",
+      "painted": 49027,
+      "bottom": 296
+    },
+    {
+      "name": "frame15",
+      "painted": 48383,
+      "bottom": 296
+    },
+    {
+      "name": "decay00",
+      "painted": 48383,
+      "bottom": 296
+    },
+    {
+      "name": "decay01",
+      "painted": 49378,
+      "bottom": 296
+    },
+    {
+      "name": "decay02",
+      "painted": 48707,
+      "bottom": 296
+    },
+    {
+      "name": "decay03",
+      "painted": 50409,
+      "bottom": 296
+    },
+    {
+      "name": "decay04",
+      "painted": 48806,
+      "bottom": 296
+    },
+    {
+      "name": "decay05",
+      "painted": 48517,
+      "bottom": 296
+    },
+    {
+      "name": "decay06",
+      "painted": 47865,
+      "bottom": 296
+    },
+    {
+      "name": "decay07",
+      "painted": 48935,
+      "bottom": 296
+    },
+    {
+      "name": "decay08",
+      "painted": 41449,
+      "bottom": 296
+    },
+    {
+      "name": "decay09",
+      "painted": 34267,
+      "bottom": 296
+    },
+    {
+      "name": "decay10",
+      "painted": 31948,
+      "bottom": 296
+    },
+    {
+      "name": "decay11",
+      "painted": 33967,
+      "bottom": 296
+    },
+    {
+      "name": "decay12",
+      "painted": 23811,
+      "bottom": 296
+    },
+    {
+      "name": "decay13",
+      "painted": 14570,
+      "bottom": 296
+    },
+    {
+      "name": "decay14",
+      "painted": 539,
+      "bottom": 296
+    },
+    {
+      "name": "decay15",
+      "painted": 0,
+      "bottom": 0
+    }
+  ]
+}

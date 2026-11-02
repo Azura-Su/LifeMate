@@ -109,14 +109,24 @@ async function schedule(
       channelId: 'lifemate',
     },
   });
-  ids[loanId] = `${notificationId}|${at}`;
-  if (!isAccountDeleting(uid))
+  try {
+    if (!isActive()) {
+      await Notifications.cancelScheduledNotificationAsync(notificationId);
+      return 'none';
+    }
+    ids[loanId] = `${notificationId}|${at}`;
     await AsyncStorage.setItem(idsKey(uid), JSON.stringify(ids));
-  if (!isActive()) {
-    await cancel(uid, loanId, ids);
-    return 'none';
+    if (!isActive()) {
+      await cancel(uid, loanId, ids);
+      return 'none';
+    }
+    return 'scheduled';
+  } catch (error) {
+    await Notifications.cancelScheduledNotificationAsync(notificationId).catch(
+      () => undefined,
+    );
+    throw error;
   }
-  return 'scheduled';
 }
 
 export function reconcileLoanReminders(
@@ -125,11 +135,11 @@ export function reconcileLoanReminders(
   requestPermissionForNew = false,
   requestedLoanId?: string,
 ) {
-  const user = useAuthStore.getState().user;
+  const epoch = useAuthStore.getState().sessionEpoch;
   const isActive = () =>
     !isAccountDeleting(uid) &&
-    user?.uid === uid &&
-    useAuthStore.getState().user === user;
+    useAuthStore.getState().user?.uid === uid &&
+    useAuthStore.getState().sessionEpoch === epoch;
   return serial(uid, async () => {
     if (!isActive()) return 'none';
     const active = new Map(

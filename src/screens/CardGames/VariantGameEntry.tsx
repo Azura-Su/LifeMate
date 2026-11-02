@@ -15,7 +15,7 @@ export const variantGameInfo = {
   },
   sam: {
     name: 'Sâm',
-    meta: '2–4 người · 10 lá · Có báo Sâm',
+    meta: '2–5 người · 10 lá · Có báo Sâm',
     note: 'Báo Sâm trước lượt đầu; báo một chỉ để thông tin.',
     pointLabel: 'Điểm mỗi lá còn lại khi báo thất bại hoặc không báo',
     pointTitle: 'Mỗi lá còn lại',
@@ -24,7 +24,7 @@ export const variantGameInfo = {
   },
   tan: {
     name: 'Tấn',
-    meta: '2–4 người · 8 lá · Chất chủ, tấn và đỡ',
+    meta: '2–6 người · 8 lá · Chất chủ, tấn và đỡ',
     note: 'Đỡ từng lá hoặc nhận bài; rút nọc theo thứ tự lượt.',
     pointLabel: 'Điểm mỗi lá người thua còn',
     pointTitle: 'Mỗi lá còn lại',

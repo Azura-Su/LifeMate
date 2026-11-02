@@ -65,7 +65,7 @@ const variantRules = {
   sam: [
     [
       'Chia bài và báo Sâm',
-      '2–4 người, mỗi người 10 lá. Trước nước đầu tiên, lần lượt chọn báo Sâm hoặc bỏ qua; người báo đầu tiên đánh trước. Nếu không ai báo, người mở ván đi trước.',
+      '2–5 người, mỗi người 10 lá từ bộ 52 lá. Bàn 5 người có 2 lá không chia. Trước nước đầu tiên, lần lượt chọn báo Sâm hoặc bỏ qua; người báo đầu tiên đánh trước. Nếu không ai báo, người mở ván đi trước.',
     ],
     [
       'Bộ bài và chặn',
@@ -79,7 +79,7 @@ const variantRules = {
   tan: [
     [
       'Chia bài và chất chủ',
-      '2–4 người, mỗi người 8 lá. Lật một lá để chọn chất chủ; lá ngửa được rút cuối nọc. Hạng 2 thấp nhất, A cao nhất.',
+      '2–6 người, mỗi người 8 lá từ bộ 52 lá. Bàn 6 người còn nọc 4 lá, gồm lá chủ. Lật một lá để chọn chất chủ; lá ngửa được rút cuối nọc. Hạng 2 thấp nhất, A cao nhất.',
     ],
     [
       'Tấn và đỡ',

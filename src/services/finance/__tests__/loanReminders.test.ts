@@ -95,6 +95,26 @@ it('keeps an active account reminder scheduled once across unchanged reloads', a
   );
 });
 
+it('cancels a new notification if saving its id fails, so retry and logout leave no orphan', async () => {
+  const write = jest.mocked(AsyncStorage.setItem).getMockImplementation()!;
+  jest.mocked(AsyncStorage.setItem).mockImplementationOnce(write);
+  jest.mocked(AsyncStorage.setItem).mockRejectedValueOnce(new Error('Disk full'));
+
+  expect(await reconcileLoanReminders('u1', [loan], true, loan.id)).toBe(
+    'denied',
+  );
+  expect([...scheduledIds]).toEqual([]);
+  expect(JSON.parse((await AsyncStorage.getItem(idsKey)) ?? '{}')).toEqual({});
+
+  expect(await reconcileLoanReminders('u1', [loan], true, loan.id)).toBe(
+    'scheduled',
+  );
+  expect([...scheduledIds]).toEqual(['n2']);
+  await cancelAllLoanReminders('u1');
+  expect([...scheduledIds]).toEqual([]);
+  expect(await AsyncStorage.getItem(idsKey)).toBeNull();
+});
+
 it('does not restore reminders when a stale reconcile arrives after logout cancellation', async () => {
   await reconcileLoanReminders('u1', [loan]);
   expect(scheduledIds.size).toBe(1);
@@ -203,4 +223,25 @@ it('does not revive an old job after the same UID signs in with a new session', 
     'scheduled',
   );
   expect([...scheduledIds]).toEqual(['n1']);
+});
+
+it('keeps scheduling across a profile refresh within the same account session', async () => {
+  const started = deferred();
+  const release = deferred();
+  jest.mocked(Notifications.getPermissionsAsync).mockImplementationOnce(async () => {
+    started.resolve();
+    await release.promise;
+    return granted;
+  });
+  const epoch = useAuthStore.getState().sessionEpoch;
+  const scheduling = reconcileLoanReminders('u1', [loan], true, loan.id);
+  await started.promise;
+  useAuthStore.getState().setUser({ uid: 'u1', email: null, displayName: 'Tên mới' });
+  expect(useAuthStore.getState().sessionEpoch).toBe(epoch);
+  release.resolve();
+
+  expect(await scheduling).toBe('scheduled');
+  expect([...scheduledIds]).toEqual(['n1']);
+  await cancelAllLoanReminders('u1');
+  expect([...scheduledIds]).toEqual([]);
 });

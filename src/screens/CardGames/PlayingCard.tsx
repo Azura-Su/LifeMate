@@ -112,6 +112,8 @@ export function PlayingCard({
       ]}
     >
       <Text
+        // The face is a fixed-size graphic; the parent exposes the full card label.
+        allowFontScaling={false}
         style={[
           styles.rank,
           stacked && styles.stackedRank,
@@ -122,6 +124,7 @@ export function PlayingCard({
         {ranks[Math.floor(card / 4)]}
       </Text>
       <Text
+        allowFontScaling={false}
         style={[
           styles.suit,
           stacked && styles.stackedSuit,

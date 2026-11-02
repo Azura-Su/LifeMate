@@ -32,6 +32,26 @@ jest.mock('../CardGameAvatarImage', () => ({
   CardGameAvatarImage: () => null,
 }));
 beforeEach(() => jest.useFakeTimers());
+
+it.each([[320, 568], [568, 320], [390, 844], [844, 390]])('keeps all five Sâm seats and actions reachable at %sx%s', (width, height) => {
+  Dimensions.set({ window: { width, height, scale: 1, fontScale: 1.8 }, screen: { width, height, scale: 1, fontScale: 1.8 } });
+  const members = ['a', 'b', 'c', 'd', 'e'].map((uid) => ({ uid, name: `Người chơi ${uid} tên rất dài`, ready: false, wins: 0, balance: 123456789 }));
+  const larger: CardGameRoom = {
+    ...room, gameKind: 'sam', members,
+    game: { ...room.game!, rulesVersion: 'sam-v1', players: members.map((m) => ({ uid: m.uid, count: m.uid === 'a' ? 3 : 10, finished: false, forfeited: false })), step: 'play', reportOrder: [], reported: [], reportedSam: false, callUid: null, samOutcome: null } as SamView,
+  };
+  render(<CardGameTable room={larger} uid="a" serverTime={Date.now()} active disabled={false} busy={false} onAction={jest.fn()} />);
+  expect(screen.getByTestId('large-game-table')).toBeTruthy();
+  for (const member of members.slice(1)) expect(screen.getByTestId(`opponent-${member.uid}`)).toBeTruthy();
+  expect(screen.getByTestId('large-table-opponents')).toBeTruthy();
+  if (width > height) {
+    const handPanel = StyleSheet.flatten(screen.getByTestId('large-table-hand').props.style);
+    expect(handPanel.width).toBeGreaterThan(0);
+    expect(handPanel.flexBasis).toBe('auto');
+  }
+  expect(screen.getByRole('button', { name: 'Bỏ lượt' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Đánh 0 lá' })).toBeTruthy();
+});
 afterEach(() => jest.useRealTimers());
 
 const room: CardGameRoom = {
@@ -841,6 +861,8 @@ it('keeps each stacked card suit visible directly under its rank', () => {
   const card = within(screen.getByRole('button', { name: '3 bích' }));
   const rank = card.getByText('3');
   const suit = card.getByText('♠');
+  expect(rank.props.allowFontScaling).toBe(false);
+  expect(suit.props.allowFontScaling).toBe(false);
   expect(StyleSheet.flatten(suit.props.style)).toMatchObject({
     alignSelf: 'flex-start',
     marginTop: -1,

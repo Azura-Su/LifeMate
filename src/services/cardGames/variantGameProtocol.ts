@@ -81,7 +81,7 @@ function isResult(
     !keys(value, ['reason', 'ranking']) ||
     typeof value.reason !== 'string' ||
     !Array.isArray(value.ranking) ||
-    value.ranking.length > 4 ||
+    value.ranking.length > playerIds.size ||
     !value.ranking.every(
       (result) =>
         object(result) &&
@@ -97,7 +97,7 @@ function isResult(
         ]) &&
         uid(result.uid) &&
         playerIds.has(result.uid) &&
-        count(result.rank, 4) &&
+        count(result.rank, playerIds.size) &&
         result.rank >= 1 &&
         Array.isArray(result.labels) &&
         result.labels.length <= 8 &&
@@ -151,11 +151,11 @@ function hasBalancedBreakdowns(value: unknown) {
   );
 }
 
-function isPlayers(value: unknown, maxCards: number, viewer: string) {
+function isPlayers(value: unknown, maxCards: number, viewer: string, capacity = 4) {
   if (
     !Array.isArray(value) ||
     value.length < 2 ||
-    value.length > 4 ||
+    value.length > capacity ||
     !value.every(
       (player) =>
         object(player) &&
@@ -181,6 +181,7 @@ function isCommonView(
   rulesVersions: string[],
   handMax: number,
   extras: string[],
+  capacity = 4,
 ) {
   if (
     !object(value) ||
@@ -208,7 +209,7 @@ function isCommonView(
   )
     return null;
 
-  const playerIds = isPlayers(value.players, handMax, viewer);
+  const playerIds = isPlayers(value.players, handMax, viewer, capacity);
   if (!playerIds || !value.passed.every((playerUid) => playerIds.has(playerUid)))
     return null;
   const ownPlayer = (value.players as { uid: string; count: number }[]).find(
@@ -267,7 +268,7 @@ export function isSamView(value: unknown, viewer: string): value is SamView {
     'reportedSam',
     'callUid',
     'samOutcome',
-  ]);
+  ], 5);
   if (!common) return false;
   const game = common.value;
   const hand = game.hand as number[];
@@ -275,13 +276,13 @@ export function isSamView(value: unknown, viewer: string): value is SamView {
   if (
     !['report-sam', 'play'].includes(game.step as string) ||
     !Array.isArray(game.reportOrder) ||
-    game.reportOrder.length > 4 ||
+    game.reportOrder.length > 5 ||
     new Set(game.reportOrder).size !== game.reportOrder.length ||
     !game.reportOrder.every(
       (playerUid) => uid(playerUid) && common.playerIds.has(playerUid),
     ) ||
     !Array.isArray(game.reported) ||
-    game.reported.length > 4 ||
+    game.reported.length > 5 ||
     new Set(game.reported).size !== game.reported.length ||
     !game.reported.every(
       (playerUid) => uid(playerUid) && common.playerIds.has(playerUid),
@@ -363,7 +364,7 @@ export function isTanView(value: unknown, viewer: string): value is TanView {
   )
     return false;
 
-  const playerIds = isPlayers(value.players, 52, viewer);
+  const playerIds = isPlayers(value.players, 52, viewer, 6);
   if (
     !playerIds ||
     ((value.players as { uid: string; count: number }[]).find(

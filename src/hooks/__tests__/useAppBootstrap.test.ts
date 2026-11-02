@@ -60,15 +60,41 @@ jest.mock('../../services/firebase/remoteConfigService', () => ({
 
 describe('session lifecycle', () => {
   let authChanged: (user: SessionUser | null) => void;
+  let authFailed: () => void;
   const unsubscribePush = jest.fn();
   beforeEach(() => {
     useAuthStore.setState({ user: null, initializing: true });
     useNotificationStore.getState().reset();
-    jest.mocked(observeAuth).mockImplementation((callback) => {
+    jest.mocked(observeAuth).mockImplementation((callback, onError) => {
       authChanged = callback;
+      authFailed = onError;
       return jest.fn();
     });
     jest.mocked(observePush).mockReturnValue(unsubscribePush);
+  });
+
+  it('clears notifications and revokes push when the auth observer fails', async () => {
+    jest.mocked(registerPush).mockResolvedValue({
+      permission: 'granted',
+      token: 'account-token',
+    });
+    const { unmount } = renderHook(useAppBootstrap);
+    await act(async () =>
+      authChanged({ uid: 'a', email: 'a@b.co', displayName: null }),
+    );
+    useNotificationStore.setState({
+      lastMessage: { title: 'Private reminder', body: 'Account a' },
+    });
+    expect(useNotificationStore.getState().token).toBe('account-token');
+
+    await act(async () => authFailed());
+
+    expect(useAuthStore.getState().user).toBeNull();
+    expect(useNotificationStore.getState().token).toBeNull();
+    expect(useNotificationStore.getState().lastMessage).toBeNull();
+    expect(disablePush).toHaveBeenCalledTimes(1);
+    expect(unsubscribePush).toHaveBeenCalled();
+    unmount();
   });
   it('ignores a registration result arriving after logout and unsubscribes listeners', async () => {
     let finish!: (value: { permission: 'granted'; token: string }) => void;

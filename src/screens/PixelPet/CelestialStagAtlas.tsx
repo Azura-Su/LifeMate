@@ -298,8 +298,8 @@ type Props = {
 const HOOF_LINE_FROM_CENTER = 288 / 320 - 0.5;
 /**
  * Home's ground line (the tab bar's top edge) below the centre of the Stag's
- * box, as a fraction of the box: HomePetRoamer lays the box at
- * `height - SIZE - xs + GROUND_Y - STAG_GROUND_LIFT`, so the container's bottom
+ * box, as a fraction of the box: HomePetRoamer lays the fitted box at
+ * `height - petSize * 0.81`, so the container's bottom
  * edge falls at 0.81 × SIZE inside it.
  */
 export const CELESTIAL_STAG_HOME_GROUND_FROM_CENTER = 0.81 - 0.5;
