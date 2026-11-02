@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors, layout } from '../../theme';
+import { colors, layout, shadows, radius, spacing } from '../../theme';
 import { actionIconStyles } from '../../theme/actionIcons';
 
 export const styles = StyleSheet.create({
@@ -69,12 +69,13 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
   },
   listCard: {
-    padding: 14,
+    padding: spacing.lg,
     gap: 10,
-    borderRadius: 20,
+    borderRadius: radius.xxl,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surface,
+    ...shadows.card,
   },
   listOpen: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   listIcon: {
@@ -128,10 +129,11 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     padding: 22,
-    borderRadius: 16,
+    borderRadius: radius.xxl,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surface,
+    ...shadows.card,
   },
   emptyTitle: { fontSize: 14, fontWeight: '700', color: colors.ink },
   emptyText: {

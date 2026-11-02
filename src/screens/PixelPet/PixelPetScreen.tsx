@@ -1,3 +1,4 @@
+import { FadeInView } from '../../components/FadeInView';
 import Feather from '@expo/vector-icons/Feather';
 import { useIsFocused } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -45,8 +46,14 @@ import { PetStageBackdrop } from './PetStageBackdrop';
 import { PetCareGuide } from './PetCareGuide';
 import { styles } from './PixelPetScreen.styles';
 import { PetAppearancePicker } from './PetAppearancePicker';
-import { PetAppearancePreview, petAppearanceComposition } from './PetAppearancePreview';
-import { resolvePetAppearance, sleepSceneOptions } from '../../services/pixelPet/pixelPetAppearance';
+import {
+  PetAppearancePreview,
+  petAppearanceComposition,
+} from './PetAppearancePreview';
+import {
+  resolvePetAppearance,
+  sleepSceneOptions,
+} from '../../services/pixelPet/pixelPetAppearance';
 
 type Props = BottomTabScreenProps<MainTabParams, 'PixelPet'>;
 const STAGE_LABEL = {
@@ -237,12 +244,16 @@ export function PixelPetScreen({ navigation }: Props) {
   const pet = state?.pet ?? null;
   const display = pet ? resolvePetAppearance(pet) : null;
   const compositionSize = stageSize || 260;
-  const composition = pet ? petAppearanceComposition(pet.speciesId, compositionSize) : null;
+  const composition = pet
+    ? petAppearanceComposition(pet.speciesId, compositionSize)
+    : null;
   // Reserve the scene's proportions before it unlocks, so Lv2 only adds the
   // backdrop and never shrinks the pet or changes its size when it wakes.
   const hasSleepScenes = !!pet && sleepSceneOptions(pet.speciesId).length > 0;
-  const displaySpriteSize = hasSleepScenes && composition
-    ? composition.petSize * composition.scale : spriteSize;
+  const displaySpriteSize =
+    hasSleepScenes && composition
+      ? composition.petSize * composition.scale
+      : spriteSize;
   const species = pixelPetSpecies(
     pet?.speciesId ?? reservation?.speciesId ?? '',
   );
@@ -302,7 +313,7 @@ export function PixelPetScreen({ navigation }: Props) {
       {!!error && <Text style={styles.notice}>{error}</Text>}
 
       {species && (
-        <View style={styles.hero}>
+        <FadeInView delay={0} style={styles.hero}>
           <View
             style={styles.stage}
             onLayout={({ nativeEvent }) =>
@@ -317,25 +328,32 @@ export function PixelPetScreen({ navigation }: Props) {
               stageScale={
                 (species.id === CELESTIAL_STAG_ID
                   ? celestialStagLevelLookScale(display?.level)
-                  : undefined) ?? STAGE_LOOK[display?.stage ?? 'hatchling'].scale
+                  : undefined) ??
+                STAGE_LOOK[display?.stage ?? 'hatchling'].scale
               }
             />
             {pet && sleeping && hasSleepScenes ? (
-              <PetAppearancePreview pet={pet} size={compositionSize} active={focused && active && !appearanceOpen} />
-            ) : <PixelPetSprite
-              species={species}
-              stage={display?.stage ?? 'hatchling'}
-              level={display?.level}
-              size={displaySpriteSize}
-              clip={clip}
-              flightPhase={clip === 'fly' ? 'glide' : undefined}
-              expression={expression}
-              sleeping={sleeping}
-              active={focused && active && !appearanceOpen}
-              loopMovement={loopMovement}
-              homeMotion={homeMotion}
-              onClipEnd={onClipEnd}
-            />}
+              <PetAppearancePreview
+                pet={pet}
+                size={compositionSize}
+                active={focused && active && !appearanceOpen}
+              />
+            ) : (
+              <PixelPetSprite
+                species={species}
+                stage={display?.stage ?? 'hatchling'}
+                level={display?.level}
+                size={displaySpriteSize}
+                clip={clip}
+                flightPhase={clip === 'fly' ? 'glide' : undefined}
+                expression={expression}
+                sleeping={sleeping}
+                active={focused && active && !appearanceOpen}
+                loopMovement={loopMovement}
+                homeMotion={homeMotion}
+                onClipEnd={onClipEnd}
+              />
+            )}
           </View>
           {pet && (
             <View style={styles.heroInfo}>
@@ -410,12 +428,20 @@ export function PixelPetScreen({ navigation }: Props) {
               </View>
             </View>
           )}
-        </View>
+        </FadeInView>
       )}
 
       {pet && species && (
-        <Button title="Hình dạng & khung ngủ" compact variant="secondary" disabled={!!busy}
-          onPress={() => { setError(null); setAppearanceOpen(true); }} />
+        <Button
+          title="Hình dạng & khung ngủ"
+          compact
+          variant="secondary"
+          disabled={!!busy}
+          onPress={() => {
+            setError(null);
+            setAppearanceOpen(true);
+          }}
+        />
       )}
 
       {species && (
@@ -449,7 +475,10 @@ export function PixelPetScreen({ navigation }: Props) {
             />
           ))}
           {PIXEL_PET_EXCLUSIVE.includes(species) &&
-            uniqueStagClips(species.id === CELESTIAL_STAG_ID ? display?.level : undefined, PUPPET_PREVIEW_CLIPS).map(({ clip: value, label }) => (
+            uniqueStagClips(
+              species.id === CELESTIAL_STAG_ID ? display?.level : undefined,
+              PUPPET_PREVIEW_CLIPS,
+            ).map(({ clip: value, label }) => (
               <ActionChip
                 key={value}
                 clip={value}
@@ -462,7 +491,7 @@ export function PixelPetScreen({ navigation }: Props) {
       )}
 
       {state?.status === 'none' && (
-        <View style={styles.card}>
+        <FadeInView delay={80} style={styles.card}>
           <Text style={styles.name}>Nhận nuôi linh thú</Text>
           <Text style={styles.body}>
             Có đúng 15 linh thú, mỗi loài chỉ có một cá thể. Bạn có 3 lượt chọn
@@ -486,11 +515,11 @@ export function PixelPetScreen({ navigation }: Props) {
               onPress={() => void command('restore')}
             />
           )}
-        </View>
+        </FadeInView>
       )}
 
       {reservation && species && (
-        <View style={styles.card}>
+        <FadeInView delay={160} style={styles.card}>
           <Text style={styles.name}>{species.name}</Text>
           <Text style={styles.meta}>
             {species.personality} · Kỹ năng: {species.skill}
@@ -521,14 +550,14 @@ export function PixelPetScreen({ navigation }: Props) {
               />
             )}
           </View>
-        </View>
+        </FadeInView>
       )}
 
       {pet && species && (
         <>
           {!!state?.todayEffects &&
             Object.keys(state.todayEffects).length > 0 && (
-              <View style={styles.card}>
+              <FadeInView delay={240} style={styles.card}>
                 <Text style={styles.meta}>Hôm nay từ sổ thu chi</Text>
                 <View style={styles.row}>
                   {(Object.keys(state.todayEffects) as PixelPetEffect[]).map(
@@ -546,7 +575,7 @@ export function PixelPetScreen({ navigation }: Props) {
                     ),
                   )}
                 </View>
-              </View>
+              </FadeInView>
             )}
 
           <View style={styles.actionsRow}>
@@ -576,11 +605,25 @@ export function PixelPetScreen({ navigation }: Props) {
       )}
 
       {appearanceOpen && pet && (
-        <PetAppearancePicker key={`${uid}:${pet.adoptionId}`} pet={pet} busy={busy === 'appearance'} error={error}
-          onClose={() => { setAppearanceOpen(false); setError(null); }}
-          onSave={(selection) => void run({ type: 'appearance', adoptionId: pet.adoptionId, ...selection }, () => {
-            setAppearanceOpen(false); rest();
-          })} />
+        <PetAppearancePicker
+          key={`${uid}:${pet.adoptionId}`}
+          pet={pet}
+          busy={busy === 'appearance'}
+          error={error}
+          onClose={() => {
+            setAppearanceOpen(false);
+            setError(null);
+          }}
+          onSave={(selection) =>
+            void run(
+              { type: 'appearance', adoptionId: pet.adoptionId, ...selection },
+              () => {
+                setAppearanceOpen(false);
+                rest();
+              },
+            )
+          }
+        />
       )}
 
       {guideOpen && species && (

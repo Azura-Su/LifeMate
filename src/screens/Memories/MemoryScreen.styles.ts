@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors, layout, typography } from '../../theme';
+import { colors, layout, shadows, typography, radius } from '../../theme';
 import { actionIconStyles } from '../../theme/actionIcons';
 
 export const styles = StyleSheet.create({
@@ -29,7 +29,12 @@ export const styles = StyleSheet.create({
     rowGap: 4,
   },
   timelineTabsContainer: { paddingBottom: 4 },
-  timelineItem: { marginBottom: 16 },
+  timelineItem: {
+    marginBottom: 18,
+    borderRadius: radius.xxl,
+    backgroundColor: colors.surface,
+    ...shadows.card,
+  },
   timelineSectionHeader: { marginTop: 4, marginBottom: 10 },
   captureContent: {
     paddingHorizontal: layout.screenGutter,
@@ -302,7 +307,7 @@ export const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 20,
+    borderRadius: radius.xxl,
     backgroundColor: colors.surface,
   },
   syncStatus: {

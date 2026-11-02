@@ -1,3 +1,4 @@
+import { FadeInView } from '../../components/FadeInView';
 import Feather from '@expo/vector-icons/Feather';
 import { useRef } from 'react';
 import {
@@ -40,15 +41,15 @@ export function RegisterScreen() {
             <Text style={styles.backText}>‹ Đăng nhập</Text>
           </Pressable>
         )}
-        <View style={loginStyles.brand}>
+        <FadeInView delay={0} style={loginStyles.brand}>
           <BrandAvatar size={56} />
           <Text style={loginStyles.wordmark}>LifeMate</Text>
-        </View>
+        </FadeInView>
         {model.created ? (
           <RegisterCompletion model={model} />
         ) : (
           <>
-            <View style={styles.intro}>
+            <FadeInView delay={90} style={styles.intro}>
               <Text style={typography.eyebrow}>BẮT ĐẦU VỚI LIFEMATE</Text>
               <Text accessibilityRole="header" style={styles.title}>
                 Tạo tài khoản
@@ -56,8 +57,8 @@ export function RegisterScreen() {
               <Text style={typography.body}>
                 Giữ những điều quan trọng trong một nơi dành riêng cho bạn.
               </Text>
-            </View>
-            <View style={loginStyles.form}>
+            </FadeInView>
+            <FadeInView delay={180} style={loginStyles.form}>
               <Text style={loginStyles.label}>Tên hiển thị</Text>
               <TextInput
                 accessibilityLabel="Tên hiển thị"
@@ -160,7 +161,7 @@ export function RegisterScreen() {
                 Chúng tôi sẽ gửi thư xác nhận đến email này ngay sau khi tạo tài
                 khoản.
               </Text>
-            </View>
+            </FadeInView>
           </>
         )}
       </Screen>

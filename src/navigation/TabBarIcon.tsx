@@ -18,8 +18,8 @@ export function TabBarIcon({ name, focused, color }: Props) {
   useEffect(() => {
     Animated.spring(progress, {
       toValue: focused ? 1 : 0,
-      damping: 16,
-      stiffness: 220,
+      damping: 9,
+      stiffness: 200,
       mass: 0.7,
       useNativeDriver: true,
     }).start();
@@ -41,13 +41,13 @@ export function TabBarIcon({ name, focused, color }: Props) {
       {
         translateY: progress.interpolate({
           inputRange: [0, 1],
-          outputRange: [0, -1],
+          outputRange: [0, -3],
         }),
       },
       {
         scale: progress.interpolate({
           inputRange: [0, 1],
-          outputRange: [1, 1.08],
+          outputRange: [1, 1.18],
         }),
       },
     ],

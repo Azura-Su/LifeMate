@@ -1,3 +1,4 @@
+import { staggerDelay } from '../../utils/motion';
 import { HeaderIconButton, TabHeader } from '../../components/ScreenHeader';
 import Feather from '@expo/vector-icons/Feather';
 import {
@@ -40,6 +41,8 @@ import {
 import { useLoanLedger } from '../../hooks/useLoanLedger';
 import { useHeldMoneyLedger } from '../../hooks/useHeldMoneyLedger';
 import { useFinanceStore } from '../../store/financeStore';
+import { PressableScale } from '../../components/PressableScale';
+import { FadeInView } from '../../components/FadeInView';
 import { FinanceMonthSection } from './FinanceMonthSection';
 import {
   FinanceCategoryReport,
@@ -164,7 +167,8 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
         loanResult.status === 'rejected' ||
         !loanResult.value ||
         finance.uid !== model.uid ||
-        finance.syncStatus !== 'synced' ||
+        (finance.syncStatus !== 'synced' &&
+          finance.syncStatus !== 'recovery') ||
         finance.error
       )
         throw new Error('Refresh failed');
@@ -179,9 +183,62 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     }
   }
 
+  function confirmCacheRecovery(scope: 'finance' | 'loans') {
+    if (
+      !canInteract() ||
+      !model.uid ||
+      refreshing ||
+      model.loading ||
+      loanLedger.loading
+    )
+      return;
+    const uid = model.uid;
+    const label = scope === 'finance' ? 'thu chi' : 'cho vay';
+    Alert.alert(
+      `Khôi phục cache ${label}?`,
+      'Dùng bản mới nhất trên cloud để dựng lại dữ liệu trên máy. Cache cũ và các thay đổi chưa đồng bộ sẽ được giữ trong một bản dự phòng mã hóa, không tự gộp vào bản cloud.',
+      [
+        { text: 'Để sau', style: 'cancel' },
+        {
+          text: 'Khôi phục',
+          onPress: async () => {
+            if (!canInteract() || model.uid !== uid || refreshRequest.current)
+              return;
+            const request = {};
+            refreshRequest.current = request;
+            setRefreshing(true);
+            setRefreshError(null);
+            try {
+              if (scope === 'finance') await model.recoverCache();
+              else await loanLedger.recoverCache();
+            } catch (error) {
+              if (refreshRequest.current === request)
+                setRefreshError(
+                  error instanceof Error
+                    ? error.message
+                    : 'Chưa khôi phục được cache. Hãy thử lại.',
+                );
+            } finally {
+              if (refreshRequest.current === request) {
+                refreshRequest.current = null;
+                setRefreshing(false);
+              }
+            }
+          },
+        },
+      ],
+    );
+  }
+
   function openFinanceConflict() {
     const conflict = model.conflicts[0];
-    if (!canInteract() || !conflict || !model.uid) return;
+    if (
+      !canInteract() ||
+      !conflict ||
+      !model.uid ||
+      model.syncStatus === 'recovery'
+    )
+      return;
     const uid = model.uid;
     const describe = (item: FinanceTransaction) => {
       const shared = item.sharedExpense;
@@ -229,6 +286,8 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     [correctableDeletedLoanIds, loanLedger.loading],
   );
   const currentDate = new Date();
+  // The overview animates in once; switching report tabs remounts it.
+  const overviewIntroPlayed = useRef(false);
   const [reportMode, setReportMode] = useState<
     'overview' | 'income' | 'expense' | 'loans' | 'held'
   >('overview');
@@ -304,6 +363,10 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     string | null
   >(null);
   useEffect(() => setRevealedTransactionId(null), [model.uid]);
+  useEffect(() => {
+    if (reportMode === 'overview' && !model.loading)
+      overviewIntroPlayed.current = true;
+  }, [reportMode, model.loading]);
   const [reportIncomeSource, setReportIncomeSource] =
     useState<FinanceIncomeSourceFilter>('company');
   const [reportPeriodMode, setReportPeriodMode] =
@@ -350,6 +413,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     period?: FinanceReportPoint,
     incomeSource: RegularFinanceIncomeSource = 'company',
   ) {
+    if (model.syncStatus === 'recovery') return;
     setEditTarget(null);
     const today = new Date();
     const isCurrentMonth =
@@ -400,6 +464,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     transaction: FinanceTransaction,
     instant = false,
   ) {
+    if (model.syncStatus === 'recovery') return;
     setSharedDetailId(null);
     setInstantEditOpen(instant);
     setEditTarget(transaction);
@@ -527,14 +592,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
           : reportMode === 'loans'
             ? 'Thêm khoản cho vay'
             : 'Thêm khoản đóng hộ';
-  const loanSyncStatus =
-    model.syncStatus === 'recovery'
-      ? 'recovery'
-      : model.syncStatus === 'local' || loanLedger.syncStatus === 'local'
-        ? 'local'
-        : model.syncStatus === 'synced' && loanLedger.syncStatus === 'synced'
-          ? 'synced'
-          : null;
+  const loanSyncStatus = loanLedger.syncStatus;
   const displaySyncStatus =
     reportMode === 'loans'
       ? loanSyncStatus
@@ -553,7 +611,10 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
     saving ||
     (reportMode === 'held'
       ? heldLedger.loading || heldLedger.busy
-      : model.loading || (reportMode === 'loans' && loanLedger.loading));
+      : model.loading ||
+        (reportMode !== 'loans' && model.syncStatus === 'recovery') ||
+        (reportMode === 'loans' &&
+          (loanLedger.loading || loanLedger.syncStatus === 'recovery')));
   const syncActionBusy =
     reportMode === 'held'
       ? heldLedger.loading
@@ -590,8 +651,10 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
   function renderReportTab(tab: (typeof reportTabs)[number]) {
     const selected = reportMode === tab.value;
     return (
-      <Pressable
+      <PressableScale
         key={tab.value}
+        pressedScale={0.94}
+        wrapperStyle={styles.reportModeCell}
         accessibilityRole="tab"
         accessibilityLabel={tab.accessibilityLabel}
         accessibilityState={{ selected }}
@@ -618,7 +681,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
         >
           {tab.label}
         </Text>
-      </Pressable>
+      </PressableScale>
     );
   }
 
@@ -757,6 +820,24 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
                 ))}
             </View>
           )}
+          {displaySyncStatus === 'recovery' && (
+            <Button
+              compact
+              variant="secondary"
+              title={
+                reportMode === 'loans'
+                  ? 'Khôi phục cache cho vay'
+                  : 'Khôi phục cache thu chi'
+              }
+              loading={refreshing}
+              disabled={syncActionBusy || refreshing}
+              onPress={() =>
+                confirmCacheRecovery(
+                  reportMode === 'loans' ? 'loans' : 'finance',
+                )
+              }
+            />
+          )}
           <View style={styles.reportMode} accessibilityRole="tablist">
             {reportTabs.map(renderReportTab)}
           </View>
@@ -818,7 +899,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
         reportMode !== 'loans' &&
         reportMode !== 'held' &&
         !!feedbackError && (
-          <View>
+          <View style={styles.feedbackRow}>
             <Text accessibilityRole="alert" style={styles.feedback}>
               {feedbackError}
             </Text>
@@ -874,7 +955,11 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
         />
       ) : reportMode === 'overview' ? (
         <>
-          <View style={styles.summary}>
+          <FadeInView
+            offset={20}
+            skip={overviewIntroPlayed.current}
+            style={styles.summary}
+          >
             <View style={styles.balance}>
               <Text style={styles.balanceLabel}>Còn lại trong kỳ</Text>
               <Text style={styles.balanceAmount}>
@@ -895,7 +980,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
                 </Text>
               </View>
             </View>
-          </View>
+          </FadeInView>
 
           <View style={styles.sectionHeader}>
             <Text accessibilityRole="header" style={styles.sectionTitle}>
@@ -907,7 +992,7 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
           </View>
 
           {!!feedbackError && (
-            <View>
+            <View style={styles.feedbackRow}>
               <Text accessibilityRole="alert" style={styles.feedback}>
                 {feedbackError}
               </Text>
@@ -938,29 +1023,34 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
           )}
 
           <View style={styles.monthList}>
-            {overviewMonths.map((month) => (
-              <FinanceMonthSection
+            {overviewMonths.map((month, monthIndex) => (
+              <FadeInView
                 key={month.month}
-                year={model.year}
-                month={month.month}
-                transactions={month.transactions}
-                income={month.income}
-                expense={month.expense}
-                balance={month.balance}
-                pendingSharedExpenses={overviewPending}
-                onDelete={deleteRow}
-                onEdit={editRow}
-                canDeleteLinkedExpense={canDeleteLinkedExpense}
-                deletingIds={deletingIds}
-                loansById={loansById}
-                onOpenLoan={openLinkedLoan}
-                onAdd={() =>
-                  openAddDialog('income', {
-                    year: model.year,
-                    month: month.month,
-                  })
-                }
-              />
+                delay={staggerDelay(monthIndex, 70, 5)}
+                skip={overviewIntroPlayed.current}
+              >
+                <FinanceMonthSection
+                  year={model.year}
+                  month={month.month}
+                  transactions={month.transactions}
+                  income={month.income}
+                  expense={month.expense}
+                  balance={month.balance}
+                  pendingSharedExpenses={overviewPending}
+                  onDelete={deleteRow}
+                  onEdit={editRow}
+                  canDeleteLinkedExpense={canDeleteLinkedExpense}
+                  deletingIds={deletingIds}
+                  loansById={loansById}
+                  onOpenLoan={openLinkedLoan}
+                  onAdd={() =>
+                    openAddDialog('income', {
+                      year: model.year,
+                      month: month.month,
+                    })
+                  }
+                />
+              </FadeInView>
             ))}
           </View>
         </>

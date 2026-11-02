@@ -64,14 +64,18 @@ it('shows recovered cloud transactions when the device cache key is unavailable'
     });
 
     const edited = { ...row, amount: 30000000 };
-    await act(async () => useFinanceStore.getState().update('u1', edited, row));
+    await act(async () => {
+      await expect(
+        useFinanceStore.getState().update('u1', edited, row),
+      ).rejects.toThrow('khôi phục');
+    });
 
     expect(useFinanceStore.getState()).toMatchObject({
-      transactions: [edited],
+      transactions: [row],
       syncStatus: 'recovery',
-      error: null,
+      error: 'Cần khôi phục cache trước khi sửa sổ thu chi.',
     });
-    expect(getFirestoreMockRows('u1')).toEqual([edited]);
+    expect(getFirestoreMockRows('u1')).toEqual([row]);
   } finally {
     if (originalGetItem) getItem.mockImplementation(originalGetItem);
   }

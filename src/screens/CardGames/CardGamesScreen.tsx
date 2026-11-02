@@ -1,5 +1,7 @@
+import { FadeInView } from '../../components/FadeInView';
 import Feather from '@expo/vector-icons/Feather';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { PressableScale } from '../../components/PressableScale';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -484,11 +486,7 @@ export function CardGamesScreen({
     if (!uid || !roomCode) return;
     const cachedGameKind = getCachedRoomSnapshot(uid, roomCode)?.room?.gameKind;
     const requestedGameKind = route.params?.gameKind ?? cachedGameKind;
-    const variantGame:
-      | 'north'
-      | 'sam'
-      | 'tan'
-      | undefined =
+    const variantGame: 'north' | 'sam' | 'tan' | undefined =
       requestedGameKind === 'north' ||
       requestedGameKind === 'sam' ||
       requestedGameKind === 'tan'
@@ -507,7 +505,13 @@ export function CardGamesScreen({
     });
     setConnectRequested(true);
     navigation.setParams({ roomCode: undefined, gameKind: undefined });
-  }, [navigation, route.params?.roomCode, route.params?.gameKind, uid, playerName]);
+  }, [
+    navigation,
+    route.params?.roomCode,
+    route.params?.gameKind,
+    uid,
+    playerName,
+  ]);
   useEffect(() => {
     if (
       serverRoom ||
@@ -533,7 +537,10 @@ export function CardGamesScreen({
     }
   }, [serverRoom, sessionInitializationError, state, queuedRoomIntent]);
   useEffect(() => {
-    if (!active) { setRules(false); setScannerVisible(false); }
+    if (!active) {
+      setRules(false);
+      setScannerVisible(false);
+    }
   }, [active]);
   const send = (intent: GameIntent) => {
     Keyboard.dismiss();
@@ -786,7 +793,8 @@ export function CardGamesScreen({
         playing && landscape && styles.landscapeHeader,
       ]}
     >
-      <Pressable
+      <PressableScale
+        pressedScale={0.88}
         accessibilityRole="button"
         accessibilityLabel="Quay lại Trò chơi & điểm số"
         disabled={backBlocked}
@@ -801,19 +809,21 @@ export function CardGamesScreen({
         onPress={handleBack}
       >
         <Feather name="arrow-left" size={22} color={colors.earth} />
-      </Pressable>
+      </PressableScale>
       <View style={styles.headerCopy}>
         <Text
           accessibilityRole="header"
           style={[styles.title, playing && landscape && styles.landscapeTitle]}
         >
-          {{
-            south: 'Tiến lên miền Nam',
-            phom: 'Phỏm',
-            north: 'Tiến lên miền Bắc',
-            sam: 'Sâm',
-            tan: 'Tấn',
-          }[room?.gameKind ?? selectedGame ?? 'south']}
+          {
+            {
+              south: 'Tiến lên miền Nam',
+              phom: 'Phỏm',
+              north: 'Tiến lên miền Bắc',
+              sam: 'Sâm',
+              tan: 'Tấn',
+            }[room?.gameKind ?? selectedGame ?? 'south']
+          }
         </Text>
         {room && !state?.connected && (
           <View
@@ -837,7 +847,8 @@ export function CardGamesScreen({
         )}
       </View>
       {room && (
-        <Pressable
+        <PressableScale
+          pressedScale={0.88}
           accessibilityRole="button"
           accessibilityLabel={room ? 'Mã phòng' : 'Xem luật chơi'}
           hitSlop={playing && landscape ? 6 : undefined}
@@ -855,7 +866,7 @@ export function CardGamesScreen({
           }}
         >
           <Feather name="help-circle" size={22} color={colors.earth} />
-        </Pressable>
+        </PressableScale>
       )}
     </View>
   );
@@ -949,7 +960,7 @@ export function CardGamesScreen({
           }
         >
           {!enabled ? (
-            <View style={styles.section}>
+            <FadeInView delay={0} style={styles.section}>
               <Text style={styles.heading}>
                 Phòng online đang được chuẩn bị
               </Text>
@@ -960,7 +971,7 @@ export function CardGamesScreen({
                 title="Về bảng điểm"
                 onPress={() => navigation.navigate('CardScore')}
               />
-            </View>
+            </FadeInView>
           ) : createPending && !room ? (
             <>
               {error}
@@ -990,7 +1001,7 @@ export function CardGamesScreen({
           ) : !room ? (
             <>
               {error}
-              <View style={styles.section}>
+              <FadeInView delay={70} style={styles.section}>
                 <View style={styles.introCopy}>
                   <Text style={styles.heading}>Chơi cùng bạn bè</Text>
                   <Text style={styles.body}>
@@ -1046,7 +1057,10 @@ export function CardGamesScreen({
                         title="Quét QR vào phòng"
                         variant="secondary"
                         disabled={blocked}
-                        onPress={() => { Keyboard.dismiss(); setScannerVisible(true); }}
+                        onPress={() => {
+                          Keyboard.dismiss();
+                          setScannerVisible(true);
+                        }}
                       />
                       <Button
                         title="Vào phòng"
@@ -1160,7 +1174,7 @@ export function CardGamesScreen({
                     />
                   </View>
                 </View>
-              </View>
+              </FadeInView>
             </>
           ) : tableVisible ? (
             <>
@@ -1249,7 +1263,10 @@ export function CardGamesScreen({
           ) : (
             <>
               {error}
-              <View style={[styles.section, styles.roomInfoSection]}>
+              <FadeInView
+                delay={140}
+                style={[styles.section, styles.roomInfoSection]}
+              >
                 <View style={styles.row}>
                   <Pressable
                     accessibilityRole="button"
@@ -1288,9 +1305,9 @@ export function CardGamesScreen({
                       : `2–4 người · ${room.amountPerCard ?? 0} đ/lá còn`}{' '}
                   · 40 giây/lượt
                 </Text>
-              </View>
+              </FadeInView>
               {!!room.game?.result && (
-                <View style={styles.section}>
+                <FadeInView delay={210} style={styles.section}>
                   <Text style={styles.heading}>
                     {reasons[room.game.result.reason] ?? 'Kết quả ván'}
                   </Text>
@@ -1348,9 +1365,12 @@ export function CardGamesScreen({
                       </View>
                     );
                   })}
-                </View>
+                </FadeInView>
               )}
-              <View style={[styles.section, styles.lobbySection]}>
+              <FadeInView
+                delay={280}
+                style={[styles.section, styles.lobbySection]}
+              >
                 <View style={styles.lobbyHeading}>
                   <Text style={styles.lobbyTitle}>Người chơi</Text>
                   <Text style={styles.playerCount}>
@@ -1459,7 +1479,7 @@ export function CardGamesScreen({
                     )}
                   </>
                 )}
-              </View>
+              </FadeInView>
             </>
           )}
         </Screen>
@@ -1470,7 +1490,11 @@ export function CardGamesScreen({
             onCode={(roomCode) => {
               setScannerVisible(false);
               setCode(roomCode);
-              startRoomAction({ type: 'join', name: playerName, code: roomCode });
+              startRoomAction({
+                type: 'join',
+                name: playerName,
+                code: roomCode,
+              });
             }}
           />
         )}
@@ -1499,7 +1523,15 @@ export function CardGamesScreen({
           visible={roomCodePopupVisible && !!room}
           onRequestClose={() => setRoomCodePopupVisible(false)}
           onBackdropPress={() => setRoomCodePopupVisible(false)}
-          style={[styles.roomCodeDialog, { maxHeight: Math.max(180, height - insets.top - insets.bottom - 40) }]}
+          style={[
+            styles.roomCodeDialog,
+            {
+              maxHeight: Math.max(
+                180,
+                height - insets.top - insets.bottom - 40,
+              ),
+            },
+          ]}
         >
           <View style={styles.roomCodeHeading}>
             <View style={styles.grow}>
@@ -1565,7 +1597,9 @@ export function CardGamesScreen({
               </View>
             </Pressable>
             {room && roomCodePopupVisible && <CardRoomQr code={room.code} />}
-            <Text style={styles.body}>Bạn bè có thể chọn Quét QR vào phòng trong màn Vào phòng có sẵn.</Text>
+            <Text style={styles.body}>
+              Bạn bè có thể chọn Quét QR vào phòng trong màn Vào phòng có sẵn.
+            </Text>
             <View style={styles.roomCodeActions}>
               {[
                 (room?.ownerUid !== undefined ? room.ownerUid : room?.host) ===

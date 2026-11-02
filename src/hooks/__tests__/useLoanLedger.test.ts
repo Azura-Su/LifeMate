@@ -83,6 +83,30 @@ beforeEach(() => {
   jest.mocked(cacheLoanRecord).mockResolvedValue(loaded);
 });
 
+it('shows cloud-only recovery as a successful read and skips reminder reconciliation', async () => {
+  jest
+    .mocked(readLoanData)
+    .mockResolvedValueOnce({
+      ...loaded,
+      synced: false,
+      cacheNeedsRecovery: true,
+    });
+  jest.mocked(reconcileLoanReminders).mockClear();
+  const { result } = renderHook(() => useLoanLedger('u1'));
+  await waitFor(() => expect(result.current.syncStatus).toBe('recovery'));
+  expect(result.current.loans).toEqual([loan]);
+  expect(result.current.error).toBeNull();
+  expect(reconcileLoanReminders).not.toHaveBeenCalled();
+  jest
+    .mocked(readLoanData)
+    .mockResolvedValueOnce({
+      ...loaded,
+      synced: false,
+      cacheNeedsRecovery: true,
+    });
+  await act(async () => expect(await result.current.load()).toBe(true));
+});
+
 it('finishes loading after a profile refresh replaces the user for the same UID', async () => {
   const reading = deferred();
   jest.mocked(readLoanData).mockImplementationOnce(async () => {

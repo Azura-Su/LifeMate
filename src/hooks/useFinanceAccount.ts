@@ -15,6 +15,7 @@ export function useFinanceAccount() {
   const loading = useFinanceStore((state) => state.loading);
   const error = useFinanceStore((state) => state.error);
   const load = useFinanceStore((state) => state.load);
+  const recoverCache = useFinanceStore((state) => state.recoverCache);
   const matchesAccount = !!uid && storeUid === uid;
 
   useEffect(() => {
@@ -30,5 +31,7 @@ export function useFinanceAccount() {
     loading: !!uid && (!matchesAccount || loading),
     error: matchesAccount ? error : null,
     refresh: () => load(uid),
+    recoverCache: () =>
+      uid ? recoverCache(uid) : Promise.reject(new Error('Bạn cần đăng nhập.')),
   };
 }

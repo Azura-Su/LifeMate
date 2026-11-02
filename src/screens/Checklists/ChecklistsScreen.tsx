@@ -1,4 +1,4 @@
-import { animateNextLayout } from '../../utils/motion';
+import { animateNextLayout, staggerDelay } from '../../utils/motion';
 import { HeaderIconButton, ScreenHeader } from '../../components/ScreenHeader';
 import Feather from '@expo/vector-icons/Feather';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -32,6 +32,9 @@ import type {
   PrepChecklistItem,
 } from '../../types/prepChecklist';
 import { colors } from '../../theme';
+import { AnimatedFill } from '../../components/AnimatedFill';
+import { FadeInView } from '../../components/FadeInView';
+import { PressableScale } from '../../components/PressableScale';
 import { parseDateKey, toDateKey } from '../../utils/vietnameseCalendar';
 import {
   MAX_CHECKLIST_ITEMS,
@@ -528,7 +531,7 @@ export function ChecklistsScreen({ navigation, route }: Props) {
               accessibilityValue={{ min: 0, max: 100, now: percent }}
               style={styles.progressTrack}
             >
-              <View style={[styles.progressFill, { width: `${percent}%` }]} />
+              <AnimatedFill style={styles.progressFill} percent={percent} />
             </View>
             <Text style={styles.sectionHint}>
               {selected.items.length === 0
@@ -579,7 +582,8 @@ export function ChecklistsScreen({ navigation, route }: Props) {
                   key={item.id}
                   style={[styles.itemRow, index > 0 && styles.itemDivider]}
                 >
-                  <Pressable
+                  <PressableScale
+                    pressedScale={0.8}
                     accessibilityRole="checkbox"
                     accessibilityLabel={
                       item.checked
@@ -601,7 +605,7 @@ export function ChecklistsScreen({ navigation, route }: Props) {
                     {item.checked && (
                       <Feather name="check" size={16} color={colors.surface} />
                     )}
-                  </Pressable>
+                  </PressableScale>
                   <View style={styles.itemInfo}>
                     <Text
                       style={[
@@ -695,7 +699,7 @@ export function ChecklistsScreen({ navigation, route }: Props) {
                 </Text>
               </View>
             ) : accountChecklists.length ? (
-              accountChecklists.map((checklist) => {
+              accountChecklists.map((checklist, listIndex) => {
                 const done = checklist.items.filter(
                   (item) => item.checked,
                 ).length;
@@ -703,7 +707,11 @@ export function ChecklistsScreen({ navigation, route }: Props) {
                   ? Math.round((done / checklist.items.length) * 100)
                   : 0;
                 return (
-                  <View key={checklist.id} style={styles.listCard}>
+                  <FadeInView
+                    key={checklist.id}
+                    delay={staggerDelay(listIndex, 70, 6)}
+                    style={styles.listCard}
+                  >
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={`Mở danh sách ${checklist.title}`}
@@ -744,11 +752,9 @@ export function ChecklistsScreen({ navigation, route }: Props) {
                         }}
                         style={styles.progressTrack}
                       >
-                        <View
-                          style={[
-                            styles.progressFill,
-                            { width: `${listPercent}%` },
-                          ]}
+                        <AnimatedFill
+                          style={styles.progressFill}
+                          percent={listPercent}
                         />
                       </View>
                     )}
@@ -778,7 +784,7 @@ export function ChecklistsScreen({ navigation, route }: Props) {
                         <Text style={styles.smallDangerText}>Xóa</Text>
                       </Pressable>
                     </View>
-                  </View>
+                  </FadeInView>
                 );
               })
             ) : (

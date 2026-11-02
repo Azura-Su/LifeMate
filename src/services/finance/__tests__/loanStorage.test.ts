@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import {
+  clearRepaymentAttempt,
   deleteLoanData,
   getOrCreateAdvanceAttempt,
   recordLoanAdvanceAtomically,
@@ -7,8 +9,10 @@ import {
   getOrCreateRepaymentAttempt,
   readLoanData,
   recordLoanRepaymentAtomically,
+  removeLoanRepaymentAtomically,
   reserveNewLoanAttempt,
   saveLoanData,
+  recoverLoanCache,
 } from '../loanStorage';
 import {
   getDocsFromServer,
@@ -16,6 +20,11 @@ import {
   seedFirestoreMock,
   resetFirestoreMock,
 } from '../../../testing/firestoreMock';
+import { useAuthStore } from '../../../store/authStore';
+import {
+  getEncryptedItem,
+  hasEncryptedItemRecovery,
+} from '../../security/encryptedLocalStorage';
 import type { LoanRecord } from '../../../types/loan';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
@@ -44,6 +53,233 @@ const loan: LoanRecord = {
 beforeEach(async () => {
   await AsyncStorage.clear();
   resetFirestoreMock();
+  useAuthStore
+    .getState()
+    .setUser({ uid: 'u1', email: null, displayName: null });
+});
+
+it('loads loans read-only from cloud when the local cache is unreadable, without replacing it', async () => {
+  await saveLoanData('u1', loan);
+  const key = 'lifemate:finance-loans:v1:u1';
+  const original = await AsyncStorage.getItem(key);
+  const readKey = jest
+    .mocked(SecureStore.getItemAsync)
+    .getMockImplementation()!;
+  jest
+    .mocked(SecureStore.getItemAsync)
+    .mockRejectedValue(new Error('Keychain unavailable'));
+  try {
+    expect(await readLoanData('u1')).toMatchObject({
+      loans: [loan],
+      synced: false,
+      cacheNeedsRecovery: true,
+      committedTransactions: [],
+    });
+    await expect(
+      recordLoanRepaymentAtomically('u1', loan.id, {
+        id: 'blocked',
+        amount: 100,
+        receivedAt: loan.lentAt,
+        financeTransactionId: `loan-${loan.id}-blocked`,
+        status: 'pending',
+      }),
+    ).rejects.toThrow('khôi phục');
+    expect(await AsyncStorage.getItem(key)).toBe(original);
+  } finally {
+    jest.mocked(SecureStore.getItemAsync).mockImplementation(readKey);
+  }
+  expect((await readLoanData('u1')).cacheNeedsRecovery).toBeUndefined();
+});
+
+it('keeps cloud loans visible when an absent cache cannot be written because Keychain is unavailable', async () => {
+  await saveLoanData('u1', loan);
+  await AsyncStorage.removeItem('lifemate:finance-loans:v1:u1');
+  const readKey = jest
+    .mocked(SecureStore.getItemAsync)
+    .getMockImplementation()!;
+  jest
+    .mocked(SecureStore.getItemAsync)
+    .mockRejectedValue(new Error('Keychain unavailable'));
+  try {
+    expect(await readLoanData('u1')).toMatchObject({
+      loans: [loan],
+      synced: false,
+      cacheNeedsRecovery: true,
+    });
+    await expect(
+      recordLoanRepaymentAtomically('u1', loan.id, {
+        id: 'blocked',
+        amount: 100,
+        receivedAt: loan.lentAt,
+        financeTransactionId: `loan-${loan.id}-blocked`,
+        status: 'pending',
+      }),
+    ).rejects.toThrow('khôi phục');
+  } finally {
+    jest.mocked(SecureStore.getItemAsync).mockImplementation(readKey);
+    await readLoanData('u1');
+  }
+});
+
+it('preserves retry attempts when writing the downloaded cloud loans fails and unblocks after retry', async () => {
+  await saveLoanData('u1', loan);
+  await reserveNewLoanAttempt('u1', loan);
+  const attemptKey = 'lifemate:loan-create-attempt:v1:u1';
+  const originalAttempt = await AsyncStorage.getItem(attemptKey);
+  const key = 'lifemate:finance-loans:v1:u1';
+  const originalCache = await AsyncStorage.getItem(key);
+  const write = jest.mocked(AsyncStorage.setItem).getMockImplementation()!;
+  jest
+    .mocked(AsyncStorage.setItem)
+    .mockImplementation(async (target, value) => {
+      if (target === key) throw new Error('Disk full');
+      return write(target, value);
+    });
+  try {
+    expect(await readLoanData('u1')).toMatchObject({
+      loans: [loan],
+      cacheNeedsRecovery: true,
+    });
+    expect(await AsyncStorage.getItem(attemptKey)).toBe(originalAttempt);
+    expect(await AsyncStorage.getItem(key)).toBe(originalCache);
+    await expect(clearRepaymentAttempt('u1', loan.id)).rejects.toThrow(
+      'khôi phục',
+    );
+  } finally {
+    jest.mocked(AsyncStorage.setItem).mockImplementation(write);
+  }
+  expect(await readLoanData('u1')).toMatchObject({
+    loans: [loan],
+    synced: true,
+  });
+  expect(await AsyncStorage.getItem(attemptKey)).toBeNull();
+  await expect(
+    getOrCreateRepaymentAttempt('u1', loan.id, 100, []),
+  ).resolves.toMatchObject({ amount: 100 });
+});
+
+it('checks unreadable cache before a direct atomic write, even before the first load', async () => {
+  const uid = 'direct-owner';
+  await saveLoanData(uid, { ...loan, ownerId: uid });
+  const key = `lifemate:finance-loans:v1:${uid}`;
+  await AsyncStorage.setItem(key, 'lifemate:aes-gcm:v1:damaged');
+  const before = getFirestoreMockRows(uid);
+  await expect(
+    recordLoanRepaymentAtomically(uid, loan.id, {
+      id: 'blocked',
+      amount: 100,
+      receivedAt: loan.lentAt,
+      financeTransactionId: `loan-${loan.id}-blocked`,
+      status: 'pending',
+    }),
+  ).rejects.toThrow('khôi phục');
+  expect(getFirestoreMockRows(uid)).toEqual(before);
+});
+
+it('archives unreadable loan and attempt caches, excludes another owner, and restores from cloud', async () => {
+  await saveLoanData('u1', loan);
+  const keys = [
+    'lifemate:finance-loans:v1:u1',
+    'lifemate:loan-create-attempt:v1:u1',
+    'lifemate:loan-repayment-attempt:v1:u1:loan-1',
+    'lifemate:loan-advance-attempt:v1:u1:loan-1',
+  ];
+  for (const key of keys)
+    await AsyncStorage.setItem(key, 'lifemate:aes-gcm:v1:damaged');
+  const otherKey = 'lifemate:loan-repayment-attempt:v1:u2:loan-1';
+  await AsyncStorage.setItem(otherKey, 'other-owner');
+  await recoverLoanCache('u1');
+  expect(await readLoanData('u1')).toMatchObject({
+    loans: [loan],
+    synced: true,
+  });
+  for (const key of keys.slice(1))
+    expect(await getEncryptedItem('u1', key)).toBe('null');
+  expect(await AsyncStorage.getItem(otherKey)).toBe('other-owner');
+  const backupKeys = (await AsyncStorage.getAllKeys()).filter((key) =>
+    key.startsWith('lifemate:cache-recovery-backup:loans:'),
+  );
+  const backup = JSON.parse((await getEncryptedItem('u1', backupKeys[0]))!);
+  expect(backup).toHaveLength(keys.length);
+  expect(
+    backup.every(
+      (entry: { previous: string }) =>
+        entry.previous === 'lifemate:aes-gcm:v1:damaged',
+    ),
+  ).toBe(true);
+});
+
+it('resumes an interrupted loan recovery without resurrecting loans deleted from cloud', async () => {
+  await saveLoanData('u1', loan);
+  await getOrCreateRepaymentAttempt('u1', loan.id, 100, []);
+  await getOrCreateAdvanceAttempt(
+    'u1',
+    loan.id,
+    100,
+    { lentAt: loan.lentAt, note: 'More' },
+    [],
+  );
+  const key = 'lifemate:finance-loans:v1:u1';
+  const original = await AsyncStorage.getItem(key);
+  const write = jest.mocked(AsyncStorage.setItem).getMockImplementation()!;
+  jest
+    .mocked(AsyncStorage.setItem)
+    .mockImplementation(async (target, value) => {
+      if (target === key) throw new Error('Disk full');
+      return write(target, value);
+    });
+  try {
+    await expect(recoverLoanCache('u1')).rejects.toThrow('Disk full');
+  } finally {
+    jest.mocked(AsyncStorage.setItem).mockImplementation(write);
+  }
+  expect(await hasEncryptedItemRecovery('u1', 'loans')).toBe(true);
+  await expect(clearRepaymentAttempt('u1', loan.id)).rejects.toThrow(
+    'khôi phục',
+  );
+  await expect(
+    recordLoanRepaymentAtomically('u1', loan.id, {
+      id: 'blocked',
+      amount: 100,
+      receivedAt: loan.lentAt,
+      financeTransactionId: `loan-${loan.id}-blocked`,
+      status: 'pending',
+    }),
+  ).rejects.toThrow('khôi phục');
+  await expect(
+    recordLoanAdvanceAtomically('u1', loan.id, {
+      id: 'blocked',
+      amount: 100,
+      lentAt: loan.lentAt,
+      note: 'More',
+      financeTransactionId: `loan-lent-${loan.id}-blocked`,
+    }),
+  ).rejects.toThrow('khôi phục');
+  await expect(
+    removeLoanRepaymentAtomically('u1', loan.id, {
+      id: 'blocked',
+      amount: 100,
+      receivedAt: loan.lentAt,
+      financeTransactionId: `loan-${loan.id}-blocked`,
+      status: 'posted',
+    }),
+  ).rejects.toThrow('khôi phục');
+
+  // Simulate a deletion by another device while this device is interrupted.
+  resetFirestoreMock();
+  await recoverLoanCache('u1');
+  expect(await hasEncryptedItemRecovery('u1', 'loans')).toBe(false);
+  expect((await readLoanData('u1')).loans).toEqual([]);
+  expect(getFirestoreMockRows('u1')).toEqual([]);
+  const backupKeys = (await AsyncStorage.getAllKeys()).filter((target) =>
+    target.startsWith('lifemate:cache-recovery-backup:loans:'),
+  );
+  expect(backupKeys).toHaveLength(1);
+  const backup = JSON.parse((await getEncryptedItem('u1', backupKeys[0]))!);
+  expect(
+    backup.find((entry: { storageKey: string }) => entry.storageKey === key)
+      .previous,
+  ).toBe(original);
 });
 
 describe('new loan recovery', () => {

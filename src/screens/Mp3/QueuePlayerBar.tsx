@@ -6,12 +6,13 @@ import {
   Text,
   View,
 } from 'react-native';
+import { PressableScale } from '../../components/PressableScale';
 import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { useState } from 'react';
 import Slider from '@react-native-community/slider';
 import { useAudioPlayerStatus, type AudioPlayer } from 'expo-audio';
 import Feather from '@expo/vector-icons/Feather';
-import { colors, typography } from '../../theme';
+import { colors, shadows, typography } from '../../theme';
 import { formatAudioTime } from '../../utils/audio';
 import { AudioTrackTitle } from './AudioTrackTitle';
 import type { useQueuePlayer } from './useQueuePlayer';
@@ -152,15 +153,17 @@ export function QueuePlayerBar({
                 repeatAll && styles.transportControlsFullWidth,
               ]}
             >
-              <Pressable
+              <PressableScale
+                pressedScale={0.88}
                 accessibilityRole="button"
                 accessibilityLabel="Bài trước"
                 onPress={queue.previous}
                 style={styles.icon}
               >
                 <Feather name="skip-back" size={24} color={colors.earth} />
-              </Pressable>
-              <Pressable
+              </PressableScale>
+              <PressableScale
+                pressedScale={0.88}
                 accessibilityRole="button"
                 accessibilityLabel={visuallyPlaying ? 'Tạm dừng' : 'Phát'}
                 disabled={!status.isLoaded || queue.isSwitchingTrack}
@@ -172,8 +175,9 @@ export function QueuePlayerBar({
                   size={28}
                   color={colors.earth}
                 />
-              </Pressable>
-              <Pressable
+              </PressableScale>
+              <PressableScale
+                pressedScale={0.88}
                 accessibilityRole="button"
                 accessibilityLabel="Bài tiếp theo"
                 disabled={!hasNext}
@@ -181,7 +185,7 @@ export function QueuePlayerBar({
                 style={[styles.icon, !hasNext && styles.dim]}
               >
                 <Feather name="skip-forward" size={24} color={colors.earth} />
-              </Pressable>
+              </PressableScale>
             </View>
             {!repeatAll && (
               <Pressable
@@ -398,6 +402,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 12,
     gap: 4,
+    ...shadows.card,
   },
   row: {
     flexDirection: 'row',
@@ -459,6 +464,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.surface,
     borderRadius: 28,
+    ...shadows.raised,
   },
   progressRow: {
     flexDirection: 'row',

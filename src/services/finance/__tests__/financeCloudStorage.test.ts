@@ -10,6 +10,10 @@ import {
   addFinanceTransaction,
   deleteFinanceTransaction,
   financeStorageKey,
+  financePendingKey,
+  financePendingBaseKey,
+  financeMigrationKey,
+  recoverFinanceCache,
   readFinanceData,
   readFinanceTransactions,
   resetFinanceCloudState,
@@ -17,7 +21,12 @@ import {
   updateFinanceTransaction,
 } from '../financeStorage';
 import type { FinanceTransaction } from '../../../types/finance';
-import { setEncryptedItem } from '../../security/encryptedLocalStorage';
+import {
+  getEncryptedItem,
+  setEncryptedItem,
+  recoverEncryptedItems,
+} from '../../security/encryptedLocalStorage';
+import { useAuthStore } from '../../../store/authStore';
 import {
   getFirestoreMockRows,
   resetFirestoreMock,
@@ -123,7 +132,130 @@ it('loads cloud transactions when the encrypted local cache cannot be read', asy
   expect(getFirestoreMockRows('u1')).toEqual([remote]);
 });
 
-it('keeps online edits available while preserving an unreadable local cache', async () => {
+it.each([financePendingKey, financePendingBaseKey, financeMigrationKey])(
+  'preserves all cache bytes and prevents uploads when a secondary cache cannot authenticate',
+  async (brokenKey) => {
+    await setEncryptedItem(
+      'u1',
+      financeStorageKey('u1'),
+      JSON.stringify([row]),
+    );
+    await setEncryptedItem(
+      'u1',
+      financePendingKey('u1'),
+      JSON.stringify({ [row.id]: 'add' }),
+    );
+    await setEncryptedItem('u1', financePendingBaseKey('u1'), '{}');
+    await setEncryptedItem('u1', financeMigrationKey('u1'), 'complete');
+    if (brokenKey === financePendingBaseKey)
+      await AsyncStorage.setItem(
+        financeStorageKey('u1'),
+        JSON.stringify([row]),
+      );
+    await AsyncStorage.setItem(brokenKey('u1'), 'lifemate:aes-gcm:v1:damaged');
+    const keys = [
+      financeStorageKey('u1'),
+      financePendingKey('u1'),
+      financePendingBaseKey('u1'),
+      financeMigrationKey('u1'),
+    ];
+    const originals = await Promise.all(
+      keys.map((key) => AsyncStorage.getItem(key)),
+    );
+    expect(await readFinanceData('u1')).toMatchObject({
+      transactions: [],
+      cacheNeedsRecovery: true,
+    });
+    await expect(
+      addFinanceTransaction('u1', { ...row, id: 'new' }),
+    ).rejects.toThrow('khôi phục');
+    expect(
+      await Promise.all(keys.map((key) => AsyncStorage.getItem(key))),
+    ).toEqual(originals);
+    expect(getFirestoreMockRows('u1')).toEqual([]);
+  },
+);
+
+it('rebuilds finance from a fresh cloud snapshot only after preserving all old cache bytes', async () => {
+  useAuthStore
+    .getState()
+    .setUser({ uid: 'u1', email: null, displayName: null });
+  const keys = [
+    financeStorageKey('u1'),
+    financePendingKey('u1'),
+    financePendingBaseKey('u1'),
+    financeMigrationKey('u1'),
+  ];
+  await setEncryptedItem('u1', keys[0], JSON.stringify([row]));
+  await AsyncStorage.setItem(keys[0], 'lifemate:aes-gcm:v1:unreadable');
+  await setEncryptedItem('u1', keys[1], '["offline-row"]');
+  const originals = await Promise.all(
+    keys.map((key) => AsyncStorage.getItem(key)),
+  );
+  const cloud = { ...row, note: 'Authoritative cloud copy' };
+  seedFirestoreMock('u1', cloud);
+  await readFinanceData('u1');
+
+  expect(await recoverFinanceCache('u1')).toMatchObject({
+    transactions: [cloud],
+    synced: true,
+  });
+  expect(await readFinanceTransactions('u1')).toEqual([cloud]);
+  expect(getFirestoreMockRows('u1')).toEqual([cloud]);
+  const backupKey = (await AsyncStorage.getAllKeys()).find((key) =>
+    key.startsWith('lifemate:cache-recovery-backup:finance:'),
+  )!;
+  const backup = JSON.parse((await getEncryptedItem('u1', backupKey))!);
+  expect(
+    Object.fromEntries(
+      backup.map((entry: { storageKey: string; previous: string | null }) => [
+        entry.storageKey,
+        entry.previous,
+      ]),
+    ),
+  ).toEqual(
+    Object.fromEntries(keys.map((key, index) => [key, originals[index]])),
+  );
+});
+
+it('does not merge partial recovery data or allow edits after an interrupted rebuild', async () => {
+  const keys = [
+    financeStorageKey('u1'),
+    financePendingKey('u1'),
+    financePendingBaseKey('u1'),
+    financeMigrationKey('u1'),
+  ];
+  await setEncryptedItem('u1', keys[0], JSON.stringify([row]));
+  seedFirestoreMock('u1', row);
+  const write = jest.mocked(AsyncStorage.setItem).getMockImplementation()!;
+  jest.mocked(AsyncStorage.setItem).mockImplementation(async (key, value) => {
+    if (key === keys[0]) throw new Error('Disk full');
+    return write(key, value);
+  });
+  try {
+    await expect(
+      recoverEncryptedItems(
+        'u1',
+        'finance',
+        keys,
+        Object.fromEntries(keys.map((key) => [key, '[]'])),
+        () => undefined,
+      ),
+    ).rejects.toThrow();
+  } finally {
+    jest.mocked(AsyncStorage.setItem).mockImplementation(write);
+  }
+  await expect(
+    addFinanceTransaction('u1', { ...row, id: 'new-offline-row' }),
+  ).rejects.toThrow('khôi phục');
+  expect(await readFinanceData('u1')).toMatchObject({
+    transactions: [row],
+    cacheNeedsRecovery: true,
+  });
+  expect(getFirestoreMockRows('u1')).toEqual([row]);
+});
+
+it('blocks edits while preserving an unreadable local cache until it becomes readable', async () => {
   await setEncryptedItem('u1', financeStorageKey('u1'), JSON.stringify([row]));
   const encryptedCache = await AsyncStorage.getItem(financeStorageKey('u1'));
   seedFirestoreMock('u1', row);
@@ -134,12 +266,10 @@ it('keeps online edits available while preserving an unreadable local cache', as
     await readFinanceData('u1');
     const edited = { ...row, amount: 30000000 };
 
-    await expect(updateFinanceTransaction('u1', edited)).resolves.toEqual({
-      transactions: [edited],
-      synced: false,
-      cacheNeedsRecovery: true,
-    });
-    expect(getFirestoreMockRows('u1')).toEqual([edited]);
+    await expect(updateFinanceTransaction('u1', edited)).rejects.toThrow(
+      'khôi phục',
+    );
+    expect(getFirestoreMockRows('u1')).toEqual([row]);
     expect(await AsyncStorage.getItem(financeStorageKey('u1'))).toBe(
       encryptedCache,
     );
@@ -148,16 +278,14 @@ it('keeps online edits available while preserving an unreadable local cache', as
   }
 
   await expect(readFinanceData('u1')).resolves.toEqual({
-    transactions: [{ ...row, amount: 30000000 }],
+    transactions: [row],
     synced: true,
     conflicts: [],
   });
-  expect(await readFinanceTransactions('u1')).toEqual([
-    { ...row, amount: 30000000 },
-  ]);
+  expect(await readFinanceTransactions('u1')).toEqual([row]);
 });
 
-it('keeps cloud additions and deletions while the cache key is unavailable', async () => {
+it('blocks writes while still loading changes made on another device during cache recovery', async () => {
   await setEncryptedItem('u1', financeStorageKey('u1'), JSON.stringify([row]));
   const encryptedCache = await AsyncStorage.getItem(financeStorageKey('u1'));
   seedFirestoreMock('u1', row);
@@ -167,16 +295,20 @@ it('keeps cloud additions and deletions while the cache key is unavailable', asy
   const added = { ...row, id: 'bonus-1', createdAt: row.createdAt + 1 };
   try {
     await readFinanceData('u1');
-    await expect(addFinanceTransaction('u1', added)).resolves.toMatchObject({
-      transactions: [added, row],
+    await expect(addFinanceTransaction('u1', added)).rejects.toThrow(
+      'khôi phục',
+    );
+    await expect(deleteFinanceTransaction('u1', row.id)).rejects.toThrow(
+      'khôi phục',
+    );
+    expect(getFirestoreMockRows('u1')).toEqual([row]);
+    // Another device changes the authoritative cloud while local writes are blocked.
+    resetFirestoreMock();
+    seedFirestoreMock('u1', added);
+    expect(await readFinanceData('u1')).toMatchObject({
+      transactions: [added],
       cacheNeedsRecovery: true,
     });
-    await expect(deleteFinanceTransaction('u1', row.id)).resolves.toMatchObject(
-      {
-        transactions: [added],
-        cacheNeedsRecovery: true,
-      },
-    );
     expect(getFirestoreMockRows('u1')).toEqual([added]);
     expect(await AsyncStorage.getItem(financeStorageKey('u1'))).toBe(
       encryptedCache,

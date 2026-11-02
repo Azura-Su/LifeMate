@@ -1,3 +1,4 @@
+import { FadeInView } from '../../components/FadeInView';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { useState } from 'react';
 import { ChangePasswordDialog } from './ChangePasswordDialog';
@@ -17,7 +18,7 @@ import {
 import { Screen } from '../../components/Screen';
 import { Button } from '../../components/Button';
 import { UserAvatar } from '../../components/UserAvatar';
-import { colors } from '../../theme';
+import { colors, shadows, radius } from '../../theme';
 import type { MainTabParams } from '../../navigation/types';
 import { AvatarEditorSheet } from './AvatarEditorSheet';
 import { useAuthStore } from '../../store/authStore';
@@ -52,7 +53,7 @@ function ProfileContent({
         { paddingBottom: Math.max(insets.bottom, 24) },
       ]}
     >
-      <View style={styles.hero}>
+      <FadeInView delay={0} style={styles.hero}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Đổi ảnh đại diện"
@@ -90,9 +91,9 @@ function ProfileContent({
           {model.name.trim() || 'Chưa đặt tên'}
         </Text>
         <Text style={styles.heroEmail}>Chạm ảnh để đổi ảnh đại diện</Text>
-      </View>
+      </FadeInView>
       <Text style={styles.sectionLabel}>Thông tin</Text>
-      <View style={styles.card}>
+      <FadeInView delay={90} style={styles.card}>
         <View style={styles.photoDetails}>
           <View style={styles.labelRow}>
             <Text style={styles.label}>Tên hiển thị</Text>
@@ -108,9 +109,9 @@ function ProfileContent({
             style={styles.input}
           />
         </View>
-      </View>
+      </FadeInView>
       <Text style={styles.sectionLabel}>Tài khoản</Text>
-      <View style={styles.card}>
+      <FadeInView delay={180} style={styles.card}>
         <View style={styles.email}>
           <View style={styles.mailIcon}>
             <Feather name="mail" size={16} color={colors.earth} />
@@ -142,7 +143,7 @@ function ProfileContent({
           <Text style={styles.passwordText}>Đổi mật khẩu</Text>
           <Feather name="chevron-right" size={18} color={colors.muted} />
         </Pressable>
-      </View>
+      </FadeInView>
       <AvatarEditorSheet
         visible={avatarVisible}
         onShown={() => setAvatarOpening(false)}
@@ -179,14 +180,14 @@ function ProfileContent({
           Đã lưu hồ sơ của bạn.
         </Text>
       )}
-      <View style={styles.footer}>
+      <FadeInView delay={270} style={styles.footer}>
         <Button
           title="Lưu thay đổi"
           loading={model.busy === 'save'}
           disabled={!!model.busy}
           onPress={() => void model.save()}
         />
-      </View>
+      </FadeInView>
     </Screen>
   );
 }
@@ -251,7 +252,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 20,
+    borderRadius: radius.xxl,
+    ...shadows.card,
   },
   labelRow: {
     flexDirection: 'row',

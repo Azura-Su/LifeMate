@@ -1,3 +1,4 @@
+import { FadeInView } from '../../components/FadeInView';
 import { styles } from './LoginScreen.styles';
 import Feather from '@expo/vector-icons/Feather';
 import { useRef } from 'react';
@@ -29,11 +30,11 @@ export function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <Screen>
-        <View style={styles.brand}>
+        <FadeInView delay={0} style={styles.brand}>
           <BrandAvatar size={72} />
           <Text style={styles.wordmark}>LifeMate</Text>
-        </View>
-        <View style={styles.intro}>
+        </FadeInView>
+        <FadeInView delay={90} style={styles.intro}>
           <Text style={typography.eyebrow}>MỖI NGÀY, CÙNG BẠN</Text>
           <Text accessibilityRole="header" style={styles.title}>
             Chào mừng trở lại.
@@ -41,8 +42,8 @@ export function LoginScreen() {
           <Text style={typography.body}>
             Mở sổ thu chi và thư viện âm thanh của bạn.
           </Text>
-        </View>
-        <View style={styles.form}>
+        </FadeInView>
+        <FadeInView delay={180} style={styles.form}>
           <Text style={styles.label}>Địa chỉ email</Text>
           <TextInput
             accessibilityLabel="Địa chỉ email"
@@ -136,12 +137,12 @@ export function LoginScreen() {
               Sử dụng tài khoản đã được cấp để bắt đầu.
             </Text>
           )}
-        </View>
-        <View style={styles.footer}>
+        </FadeInView>
+        <FadeInView delay={270} style={styles.footer}>
           <Text style={styles.footerText}>
             Chậm lại một chút. Gần mình hơn.
           </Text>
-        </View>
+        </FadeInView>
       </Screen>
     </KeyboardAvoidingView>
   );

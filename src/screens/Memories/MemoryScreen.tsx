@@ -1,3 +1,5 @@
+import { staggerDelay } from '../../utils/motion';
+import { FadeInView } from '../../components/FadeInView';
 import { HeaderIconButton, TabHeader } from '../../components/ScreenHeader';
 import {
   readMemoryFriendsPreference,
@@ -301,6 +303,13 @@ function OwnMemoryCard({
 }
 
 export function MemoryScreen() {
+  // Rows animate in once; FlatList remounts them when scrolled back into view.
+  const shownMemoryIds = useRef(new Set<string>()).current;
+  const hasShownMemory = (id: string) => {
+    const shown = shownMemoryIds.has(id);
+    shownMemoryIds.add(id);
+    return shown;
+  };
   const uid = useAuthStore((state) => state.user?.uid);
   const accountEmail = useAuthStore((state) => state.user?.email);
   const { name } = useProfile();
@@ -1364,8 +1373,13 @@ export function MemoryScreen() {
             contentContainerStyle={styles.timelineListContent}
             data={friendItems}
             keyExtractor={(item) => item.ownerId + ':' + item.id}
-            renderItem={({ item }) => (
-              <View style={styles.timelineItem}>
+            renderItem={({ item, index }) => (
+              <FadeInView
+                delay={staggerDelay(index, 70, 6)}
+                offset={24}
+                skip={hasShownMemory(`${item.ownerId}:${item.id}`)}
+                style={styles.timelineItem}
+              >
                 <FriendMemoryCard
                   item={item}
                   onPhotoError={() => void renewFriendPhoto(item)}
@@ -1373,7 +1387,7 @@ export function MemoryScreen() {
                     openPhotoGallery('friends', `${item.ownerId}:${item.id}`)
                   }
                 />
-              </View>
+              </FadeInView>
             )}
             ListHeaderComponent={timelineHeader}
             ListEmptyComponent={
@@ -1425,8 +1439,13 @@ export function MemoryScreen() {
                 <Text style={styles.monthCount}>{section.data.length}</Text>
               </View>
             )}
-            renderItem={({ item }) => (
-              <View style={styles.timelineItem}>
+            renderItem={({ item, index }) => (
+              <FadeInView
+                delay={staggerDelay(index, 70, 6)}
+                offset={24}
+                skip={hasShownMemory(item.id)}
+                style={styles.timelineItem}
+              >
                 <OwnMemoryCard
                   item={item}
                   onOpenPhoto={() => openPhotoGallery('mine', item.id)}
@@ -1449,7 +1468,7 @@ export function MemoryScreen() {
                     setVisibilityTarget(item);
                   }}
                 />
-              </View>
+              </FadeInView>
             )}
             ListHeaderComponent={timelineHeader}
             ListEmptyComponent={

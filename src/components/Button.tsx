@@ -1,5 +1,6 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
-import { colors } from '../theme';
+import { ActivityIndicator, StyleSheet, Text } from 'react-native';
+import { colors, shadows, radius } from '../theme';
+import { PressableScale } from './PressableScale';
 
 type Props = {
   title: string;
@@ -21,20 +22,20 @@ export function Button({
   pressScale,
 }: Props) {
   return (
-    <Pressable
+    <PressableScale
+      pressedScale={pressScale ?? 0.97}
       accessibilityRole="button"
       accessibilityLabel={title}
       accessibilityState={{ disabled: disabled || loading, busy: loading }}
       disabled={disabled || loading}
       onPress={onPress}
-      style={({ pressed }) => [
+      style={[
         styles.base,
         styles[variant],
         compact && styles.compact,
-        pressed && styles.pressed,
         (disabled || loading) && styles.dim,
-        pressed && pressScale ? { transform: [{ scale: pressScale }] } : null,
       ]}
+      pressedStyle={styles.pressed}
     >
       {loading ? (
         <ActivityIndicator
@@ -59,14 +60,14 @@ export function Button({
           {title}
         </Text>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
     minHeight: 50,
-    borderRadius: 14,
+    borderRadius: radius.lg,
     paddingHorizontal: 18,
     paddingVertical: 12,
     alignItems: 'center',
@@ -77,6 +78,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sunlightAction,
     borderWidth: 1,
     borderColor: colors.sunlightBorder,
+    ...shadows.card,
   },
   // Secondary: quiet outlined button.
   secondary: {
@@ -96,6 +98,6 @@ const styles = StyleSheet.create({
   primaryText: { color: colors.onPrimary },
   secondaryText: { color: colors.earth, fontWeight: '600' },
   dangerText: { color: colors.danger },
-  pressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
+  pressed: { opacity: 0.88 },
   dim: { opacity: 0.45 },
 });

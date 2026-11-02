@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors, layout, typography } from '../../theme';
+import { colors, layout, typography, radius } from '../../theme';
 
 export const styles = StyleSheet.create({
   fixedHeader: {
@@ -31,7 +31,7 @@ export const styles = StyleSheet.create({
   groupCount: { fontSize: 12, fontWeight: '600', color: colors.muted },
   groupCard: {
     overflow: 'hidden',
-    borderRadius: 20,
+    borderRadius: radius.xxl,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surface,

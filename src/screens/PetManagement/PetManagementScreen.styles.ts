@@ -47,7 +47,7 @@ export const styles = StyleSheet.create({
   chipTextActive: { color: colors.surface },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.line,
     overflow: 'hidden',

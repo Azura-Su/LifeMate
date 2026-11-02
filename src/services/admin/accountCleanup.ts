@@ -17,6 +17,8 @@ import {
   drainAccountWrites,
 } from '../security/accountLifecycle';
 import { removeAccountEncryptionKey } from '../security/encryptedLocalStorage';
+import { isAccountCacheKey } from '../security/accountCacheKeys';
+export { isAccountCacheKey } from '../security/accountCacheKeys';
 
 const KNOWN = 'lifemate:account-cache-uids:v1';
 const PURGE = 'lifemate:account-purge:v1';
@@ -42,18 +44,6 @@ function remember(key: string, uid: string, remove = false) {
     });
   queue = task;
   return task;
-}
-export function isAccountCacheKey(key: string, uid: string) {
-  if (
-    key === `lifemate-audio-playlists-v1-${uid}` ||
-    key === `lifemate-audio-playlist-${uid}`
-  )
-    return true;
-  const parts = key.split(':');
-  if (parts[0] !== 'lifemate') return false;
-  if (['loan-repayment-attempt', 'loan-advance-attempt'].includes(parts[1]))
-    return parts.length === 5 && parts[3] === encodeURIComponent(uid);
-  return parts.at(-1) === encodeURIComponent(uid);
 }
 async function endSession(uid: string) {
   if (useAuthStore.getState().user?.uid === uid)

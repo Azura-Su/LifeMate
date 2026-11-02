@@ -1,5 +1,6 @@
 import { useEffect, useRef, type PropsWithChildren } from 'react';
-import { Animated, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Easing, type StyleProp, type ViewStyle } from 'react-native';
+import { motion } from '../theme';
 import { usePrefersReducedMotion } from '../utils/motion';
 
 type Props = PropsWithChildren<{
@@ -7,27 +8,39 @@ type Props = PropsWithChildren<{
   delay?: number;
   /** Starting vertical offset in px. */
   offset?: number;
+  /** Render in place, without animating (rows already shown once). */
+  skip?: boolean;
   style?: StyleProp<ViewStyle>;
 }>;
 
 /** Fades and lifts its content in once, on mount. */
-export function FadeInView({ delay = 0, offset = 10, style, children }: Props) {
+export function FadeInView({
+  delay = 0,
+  offset = 16,
+  skip = false,
+  style,
+  children,
+}: Props) {
   const reduced = usePrefersReducedMotion();
-  const progress = useRef(new Animated.Value(reduced ? 1 : 0)).current;
+  const skipOnMount = useRef(skip).current;
+  const progress = useRef(
+    new Animated.Value(reduced || skipOnMount ? 1 : 0),
+  ).current;
   useEffect(() => {
-    if (reduced) {
+    if (reduced || skipOnMount) {
       progress.setValue(1);
       return;
     }
     const animation = Animated.timing(progress, {
       toValue: 1,
-      duration: 320,
+      duration: motion.slow,
+      easing: Easing.out(Easing.cubic),
       delay,
       useNativeDriver: true,
     });
     animation.start();
     return () => animation.stop();
-  }, [delay, progress, reduced]);
+  }, [delay, progress, reduced, skipOnMount]);
   return (
     <Animated.View
       style={[

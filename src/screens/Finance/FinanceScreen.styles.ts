@@ -4,6 +4,7 @@ import {
   fontSize,
   layout,
   radius,
+  shadows,
   spacing,
   typography,
 } from '../../theme';
@@ -52,17 +53,17 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 2,
     padding: 3,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     backgroundColor: colors.skySoft,
   },
+  reportModeCell: { flex: 1, minWidth: 0 },
   reportModeButton: {
-    flex: 1,
     minWidth: 0,
-    minHeight: 38,
+    minHeight: 40,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 2,
-    borderRadius: 10,
+    borderRadius: radius.md,
   },
   reportModeSelected: {
     backgroundColor: colors.surface,
@@ -82,7 +83,7 @@ export const styles = StyleSheet.create({
 
   /* Sync status: quiet line when saved, tinted banner when action is needed */
   syncStatus: {
-    minHeight: 28,
+    minHeight: 24,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -127,17 +128,18 @@ export const styles = StyleSheet.create({
   /* Overview summary */
   summary: {
     gap: spacing.lg,
-    padding: spacing.xl,
-    borderRadius: radius.xl,
+    padding: spacing.xxl,
+    borderRadius: radius.xxl,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
+    ...shadows.raised,
   },
   balance: { gap: 2 },
   balanceLabel: { ...typography.small, color: colors.muted },
   balanceAmount: {
-    fontSize: fontSize.hero,
-    lineHeight: 36,
+    fontSize: fontSize.title,
+    lineHeight: 40,
     fontVariant: ['tabular-nums'],
     fontWeight: '700',
     color: colors.ink,
@@ -253,7 +255,7 @@ export const styles = StyleSheet.create({
   transactionDayCount: { fontSize: fontSize.caption, color: colors.muted },
   transactionCard: {
     overflow: 'hidden',
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surface,
@@ -331,5 +333,10 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   emptyTitle: { ...typography.body, color: colors.ink, fontWeight: '600' },
-  feedback: { ...typography.small, color: colors.danger },
+  feedbackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  feedback: { flex: 1, ...typography.small, color: colors.danger },
 });

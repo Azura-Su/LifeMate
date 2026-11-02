@@ -176,6 +176,82 @@ it('shows cloud data and a recovery status when the encrypted cache is unavailab
   }
 });
 
+it('rebuilds a damaged finance cache only after confirmation and retains the encrypted original', async () => {
+  const row: FinanceTransaction = {
+    id: 'recover',
+    ownerId: 'finance-user',
+    type: 'income',
+    amount: 100,
+    category: 'Lương',
+    note: 'Recovered',
+    createdAt: Date.now(),
+  };
+  const key = financeStorageKey('finance-user');
+  await setEncryptedItem('finance-user', key, JSON.stringify([row]));
+  const original = 'lifemate:aes-gcm:v1:corrupted';
+  await AsyncStorage.setItem(key, original);
+  seedFirestoreMock('finance-user', row);
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  try {
+    renderFinanceScreen();
+    const repair = await screen.findByRole('button', {
+      name: 'Khôi phục cache thu chi',
+    });
+    fireEvent.press(repair);
+    expect(await AsyncStorage.getItem(key)).toBe(original);
+    expect(alert.mock.calls.at(-1)?.[1]).toContain('chưa đồng bộ');
+    const confirm = alert.mock.calls
+      .at(-1)?.[2]
+      ?.find((button) => button.text === 'Khôi phục')?.onPress;
+    expect(confirm).toBeDefined();
+    await act(async () => {
+      await confirm?.();
+    });
+    await waitFor(() =>
+      expect(useFinanceStore.getState().syncStatus).toBe('synced'),
+    );
+    expect(await readFinanceTransactions('finance-user')).toEqual([row]);
+    const backups = (await AsyncStorage.getAllKeys()).filter((entry) =>
+      entry.startsWith('lifemate:cache-recovery-backup:finance:'),
+    );
+    expect(backups).toHaveLength(1);
+    expect(await AsyncStorage.getItem(backups[0])).toMatch(
+      /^lifemate:aes-gcm:v1:/,
+    );
+  } finally {
+    alert.mockRestore();
+  }
+});
+
+it('ignores a cache recovery confirmation after Finance is suspended', async () => {
+  const key = financeStorageKey('finance-user');
+  await setEncryptedItem('finance-user', key, '[]');
+  const original = 'lifemate:aes-gcm:v1:corrupted';
+  await AsyncStorage.setItem(key, original);
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  try {
+    const view = renderFinanceScreen();
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'Khôi phục cache thu chi' }),
+    );
+    const confirm = alert.mock.calls
+      .at(-1)?.[2]
+      ?.find((button) => button.text === 'Khôi phục')?.onPress;
+    view.rerender(financeScreenElement(true));
+    await act(async () => {
+      await confirm?.();
+    });
+    expect(await AsyncStorage.getItem(key)).toBe(original);
+    expect(
+      (await AsyncStorage.getAllKeys()).some((entry) =>
+        entry.startsWith('lifemate:cache-recovery-backup:'),
+      ),
+    ).toBe(false);
+  } finally {
+    alert.mockRestore();
+  }
+});
+
 it('shows a clear empty state and zero period totals', async () => {
   renderFinanceScreen();
   expect(await screen.findByText('Chưa có giao dịch nào')).toBeTruthy();

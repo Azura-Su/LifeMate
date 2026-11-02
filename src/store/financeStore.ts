@@ -6,6 +6,7 @@ import {
   cacheCommittedFinanceTransaction,
   deleteFinanceTransaction,
   readFinanceData,
+  recoverFinanceCache,
   resolveFinanceConflict,
   updateFinanceTransaction,
   type FinanceConflict,
@@ -20,6 +21,7 @@ type FinanceState = {
   loading: boolean;
   error: string | null;
   load: (uid: string | null) => Promise<void>;
+  recoverCache: (uid: string) => Promise<void>;
   add: (uid: string, transaction: FinanceTransaction) => Promise<void>;
   addCommitted: (uid: string, transaction: FinanceTransaction) => Promise<void>;
   remove: (uid: string, id: string) => Promise<void>;
@@ -81,6 +83,31 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
             'Chưa tải được sổ thu chi. Hãy thử lại.',
           ),
         });
+    }
+  },
+  recoverCache: async (uid) => {
+    if (get().uid !== uid)
+      throw new Error('Tài khoản đã thay đổi. Hãy thử lại.');
+    const request = ++loadRequest;
+    set({ loading: true, error: null });
+    try {
+      const result = await recoverFinanceCache(uid);
+      if (request === loadRequest && get().uid === uid)
+        set({
+          transactions: result.transactions,
+          conflicts: result.conflicts ?? [],
+          syncStatus: syncStatusFor(result),
+          loading: false,
+          error: null,
+        });
+    } catch (error) {
+      const message = getFinanceErrorMessage(
+        error,
+        'Chưa khôi phục được cache. Dữ liệu cũ vẫn được giữ.',
+      );
+      if (request === loadRequest && get().uid === uid)
+        set({ loading: false, syncStatus: 'recovery', error: message });
+      throw new Error(message);
     }
   },
   add: async (uid, transaction) => {

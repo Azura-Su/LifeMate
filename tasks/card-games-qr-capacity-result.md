@@ -1,7 +1,8 @@
 # QR phòng và bàn nhiều người — 2026-11-02
 
-Đã triển khai theo [plan](card-games-qr-capacity-plan.md). Thay đổi local;
-chưa deploy migration/Edge hoặc phát hành app.
+Đã triển khai theo [plan](card-games-qr-capacity-plan.md). Backend đã deploy
+ngày02/11/2026: game-accessv22 và capacity migration (history20261102053311).
+Xem [kết quả rollout](cloud-rollout-2026-11-02.md). Chưa phát hành binary app.
 
 ## Luật và số ghế
 

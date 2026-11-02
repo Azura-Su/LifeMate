@@ -1,3 +1,4 @@
+import { staggerDelay } from '../../utils/motion';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { ManagedUserAvatar } from './ManagedUserAvatar';
 import Feather from '@expo/vector-icons/Feather';
@@ -25,7 +26,9 @@ import {
   type ManagedUser,
 } from '../../services/admin/userManagement';
 import { useAuthStore } from '../../store/authStore';
-import { colors, typography } from '../../theme';
+import { colors, shadows, typography, radius } from '../../theme';
+import { FadeInView } from '../../components/FadeInView';
+import { PressableScale } from '../../components/PressableScale';
 
 const date = (value: number | null) =>
   value ? new Date(value).toLocaleString('vi-VN') : 'Chưa có';
@@ -282,65 +285,68 @@ export function UserManagementScreen({
       {!busy && !users.length && !error && (
         <Text style={typography.small}>Không tìm thấy tài khoản.</Text>
       )}
-      {users.map((user) => (
-        <Pressable
-          key={user.uid}
-          accessibilityRole="button"
-          accessibilityLabel={`Chi tiết ${user.email}`}
-          accessibilityState={{ disabled: busy, busy: openingUid === user.uid }}
-          disabled={busy}
-          onPress={() => choose(user)}
-          style={({ pressed }) => [
-            styles.userCard,
-            pressed && styles.userCardPressed,
-          ]}
-        >
-          <ManagedUserAvatar
-            uid={user.uid}
-            url={user.avatarUrl}
-            name={user.name}
-          />
-          <View style={styles.userCopy}>
-            <Text numberOfLines={1} style={styles.name}>
-              {user.name || 'Chưa đặt tên'}
-            </Text>
-            <Text numberOfLines={1} style={styles.userEmail}>
-              {user.email}
-            </Text>
-            <View style={styles.userStatusRow}>
-              <View
-                style={[
-                  styles.statusDot,
-                  user.status !== 'active' && styles.statusDotBlocked,
-                ]}
-              />
-              <Text
-                style={[
-                  styles.userStatus,
-                  user.status !== 'active' && styles.userStatusBlocked,
-                ]}
-              >
-                {status(user)}
+      {users.map((user, userIndex) => (
+        <FadeInView key={user.uid} delay={staggerDelay(userIndex, 50, 8)}>
+          <PressableScale
+            pressedScale={0.97}
+            accessibilityRole="button"
+            accessibilityLabel={`Chi tiết ${user.email}`}
+            accessibilityState={{
+              disabled: busy,
+              busy: openingUid === user.uid,
+            }}
+            disabled={busy}
+            onPress={() => choose(user)}
+            style={styles.userCard}
+            pressedStyle={styles.userCardPressed}
+          >
+            <ManagedUserAvatar
+              uid={user.uid}
+              url={user.avatarUrl}
+              name={user.name}
+            />
+            <View style={styles.userCopy}>
+              <Text numberOfLines={1} style={styles.name}>
+                {user.name || 'Chưa đặt tên'}
               </Text>
-              {!user.verified && (
-                <Text style={styles.verificationNote}>
-                  · Chưa xác nhận email
+              <Text numberOfLines={1} style={styles.userEmail}>
+                {user.email}
+              </Text>
+              <View style={styles.userStatusRow}>
+                <View
+                  style={[
+                    styles.statusDot,
+                    user.status !== 'active' && styles.statusDotBlocked,
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.userStatus,
+                    user.status !== 'active' && styles.userStatusBlocked,
+                  ]}
+                >
+                  {status(user)}
                 </Text>
+                {!user.verified && (
+                  <Text style={styles.verificationNote}>
+                    · Chưa xác nhận email
+                  </Text>
+                )}
+              </View>
+            </View>
+            <View style={styles.userArrow}>
+              {openingUid === user.uid ? (
+                <ActivityIndicator
+                  testID={`opening-user-${user.uid}`}
+                  size="small"
+                  color={colors.earth}
+                />
+              ) : (
+                <Feather name="chevron-right" size={17} color={colors.muted} />
               )}
             </View>
-          </View>
-          <View style={styles.userArrow}>
-            {openingUid === user.uid ? (
-              <ActivityIndicator
-                testID={`opening-user-${user.uid}`}
-                size="small"
-                color={colors.earth}
-              />
-            ) : (
-              <Feather name="chevron-right" size={17} color={colors.muted} />
-            )}
-          </View>
-        </Pressable>
+          </PressableScale>
+        </FadeInView>
       ))}
       {page && (
         <Button
@@ -539,9 +545,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 16,
+    borderRadius: radius.xl,
     paddingHorizontal: 14,
     paddingVertical: 13,
+    ...shadows.card,
   },
   userCardPressed: { backgroundColor: colors.sunlightFaint },
   userCopy: { flex: 1, minWidth: 0, gap: 3 },

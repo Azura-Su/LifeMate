@@ -60,7 +60,7 @@ type Props = {
   loans: LoanRecord[];
   loading: boolean;
   financeLoading: boolean;
-  syncStatus: 'synced' | 'local' | null;
+  syncStatus: 'synced' | 'local' | 'recovery' | null;
   error: string | null;
   onRefresh: () => Promise<boolean>;
   onSave: (
@@ -150,7 +150,10 @@ export function LoanLedgerModal({
   onDeleteAdvance,
   onDeleteInitialEntry,
 }: Props) {
-  const canInteract = useInteractionGuard(visible, uid);
+  const canInteract = useInteractionGuard(
+    visible && syncStatus !== 'recovery',
+    uid,
+  );
   const loanListRef = useRef<ScrollView>(null);
   const refreshRequest = useRef<object | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -584,10 +587,14 @@ export function LoanLedgerModal({
         <View style={styles.summary}>
           <Text style={styles.summaryLabel}>Tổng còn phải thu</Text>
           <Text style={styles.summaryValue}>
-            {formatFinanceAmount(receivable)}
+            {error && loans.length === 0
+              ? '—'
+              : formatFinanceAmount(receivable)}
           </Text>
           <Text style={styles.summaryHint}>
-            Tiền gốc còn lại của {unfinishedLoans.length} khoản đang mở
+            {error && loans.length === 0
+              ? 'Tải lại để xem số tiền còn phải thu'
+              : `Tiền gốc còn lại của ${unfinishedLoans.length} khoản đang mở`}
           </Text>
         </View>
         {(refreshError || error || actionError) && (
@@ -664,6 +671,16 @@ export function LoanLedgerModal({
           <View style={styles.loadingRow}>
             <ActivityIndicator color={colors.earth} />
             <Text style={styles.meta}>Đang tải danh sách cho vay…</Text>
+          </View>
+        ) : error && loans.length === 0 ? (
+          <View style={styles.empty}>
+            <Feather name="cloud-off" size={24} color={colors.sky} />
+            <Text style={styles.emptyTitle}>Chưa tải được sổ cho vay</Text>
+            <Button
+              title="Thử lại"
+              variant="secondary"
+              onPress={() => void refreshLedger()}
+            />
           </View>
         ) : searchQuery.trim() && matchingLoans.length === 0 ? (
           <View style={styles.empty}>
@@ -815,7 +832,11 @@ export function LoanLedgerModal({
                 {expanded && (
                   <LoanHistory
                     loan={loan}
-                    canEdit={status !== 'cancelled' && busyAction === null}
+                    canEdit={
+                      status !== 'cancelled' &&
+                      busyAction === null &&
+                      syncStatus !== 'recovery'
+                    }
                     showDeleteLending={status !== 'cancelled'}
                     canDeleteLending={
                       !financeLoading &&
@@ -848,7 +869,9 @@ export function LoanLedgerModal({
                     onEditRepayment={(repayment) =>
                       setRepaymentEditTarget({ loan, repayment })
                     }
-                    canAddAdvance={status === 'open'}
+                    canAddAdvance={
+                      status === 'open' && syncStatus !== 'recovery'
+                    }
                     advanceDisabled={
                       financeLoading ||
                       busyAction !== null ||
@@ -857,7 +880,9 @@ export function LoanLedgerModal({
                     }
                     advanceLoading={isActionBusy(loan.id, 'advance')}
                     onAddAdvance={() => setAdvanceTarget(loan)}
-                    canAddRepayment={status === 'open'}
+                    canAddRepayment={
+                      status === 'open' && syncStatus !== 'recovery'
+                    }
                     repaymentDisabled={
                       financeLoading ||
                       busyAction !== null ||

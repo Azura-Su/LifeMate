@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors, typography } from '../../theme';
+import { colors, shadows, typography } from '../../theme';
 
 export const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
@@ -28,6 +28,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.ink,
     backgroundColor: colors.surface,
+    ...shadows.card,
   },
   password: {
     flexDirection: 'row',
@@ -35,6 +36,7 @@ export const styles = StyleSheet.create({
     borderColor: colors.line,
     borderRadius: 16,
     backgroundColor: colors.surface,
+    ...shadows.card,
   },
   passwordInput: {
     flex: 1,

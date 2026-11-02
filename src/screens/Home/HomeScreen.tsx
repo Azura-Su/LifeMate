@@ -1,4 +1,6 @@
 import { FadeInView } from '../../components/FadeInView';
+import { PressableScale } from '../../components/PressableScale';
+import { staggerDelay } from '../../utils/motion';
 import Feather from '@expo/vector-icons/Feather';
 import { styles } from './HomeScreen.styles';
 
@@ -231,7 +233,7 @@ export function HomeScreen({
             }
           />
         </FadeInView>
-        <FadeInView delay={140} style={styles.shortcutSection}>
+        <View style={styles.shortcutSection}>
           <Text accessibilityRole="header" style={styles.sectionLabel}>
             Lối tắt
           </Text>
@@ -268,34 +270,40 @@ export function HomeScreen({
                   'PixelPet',
                 ],
               ] as const
-            ).map(([icon, label, background, tint, route]) => (
-              <Pressable
+            ).map(([icon, label, background, tint, route], index) => (
+              <FadeInView
                 key={route}
-                accessibilityRole="button"
-                accessibilityLabel={`Mở ${label}`}
-                onPress={() => navigation.navigate(route)}
-                style={({ pressed }) => [
-                  styles.shortcut,
-                  pressed && styles.shortcutPressed,
-                ]}
+                delay={120 + staggerDelay(index)}
+                offset={22}
+                style={styles.shortcutCell}
               >
-                <View
-                  style={[styles.shortcutIcon, { backgroundColor: background }]}
+                <PressableScale
+                  pressedScale={0.93}
+                  wrapperStyle={styles.shortcutCell}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Mở ${label}`}
+                  onPress={() => navigation.navigate(route)}
+                  style={styles.shortcut}
+                  pressedStyle={styles.shortcutPressed}
                 >
-                  <Feather name={icon} size={17} color={tint} />
-                </View>
-                <Text
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.8}
-                  style={styles.shortcutLabel}
-                >
-                  {label}
-                </Text>
-              </Pressable>
+                  <View
+                    style={[styles.shortcutIcon, { backgroundColor: background }]}
+                  >
+                    <Feather name={icon} size={17} color={tint} />
+                  </View>
+                  <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.8}
+                    style={styles.shortcutLabel}
+                  >
+                    {label}
+                  </Text>
+                </PressableScale>
+              </FadeInView>
             ))}
           </View>
-        </FadeInView>
+        </View>
         {model.warning && (
           <Text accessibilityLiveRegion="polite" style={typography.small}>
             {model.warning} Kéo xuống để thử lại.

@@ -1,5 +1,12 @@
 import { StyleSheet } from 'react-native';
-import { colors, fontSize, layout, radius, spacing } from '../../theme';
+import {
+  colors,
+  fontSize,
+  layout,
+  radius,
+  shadows,
+  spacing,
+} from '../../theme';
 
 export const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
@@ -19,10 +26,11 @@ export const styles = StyleSheet.create({
   todayCards: { gap: 12 },
   todayCard: {
     overflow: 'hidden',
-    borderRadius: 20,
+    borderRadius: radius.xxl,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surface,
+    ...shadows.card,
   },
   todayHeader: {
     minHeight: 60,
@@ -129,7 +137,9 @@ export const styles = StyleSheet.create({
 
   /* Shortcuts to screens that otherwise live only in the drawer */
   shortcuts: { flexDirection: 'row', gap: spacing.sm },
+  shortcutCell: { flex: 1, minWidth: 0 },
   shortcut: {
+    ...shadows.card,
     flex: 1,
     minWidth: 0,
     minHeight: 72,
@@ -138,7 +148,7 @@ export const styles = StyleSheet.create({
     gap: spacing.xs + 2,
     paddingHorizontal: spacing.xs,
     paddingVertical: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surface,

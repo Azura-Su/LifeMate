@@ -1,3 +1,4 @@
+import { staggerDelay } from '../../utils/motion';
 import { HeaderIconButton, ScreenHeader } from '../../components/ScreenHeader';
 import Feather from '@expo/vector-icons/Feather';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -17,7 +18,9 @@ import { Screen } from '../../components/Screen';
 import { AppTextInput as TextInput } from '../../components/AppTextInput';
 import { useNotesAccount } from '../../hooks/useNotesAccount';
 import { useInteractionGuard } from '../../hooks/useInteractionGuard';
-import { colors, layout, typography } from '../../theme';
+import { colors, layout, shadows, typography, radius, spacing } from '../../theme';
+import { FadeInView } from '../../components/FadeInView';
+import { PressableScale } from '../../components/PressableScale';
 import { actionIconStyles } from '../../theme/actionIcons';
 import type { LifeNote } from '../../types/note';
 import { isCalendarNote } from '../../utils/calendarNotes';
@@ -263,13 +266,19 @@ export function NotesScreen({
             </Text>
           </View>
         ) : (
-          visibleNotes.map((note) => {
+          visibleNotes.map((note, noteIndex) => {
             const previewItems = formatBulletPreview(note.body);
             const hasOverflow = previewItems.length > MAX_PREVIEW_ITEMS;
             return (
-              <View key={note.id} style={styles.noteCard}>
+              <FadeInView
+                key={note.id}
+                delay={staggerDelay(noteIndex, 60, 6)}
+                offset={20}
+                style={styles.noteCard}
+              >
                 <View style={styles.noteBody}>
-                  <Pressable
+                  <PressableScale
+                    pressedScale={0.98}
                     accessibilityRole="button"
                     accessibilityLabel={`Mở ghi chú ${note.title}`}
                     onPress={() => open(note)}
@@ -278,7 +287,7 @@ export function NotesScreen({
                     <Text numberOfLines={1} style={styles.noteTitle}>
                       {note.title}
                     </Text>
-                  </Pressable>
+                  </PressableScale>
                   {previewItems.length > 0 ? (
                     <ScrollView
                       testID={`note-bullets-${note.id}`}
@@ -291,7 +300,7 @@ export function NotesScreen({
                       scrollEnabled={hasOverflow}
                       showsVerticalScrollIndicator={hasOverflow}
                     >
-                      {previewItems.map((item, index) =>
+                      {previewItems.map((item, index) => (
                         <View
                           key={`bullet-${index}`}
                           style={styles.previewBulletRow}
@@ -300,8 +309,8 @@ export function NotesScreen({
                           <Text numberOfLines={1} style={styles.preview}>
                             {item.text}
                           </Text>
-                        </View>,
-                      )}
+                        </View>
+                      ))}
                     </ScrollView>
                   ) : (
                     <Text style={styles.preview}>Chưa có nội dung</Text>
@@ -310,7 +319,8 @@ export function NotesScreen({
                     Sửa {new Date(note.updatedAt).toLocaleDateString('vi-VN')}
                   </Text>
                 </View>
-                <Pressable
+                <PressableScale
+                  pressedScale={0.86}
                   accessibilityRole="button"
                   accessibilityLabel={`Xóa ghi chú ${note.title}`}
                   accessibilityState={{
@@ -326,8 +336,8 @@ export function NotesScreen({
                   ) : (
                     <Feather name="trash-2" size={17} color={colors.danger} />
                   )}
-                </Pressable>
-              </View>
+                </PressableScale>
+              </FadeInView>
             );
           })
         )}
@@ -410,19 +420,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     color: colors.ink,
     backgroundColor: colors.surface,
+    ...shadows.card,
   },
   noteCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    padding: 14,
-    borderRadius: 16,
+    padding: spacing.lg,
+    borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surface,
+    ...shadows.card,
   },
   noteBody: { flex: 1, gap: 5 },
   noteOpenButton: { gap: 4 },
@@ -449,8 +461,9 @@ const styles = StyleSheet.create({
     padding: 28,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 16,
+    borderRadius: radius.xxl,
     backgroundColor: colors.surface,
+    ...shadows.card,
   },
   emptyTitle: { ...typography.heading, fontSize: 16 },
   error: { ...typography.small, color: colors.danger },

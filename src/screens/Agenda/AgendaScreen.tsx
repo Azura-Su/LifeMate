@@ -1,5 +1,5 @@
 import { useAgendaStore } from '../../store/agendaStore';
-import { animateNextLayout } from '../../utils/motion';
+import { animateNextLayout, staggerDelay } from '../../utils/motion';
 import { HeaderIconButton, ScreenHeader } from '../../components/ScreenHeader';
 import Feather from '@expo/vector-icons/Feather';
 import { useFocusEffect } from '@react-navigation/native';
@@ -11,6 +11,7 @@ import { useAgendaAccount } from '../../hooks/useAgendaAccount';
 import type { MainTabParams } from '../../navigation/types';
 import { addAgendaItemToCalendar } from '../../services/agenda/calendarService';
 import { colors, typography } from '../../theme';
+import { FadeInView } from '../../components/FadeInView';
 import type { AgendaItem } from '../../types/agenda';
 import { AgendaTaskFormDialog } from './AgendaTaskFormDialog';
 import { AgendaTaskRow } from './AgendaTaskRow';
@@ -191,8 +192,12 @@ export function AgendaScreen({
             </Text>
           </View>
         ) : (
-          groupAgendaItems(model.items).map((group) => (
-            <View key={group.key} style={styles.group}>
+          groupAgendaItems(model.items).map((group, groupIndex) => (
+            <FadeInView
+              key={group.key}
+              delay={staggerDelay(groupIndex, 80, 5)}
+              style={styles.group}
+            >
               <View style={styles.groupHeader}>
                 <Text
                   accessibilityRole="header"
@@ -238,7 +243,7 @@ export function AgendaScreen({
                   />
                 ))}
               </View>
-            </View>
+            </FadeInView>
           ))
         )}
       </Screen>

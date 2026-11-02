@@ -54,3 +54,8 @@ export function animateNextLayout(duration = 220) {
     delete: { type: 'easeInEaseOut', property: 'opacity' },
   });
 }
+
+/** Entrance delay for item `index` of a list: capped so long lists don't lag. */
+export function staggerDelay(index: number, step = 60, cap = 6) {
+  return Math.min(index, cap) * step;
+}

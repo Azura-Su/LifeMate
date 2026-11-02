@@ -1,5 +1,6 @@
-import type { PropsWithChildren } from 'react';
+import { useEffect, useRef, type PropsWithChildren } from 'react';
 import {
+  Animated,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -11,7 +12,8 @@ import {
   type ViewStyle,
   type ViewProps,
 } from 'react-native';
-import { colors } from '../theme';
+import { colors, radius } from '../theme';
+import { prefersReducedMotion } from '../utils/motion';
 
 type Props = PropsWithChildren<{
   visible?: boolean;
@@ -40,6 +42,43 @@ export function DialogModal({
   style,
   children,
 }: Props) {
+  const pop = useRef(
+    new Animated.Value(prefersReducedMotion() || !visible ? 1 : 0),
+  ).current;
+  useEffect(() => {
+    if (!visible || prefersReducedMotion()) {
+      pop.setValue(1);
+      return;
+    }
+    pop.setValue(0);
+    const animation = Animated.spring(pop, {
+      toValue: 1,
+      damping: 15,
+      stiffness: 190,
+      mass: 0.8,
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [visible, pop]);
+  const popStyle = {
+    opacity: pop.interpolate({
+      inputRange: [0, 0.6, 1],
+      outputRange: [0, 1, 1],
+      extrapolate: 'clamp' as const,
+    }),
+    transform: [
+      {
+        scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }),
+      },
+      {
+        translateY: pop.interpolate({
+          inputRange: [0, 1],
+          outputRange: [18, 0],
+        }),
+      },
+    ],
+  };
   return (
     <Modal
       transparent
@@ -63,14 +102,14 @@ export function DialogModal({
             style={StyleSheet.absoluteFill}
             onPress={onBackdropPress}
           />
-          <View
+          <Animated.View
             testID="dialog-content"
             accessible={false}
-            style={[styles.card, style]}
+            style={[styles.card, style, popStyle]}
             accessibilityViewIsModal
           >
             {children}
-          </View>
+          </Animated.View>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -92,7 +131,7 @@ const styles = StyleSheet.create({
     maxWidth: 420,
     gap: 14,
     padding: 20,
-    borderRadius: 24,
+    borderRadius: radius.xxl,
     backgroundColor: colors.surface,
     shadowColor: colors.ink,
     shadowOpacity: 0.16,

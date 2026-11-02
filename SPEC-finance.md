@@ -82,6 +82,23 @@ Theo cấu trúc screen/hook/styles và component hiện tại; validate dữ li
 - Cài đặt có khóa Tài chính bằng Face ID/Touch ID/sinh trắc học mạnh của Android, với mật mã thiết bị làm fallback hệ điều hành. Bật/tắt đều xác thực. Chỉ tab Tài chính yêu cầu xác thực (khi mở tab, hoặc khi app quay lại từ background ngay tại tab này); chuyển tab không khóa lại; background hoặc đổi UID khóa lại. Thiết lập theo UID trên từng thiết bị, lưu SecureStore; lỗi đọc thiết lập không mở dữ liệu.
 - Các kiểm tra dự án nêu trên đều đạt.
 
+### Cache mã hóa không đọc được
+
+- Xác minh cache giao dịch, hàng đợi, baseline và marker migration trước khi
+  đồng bộ hoặc chỉnh sửa. Nếu một phần không đọc được, hiển thị bản cloud ở
+  trạng thái cần khôi phục, giữ cache cũ và chặn chỉnh sửa.
+- Cho vay vẫn tải bản cloud khi cache hoặc retry attempt lỗi; nhánh này không
+  backfill giao dịch, xóa attempt hay thay cache. Lỗi tải sổ không hiển thị như
+  sổ rỗng với tổng tiền bằng 0.
+- Nút khôi phục riêng cho Thu chi và Cho vay yêu cầu xác nhận dùng bản cloud.
+  Giữ nguyên mọi giá trị cũ trong archive mã hóa đã kiểm tra đọc lại trước khi
+  ghi cache mới; marker bền ngăn đọc/ghi dữ liệu khôi phục dở dang. Có thể tiếp
+  tục sau khi app bị ngắt; Cho vay luôn lấy cloud và marker xóa mới trước khi
+  ghi lại để tránh tạo lại khoản đã xóa trên thiết bị khác.
+- Không tạo hoặc thay khóa khi còn cache mã hóa của tài khoản. Khôi phục chỉ
+  dùng khóa hiện có, kiểm tra UID/phiên đăng nhập sau các bước bất đồng bộ;
+  archive giữ dữ liệu offline cũ, không tự gộp vào cloud.
+
 ## Open Questions
 
 - Không có câu hỏi chặn. Firestore là nguồn dữ liệu bền; AsyncStorage giữ cache mã hóa/offline fallback.

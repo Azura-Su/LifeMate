@@ -1,6 +1,7 @@
 import Feather from '@expo/vector-icons/Feather';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { colors } from '../../theme';
+import { PressableScale } from '../../components/PressableScale';
 import type { AgendaItem } from '../../types/agenda';
 import { formatAgendaDate, formatAgendaTime } from '../../utils/agenda';
 import { styles } from './AgendaScreen.styles';
@@ -27,7 +28,8 @@ export function AgendaTaskRow({
   const busy = !!pendingAction;
   return (
     <View style={[styles.taskRow, divider && styles.taskDivider]}>
-      <Pressable
+      <PressableScale
+        pressedScale={0.78}
         accessibilityRole="checkbox"
         accessibilityLabel={
           item.completed
@@ -52,7 +54,7 @@ export function AgendaTaskRow({
             color={item.completed ? colors.success : colors.muted}
           />
         )}
-      </Pressable>
+      </PressableScale>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ disabled: busy }}

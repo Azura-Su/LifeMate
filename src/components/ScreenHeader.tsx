@@ -1,7 +1,9 @@
 import Feather from '@expo/vector-icons/Feather';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, layout, radius, spacing, typography } from '../theme';
+import { StyleSheet, Text, View } from 'react-native';
+import { FadeInView } from './FadeInView';
+import { PressableScale } from './PressableScale';
+import { colors, layout, radius, shadows, spacing, typography } from '../theme';
 
 type Props = {
   title: string;
@@ -21,7 +23,7 @@ export function ScreenHeader({
   right,
 }: Props) {
   return (
-    <View style={styles.header}>
+    <FadeInView offset={-8} style={styles.header}>
       <HeaderIconButton
         icon="arrow-left"
         label={backLabel}
@@ -43,7 +45,7 @@ export function ScreenHeader({
         )}
       </View>
       {right ?? <View style={styles.spacer} />}
-    </View>
+    </FadeInView>
   );
 }
 
@@ -61,7 +63,7 @@ export function TabHeader({
   right?: ReactNode;
 }) {
   return (
-    <View style={styles.tabHeader}>
+    <FadeInView offset={-8} style={styles.tabHeader}>
       <View style={styles.titleGroup}>
         <Text
           accessibilityRole="header"
@@ -78,7 +80,7 @@ export function TabHeader({
         )}
       </View>
       {right}
-    </View>
+    </FadeInView>
   );
 }
 
@@ -99,7 +101,8 @@ export function HeaderIconButton({
   tone?: 'plain' | 'tinted';
 }) {
   return (
-    <Pressable
+    <PressableScale
+      pressedScale={0.88}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={
@@ -110,19 +113,19 @@ export function HeaderIconButton({
       disabled={disabled}
       onPress={onPress}
       hitSlop={4}
-      style={({ pressed }) => [
+      style={[
         styles.icon,
         tone === 'tinted' && styles.tinted,
-        pressed && styles.pressed,
         disabled && styles.disabled,
       ]}
+      pressedStyle={styles.pressed}
     >
       <Feather
         name={icon}
         size={tone === 'tinted' ? 19 : 21}
         color={colors.earth}
       />
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -158,6 +161,7 @@ const styles = StyleSheet.create({
   tinted: {
     borderRadius: layout.hitSize / 2,
     backgroundColor: colors.sunlightSoft,
+    ...shadows.card,
   },
   pressed: { opacity: 0.6 },
   disabled: { opacity: 0.4 },

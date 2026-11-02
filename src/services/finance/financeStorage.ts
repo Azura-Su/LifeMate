@@ -12,7 +12,10 @@ import { isLoanLedgerTransaction } from '../../types/finance';
 import {
   getEncryptedItem,
   setEncryptedItem,
+  hasEncryptedItemRecovery,
+  recoverEncryptedItems,
 } from '../security/encryptedLocalStorage';
+import { useAuthStore } from '../../store/authStore';
 import { parseFinanceTransaction } from '../../utils/finance';
 import { parseSharedExpense } from '../../utils/sharedExpense';
 
@@ -123,18 +126,18 @@ function mergeAppendedSharedReceipts(
 
 async function readPendingBases(uid: string) {
   const bases = new Map<string, FinanceTransaction>();
-  try {
-    const saved: unknown = JSON.parse(
-      (await getEncryptedItem(uid, financePendingBaseKey(uid))) ?? '{}',
-    );
-    if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
-      for (const [id, value] of Object.entries(saved)) {
-        const parsed = parseFinanceTransaction(value, uid);
-        if (parsed?.id === id) bases.set(id, parsed);
-      }
-    }
-  } catch {
-    // Older caches have no base snapshots. Treat differing remote rows as conflicts.
+  const saved: unknown = JSON.parse(
+    (await getEncryptedItem(uid, financePendingBaseKey(uid), {
+      migrateLegacy: false,
+    })) ?? '{}',
+  );
+  if (!saved || typeof saved !== 'object' || Array.isArray(saved))
+    throw new Error('Dữ liệu sổ thu chi trên thiết bị không hợp lệ.');
+  for (const [id, value] of Object.entries(saved)) {
+    const parsed = parseFinanceTransaction(value, uid);
+    if (!parsed || parsed.id !== id)
+      throw new Error('Dữ liệu sổ thu chi trên thiết bị không hợp lệ.');
+    bases.set(id, parsed);
   }
   return bases;
 }
@@ -163,21 +166,22 @@ type PendingChange = 'add' | 'edit';
 async function readPendingChanges(
   uid: string,
 ): Promise<Map<string, PendingChange>> {
-  try {
-    const saved: unknown = JSON.parse(
-      (await getEncryptedItem(uid, financePendingKey(uid))) ?? '{}',
-    );
-    if (!saved || typeof saved !== 'object' || Array.isArray(saved))
-      return new Map();
-    return new Map(
-      Object.entries(saved).filter(
-        (entry): entry is [string, PendingChange] =>
-          entry[1] === 'add' || entry[1] === 'edit',
-      ),
-    );
-  } catch {
-    return new Map();
-  }
+  const saved: unknown = JSON.parse(
+    (await getEncryptedItem(uid, financePendingKey(uid), {
+      migrateLegacy: false,
+    })) ?? '{}',
+  );
+  if (!saved || typeof saved !== 'object' || Array.isArray(saved))
+    throw new Error('Dữ liệu sổ thu chi trên thiết bị không hợp lệ.');
+  const entries = Object.entries(saved);
+  if (
+    entries.some(
+      ([id, value]) =>
+        !ID_PATTERN.test(id) || (value !== 'add' && value !== 'edit'),
+    )
+  )
+    throw new Error('Dữ liệu sổ thu chi trên thiết bị không hợp lệ.');
+  return new Map(entries as [string, PendingChange][]);
 }
 
 async function markPending(
@@ -216,9 +220,28 @@ function sortTransactions(transactions: FinanceTransaction[]) {
   return [...transactions].sort((a, b) => b.createdAt - a.createdAt);
 }
 
-function enqueue<T>(uid: string, operation: () => Promise<T>): Promise<T> {
+function enqueue<T>(
+  uid: string,
+  operation: () => Promise<T>,
+  allowRecovery = false,
+): Promise<T> {
   const previous = queues.get(uid) ?? Promise.resolve();
-  const next = previous.catch(() => undefined).then(operation);
+  const next = previous
+    .catch(() => undefined)
+    .then(async () => {
+      if (!allowRecovery && (await hasEncryptedItemRecovery(uid, 'finance')))
+        throw new Error(
+          'Cần tiếp tục khôi phục cache trước khi sửa sổ thu chi.',
+        );
+      if (!allowRecovery) {
+        try {
+          await readFinanceCacheSnapshot(uid);
+        } catch {
+          throw new Error('Cần khôi phục cache trước khi sửa sổ thu chi.');
+        }
+      }
+      return operation();
+    });
   queues.set(uid, next);
   void next
     .finally(() => {
@@ -228,41 +251,61 @@ function enqueue<T>(uid: string, operation: () => Promise<T>): Promise<T> {
   return next;
 }
 
-export async function readFinanceTransactions(
+async function readLocalFinanceTransactions(
   uid: string,
-): Promise<FinanceTransaction[]> {
-  requireUid(uid);
-  let saved: string | null;
-  try {
-    saved = await getEncryptedItem(uid, financeStorageKey(uid));
-  } catch (error) {
-    const fallback = cloudFallbackTransactions.get(uid);
-    if (fallback) return sortTransactions(fallback);
-    throw error;
-  }
-  if (saved === null) {
-    const fallback = cloudFallbackTransactions.get(uid);
-    return fallback ? sortTransactions(fallback) : [];
-  }
-
+  migrateLegacy = false,
+) {
+  const saved = await getEncryptedItem(uid, financeStorageKey(uid), {
+    migrateLegacy,
+  });
+  if (saved === null) return [];
   let values: unknown;
   try {
     values = JSON.parse(saved);
   } catch {
-    const fallback = cloudFallbackTransactions.get(uid);
-    if (fallback) return sortTransactions(fallback);
     throw new Error('Chưa đọc được sổ thu chi trên thiết bị.');
   }
-  if (!Array.isArray(values)) {
-    const fallback = cloudFallbackTransactions.get(uid);
-    if (fallback) return sortTransactions(fallback);
+  if (!Array.isArray(values))
     throw new Error('Dữ liệu sổ thu chi trên thiết bị không hợp lệ.');
-  }
   return sortTransactions(
     values
       .map((value) => parseFinanceTransaction(value, uid))
       .filter((value): value is FinanceTransaction => value !== null),
   );
+}
+
+async function readFinanceCacheSnapshot(uid: string) {
+  const transactions = await readLocalFinanceTransactions(uid);
+  const migration = await getEncryptedItem(uid, financeMigrationKey(uid), {
+    migrateLegacy: false,
+  });
+  if (migration !== null && migration !== MIGRATION_COMPLETE)
+    throw new Error('Dữ liệu sổ thu chi trên thiết bị không hợp lệ.');
+  const pending = await readPendingChanges(uid);
+  const bases = await readPendingBases(uid);
+  return {
+    transactions,
+    migrated: migration === MIGRATION_COMPLETE,
+    pending,
+    bases,
+  };
+}
+
+export async function readFinanceTransactions(
+  uid: string,
+): Promise<FinanceTransaction[]> {
+  requireUid(uid);
+  if (await hasEncryptedItemRecovery(uid, 'finance'))
+    throw new Error(
+      'Cần tiếp tục khôi phục cache trước khi đọc bản trên thiết bị.',
+    );
+  try {
+    return await readLocalFinanceTransactions(uid, true);
+  } catch (error) {
+    const fallback = cloudFallbackTransactions.get(uid);
+    if (fallback) return sortTransactions(fallback);
+    throw error;
+  }
 }
 
 async function writeFinanceCache(
@@ -281,7 +324,7 @@ async function writeFinanceCache(
   }
 }
 
-async function readRemoteFinanceTransactions(uid: string) {
+async function readRemoteFinanceTransactions(uid: string, strict = false) {
   const snapshot = await withTimeout(
     getDocsFromServer(
       collection(getFirestore(), 'financeAccounts', uid, 'transactions'),
@@ -289,7 +332,14 @@ async function readRemoteFinanceTransactions(uid: string) {
   );
   return sortTransactions(
     snapshot.docs
-      .map((document) => parseFinanceTransaction(document.data(), uid))
+      .map((document) => {
+        const parsed = parseFinanceTransaction(document.data(), uid);
+        if (strict && (!parsed || parsed.id !== document.id))
+          throw new Error(
+            'Dữ liệu thu chi trên cloud chưa hợp lệ. Chưa thay đổi cache.',
+          );
+        return parsed;
+      })
       .filter((value): value is FinanceTransaction => value !== null),
   );
 }
@@ -350,31 +400,33 @@ async function uploadEditedTransaction(
 async function readFinanceDataInternal(
   uid: string,
 ): Promise<FinanceStorageResult> {
-  const hadCloudFallback = cloudFallbackTransactions.has(uid);
-  let cacheNeedsRecovery = hadCloudFallback;
-  let recoveredCache = false;
-  if (cacheNeedsRecovery) {
+  if (await hasEncryptedItemRecovery(uid, 'finance')) {
+    let transactions: FinanceTransaction[];
     try {
-      // Once the device key is available again, reconcile the original cache
-      // and its pending edits before replacing it with the cloud snapshot.
-      await getEncryptedItem(uid, financeStorageKey(uid));
-      cacheNeedsRecovery = false;
-      recoveredCache = true;
-    } catch {
-      // Keep the cloud copy visible without changing unreadable local data.
+      transactions = await readRemoteFinanceTransactions(uid);
+      cloudReachable.set(uid, true);
+      cloudFallbackTransactions.set(uid, transactions);
+    } catch (error) {
+      cloudReachable.set(uid, false);
+      const previous = cloudFallbackTransactions.get(uid);
+      if (!previous) throw error;
+      transactions = previous;
     }
+    return { transactions, synced: false, cacheNeedsRecovery: true };
   }
-  let localTransactions: FinanceTransaction[] | null = null;
+  const hadCloudFallback = cloudFallbackTransactions.has(uid);
+  let snapshot: Awaited<ReturnType<typeof readFinanceCacheSnapshot>> | null =
+    null;
   try {
-    localTransactions = await readFinanceTransactions(uid);
+    snapshot = await readFinanceCacheSnapshot(uid);
   } catch {
-    // A missing or temporarily inaccessible SecureStore key must not prevent
-    // the app from reading the authoritative cloud ledger. Keep the encrypted
-    // local value untouched because it may still be recoverable later.
+    /* Preserve the whole namespace when any encrypted member is unreadable. */
   }
+  const recoveredCache = hadCloudFallback && snapshot !== null;
+  const localTransactions = snapshot?.transactions ?? null;
   try {
     const remoteTransactions = await readRemoteFinanceTransactions(uid);
-    if (localTransactions === null) {
+    if (snapshot === null || localTransactions === null) {
       cloudFallbackTransactions.set(uid, remoteTransactions);
       cloudReachable.set(uid, true);
       return {
@@ -383,20 +435,7 @@ async function readFinanceDataInternal(
         cacheNeedsRecovery: true,
       };
     }
-    if (cacheNeedsRecovery) {
-      cloudFallbackTransactions.set(uid, remoteTransactions);
-      cloudReachable.set(uid, true);
-      return {
-        transactions: remoteTransactions,
-        synced: false,
-        cacheNeedsRecovery: true,
-      };
-    }
-    const migrated =
-      (await getEncryptedItem(uid, financeMigrationKey(uid))) ===
-      MIGRATION_COMPLETE;
-    const pending = await readPendingChanges(uid);
-    const bases = await readPendingBases(uid);
+    const { migrated, pending, bases } = snapshot;
     const remoteById = new Map(
       remoteTransactions.map((item) => [item.id, item]),
     );
@@ -539,7 +578,45 @@ export function resetFinanceCloudState(uid?: string) {
 
 export function readFinanceData(uid: string): Promise<FinanceStorageResult> {
   requireUid(uid);
-  return enqueue(uid, () => readFinanceDataInternal(uid));
+  return enqueue(uid, () => readFinanceDataInternal(uid), true);
+}
+
+/** Explicitly chosen cloud recovery; originals remain in an encrypted archive. */
+export function recoverFinanceCache(
+  uid: string,
+): Promise<FinanceStorageResult> {
+  requireUid(uid);
+  const epoch = useAuthStore.getState().sessionEpoch;
+  const assertCurrent = () => {
+    const auth = useAuthStore.getState();
+    if (auth.user?.uid !== uid || auth.sessionEpoch !== epoch)
+      throw new Error('Tài khoản đã thay đổi. Hãy thử lại.');
+  };
+  return enqueue(
+    uid,
+    async () => {
+      assertCurrent();
+      const remote = await readRemoteFinanceTransactions(uid, true);
+      assertCurrent();
+      const values = {
+        [financeStorageKey(uid)]: JSON.stringify(remote),
+        [financePendingKey(uid)]: '{}',
+        [financePendingBaseKey(uid)]: '{}',
+        [financeMigrationKey(uid)]: MIGRATION_COMPLETE,
+      };
+      await recoverEncryptedItems(
+        uid,
+        'finance',
+        Object.keys(values),
+        values,
+        assertCurrent,
+      );
+      assertCurrent();
+      cloudFallbackTransactions.delete(uid);
+      return readFinanceDataInternal(uid);
+    },
+    true,
+  );
 }
 
 async function currentTransactionsForMutation(uid: string) {

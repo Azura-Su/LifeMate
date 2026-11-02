@@ -1,5 +1,12 @@
 import { StyleSheet } from 'react-native';
-import { colors, fontSize, layout, radius, spacing } from '../../theme';
+import {
+  colors,
+  fontSize,
+  layout,
+  radius,
+  spacing,
+  shadows,
+} from '../../theme';
 
 export const styles = StyleSheet.create({
   fixedHeader: {
@@ -12,7 +19,7 @@ export const styles = StyleSheet.create({
   hero: {
     flexGrow: 1,
     overflow: 'hidden',
-    borderRadius: radius.xl,
+    borderRadius: radius.xxl,
     backgroundColor: colors.surface,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.line,
@@ -28,11 +35,12 @@ export const styles = StyleSheet.create({
   heroInfo: { gap: spacing.sm, padding: spacing.md },
   card: {
     gap: spacing.sm,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     backgroundColor: colors.surface,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.line,
     padding: spacing.lg,
+    ...shadows.card,
   },
   name: { fontSize: fontSize.heading, fontWeight: '700', color: colors.ink },
   meta: { fontSize: fontSize.small, color: colors.muted },

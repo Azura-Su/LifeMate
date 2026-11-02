@@ -115,3 +115,31 @@ it over the newer Phỏm-aware status function. See
   logs are under `/tmp/lifemate-release-20261030` on the deployment machine.
 - See [release verification](../tasks/review-pets-games-2026-10-30.md) for checks,
   review findings and the native-app distribution limitation.
+
+## Backend synchronization — 02/11/2026 (UTC+7)
+
+Production source/catalog inspection identified five missing changes. Applied
+them individually with precondition fingerprints and bounded transaction locks;
+no full-repository push. Connector history records these actual versions:
+
+| Recorded version | Reviewed local source version/name |
+| --- | --- |
+| 20261102052559 | 20261021055132_audio_upload_reservation_retention |
+| 20261102053301 | 202610190001_memory_revocation_lease |
+| 20261102053309 | 202610190002_memory_migration_lease |
+| 20261102053310 | 20261022185328_memory_invite_quota_transactions |
+| 20261102053311 | 20261102120000_card_game_large_tables |
+
+History names begin with `rollout_` followed by the local source version/name.
+The original local filenames remain for the validated local migration chain.
+Do not replay them because their original version is absent from production
+history. Reconcile this mapping together with the earlier manually applied
+baseline before enabling CLI push.
+
+Memory/game/admin ingress was placed behind503maintenance and confirmed by
+readback before a474second worker drain. Final Edge versions are memory15,
+game22, user-admin16 and pet5; all deployed source files match the staged local
+payloads. Pet/admin now include the20level EXP policy, matching existing
+appearance SQL. Audio/profile Edge were unchanged. The legacy game commit and
+takeover overloads remain service-only, and18updatedSQLbodies match local.
+See [rollout verification and rollback boundaries](../tasks/cloud-rollout-2026-11-02.md).

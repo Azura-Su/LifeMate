@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors } from '../../theme';
+import { colors, shadows } from '../../theme';
 import { actionIconStyles } from '../../theme/actionIcons';
 
 export const styles = StyleSheet.create({
@@ -11,8 +11,9 @@ export const styles = StyleSheet.create({
     paddingLeft: 12,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 12,
+    borderRadius: 16,
     backgroundColor: colors.surface,
+    ...shadows.card,
   },
   searchInput: {
     flex: 1,
@@ -100,8 +101,12 @@ export const styles = StyleSheet.create({
     gap: 8,
     borderWidth: 1,
     borderColor: colors.line,
+    ...shadows.card,
   },
-  trackSelected: { borderColor: colors.primaryBorder },
+  trackSelected: {
+    borderColor: colors.sunlightBorder,
+    backgroundColor: colors.sunlightFaint,
+  },
   trackTopRow: { paddingRight: 56 },
   trackDelete: {
     ...actionIconStyles.delete,

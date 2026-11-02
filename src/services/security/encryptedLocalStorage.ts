@@ -6,9 +6,11 @@ import {
   aesDecryptAsync,
   aesEncryptAsync,
   digestStringAsync,
+  randomUUID,
 } from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import { accountTask } from './accountLifecycle';
+import { isAccountCacheKey } from './accountCacheKeys';
 
 const ENCRYPTED_PREFIX = 'lifemate:aes-gcm:v1:';
 const KEY_PREFIX = 'lifemate-storage-key-v1-';
@@ -48,6 +50,16 @@ async function encryptionKey(
     if (!createIfMissing)
       throw new Error('Không tìm thấy khóa bảo vệ dữ liệu trên thiết bị.');
 
+    const existingKeys = (await AsyncStorage.getAllKeys()).filter((key) =>
+      isAccountCacheKey(key, uid),
+    );
+    for (const storageKey of existingKeys) {
+      if (
+        (await AsyncStorage.getItem(storageKey))?.startsWith(ENCRYPTED_PREFIX)
+      )
+        throw new Error('Không tìm thấy khóa bảo vệ dữ liệu trên thiết bị.');
+    }
+
     const generated = await AESEncryptionKey.generate();
     await SecureStore.setItemAsync(
       keyName,
@@ -72,10 +84,15 @@ function associatedData(uid: string, storageKey: string) {
   return utf8(`LifeMate|${uid}|${storageKey}|v1`);
 }
 
-async function encryptValue(uid: string, storageKey: string, value: string) {
+async function encryptValue(
+  uid: string,
+  storageKey: string,
+  value: string,
+  key?: AESEncryptionKey,
+) {
   const sealed = await aesEncryptAsync(
     utf8(value),
-    await encryptionKey(uid, true),
+    key ?? (await encryptionKey(uid, true)),
     { additionalData: associatedData(uid, storageKey) },
   );
   return `${ENCRYPTED_PREFIX}${await sealed.combined('base64')}`;
@@ -111,6 +128,15 @@ function decodeBase64(value: string) {
 
 async function decryptValue(uid: string, storageKey: string, value: string) {
   const key = await encryptionKey(uid, false);
+  return decryptWithKey(uid, storageKey, value, key);
+}
+
+async function decryptWithKey(
+  uid: string,
+  storageKey: string,
+  value: string,
+  key: AESEncryptionKey,
+) {
   try {
     const payload = decodeBase64(value.slice(ENCRYPTED_PREFIX.length));
     const plaintext = await aesDecryptAsync(
@@ -127,8 +153,185 @@ async function decryptValue(uid: string, storageKey: string, value: string) {
   }
 }
 
+function recoveryMarkerKey(uid: string, scope: string) {
+  if (!/^[a-z][a-z0-9-]{0,31}$/.test(scope))
+    throw new Error('Phạm vi khôi phục không hợp lệ.');
+  return `lifemate:cache-recovery:${scope}:v1:${encodeURIComponent(uid)}`;
+}
+
+export function hasEncryptedItemRecovery(uid: string, scope: string) {
+  const marker = recoveryMarkerKey(uid, scope);
+  return withItemLock(
+    marker,
+    async () => (await AsyncStorage.getItem(marker)) !== null,
+  );
+}
+
+type RecoveryEntry = {
+  storageKey: string;
+  previous: string | null;
+  replacement: string;
+};
+
+/** Caller supplies a fixed namespace whitelist and a fresh, verified cloud snapshot. */
+export function recoverEncryptedItems(
+  uid: string,
+  scope: string,
+  expectedKeys: readonly string[],
+  values: Readonly<Record<string, string>>,
+  assertCurrent: () => void,
+  refreshValues?: () => Promise<Readonly<Record<string, string>>>,
+) {
+  const marker = recoveryMarkerKey(uid, scope);
+  const keys = [...expectedKeys].sort();
+  if (
+    !keys.length ||
+    new Set(keys).size !== keys.length ||
+    keys.some((key) => !isAccountCacheKey(key, uid)) ||
+    JSON.stringify(Object.keys(values).sort()) !== JSON.stringify(keys)
+  )
+    return Promise.reject(new Error('Danh sách cache khôi phục không hợp lệ.'));
+  const lockTargets = (
+    index: number,
+    operation: () => Promise<void>,
+  ): Promise<void> =>
+    index === keys.length
+      ? operation()
+      : withItemLock(keys[index], () => lockTargets(index + 1, operation));
+  return withItemLock(marker, () =>
+    lockTargets(0, () =>
+      accountTask(uid, async () => {
+        assertCurrent();
+        // Never generate or replace an account key during recovery.
+        const key = await encryptionKey(uid, false);
+        assertCurrent();
+        const pending = await AsyncStorage.getItem(marker);
+        assertCurrent();
+        let entries: RecoveryEntry[];
+        if (pending !== null) {
+          const backupPrefix = `lifemate:cache-recovery-backup:${scope}:v1:`;
+          if (
+            !pending.startsWith(backupPrefix) ||
+            !isAccountCacheKey(pending, uid)
+          )
+            throw new Error(
+              'Bản khôi phục chưa hợp lệ. Dữ liệu cũ vẫn được giữ.',
+            );
+          const backup = await AsyncStorage.getItem(pending);
+          assertCurrent();
+          if (!backup)
+            throw new Error(
+              'Chưa đọc được bản dự phòng. Dữ liệu cũ vẫn được giữ.',
+            );
+          const decoded = await decryptWithKey(uid, pending, backup, key);
+          assertCurrent();
+          const parsed: unknown = JSON.parse(decoded);
+          if (
+            !Array.isArray(parsed) ||
+            parsed.length !== keys.length ||
+            parsed.some(
+              (entry, index) =>
+                !entry ||
+                entry.storageKey !== keys[index] ||
+                (entry.previous !== null &&
+                  typeof entry.previous !== 'string') ||
+                typeof entry.replacement !== 'string' ||
+                !entry.replacement.startsWith(ENCRYPTED_PREFIX),
+            )
+          )
+            throw new Error(
+              'Bản khôi phục chưa hợp lệ. Dữ liệu cũ vẫn được giữ.',
+            );
+          entries = parsed;
+          // A key changed between attempts must not install unreadable replacements.
+          for (const entry of entries) {
+            await decryptWithKey(uid, entry.storageKey, entry.replacement, key);
+            assertCurrent();
+          }
+        } else {
+          entries = [];
+          for (const storageKey of keys) {
+            const previous = await AsyncStorage.getItem(storageKey);
+            assertCurrent();
+            const replacement = await encryptValue(
+              uid,
+              storageKey,
+              values[storageKey],
+              key,
+            );
+            assertCurrent();
+            entries.push({ storageKey, previous, replacement });
+          }
+          const backupKey = `lifemate:cache-recovery-backup:${scope}:v1:${randomUUID()}:${encodeURIComponent(uid)}`;
+          const existing = await AsyncStorage.getItem(backupKey);
+          assertCurrent();
+          if (existing !== null)
+            throw new Error('Bản dự phòng đã tồn tại. Hãy thử lại.');
+          // Encrypt the whole archive: legacy values may still contain plaintext.
+          const backup = await encryptValue(
+            uid,
+            backupKey,
+            JSON.stringify(entries),
+            key,
+          );
+          assertCurrent();
+          await AsyncStorage.setItem(backupKey, backup);
+          assertCurrent();
+          const verified = await AsyncStorage.getItem(backupKey);
+          assertCurrent();
+          if (verified !== backup)
+            throw new Error('Chưa xác minh được bản dự phòng.');
+          await AsyncStorage.setItem(marker, backupKey);
+          assertCurrent();
+          if ((await AsyncStorage.getItem(marker)) !== backupKey)
+            throw new Error('Chưa lưu được trạng thái khôi phục.');
+          assertCurrent();
+        }
+        if (refreshValues) {
+          const fresh = await refreshValues();
+          assertCurrent();
+          if (
+            JSON.stringify(Object.keys(fresh).sort()) !==
+              JSON.stringify(keys) ||
+            keys.some((storageKey) => typeof fresh[storageKey] !== 'string')
+          )
+            throw new Error('Danh sách cache khôi phục không hợp lệ.');
+          // A cloud-only namespace must not replay a stale snapshot after a crash.
+          for (const entry of entries) {
+            entry.replacement = await encryptValue(
+              uid,
+              entry.storageKey,
+              fresh[entry.storageKey],
+              key,
+            );
+            assertCurrent();
+          }
+        }
+        for (const entry of entries) {
+          assertCurrent();
+          await AsyncStorage.setItem(entry.storageKey, entry.replacement);
+          assertCurrent();
+          if (
+            (await AsyncStorage.getItem(entry.storageKey)) !== entry.replacement
+          )
+            throw new Error(
+              'Chưa xác minh được cache mới. Hãy tiếp tục khôi phục.',
+            );
+          assertCurrent();
+        }
+        await AsyncStorage.removeItem(marker);
+        assertCurrent();
+      }),
+    ),
+  );
+}
+
 /** Reads encrypted data and upgrades legacy plaintext values in place. */
-export async function getEncryptedItem(uid: string, storageKey: string) {
+export async function getEncryptedItem(
+  uid: string,
+  storageKey: string,
+  { migrateLegacy = true }: { migrateLegacy?: boolean } = {},
+) {
   return withItemLock(storageKey, () =>
     accountTask(uid, async () => {
       const stored = await AsyncStorage.getItem(storageKey);
@@ -136,6 +339,7 @@ export async function getEncryptedItem(uid: string, storageKey: string) {
       if (stored.startsWith(ENCRYPTED_PREFIX))
         return decryptValue(uid, storageKey, stored);
 
+      if (!migrateLegacy) return stored;
       const encrypted = await encryptValue(uid, storageKey, stored);
       await AsyncStorage.setItem(storageKey, encrypted);
       return stored;

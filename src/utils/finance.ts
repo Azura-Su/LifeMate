@@ -17,6 +17,8 @@ export function getFinanceErrorMessage(cause: unknown, fallback: string) {
   if (code.endsWith('unavailable') || code.endsWith('deadline-exceeded'))
     return 'Chưa kết nối được sổ thu chi. Kiểm tra mạng rồi thử lại.';
   const localMessages = [
+    'Cần khôi phục cache trước khi sửa sổ thu chi.',
+    'Cần tiếp tục khôi phục cache trước khi sửa sổ thu chi.',
     'Chưa đọc được sổ thu chi trên thiết bị.',
     'Dữ liệu sổ thu chi trên thiết bị không hợp lệ.',
     'Giao dịch không thuộc tài khoản đang đăng nhập.',

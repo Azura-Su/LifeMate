@@ -119,3 +119,29 @@ export const typography = StyleSheet.create({
     color: colors.muted,
   },
 });
+
+/** Soft layered shadows. Pair with a surface background. */
+export const shadows = {
+  card: {
+    shadowColor: colors.ink,
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  raised: {
+    shadowColor: colors.ink,
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
+  },
+} as const;
+
+/** Shared motion timings (ms). */
+export const motion = {
+  quick: 160,
+  base: 280,
+  slow: 420,
+  stagger: 60,
+} as const;

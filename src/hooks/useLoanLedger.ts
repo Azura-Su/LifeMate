@@ -11,6 +11,7 @@ import {
   getOrCreateAdvanceAttempt,
   LoanDataConflictError,
   readLoanData,
+  recoverLoanCache,
   recordLoanRepaymentAtomically,
   removeLoanRepaymentAtomically,
   updateLoanRepaymentAtomically,
@@ -29,7 +30,9 @@ const emptyLoans: LoanRecord[] = [];
 export function useLoanLedger(uid: string | null) {
   const [loans, setLoans] = useState<LoanRecord[]>([]);
   const [loading, setLoading] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<'synced' | 'local' | null>(null);
+  const [syncStatus, setSyncStatus] = useState<
+    'synced' | 'local' | 'recovery' | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [correctableDeletedLoanIds, setCorrectableDeletedLoanIds] = useState<
     string[]
@@ -77,7 +80,13 @@ export function useLoanLedger(uid: string | null) {
         if (!isCurrentLoad()) return false;
         publish(result.loans);
         setCorrectableDeletedLoanIds(result.correctableDeletedLoanIds ?? []);
-        setSyncStatus(result.synced ? 'synced' : 'local');
+        setSyncStatus(
+          result.cacheNeedsRecovery
+            ? 'recovery'
+            : result.synced
+              ? 'synced'
+              : 'local',
+        );
         const financeStore = useFinanceStore.getState();
         if (financeStore.uid === currentUid) {
           for (const transaction of result.committedTransactions) {
@@ -98,10 +107,14 @@ export function useLoanLedger(uid: string | null) {
         const financeSynced =
           !refreshFinance ||
           (finance.uid === currentUid &&
-            finance.syncStatus === 'synced' &&
+            (finance.syncStatus === 'synced' ||
+              finance.syncStatus === 'recovery') &&
             !finance.error);
-        await reconcileLoanReminders(currentUid, result.loans);
-        return result.synced && financeSynced;
+        if (!result.cacheNeedsRecovery)
+          await reconcileLoanReminders(currentUid, result.loans);
+        return (
+          (result.synced || result.cacheNeedsRecovery === true) && financeSynced
+        );
       } catch {
         if (isCurrentLoad())
           setError('Chưa tải được danh sách cho vay. Hãy thử lại.');
@@ -124,6 +137,20 @@ export function useLoanLedger(uid: string | null) {
       uidRef.current = null;
     };
   }, [load, publish, uid]);
+
+  const recoverCache = useCallback(async () => {
+    if (!uid) throw new Error('Bạn cần đăng nhập.');
+    const isActive = captureSession(uid);
+    if (!isActive()) throw new Error('Tài khoản đã thay đổi. Hãy thử lại.');
+    setLoading(true);
+    try {
+      await recoverLoanCache(uid);
+      if (!isActive()) return;
+      await load();
+    } finally {
+      if (isActive()) setLoading(false);
+    }
+  }, [captureSession, load, uid]);
 
   const save = useCallback(
     async (loan: LoanRecord, requestReminderPermission = false) => {
@@ -824,6 +851,7 @@ export function useLoanLedger(uid: string | null) {
     error: matchesAccount ? error : null,
     correctableDeletedLoanIds: matchesAccount ? correctableDeletedLoanIds : [],
     load,
+    recoverCache,
     save,
     remove,
     correctPrincipal,
