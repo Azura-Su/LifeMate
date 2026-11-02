@@ -23,6 +23,7 @@ import { HomeCalendarSheet } from './HomeCalendarSheet';
 import { HomeFinanceCard } from './HomeFinanceCard';
 import { HomeTodayCard } from './HomeTodayCard';
 import { HomePetRoamer } from './HomePetRoamer';
+import { petSceneBudget } from './celestialStagHomeLayout';
 import { getCalendarNoteDateKey } from '../../utils/calendarNotes';
 import { useAuthStore } from '../../store/authStore';
 import { syncPixelPetInBackground } from '../../services/pixelPet/pixelPetApi';
@@ -64,6 +65,8 @@ export function HomeScreen({
   const [homeLayout, setHomeLayout] = useState({ width: 0, height: 0 });
   const [headerHeight, setHeaderHeight] = useState(0);
   const [petReservedHeight, setPetReservedHeight] = useState(0);
+  // Bottom edge of the intrinsic card content, so the pet scene never covers it.
+  const [cardsBottom, setCardsBottom] = useState(0);
   useEffect(() => {
     const offFocus = navigation.addListener?.('focus', () => setFocused(true));
     const offBlur = navigation.addListener?.('blur', () => setFocused(false));
@@ -154,7 +157,11 @@ export function HomeScreen({
         );
       }}
     >
-      <View testID="home-card-viewport" style={[styles.cardViewport, { marginBottom: petReservedHeight }]}>
+      <View testID="home-card-viewport" style={[
+        styles.cardViewport,
+        petReservedHeight > 0 && styles.cardViewportDocked,
+        { marginBottom: petReservedHeight },
+      ]}>
       <Screen
         backgroundColor={colors.background}
         safeAreaBackgroundColor={colors.sunlightFaint}
@@ -233,7 +240,13 @@ export function HomeScreen({
             }
           />
         </FadeInView>
-        <View style={styles.shortcutSection}>
+        <View
+          style={styles.shortcutSection}
+          onLayout={(event: LayoutChangeEvent) => {
+            const { y, height } = event.nativeEvent.layout;
+            setCardsBottom(Math.round(y + height));
+          }}
+        >
           <Text accessibilityRole="header" style={styles.sectionLabel}>
             Lối tắt
           </Text>
@@ -361,9 +374,14 @@ export function HomeScreen({
         containerWidth={homeLayout.width}
         containerHeight={homeLayout.height}
         topInset={insets.top}
-        maxReservedHeight={homeLayout.height > 0
-          ? Math.max(0, homeLayout.height - insets.top - headerHeight) * 0.55
-          : undefined}
+        maxReservedHeight={
+          homeLayout.height > 0
+            ? petSceneBudget(
+                homeLayout.height - insets.top - headerHeight,
+                cardsBottom,
+              )
+            : undefined
+        }
         onReservedSpaceChange={setPetReservedHeight}
       />
     </View>

@@ -25,3 +25,16 @@ export function celestialStagHomeLayout(
     sleepMaxX,
   };
 }
+
+const PET_SCENE_MIN_HEIGHT = 130;
+/** Breathing room between the last card and the docked scene. */
+const PET_SCENE_CARDS_GAP = spacing.lg;
+const PET_SCENE_MAX_SHARE = 0.55;
+
+/** Largest pet scene that still leaves the cards fully visible (never below the floor). */
+export function petSceneBudget(available: number, cardsBottom: number) {
+  const space = Math.max(0, available);
+  const byShare = space * PET_SCENE_MAX_SHARE;
+  const byCards = cardsBottom > 0 ? space - cardsBottom - PET_SCENE_CARDS_GAP : byShare;
+  return Math.max(PET_SCENE_MIN_HEIGHT, Math.min(byShare, byCards));
+}

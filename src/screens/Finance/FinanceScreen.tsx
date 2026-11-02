@@ -709,12 +709,14 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
               <Text style={styles.syncText}>
                 {model.conflicts.length} giao dịch cần chọn bản lưu
               </Text>
-              <Button
-                compact
-                title="Xử lý"
-                variant="secondary"
-                onPress={openFinanceConflict}
-              />
+              <View style={styles.syncActionSlot}>
+                <Button
+                  compact
+                  title="Xử lý"
+                  variant="secondary"
+                  onPress={openFinanceConflict}
+                />
+              </View>
             </View>
           )}
           {(!!displaySyncStatus ||
@@ -810,13 +812,15 @@ export function FinanceScreen({ suspended = false }: { suspended?: boolean }) {
                     )}
                   </Pressable>
                 ) : (
-                  <Button
-                    compact
-                    title="Đồng bộ lại"
-                    variant="secondary"
-                    loading={syncActionBusy || refreshing}
-                    onPress={refreshFinance}
-                  />
+                  <View style={styles.syncActionSlot}>
+                    <Button
+                      compact
+                      title="Đồng bộ lại"
+                      variant="secondary"
+                      loading={syncActionBusy || refreshing}
+                      onPress={refreshFinance}
+                    />
+                  </View>
                 ))}
             </View>
           )}

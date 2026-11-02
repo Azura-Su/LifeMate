@@ -1,6 +1,9 @@
 import { spacing } from '../../../theme';
 import { celestialStagLevelLookScale } from '../../../services/pixelPet/celestialStagAtlas';
-import { celestialStagHomeLayout } from '../celestialStagHomeLayout';
+import {
+  celestialStagHomeLayout,
+  petSceneBudget,
+} from '../celestialStagHomeLayout';
 
 it.each([[320, 568, 20, 80], [390, 844, 59, 80], [430, 932, 62, 80]])(
   'enlarges every level while keeping the whole scene below cards on %ix%i',
@@ -41,4 +44,23 @@ it('does not reserve an unusable scene when the header leaves no height', () => 
   expect(layout.petSize).toBe(0);
   expect(layout.sceneSize).toBe(0);
   expect(layout.reservedHeight).toBe(0);
+});
+
+describe('petSceneBudget', () => {
+  it('shrinks the pet scene so the cards stay fully visible', () => {
+    // iPhone 13-like: 617pt available, cards need 450pt.
+    expect(petSceneBudget(617, 450)).toBe(617 - 450 - spacing.lg);
+  });
+
+  it('keeps a minimum scene on very short screens', () => {
+    expect(petSceneBudget(500, 480)).toBe(130);
+  });
+
+  it('caps the scene at the share of space before cards are measured', () => {
+    expect(petSceneBudget(700, 0)).toBeCloseTo(385);
+  });
+
+  it('never exceeds the share when the cards are short', () => {
+    expect(petSceneBudget(700, 200)).toBeCloseTo(385);
+  });
 });

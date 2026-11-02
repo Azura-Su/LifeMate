@@ -46,10 +46,11 @@ export const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   searchResults: { gap: spacing.lg },
-  fixedActions: { gap: spacing.sm },
+  fixedActions: { gap: spacing.sm, flexShrink: 0 },
 
   /* Segmented tabs */
   reportMode: {
+    flexShrink: 0,
     flexDirection: 'row',
     gap: 2,
     padding: 3,
@@ -91,7 +92,6 @@ export const styles = StyleSheet.create({
   },
   syncPending: {
     minHeight: 36,
-    flexWrap: 'wrap',
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: radius.md,
@@ -99,7 +99,6 @@ export const styles = StyleSheet.create({
   },
   syncRecovery: {
     minHeight: 36,
-    flexWrap: 'wrap',
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: radius.md,
@@ -107,10 +106,12 @@ export const styles = StyleSheet.create({
   },
   syncText: {
     flex: 1,
+    minWidth: 0,
     fontSize: fontSize.label,
     lineHeight: 16,
     color: colors.success,
   },
+  syncActionSlot: { flexShrink: 0 },
   syncPendingText: { color: colors.sunlight },
   syncRecoveryText: { color: colors.sky },
   syncAction: {

@@ -53,6 +53,13 @@ function pickWrapperLayout(style: StyleProp<ViewStyle>): ViewStyle {
   return picked as ViewStyle;
 }
 
+/** `style` without the keys that already live on the scaling wrapper. */
+function omitWrapperLayout(style: StyleProp<ViewStyle>): ViewStyle {
+  const flat: Record<string, unknown> = { ...(StyleSheet.flatten(style) ?? {}) };
+  for (const key of WRAPPER_KEYS) delete flat[key];
+  return flat as ViewStyle;
+}
+
 /**
  * Pressable that springs down on touch and bounces back on release.
  * Native-driver only (transform), interruptible, skipped for reduced motion.
@@ -91,10 +98,19 @@ export function PressableScale({
           spring(1);
           onPressOut?.(event);
         }}
-        style={({ pressed }) => [style, pressed && pressedStyle]}
+        style={({ pressed }) => [
+          omitWrapperLayout(style),
+          styles.fill,
+          pressed && pressedStyle,
+        ]}
       >
         {children}
       </Pressable>
     </Animated.View>
   );
 }
+
+const styles = StyleSheet.create({
+  // The wrapper owns flex, margins and position; the surface just fills it.
+  fill: { flexGrow: 1, alignSelf: 'stretch' },
+});

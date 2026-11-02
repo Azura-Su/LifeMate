@@ -857,7 +857,9 @@ export function CelestialStagAtlas({
             loopMovement={loopMovement}
             animating={
               sleeping
-                ? active && !reducedMotion
+                ? // Inactive keeps animating so the paused progress holds the
+                  // sleeping frame; animating=false would snap to frame 0.
+                  !reducedMotion
                 : !dragLanding && playbackActive && !reducedMotion
             }
             columns={atlasLayout.columns}

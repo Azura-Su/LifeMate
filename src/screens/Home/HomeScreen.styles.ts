@@ -11,6 +11,12 @@ import {
 export const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   cardViewport: { flex: 1, overflow: 'hidden' },
+  cardViewportDocked: {
+    borderBottomLeftRadius: radius.xxl,
+    borderBottomRightRadius: radius.xxl,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
   fixedHeader: {
     paddingHorizontal: layout.screenGutter,
     paddingTop: spacing.sm,
